@@ -169,7 +169,9 @@ describe("render.view by view node id", () => {
     const md = await render({ id: "v.code", format: "md" });
     expect(md.content).toContain("Code view (code.view), view node v.code, shown for Todos");
     expect(md.content).toContain("It runs only in the kb UI, sandboxed");
-    expect(md.content).toContain("It may read its subject, and call node.update.");
+    expect(md.content).toContain(
+      "It reads the node it runs for and the nodes under it, and may call node.update, each only on the node it runs for and the nodes under it.",
+    );
     expect(md.content).toContain(`\`\`\`\`js\n${code}\n\`\`\`\``);
   });
 
@@ -221,7 +223,7 @@ describe("render.view by view node id", () => {
     expect(ctx.index.getNode(FRAME)?.text).toBe("Todos");
   });
 
-  test("a code view's page refuses a write its grant names, and runs a read it names", async () => {
+  test("a code view's page refuses a write its grant names, and runs a read its grant covers", async () => {
     const code = [
       "let added;",
       'try { await kb.invoke("node.add", { id: "n.sneak", text: "sneak" }); added = "added"; }',
@@ -232,7 +234,7 @@ describe("render.view by view node id", () => {
     ].join("\n");
     await mustInvoke("view.propose", {
       view: "code.view",
-      params: { code, grant: { reads: "subject", actions: ["node.add", "graph.search"] } },
+      params: { code, grant: { reads: "graph", actions: ["node.add"] } },
       host: FRAME,
       id: "v.guard",
     });

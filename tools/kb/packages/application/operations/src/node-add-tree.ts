@@ -43,6 +43,7 @@ export const nodeAddTreeDef = {
     "Top-level items go under parent at position (the forest roots and the end when " +
     "omitted). All or nothing; returns the created ids in tree order and each item's line.",
   mode: { kind: "write" } as const,
+  targets: ["parent"],
   // Every call is a batch of node.adds: approval decides it as node.add too,
   // by node.add's own mode.
   batchOf: [nodeAddDef.id],

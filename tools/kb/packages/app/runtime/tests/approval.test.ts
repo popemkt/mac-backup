@@ -28,6 +28,15 @@ const remove = (id: string, rest: Partial<ActionInvocation>): ActionInvocation =
 });
 
 /** A node.add call minting the script `id`, with the envelope fields a test varies. */
+/**
+ * A call made as a script's: running for `subject`, its grant naming
+ * `action`, as its host stamps it (`answerToolCall`).
+ */
+const asScript = (subject: string, action: string): Partial<ActionInvocation> => ({
+  actor: "script",
+  script: { subject, grant: { reads: "subject", actions: [action] } },
+});
+
 const mint = (id: string, rest: Partial<ActionInvocation>): ActionInvocation => ({
   id: "node.add",
   input: { id, text: "badges", tags: ["script"] },
@@ -82,12 +91,24 @@ describe("approval policies in the invoke core", () => {
       await invoke(ctx, {
         id: "node.update",
         input: { id: "approval.script-delete", text: "scripts never ask" },
-        actor: "script",
+        ...asScript("approval.script-delete", "node.update"),
       }),
     ).toMatchObject({ status: "failed", details: { writes: "approval-policy" } });
     expect(
-      await invoke(ctx, { id: "node.add", input: { text: "plain" }, actor: "script" }),
+      await invoke(ctx, {
+        id: "node.add",
+        input: { text: "plain", parent: "n.a" },
+        ...asScript("n.a", "node.add"),
+      }),
     ).toMatchObject({ status: "succeeded" });
+    // A node at the outline's root is no subject's, so no script adds one there.
+    expect(
+      await invoke(ctx, {
+        id: "node.add",
+        input: { text: "loose" },
+        ...asScript("n.a", "node.add"),
+      }),
+    ).toMatchObject({ status: "failed", code: "forbidden" });
   });
 
   test("a script is configuration: an agent writes one with approval, a script never, a person freely", async () => {
@@ -100,15 +121,18 @@ describe("approval policies in the invoke core", () => {
     expect(await invoke(ctx, mint("s.agent", { actor: "agent", approved: true }))).toMatchObject({
       status: "succeeded",
     });
-    expect(await invoke(ctx, mint("s.script", { actor: "script" }))).toMatchObject({
-      status: "failed",
-      details: { writes: "configuration" },
-    });
+    await invoke(ctx, { id: "node.add", input: { id: "n.host", text: "host" } });
+    expect(
+      await invoke(ctx, {
+        ...mint("s.script", asScript("n.host", "node.add")),
+        input: { id: "s.script", text: "badges", tags: ["script"], parent: "n.host" },
+      }),
+    ).toMatchObject({ status: "failed", details: { writes: "configuration" } });
     expect(
       await invoke(ctx, {
         id: "node.update",
         input: { id: "s.agent", text: "rewritten" },
-        actor: "script",
+        ...asScript("s.agent", "node.update"),
       }),
     ).toMatchObject({ status: "failed", details: { writes: "configuration" } });
     expect(await invoke(ctx, mint("s.person", { actor: "human" }))).toMatchObject({
@@ -131,7 +155,7 @@ describe("approval policies in the invoke core", () => {
       code: "approval_required",
       details: { writes: "configuration" },
     });
-    expect(await invoke(ctx, attach({ actor: "script" }))).toMatchObject({
+    expect(await invoke(ctx, attach(asScript("n.board", "node.update")))).toMatchObject({
       status: "failed",
       details: { writes: "configuration" },
     });
@@ -182,7 +206,7 @@ describe("approval policies in the invoke core", () => {
     const trusted = await invoke(ctx, {
       id: "sandbox.trusted",
       input: { digests: [digest, edited] },
-      actor: "script",
+      actor: "cli",
     });
     // Changing one character of the code is a digest nobody has trusted.
     expect(trusted).toMatchObject({ status: "succeeded", output: { trusted: [digest] } });

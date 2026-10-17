@@ -13,7 +13,7 @@ import {
   ShieldWarningIcon,
 } from "@phosphor-icons/react";
 import { ENGINE_LIMITS, engineKindFor, type EngineKind, type RunStatus } from "@kb/sandbox";
-import { CodeView, type CodeParams } from "@kb/code";
+import { CodeView, grantSentence, type CodeParams } from "@kb/code";
 import {
   browserHost,
   cn,
@@ -55,7 +55,6 @@ function statusText(status: RunStatus | null): string {
 // writing through the key's check, like the chart's spec editor, closes it
 // (DESIGN.md → Sandbox → Gaps).
 function CodePanel({ params }: { readonly params: CodeParams }) {
-  const { reads, actions } = params.grant;
   return (
     <section
       aria-label="The code this view runs"
@@ -63,8 +62,7 @@ function CodePanel({ params }: { readonly params: CodeParams }) {
       data-sandbox-code="true"
     >
       <p className="px-3 pt-2 pb-1.5 text-label text-muted-foreground">
-        It reads {reads === "none" ? "nothing" : `its ${reads}`} and may call{" "}
-        {actions.length === 0 ? "no other action" : actions.join(", ")}.
+        {grantSentence(params.grant)}
       </p>
       <pre className="mx-3 mb-3 min-h-0 flex-1 overflow-auto rounded-sm border border-foreground/10 bg-background p-2 font-mono text-label leading-relaxed text-foreground">
         {params.code}

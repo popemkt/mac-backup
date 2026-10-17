@@ -713,6 +713,14 @@ const canvasPromoteEffect = Effect.fn("ext.canvas.promote")(function* (
 });
 
 /** The verbs as the canvas family contributes them, ids local to `ext.canvas`. */
+/**
+ * What a canvas verb acts on: its canvas (`canvasId`), so a script reaches
+ * through it only a canvas its subject holds (DESIGN.md → Sandbox → Grants).
+ * `promote` declares none: it makes a node at the outline's root, which no
+ * subject holds, so no script promotes.
+ */
+const ON_ITS_CANVAS = ["canvasId"] as const;
+
 export const CANVAS_VERBS: ExtensionAction[] = [
   {
     id: "describe",
@@ -725,6 +733,7 @@ export const CANVAS_VERBS: ExtensionAction[] = [
       "axes). Items in focus are in full, the rest on screen blurred, what is off screen counted per " +
       "frame; with no focus and no open tab every item is in full. Also its lints and camera.",
     mode: { kind: "read" },
+    targets: ON_ITS_CANVAS,
     inputSchema: describeInput,
     outputSchema: describeOutput,
     effect: canvasDescribeEffect,
@@ -737,6 +746,7 @@ export const CANVAS_VERBS: ExtensionAction[] = [
       "floating (raised with nothing under it), missing-end (an edge to an item not there), " +
       "missing-node, missing-group, outside-frame. Every canvas write also answers {new, resolved}.",
     mode: { kind: "read" },
+    targets: ON_ITS_CANVAS,
     inputSchema: lintInput,
     outputSchema: lintOutput,
     effect: canvasLintEffect,
@@ -750,6 +760,7 @@ export const CANVAS_VERBS: ExtensionAction[] = [
       "plain coordinates. Positions are resolved and snapped as a drag lands; a taken spot steps " +
       "further out by the grid until clear. Placed in order in one write (one undo step).",
     mode: { kind: "write" },
+    targets: ON_ITS_CANVAS,
     inputSchema: placeInput,
     outputSchema: placeOutput,
     effect: canvasPlaceEffect,
@@ -763,6 +774,7 @@ export const CANVAS_VERBS: ExtensionAction[] = [
       "instead, move them in the paint order (front, back, one step) or mirror them (flip x or " +
       "y). A frame's members move with it. One write (one undo step).",
     mode: { kind: "write" },
+    targets: ON_ITS_CANVAS,
     inputSchema: arrangeInput,
     outputSchema: arrangeOutput,
     effect: canvasArrangeEffect,
@@ -777,6 +789,7 @@ export const CANVAS_VERBS: ExtensionAction[] = [
       "line looks. With `bind`, also set that ref field on the from item's node to the to item's " +
       "node, once (both must stand for nodes).",
     mode: { kind: "write" },
+    targets: ON_ITS_CANVAS,
     inputSchema: connectInput,
     outputSchema: connectOutput,
     effect: canvasConnectEffect,
@@ -786,6 +799,7 @@ export const CANVAS_VERBS: ExtensionAction[] = [
     title: "Group items",
     description: "Gather items into a new frame a grid step round them; they become its members.",
     mode: { kind: "write" },
+    targets: ON_ITS_CANVAS,
     inputSchema: groupInput,
     outputSchema: groupOutput,
     effect: canvasGroupEffect,
@@ -796,6 +810,7 @@ export const CANVAS_VERBS: ExtensionAction[] = [
     description:
       "Take frames apart; their members stay where they are and belong where the frame did.",
     mode: { kind: "write" },
+    targets: ON_ITS_CANVAS,
     inputSchema: ungroupInput,
     outputSchema: ungroupOutput,
     effect: canvasUngroupEffect,

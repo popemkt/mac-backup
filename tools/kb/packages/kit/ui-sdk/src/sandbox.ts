@@ -6,7 +6,6 @@
  * `BrowserHost.sandbox`.
  */
 import type { ActionInvocation, ActionReceipt } from "@kb/contracts";
-import type { KbNode } from "@kb/model";
 import type {
   CodeGrant,
   KbEvent,
@@ -22,9 +21,8 @@ export interface SandboxRun {
   readonly grant: CodeGrant;
 }
 
-/** What the page gives the frame: nodes for the grant's scope, and the invoke path. */
+/** What the page gives the frame: the invoke path, where its calls are decided. */
 export interface SandboxPorts {
-  readonly node: (id: string) => KbNode | undefined;
   /** Make one call as the script's and answer the server's receipt. */
   readonly invoke: (invocation: ActionInvocation) => Promise<ActionReceipt>;
 }

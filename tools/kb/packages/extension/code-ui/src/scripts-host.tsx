@@ -13,7 +13,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { CodeIcon } from "@phosphor-icons/react";
-import { scriptIdsOf, scriptOf, type ScriptSource } from "@kb/code";
+import { grantSentence, scriptIdsOf, scriptOf, type ScriptSource } from "@kb/code";
 import { ENGINE_LIMITS, engineKindFor, type RunStatus } from "@kb/sandbox";
 import {
   browserHost,
@@ -121,7 +121,6 @@ function ScriptRow({
     });
     if (receipt.status === "failed") toast(receipt.message);
   };
-  const { reads, actions } = script.grant;
   return (
     <li
       className="flex flex-col gap-1"
@@ -166,10 +165,7 @@ function ScriptRow({
       </div>
       {open ? (
         <div className="flex flex-col gap-1">
-          <p className="text-label text-muted-foreground">
-            It reads {reads === "none" ? "nothing" : `its ${reads}`} and may call{" "}
-            {actions.length === 0 ? "no other action" : actions.join(", ")}.
-          </p>
+          <p className="text-label text-muted-foreground">{grantSentence(script.grant)}</p>
           <pre className="max-h-40 overflow-auto rounded-sm border border-foreground/10 bg-background p-2 font-mono text-label text-foreground">
             {script.code}
           </pre>

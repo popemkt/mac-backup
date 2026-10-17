@@ -12,7 +12,7 @@
 import { Effect } from "effect";
 import { CoreInvoke, type KbContext, type ViewText } from "@kb/contracts";
 import { UntrustedEngine, snapshotRun } from "@kb/sandbox";
-import type { CodeParams } from "./view.ts";
+import { grantSentence, type CodeParams } from "./view.ts";
 
 /** A fence long enough that no run of backticks in `code` closes it. */
 function fenceFor(code: string): string {
@@ -20,20 +20,14 @@ function fenceFor(code: string): string {
   return "`".repeat(longest + 1);
 }
 
-/** What the grant lets the code ask, in one line. */
-function grantLine({ grant }: CodeParams): string {
-  const actions = grant.actions.length === 0 ? "no other action" : grant.actions.join(", ");
-  return `It may read ${grant.reads === "none" ? "nothing" : `its ${grant.reads}`}, and call ${actions}.`;
-}
-
 /** What the code draws as of now, read-only, or null for nothing to show. */
-const codeFigure = Effect.fn("code.figure")(function* (ctx: KbContext, params: CodeParams) {
+const codeFigure = Effect.fn("code.figure")(function* (_ctx: KbContext, params: CodeParams) {
   const engine = yield* UntrustedEngine;
   const invoke = yield* CoreInvoke;
   if (engine === null || invoke === null) return null;
   const { html, end } = yield* snapshotRun(
     engine,
-    { invoke: (invocation) => invoke(invocation, "read"), node: (id) => ctx.index.getNode(id) },
+    { invoke: (invocation) => invoke(invocation, "read") },
     { code: params.code, grant: params.grant, subject: params.source ?? null },
   );
   const note = end === null ? "" : `<p><em>${escapeText(end.message)}</em></p>`;
@@ -53,7 +47,7 @@ function codeBody(_ctx: KbContext, params: CodeParams): readonly string[] {
     "",
     "This view is code. It runs only in the kb UI, sandboxed: in QuickJS until a person trusts it on their machine, then in a Worker. As text it is shown, not run. Where kb's runtime renders a page, it also shows above this text what the code draws as of the render, run read-only; a host that cannot run it shows this text alone.",
     "",
-    `${grantLine(params)}${params.source === undefined ? "" : ` It is shown for ${params.source}.`}`,
+    `${grantSentence(params.grant)}${params.source === undefined ? "" : ` It is shown for ${params.source}.`}`,
     "",
     `${fence}js`,
     params.code,

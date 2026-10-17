@@ -63,6 +63,7 @@ export const SCRIPT_LIST: ExtensionAction = {
   description:
     "For each subject node in order, the #script nodes it names (sys.f.scripts) that kb can run: each one's id, name, grant (what it may read and call) and whether a person trusts it on this machine. An untrusted script never runs; trusting one is a person's act.",
   mode: { kind: "read" },
+  targets: ["subjects"],
   inputSchema: listInput,
   outputSchema: listOutput,
   effect: scriptListEffect,

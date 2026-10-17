@@ -102,6 +102,8 @@ const actions: ExtensionAction[] = [
       "Answers the lints the write made and cleared. To place, lay out, connect, group or promote " +
       "items by relation rather than by coordinates, use the ext.canvas verbs",
     mode: { kind: "write" },
+    // Its canvas, and the node its prop ops write.
+    targets: ["canvasId", "propTargetId"],
     inputSchema: applyInput,
     outputSchema: applyOutput,
     effect: canvasTxApplyEffect,

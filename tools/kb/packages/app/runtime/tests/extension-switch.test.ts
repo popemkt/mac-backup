@@ -253,7 +253,9 @@ describe("who may switch an extension", () => {
       code: "approval_required",
       details: { writes: "configuration" },
     });
-    expect(await invoke(ctx, { ...write("script", false), approved: true })).toMatchObject({
+    // A script running for the extension's node, its grant naming node.update, still may not.
+    const script = { subject: LAB_NODE, grant: { reads: "subject", actions: ["node.update"] } };
+    expect(await invoke(ctx, { ...write("script", false), script, approved: true })).toMatchObject({
       status: "failed",
       code: "forbidden",
       details: { writes: "configuration" },

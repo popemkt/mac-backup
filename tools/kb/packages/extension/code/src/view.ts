@@ -62,6 +62,25 @@ export function grantOfText(raw: string | undefined): Result.Result<CodeGrant, s
   );
 }
 
+/** What each read scope lets code read, in words. */
+const READS_IN_WORDS: Readonly<Record<CodeGrant["reads"], string>> = {
+  none: "It reads nothing",
+  subject: "It reads the node it runs for and the nodes under it",
+  graph: "It reads the whole graph",
+};
+
+/**
+ * What `grant` lets code do, in one sentence, as the invoke core enforces
+ * it (DESIGN.md → Sandbox → Grants): what it reads, and the actions it may
+ * call, each only on the node it runs for and the nodes under it. The one
+ * statement of it, which every surface that shows a grant shows.
+ */
+export function grantSentence(grant: CodeGrant): string {
+  const reads = READS_IN_WORDS[grant.reads];
+  if (grant.actions.length === 0) return `${reads}, and calls no other action.`;
+  return `${reads}, and may call ${grant.actions.join(", ")}, each only on the node it runs for and the nodes under it.`;
+}
+
 /** The grant a view node holds, else the default; nothing, and said, when it reads as none. */
 function readGrant(raw: string | undefined, report: ConfigReport): { grant?: CodeGrant } {
   const grant = grantOfText(raw);

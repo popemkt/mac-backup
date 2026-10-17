@@ -85,6 +85,56 @@ describe("running a script once", () => {
     expect(items()).toEqual(["from-script"]);
   });
 
+  test("a script reaches through the canvas verbs only the canvas it runs for", async () => {
+    const ctx = await openKb(root);
+    for (const id of ["n.canvas", "n.other"]) {
+      await invoke(ctx, { id: "node.add", input: { text: id, id, tags: ["canvas"] } });
+    }
+    await invoke(ctx, { id: "node.add", input: { id: "n.elsewhere", text: "elsewhere" } });
+    const escape = `const tried = [];
+      for (const call of [
+        ["ext.canvas.place", { canvasId: "n.other", items: [{ make: { id: "x" }, at: { x: 0, y: 0 } }] }],
+        ["ext.canvas.tx.apply", { canvasId: kb.subject, doc: { nodes: [], edges: [] },
+          propTargetId: "n.elsewhere", setProps: [{ field: "f.note", value: { t: "str", v: "hi" } }] }],
+        ["ext.canvas.describe", { canvasId: "n.other" }],
+        ["ext.canvas.place", { canvasId: kb.subject, items: [{ make: { id: "mine" }, at: { x: 0, y: 0 } }] }],
+      ]) {
+        try { await kb.invoke(call[0], call[1]); tried.push("ran"); } catch (e) { tried.push(e.code); }
+      }
+      kb.log(tried.join(","));`;
+    const grant = {
+      reads: "subject" as const,
+      actions: ["ext.canvas.place", "ext.canvas.tx.apply", "ext.canvas.describe"],
+    };
+    await invoke(ctx, {
+      id: "node.add",
+      input: {
+        id: "s.escape",
+        text: "Escape",
+        tags: ["script"],
+        props: [
+          { field: CODE_IDS.codeField, value: { t: "str", v: escape } },
+          { field: CODE_IDS.codeGrantField, value: { t: "str", v: canonicalJson(grant) } },
+        ],
+      },
+    });
+    const digest = await Effect.runPromise(codeDigest(escape, grant));
+    await invoke(ctx, { id: "sandbox.trust", input: { digest }, actor: "human" });
+    expect(
+      await invoke(
+        ctx,
+        run({ input: { script: "s.escape", subject: "n.canvas" }, actor: "human" }),
+      ),
+    ).toMatchObject({ status: "succeeded" });
+    // Its own canvas it writes; another canvas, or a node outside it, it does not.
+    const own = ctx.nodes.find((n) => n.id === "n.canvas")?.props[CANVAS_IDS.canvasField]?.[0];
+    expect(parseCanvasDoc(String(own?.v)).nodes.map((n) => n.id)).toEqual(["mine"]);
+    expect(
+      ctx.nodes.find((n) => n.id === "n.other")?.props[CANVAS_IDS.canvasField],
+    ).toBeUndefined();
+    expect(ctx.nodes.find((n) => n.id === "n.elsewhere")?.props["f.note"]).toBeUndefined();
+  });
+
   test("a script calls nothing its grant does not name", async () => {
     const ctx = await openKb(root);
     await invoke(ctx, {

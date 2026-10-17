@@ -158,6 +158,15 @@ export interface ActionDefinition<
    * ({@link batchPartsOf}). Declared by the action, never inferred.
    */
   batchOf?: readonly string[];
+  /**
+   * The keys of its input whose values are the nodes a call acts on, read
+   * or written: an id, a list of ids, or null for the outline's root. A
+   * script's call reaches only nodes its subject holds, so a script may call
+   * an action only when it declares them, and only with a call that names
+   * one (DESIGN.md → Sandbox → Grants). Declared by the action, never
+   * inferred.
+   */
+  targets?: readonly string[];
   inputSchema: TIn;
   outputSchema: TOut;
   /**
@@ -193,6 +202,12 @@ export const ActionInvocationSchema = z.object({
     .transform((input): unknown => input ?? {}),
   approved: z.boolean().optional(),
   actor: z.enum(ACTORS).optional(),
+  /**
+   * A script's call: what its run may reach — the node it runs for and its
+   * grant — stamped by the host that answers the guest (`answerToolCall`),
+   * never by the guest. The invoke core decides the call against it.
+   */
+  script: z.object({ subject: z.string().nullable(), grant: z.unknown() }).optional(),
 });
 export type ActionInvocation = z.output<typeof ActionInvocationSchema>;
 

@@ -6,6 +6,6 @@
  * engines are core (`@kb/sandbox`).
  */
 export { CODE_IDS } from "./ids.ts";
-export { CodeParams, CodeView, DEFAULT_GRANT, STARTER_CODE } from "./view.ts";
+export { CodeParams, CodeView, DEFAULT_GRANT, STARTER_CODE, grantSentence } from "./view.ts";
 export { codeExtension, codePlugin } from "./extension.ts";
 export { scriptIdsOf, scriptOf, type ScriptSource } from "./script.ts";

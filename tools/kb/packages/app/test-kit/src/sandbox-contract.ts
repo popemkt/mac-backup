@@ -19,11 +19,13 @@ import { failed, succeeded, type ActionInvocation } from "@kb/contracts";
 import type { KbNode } from "@kb/model";
 import { BUNDLED_DECLARATIONS } from "@kb/bundled";
 import {
+  CodeGrant,
   answerToolCall,
+  callTargets,
+  grantRefusal,
   drawingToHtml,
   runGuest,
   type CapabilityHost,
-  type CodeGrant,
   type GuestEnd,
   type GuestRun,
   type KbEvent,
@@ -79,11 +81,35 @@ function idOf(invocation: ActionInvocation): string | undefined {
   return Option.getOrUndefined(Option.map(decodeIdInput(invocation.input), (input) => input.id));
 }
 
-/** Answers like the invoke core: reads by id, one action that asks, every other write done. */
+/** What each action a run here may call acts on, as the action declares it (`targets`). */
+const TARGETS: Readonly<Record<string, readonly string[]>> = {
+  "node.update": ["id"],
+  [ASKING_ACTION]: ["id"],
+};
+
+const decodeGrant = Schema.decodeUnknownOption(CodeGrant);
+
+/**
+ * Answers like the invoke core: the grant first, against the nodes the call
+ * acts on (`grantRefusal`, as the core asks it), then reads by id, one
+ * action that asks, every other write done. Only a call the grant covers
+ * reaches what it would act on.
+ */
 function capabilityHost(invocations: ActionInvocation[]): CapabilityHost {
   return {
-    node: (id) => NODES.get(id),
     invoke: (invocation) => {
+      const grant = Option.getOrUndefined(decodeGrant(invocation.script?.grant));
+      const refusal =
+        grant === undefined
+          ? "no grant"
+          : grantRefusal(
+              grant,
+              { subject: invocation.script?.subject ?? null, node: (id) => NODES.get(id) },
+              invocation.id,
+              invocation.input,
+              callTargets(TARGETS[invocation.id], invocation.input),
+            );
+      if (refusal !== null) return Effect.succeed(failed(invocation.id, "forbidden", refusal));
       if (idOf(invocation) === SLOW) return Effect.never;
       return Effect.sync(() => {
         invocations.push(invocation);
@@ -187,13 +213,18 @@ const PROPERTIES: readonly (readonly [string, Property])[] = [
         Effect.map(o.drawing, (html) => {
           expect(html).toBe("text of subject");
           expect(o.invocations).toEqual([
-            { id: "node.get", input: { id: "subject", depth: 1 }, actor: "script" },
+            {
+              id: "node.get",
+              input: { id: "subject", depth: 1 },
+              actor: "script",
+              script: { subject: "subject", grant: GRANT },
+            },
           ]);
         }),
     },
   ],
   [
-    "cannot read outside its grant, and the call never reaches the invoke core",
+    "cannot read outside its grant: the invoke core refuses it before it reads anything",
     {
       code: () =>
         `try { await kb.node("outside"); kb.draw("read"); } catch (e) { kb.draw(e.code); }`,
@@ -205,9 +236,25 @@ const PROPERTIES: readonly (readonly [string, Property])[] = [
     },
   ],
   [
+    "reaches through an action it may call only what its subject holds",
+    {
+      code: () => `const tried = [];
+        for (const id of ["child", "outside"]) {
+          try { await kb.invoke("node.update", { id, text: "x" }); tried.push("wrote"); }
+          catch (e) { tried.push(e.code); }
+        }
+        kb.draw(tried.join(","));`,
+      check: (o) =>
+        Effect.map(o.drawing, (html) => {
+          expect(html).toBe("wrote,forbidden");
+          expect(o.invocations.map(idOf)).toEqual(["child"]);
+        }),
+    },
+  ],
+  [
     "a write that needs a person comes back approval_required, and the guest cannot approve it",
     {
-      code: () => `try { await kb.invoke(${JSON.stringify(ASKING_ACTION)}, { approved: true }); kb.draw("ran"); }
+      code: () => `try { await kb.invoke(${JSON.stringify(ASKING_ACTION)}, { id: kb.subject, approved: true }); kb.draw("ran"); }
              catch (e) { kb.draw(e.code); }`,
       check: (o) =>
         Effect.map(o.drawing, (html) => {

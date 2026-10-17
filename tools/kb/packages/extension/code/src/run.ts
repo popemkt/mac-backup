@@ -62,10 +62,7 @@ const scriptRunEffect = Effect.fn("ext.code.script.run")(function* (
   }
   const { end } = yield* snapshotRun(
     engine,
-    {
-      invoke: (invocation) => invoke(invocation, "write"),
-      node: (id) => ctx.index.getNode(id),
-    },
+    { invoke: (invocation) => invoke(invocation, "write") },
     { code: script.code, grant: script.grant, subject: input.subject },
     RUN_BUDGET_MS,
   );
@@ -78,6 +75,7 @@ export const SCRIPT_RUN: ExtensionAction = {
   description:
     "Run a #script node once against a node (a canvas, say), until it is quiet: its code runs sandboxed with that node as kb.subject, and each call it makes is decided as the script's, within its grant (a canvas script writes with the ext.canvas verbs). Only a script a person has trusted on this machine runs. A run asks for approval: an agent's runs only once the person approves it.",
   mode: { kind: "write", approval: "required" },
+  targets: ["subject", "script"],
   inputSchema: runInput,
   outputSchema: runOutput,
   effect: scriptRunEffect,

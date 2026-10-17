@@ -14,6 +14,8 @@ export {
 export {
   CodeGrant,
   GRAPH_READ,
+  ROOT_TARGET,
+  callTargets,
   NODE_READ,
   grantRefusal,
   withinSubject,

@@ -3622,10 +3622,24 @@ is `@kb/sandbox` (`packages/contract/sandbox`); the engines are
 - **A grant** (`CodeGrant` in `@kb/sandbox`, a code view's setting) is
   `{reads: none | subject | graph, actions}`. `subject` reads the node the
   code is shown for and the nodes under it, through `node.get`; `graph`
-  reads every node and may run `graph.query`; any other action must be
-  named in `actions`. `grantRefusal` refuses the rest with `forbidden`
-  before the invoke core is asked. The default reads the subject and calls
-  nothing.
+  reads every node and may run the graph's reads (`graph.query`,
+  `graph.search`); any other action must be named in `actions`. The
+  default reads the subject and calls nothing. `grantSentence` (`@kb/code`)
+  says a grant in words, as every surface that shows one shows it.
+- **A grant bounds every call to its subject.** Each action declares the
+  keys of its input whose values are the nodes a call acts on
+  (`ActionDefinition.targets`: an id, ids, or null for the outline's root),
+  and a code's call of any named action is made only when it names one and
+  every one is the subject or under it, whatever the grant reads: a canvas
+  verb acts on its `canvasId`, `tx.apply` on its canvas and its
+  `propTargetId`, `node.update` on its node and the parent it moves it to.
+  An action that declares none (`promote`, which makes a node at the root)
+  is no code's to call. The host stamps each call with its run's grant and
+  subject (`ActionInvocation.script`, by `answerToolCall`, never the
+  guest), and the invoke core decides it (`scriptRefusal` in
+  `@kb/operations`, asking `grantRefusal` with `callTargets`): one place,
+  which every script call reaches from the page and from the server alike.
+  `sandboxContract` and `script-run.test.ts` pin it.
 - **`script`** is the fourth actor (`ACTORS` in `@kb/model`): code in the
   sandbox, whoever wrote it, never a person. `SCRIPT_WIRE` carries approval
   only as far as its host can put a person behind a call. Its seeded

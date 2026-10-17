@@ -29,6 +29,7 @@ import {
   type DomainError,
 } from "@kb/model";
 import { decide } from "./approval.ts";
+import { scriptRefusal } from "./script-reach.ts";
 import { assetUploadDef, assetUploadEffect } from "./assets.ts";
 import {
   sandboxTrustDef,
@@ -257,6 +258,8 @@ export const invokeWith = Effect.fn("kb.invoke")(function* <R>(
   if (refusal !== null) return failed(id, refusal.code, refusal.message, refusal.details);
 
   const parsed = yield* parseBySchema(entry.def.inputSchema, input);
+  const outOfReach = scriptRefusal(entry.def, invocation, parsed, ctx);
+  if (outOfReach !== null) return failed(id, "forbidden", outOfReach.message, outOfReach.details);
   if (ForcedInputSchema.safeParse(parsed).success && !actsAsOwner(invocation.actor)) {
     return failed(
       id,

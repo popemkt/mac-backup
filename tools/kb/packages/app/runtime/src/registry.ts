@@ -121,6 +121,7 @@ function registeredAction(contribution: Contribution<ActionContribution>): Regis
       description: value.description,
       mode: value.mode,
       ...(value.batchOf === undefined ? {} : { batchOf: value.batchOf }),
+      ...(value.targets === undefined ? {} : { targets: value.targets }),
       inputSchema: value.inputSchema,
       outputSchema: value.outputSchema,
     },

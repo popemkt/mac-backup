@@ -79,7 +79,6 @@ export function useSandboxPorts(): {
 } {
   const [asking, setAsking] = useState<readonly Asking[]>([]);
   const [ports] = useState<SandboxPorts>(() => ({
-    node: (id) => browserHost().node(id),
     invoke: async (invocation) => {
       const receipt = await browserHost().sandbox.invokeAsScript(invocation);
       if (receipt.status !== "failed" || receipt.code !== "approval_required") return receipt;

@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Effect } from "effect";
 import { succeeded, type ActionInvocation } from "@kb/contracts";
-import type { KbNode } from "@kb/model";
 import {
   ENGINE_LIMITS,
   SANDBOX_FRAME_CSP,
@@ -15,46 +14,37 @@ const LIMITS = ENGINE_LIMITS.quickjs;
 
 function hostRecording(output: unknown = { ok: true }) {
   const calls: ActionInvocation[] = [];
-  const nodes = new Map<string, KbNode>([
-    ["s", { id: "s", text: "s", props: {}, children: [], createdAt: "", updatedAt: "" }],
-  ]);
   const host: CapabilityHost = {
     invoke: (invocation) =>
       Effect.sync(() => {
         calls.push(invocation);
         return succeeded(invocation.id, output);
       }),
-    node: (id) => nodes.get(id),
   };
   return { host, calls };
 }
 
 describe("a guest's tool call", () => {
-  test("is made as the script's, with no approval, whatever the guest sends", async () => {
+  test("is made as the script's, within its run's reach, with no approval, whatever the guest sends", async () => {
     const { host, calls } = hostRecording();
     const scope = { grant: { reads: "subject" as const, actions: ["node.update"] }, subject: "s" };
     const result = await Effect.runPromise(
       answerToolCall(host, scope, LIMITS, {
         name: "node.update",
-        arguments: { id: "s", approved: true, actor: "human" },
+        arguments: { id: "s", approved: true, actor: "human", script: { subject: "x" } },
       }),
     );
     expect(result.isError).toBeUndefined();
+    // The guest's words are its input; what it may reach is its host's to say.
     expect(calls).toEqual([
-      { id: "node.update", input: { id: "s", approved: true, actor: "human" }, actor: "script" },
+      {
+        id: "node.update",
+        input: { id: "s", approved: true, actor: "human", script: { subject: "x" } },
+        actor: "script",
+        script: { subject: "s", grant: scope.grant },
+      },
     ]);
     expect(calls[0]?.approved).toBeUndefined();
-  });
-
-  test("outside its grant never reaches the invoke core", async () => {
-    const { host, calls } = hostRecording();
-    const scope = { grant: { reads: "subject" as const, actions: [] }, subject: "s" };
-    const result = await Effect.runPromise(
-      answerToolCall(host, scope, LIMITS, { name: "node.delete", arguments: { id: "s" } }),
-    );
-    expect(result.isError).toBe(true);
-    expect(JSON.parse(result.content[0]?.text ?? "")).toMatchObject({ code: "forbidden" });
-    expect(calls).toEqual([]);
   });
 
   test("answers a result larger than its bound as a failure", async () => {

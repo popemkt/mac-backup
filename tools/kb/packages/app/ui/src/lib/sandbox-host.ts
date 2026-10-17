@@ -66,7 +66,6 @@ export function hostSandboxFrame(
   let inWindow = 0;
   const scope = { grant: run.grant, subject: run.input.subject };
   const capability = {
-    node: ports.node,
     invoke: (invocation: ActionInvocation) => Effect.promise(() => ports.invoke(invocation)),
   };
 

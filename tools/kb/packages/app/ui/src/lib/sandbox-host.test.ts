@@ -1,9 +1,9 @@
 /**
  * The page's end of the sandbox bridge: it hears only its own frame, answers
  * the handshake and hands over the run and where its view's things are,
- * answers tool calls through the
- * capability API as the script's, and cuts off a frame that floods the page
- * or leaves its document.
+ * hands tool calls to the invoke core as the script's, with what its run
+ * may reach, and cuts off a frame that floods the page or leaves its
+ * document.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { succeeded, type ActionInvocation } from "@kb/contracts";
@@ -51,10 +51,6 @@ function setup() {
     fake.frame as unknown as HTMLIFrameElement,
     RUN,
     {
-      node: (id) =>
-        id === "n.s"
-          ? { id, text: "s", props: {}, children: [], createdAt: "", updatedAt: "" }
-          : undefined,
       invoke: (invocation) => {
         calls.push(invocation);
         return Promise.resolve(succeeded(invocation.id, { node: { id: "n.s" } }));
@@ -139,7 +135,7 @@ describe("the page as a sandbox frame's host", () => {
     expect(posted).toEqual([]);
   });
 
-  it("answers a tool call as the script's within the grant, and refuses one outside it", async () => {
+  it("hands a tool call to the invoke core as the script's, with what its run may reach", async () => {
     const { frameSays, posted, calls } = setup();
     frameSays({
       jsonrpc: "2.0",
@@ -147,19 +143,16 @@ describe("the page as a sandbox frame's host", () => {
       method: "tools/call",
       params: { name: "node.get", arguments: { id: "n.s" } },
     });
-    frameSays({
-      jsonrpc: "2.0",
-      id: 8,
-      method: "tools/call",
-      params: { name: "node.delete", arguments: { id: "n.s" } },
-    });
-    await vi.waitFor(() => expect(posted).toHaveLength(2));
-    expect(calls).toEqual([{ id: "node.get", input: { id: "n.s" }, actor: "script" }]);
-    const refused = posted.find((message) => (message as { id: number }).id === 8) as {
-      result: { isError: boolean; content: { text: string }[] };
-    };
-    expect(refused.result.isError).toBe(true);
-    expect(refused.result.content[0]?.text).toContain("forbidden");
+    await vi.waitFor(() => expect(posted).toHaveLength(1));
+    // The core decides the call against its grant and subject; the page only stamps them.
+    expect(calls).toEqual([
+      {
+        id: "node.get",
+        input: { id: "n.s" },
+        actor: "script",
+        script: { subject: "n.s", grant: RUN.grant },
+      },
+    ]);
   });
 
   it("cuts off a frame that floods the page", () => {

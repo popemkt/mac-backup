@@ -60,6 +60,7 @@ export const nodeAddDef = {
   description:
     "Create a node with optional props, parent, position (index in its sibling group; the end when omitted), and tags",
   mode: { kind: "write" } as const,
+  targets: ["parent"],
   inputSchema: z.object({
     text: z.string(),
     props: z.array(PropInputSchema).optional(),
@@ -81,6 +82,7 @@ export const nodeUpdateDef = {
   title: "Update node",
   description: "Edit text, set/unset props, or move a node",
   mode: { kind: "write" } as const,
+  targets: ["id", "parent"],
   inputSchema: z.object({
     id: z.string(),
     text: z.string().optional(),
@@ -110,6 +112,7 @@ export const nodeDeleteDef = {
   title: "Delete node",
   description: "Delete a node and, by default, its descendants (reparent keeps them)",
   mode: { kind: "write" } as const,
+  targets: ["id"],
   inputSchema: z.object({
     id: z.string(),
     /** Parent deletion is never implicitly shallow; cascade is the default. */
