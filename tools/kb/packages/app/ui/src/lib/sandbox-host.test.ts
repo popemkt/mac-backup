@@ -16,7 +16,7 @@ const RUN: SandboxRun = {
   input: {
     code: "kb.draw(1)",
     subject: "n.s",
-    events: [],
+    events: ["canvas.selection", "data"],
     engine: "quickjs",
     limits: ENGINE_LIMITS.quickjs,
   },
@@ -95,7 +95,7 @@ describe("the page as a sandbox frame's host", () => {
     });
   });
 
-  it("hands the frame an event once it is up, and none before", () => {
+  it("hands the frame an event its run hears once it is up, none before, and never one it does not", () => {
     const { frameSays, posted, hosted } = setup();
     hosted.event({ type: "data", target: null });
     expect(posted).toEqual([]);
@@ -107,6 +107,9 @@ describe("the page as a sandbox frame's host", () => {
       method: "kb/event",
       params: { type: "canvas.selection", target: null, value: "a" },
     });
+    const before = posted.length;
+    hosted.event({ type: "click", target: "x" });
+    expect(posted).toHaveLength(before);
   });
 
   it("tells the frame where its view's things are: the last told once it is up, then each change", () => {

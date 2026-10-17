@@ -47,6 +47,7 @@ export {
   ToolCallRequest,
   ToolResult,
   errorMessage,
+  hears,
   notification,
   resultMessage,
   type EndReason,

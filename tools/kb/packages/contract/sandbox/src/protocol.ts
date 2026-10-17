@@ -101,6 +101,16 @@ export const KbEvent = Schema.Struct({
 });
 export type KbEvent = typeof KbEvent.Type;
 
+/**
+ * Whether a run that declares `events` hears `event`: only the types its
+ * view declares (`RunInput.events`). The one statement of it — the guest's
+ * driver and the page's host both ask it, so an event a run does not hear
+ * reaches neither the frame nor the code.
+ */
+export function hears(events: readonly string[], event: KbEvent): boolean {
+  return events.includes(event.type);
+}
+
 export const EventNotification = Schema.Struct({
   jsonrpc: JsonRpc,
   method: Schema.Literal(KB_METHODS.event),

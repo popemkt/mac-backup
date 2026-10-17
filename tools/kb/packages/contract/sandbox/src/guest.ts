@@ -11,6 +11,7 @@ import { MCP_APPS_METHODS } from "@kb/contracts";
 import { sanitizeDrawing, type DrawingReport } from "./drawing.ts";
 import { endOfFailure, type GuestSpec, type SandboxEngine } from "./engine.ts";
 import {
+  hears,
   GuestMessage,
   KB_METHODS,
   errorMessage,
@@ -135,7 +136,7 @@ export const runGuest = Effect.fn("sandbox.runGuest")(function* (
 
   return {
     event: (event) =>
-      spec.events.includes(event.type)
+      hears(spec.events, event)
         ? session.deliver(JSON.stringify(notification(KB_METHODS.event, event)))
         : Effect.void,
     ended: Deferred.await(ended),

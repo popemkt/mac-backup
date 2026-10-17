@@ -19,6 +19,7 @@ import {
   KB_METHODS,
   SANDBOX_THEME_VARIABLES,
   answerToolCall,
+  hears,
   notification,
   resultMessage,
   type SandboxAnchors,
@@ -154,7 +155,9 @@ export function hostSandboxFrame(
 
   return {
     event: (event) => {
-      if (initialized) post(notification(KB_METHODS.event, event));
+      if (initialized && hears(run.input.events, event)) {
+        post(notification(KB_METHODS.event, event));
+      }
     },
     anchor: (next) => {
       anchors = next;
