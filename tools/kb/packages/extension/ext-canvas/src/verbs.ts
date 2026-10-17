@@ -52,6 +52,7 @@ import {
   promoteItem,
   ungroupItems,
   type CanvasDoc,
+  type CanvasHead,
   type CanvasLayerValue,
   type CanvasNode,
   type CanvasEdge,
@@ -110,9 +111,24 @@ const EdgeLooksSchema = LooksSchema.pick({ dash: true, size: true, opacity: true
 /** The head an edge's end wears, or none. */
 const HeadSchema = z.enum([...CANVAS_HEADS, "none"]);
 
-/** A head as a verb takes it: "none" for a bare end. */
-const headOrNone = (head: z.infer<typeof HeadSchema> | undefined) =>
-  head === undefined ? undefined : head === "none" ? null : head;
+type HeadInput = z.infer<typeof HeadSchema>;
+
+/** A head as a verb names it, as `@kb/canvas` takes it: null for "none", a bare end. */
+const wornHead = (head: HeadInput) => (head === "none" ? null : head);
+
+/**
+ * The heads a verb is asked for, as `@kb/canvas` takes them: each end
+ * named, null for "none" (a bare end); an end not named is left as it is.
+ */
+function headPatch(asked: { readonly fromHead?: HeadInput; readonly toHead?: HeadInput }): {
+  fromHead?: CanvasHead | null;
+  toHead?: CanvasHead | null;
+} {
+  return {
+    ...(asked.fromHead === undefined ? {} : { fromHead: wornHead(asked.fromHead) }),
+    ...(asked.toHead === undefined ? {} : { toHead: wornHead(asked.toHead) }),
+  };
+}
 
 /** The most points a line an agent makes runs through. */
 const MAX_LINE_POINTS = 256;
@@ -448,8 +464,7 @@ function itemOf(doc: CanvasDoc, p: Placement, id: string): CanvasNode {
           line: {
             ...(line.points === undefined ? {} : { points: line.points }),
             ...(line.closed === undefined ? {} : { closed: line.closed }),
-            ...(line.fromHead === undefined ? {} : { fromHead: headOrNone(line.fromHead) ?? null }),
-            ...(line.toHead === undefined ? {} : { toHead: headOrNone(line.toHead) ?? null }),
+            ...headPatch(line),
           },
         };
   return makeItem({ ...spec, ...lined, preset: preset ?? "text" }, id);
@@ -635,7 +650,6 @@ function bindWrite(
 
 /** Where a connection's ends meet their items and how it is drawn, as `connectItems` takes it. */
 function connectionLook(input: z.infer<typeof connectInput>) {
-  const [fromHead, toHead] = [headOrNone(input.fromHead), headOrNone(input.toHead)];
   const { label, fromSide, toSide, fromAnchor, toAnchor, route, bend, color, style } = input;
   return {
     ...(label === undefined ? {} : { label }),
@@ -645,8 +659,7 @@ function connectionLook(input: z.infer<typeof connectInput>) {
     ...(toAnchor === undefined ? {} : { toAnchor }),
     ...(route === undefined ? {} : { route }),
     ...(bend === undefined ? {} : { bend }),
-    ...(fromHead === undefined ? {} : { fromHead }),
-    ...(toHead === undefined ? {} : { toHead }),
+    ...headPatch(input),
     ...(color === undefined ? {} : { color }),
     ...(style === undefined ? {} : { style }),
   };
