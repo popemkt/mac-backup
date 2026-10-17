@@ -32,9 +32,12 @@ import {
 } from "@kb/graph";
 import { NeighbourhoodGraph } from "./neighbourhood-view";
 import { lensGraphs } from "./graph-lens";
+import { TYPE_REFERENCE_COMMAND, TYPE_REFERENCE_STEP } from "./type-reference";
 import {
   BrowserHostService,
+  CommandPoint,
   NodeLinkGraphService,
+  PaletteStepPoint,
   provideRoute,
   provideView,
   RoutePoint,
@@ -50,7 +53,8 @@ import {
  * hosts a renderer in a box of its own. It injects the page's host, as a
  * family's browser half does, and waits as pending until the shell provides it.
  * It provides the lens graph of a perspective (`NodeLinkGraphService`) for the
- * halves that draw the graph without being it.
+ * halves that draw the graph without being it, and the node menu's "Type this
+ * reference…" with the palette step it opens (`type-reference.tsx`).
  *
  * It is the graph family's page entry, so it loads the family's shared
  * plugin as a child: the graph views' keys reach the page kernel's catalog
@@ -64,6 +68,8 @@ export const graphUiPlugin = definePlugin({
       [
         ctx.plugin(graphPlugin()),
         ctx.provide(NodeLinkGraphService, lensGraphs),
+        ctx.contribute(CommandPoint, TYPE_REFERENCE_COMMAND),
+        ctx.contribute(PaletteStepPoint, TYPE_REFERENCE_STEP),
         ctx.contribute(
           ViewPoint,
           provideView(GraphView, { placements: ["page"], sample: {}, Component: GraphSurface }),

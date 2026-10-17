@@ -556,11 +556,15 @@ A References row names each typed relation its referrer holds to the node
 (a non-system ref field pointing here), worded from the node's side: the
 field's inverse label when it names one ("influenced by"), else its label
 read toward the node ("influences →"); a referrer that only mentions the
-node shows none. Typing a mention from its chip ("Type this reference…")
-is not built: a chip has no menu, and the node palette's steps are a closed
-set the outline owns, so another family has no point to contribute one
-through (a recorded gap); `kb relate`, the agent and the graph's "Link as…"
-type relations meanwhile.
+node shows none. A mention is typed where it is read: with the graph
+family's setting `graph.suggest-relations` on, a row that mentions a node
+offers "Type this reference…" in its node menu. The graph contributes the
+command and the palette step it opens (`PaletteStepPoint`, `graph-ui`
+`type-reference.tsx`). The step lists each relation the row's mentions can
+be typed as and are not yet, "field → node", by the one rule every relation
+write reads (`relationFieldsFor`), and picking one types it through
+`graph.relation.type` as the person's own gesture. A chip itself has no
+menu; `kb relate`, the agent and the graph's "Link as…" type relations too.
 
 ### Field values: one slot grammar
 

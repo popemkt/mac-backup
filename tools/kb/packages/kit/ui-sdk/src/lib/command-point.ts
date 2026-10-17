@@ -101,7 +101,6 @@ export interface PaletteStep {
   readonly commit: (pick: PaletteStepPick) => Promise<void>;
 }
 
-// GAP [[01M545DBMQA0RGRWZY21HT3XD9]] the outline's mention chip cannot type its reference in place
 /**
  * The node palette's picker steps, by id: a node command opens one with
  * `palette.openStep(id)`. A family's steps come and go with it.
