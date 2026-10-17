@@ -586,6 +586,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Wire the shared picker's [[ trigger into the text value editor (one trigger, both surfaces).
 - **node** — `01M3KA394XS9DCGY9RHS151G6F`
 
+### GAP: no one coverage property holds every family to all three hosts
+
+- **expected** — One property holds every declared family to a seed node, a server entry and a browser entry.
+- **current** — Coverage is split: ui-plugins.test.ts checks browser entries, the registry checks bundled server entries, cli/tests/host-extensions.test.ts checks hosted families and adapters.
+- **impact** — No package sees all three hosts, so a family can miss one entry without anything going red.
+- **closes** — A test-kit property each host's test feeds its own entries into, run in the registry, CLI and UI tests.
+- **node** — `01M53M9Y6BZFMT08EHNRNFG7Y9`
+
 ### GAP: no pop-out OS windows for panes
 
 - **expected** — a pane can pop out into its own browser window, kept in sync over /ws like any client
@@ -1000,6 +1008,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — a mirror held by a test: renaming the canvas tag id fails a test instead of flowing through, and a second family with its own bullet kind would add a second copy
 - **closes** — a bullet-kind point in @kb/ui-sdk that families contribute to, after E13 moves the canvas UI into @kb/canvas-ui
 - **node** — `01M436DVSEHKNYWSF2MR07HPMR`
+
+### GAP: the page's offline family list reads only the bundled families
+
+- **expected** — The rows the page follows while no server answers come from one list of every family source, each hosted family reported as not hosted.
+- **current** — OWN_EXTENSIONS in packages/app/ui/src/ui-plugins.ts maps BUNDLED_FAMILIES only; leaving out the hosted agent is intent stated only in a comment.
+- **impact** — A new family source is silently missing from the offline page and its Preferences switches.
+- **closes** — Rows derived from the fold's family list with an explicit not-hosted row for hosted families, and a test.
+- **node** — `01M53M9XA8FN8Q25QJVFF8MBE4`
 
 ### GAP: the palette index pre-sizes its arrays with new Array(n)
 

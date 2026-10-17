@@ -182,6 +182,7 @@ describe("the families the page loads", () => {
 });
 
 /** Every family kb declares: the registry's bundled ones, and those a host composes. */
+// GAP [[01M53M9Y6BZFMT08EHNRNFG7Y9]] no one coverage property holds every family to all three hosts
 const EVERY_FAMILY = [...BUNDLED_FAMILIES, ...HOSTED_FAMILIES];
 
 describe("the resolver", () => {

@@ -134,6 +134,7 @@ export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension | null
  * its declaration has it by default.
  * It hosts nothing, so it reports no agent.
  */
+// GAP [[01M53M9XA8FN8Q25QJVFF8MBE4]] the page's offline family list reads only the bundled families
 const OWN_EXTENSIONS: readonly ExtensionRow[] = BUNDLED_FAMILIES.map((declaration) =>
   extensionRow(declaration, "bundled", familyOn(declaration, NO_SWITCHES, logWarn)),
 );
