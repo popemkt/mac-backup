@@ -67,7 +67,8 @@ export interface UiServerOptions {
   extensions?: readonly ExtensionEntry[];
   /**
    * The wire of the surface a person opened this root from (`kb ui`), whose
-   * call registers the root among their locations once the server listens.
+   * call registers the root among their locations once the server listens,
+   * before it writes its presence.
    * A server nobody opened a root with (a test, a harness) registers nothing.
    */
   openedBy?: SurfaceWire;
@@ -331,6 +332,14 @@ export const startUi = Effect.fn("kb.startUi")(function* (
   }
   const url = `http://${hostname}:${boundPort}`;
 
+  // A root a person serves is one of their locations. Not being listed costs
+  // the picker only, so it is reported and the server serves. It is ranked
+  // before presence is written: whoever starts this server reads the
+  // presence as the start being done, so by then the root is ranked first.
+  if (opts.openedBy !== undefined) {
+    const unlisted = yield* registerOpenedRoot(ctx, opts.openedBy).pipe(Effect.provide(layer));
+    if (unlisted !== null) writeErr(`kb ui: this root is not among your locations: ${unlisted}`);
+  }
   // Say where this root is served, so a process that needs its tabs (the CLI
   // or `kb mcp` asking for the screen) can reach them. Losing that costs only
   // the screen actions in other processes, so a failed write is reported and
@@ -342,12 +351,6 @@ export const startUi = Effect.fn("kb.startUi")(function* (
     lifetime,
     clearUiPresence(opts.root, url).pipe(Effect.provide(bunFileSystemLayer), Effect.ignore),
   );
-  // A root a person serves is one of their locations. Like presence, not
-  // being listed costs the picker only, so it is reported and the server serves.
-  if (opts.openedBy !== undefined) {
-    const unlisted = yield* registerOpenedRoot(ctx, opts.openedBy).pipe(Effect.provide(layer));
-    if (unlisted !== null) writeErr(`kb ui: this root is not among your locations: ${unlisted}`);
-  }
 
   if (openBrowserFlag) openBrowser(url);
 

@@ -3657,7 +3657,8 @@ are `docs/brainstorms/2026-10-17-kb-locations/README.md`.
   servers keep running with no supervisor, as a `kb ui` a person starts
   does; `kb locations` shows which are served.
 - **Registering is automatic where a person opens a root.** `kb ui` (once
-  it listens, beside the presence write) and `kb init` register their root
+  it listens, and before it writes its presence, so a start that reads the
+  presence as done finds the root ranked first) and `kb init` register their root
   (`registerOpenedRoot`): a `location.register` call on the wire of the
   surface that opened it, so approval sees who made it like any call. A
   server started with no `openedBy` (a test, a harness) registers nothing.
