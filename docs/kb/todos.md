@@ -115,8 +115,6 @@
 - E20 · boundary errors in the editor: an oxlint JS plugin over the harness's matrixViolation (one rule table); after the oxlint upgrade
 - Effect 4.0.0 stable with @effect/tsgo 0.48 (effect-tsgo patch runs in prepare)
 - Extension isolation, the rest (plans: docs/brainstorms/2026-10-04-kb-extension-boundaries/README.md, docs/brainstorms/2026-10-04-kb-extension-boundaries/sdk.md)
-- Fix pre-existing test:render failure: projection.e2e "collapse holds the camera; mapped perspectives save…" fails on main (seen at a988d219, reported by the trace builder 2026-10-17); test:render is not in the gate, so nothing else catches it
-- Flaky test: locations contract 'opening a closed root through the real serve' (locations-contract.test.ts:400) fails ~1 in 3 — order() returns two ids minted in the same instant in swapped order; tie-ordering is not deterministic
 - Idea (later, owner 2026-10-17): kernel lifecycle hooks like Claude Code mods — before-write (veto/transform), after-commit (react), before/after action, session start; each a kernel point with a contract suite, landing with its first consumer (e.g. trace's label suggestions). Context: the deleted event seam (Cordis gap 3) was a generic emit/on with no consumer.
 - kb work queue, in order (owner's priority 2026-10-04; resume notes: docs/brainstorms/2026-09-29-kb-genui-canvas-agents/resume.md)
 - O1 follow-up · expansion storage tests (two tabs one id, malformed kb-expansion, legacy first save with a change) and DESIGN-UI wording (memory vs storage merge, mixed-build rule, legacy opens equal to default drop on first save)
@@ -132,6 +130,8 @@
 - Canvas P1–P5 review fixes (Sol, 2026-10-17): 6 majors + 11 minors, no blockers. Findings: docs/brainstorms/2026-10-17-kb-canvas-tldraw-parity/README.md → P1–P5 review
 - Canvas parity with tldraw offline · P1–P5 (styles, edge anchors and routes, path item, lock/align/distribute, shortcut table); P6–P8 wait on the owner's questions. Plan: docs/brainstorms/2026-10-17-kb-canvas-tldraw-parity/README.md
 - E10c · every cleanly extracted family can be switched off through the one extension switch (canvas, chart, code, lab, agent; --no-agent folds into it). Plan: docs/brainstorms/2026-10-04-kb-extension-boundaries/README.md
+- Fix pre-existing test:render failure: projection.e2e "collapse holds the camera; mapped perspectives save…" fails on main (seen at a988d219, reported by the trace builder 2026-10-17); test:render is not in the gate, so nothing else catches it
+- Flaky test: locations contract 'opening a closed root through the real serve' (locations-contract.test.ts:400) fails ~1 in 3 — order() returns two ids minted in the same instant in swapped order; tie-ordering is not deterministic
 - Investigate the layers DeepSeek Harness adds on top of Cordis (DESIGN.md names it as the kernel's model): what it layers on, what kb lacks, what is worth taking
 - node.addTree · add a whole outline in one transaction (kb add --outline <file>, and the same action for MCP and the agent). Model the format on Tana Paste (%%tana%%, nested '- ' items, #tag, field:: value, ref); also look at Logseq/Roam paste and OPML import as prior art. All-or-nothing, one tx; returns the created ids
 - O0 · plan doc + queue entries
