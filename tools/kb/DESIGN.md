@@ -2970,7 +2970,8 @@ shape is typed once, in `contracts/src/screen.ts`; the wire ops are in
   process gets the default, `remoteScreensLayer`, which reads
   `.kb/ui.json` and asks that server the same action. `kb ui` writes
   `{url, pid, root}` there (mode 0600) when it listens and removes it when
-  it stops. It is runtime state, gitignored and not backed up. The file is
+  it stops, if it is still its own: a reused port can name a later server,
+  so the URL and the pid both have to match. It is runtime state, gitignored and not backed up. The file is
   only a file in the root, so its `url` is read only when it is the bare
   `http` origin of a loopback host and port, and a server bound anywhere
   else writes none. Before it

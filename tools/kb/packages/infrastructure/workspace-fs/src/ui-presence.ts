@@ -130,14 +130,17 @@ export const servingUi = Effect.fn("kb.uiPresence.serving")(function* (
 });
 
 /**
- * Forget that the `kb ui` at `url` serves `root`: remove the file, unless a
- * later server over the same root has since written its own.
+ * Forget that the `kb ui` at `url`, this process, serves `root`: remove the
+ * file, unless a later server over the same root has since written its own.
+ * A port is reused once its server is gone, so the URL alone does not say
+ * whose the file is; the URL and the process together do.
  */
 export const clearUiPresence = Effect.fn("kb.uiPresence.clear")(function* (
   root: string,
   url: string,
 ): Effect.fn.Return<void, DomainError, FileSystem> {
-  if ((yield* readUiPresence(root))?.url !== url) return;
+  const presence = yield* readUiPresence(root);
+  if (presence?.url !== url || presence.pid !== process.pid) return;
   const fs = yield* FileSystem;
   yield* fs
     .remove(uiPresenceFile(root))

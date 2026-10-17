@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { Effect } from "effect";
 import type { FileSystem } from "effect/FileSystem";
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem";
-import { readUiPresence, servingUi, writeUiPresence } from "../src/index.ts";
+import { clearUiPresence, readUiPresence, servingUi, writeUiPresence } from "../src/index.ts";
 
 const roots: string[] = [];
 const servers: { stop: (force: boolean) => unknown }[] = [];
@@ -97,5 +97,29 @@ describe("servingUi", () => {
     const refused = await run(Effect.flip(writeUiPresence(root, "http://0.0.0.0:4321")));
     expect(refused.code).toBe("invalid_input");
     expect(await run(readUiPresence(root))).toBeNull();
+  });
+});
+
+describe("clearUiPresence", () => {
+  test("removes the file this process's server wrote", async () => {
+    const root = await scratchRoot();
+    await run(writeUiPresence(root, "http://127.0.0.1:4321"));
+    await run(clearUiPresence(root, "http://127.0.0.1:4321"));
+    expect(await run(readUiPresence(root))).toBeNull();
+  });
+
+  test("leaves a file another server wrote, at another URL or from another process at the same one", async () => {
+    const root = await scratchRoot();
+    await run(writeUiPresence(root, "http://127.0.0.1:4322"));
+    await run(clearUiPresence(root, "http://127.0.0.1:4321"));
+    expect(await run(readUiPresence(root))).not.toBeNull();
+    const reused = {
+      url: "http://127.0.0.1:4321",
+      pid: process.pid + 1,
+      root: await realpath(root),
+    };
+    await writeFile(join(root, ".kb", "ui.json"), JSON.stringify(reused));
+    await run(clearUiPresence(root, "http://127.0.0.1:4321"));
+    expect(await run(readUiPresence(root))).toEqual(reused);
   });
 });
