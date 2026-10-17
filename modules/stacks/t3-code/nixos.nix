@@ -50,24 +50,24 @@ in
     # T3's built-in browser is a prebuilt Chromium headless shell; these are the
     # libraries it reports missing (`ldd` on it), and nix-ld exposes them to it.
     # at-spi2-core carries atk, atk-bridge and atspi.
-    programs.nix-ld.libraries = with pkgs; [
-      alsa-lib
-      at-spi2-core
-      dbus
-      expat
-      glib
-      libgbm
-      libx11
-      libxcb
-      libxcomposite
-      libxdamage
-      libxext
-      libxfixes
-      libxkbcommon
-      libxrandr
-      nspr
-      nss
-      systemdLibs
+    my.pkgs.nixLdLibraries = [
+      "alsa-lib"
+      "at-spi2-core"
+      "dbus"
+      "expat"
+      "glib"
+      "libgbm"
+      "libx11"
+      "libxcb"
+      "libxcomposite"
+      "libxdamage"
+      "libxext"
+      "libxfixes"
+      "libxkbcommon"
+      "libxrandr"
+      "nspr"
+      "nss"
+      "systemdLibs"
     ];
 
     # Installed per user by the npm executor (modules/common/home-manager/npm-global.nix).

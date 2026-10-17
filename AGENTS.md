@@ -267,6 +267,7 @@ Rules for agents:
 | Add a uv tool | the owning module's `uvTools`, plus an entry in `_sources/uv-pins.json` |
 | Hold a uv tool at a version | set `track = "manual"` on its `_sources/uv-pins.json` entry |
 | Add a Bun global | the owning stack's `my.pkgs.bunGlobals` |
+| Give a prebuilt NixOS binary a shared library | the owning stack's `my.pkgs.nixLdLibraries` (nixpkgs attribute names) |
 | Add a stack's package on one host only | `my.stacks.<stack>.extra.<channel>` in `hosts/<hostname>/default.nix` |
 | Add a Claude Code or Codex plugin | the owning stack's `my.pkgs.{claude,codex}{Marketplaces,Plugins}` lists |
 | Add host-only config | `hosts/<hostname>/default.nix` |

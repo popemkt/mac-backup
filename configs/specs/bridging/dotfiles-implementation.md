@@ -101,6 +101,7 @@ requiring root since nix-darwin ≥ 2025. See `dotfiles-system.md`.
 | npm install of missing globals | home-manager activation `installNpmGlobals` | `modules/common/home-manager/npm-global.nix` |
 | Declared Bun globals | `my.pkgs.bunGlobals` channel | `modules/darwin/home-manager/bun-global.nix` |
 | Bun install of missing globals | home-manager activation `installBunGlobals` | `modules/darwin/home-manager/bun-global.nix` |
+| Shared libraries for prebuilt binaries (NixOS) | `my.pkgs.nixLdLibraries` channel, handed to `programs.nix-ld.libraries` | `modules/nixos/system/default.nix` |
 
 The tracked packages are whatever stacks contribute to `my.pkgs.npmGlobals`
 and `my.pkgs.bunGlobals` (for example `modules/stacks/ai-agents/default.nix`),

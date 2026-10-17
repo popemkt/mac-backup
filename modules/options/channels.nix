@@ -49,6 +49,12 @@
     description = "Codex plugins (plugin@marketplace) contributed by stacks.";
     installedBy = "executor";
   };
+  # Attribute names in nixpkgs. NixOS's system module hands them to nix-ld,
+  # so prebuilt binaries (npm, browser downloads) find them at run time.
+  nixLdLibraries = {
+    description = "nixpkgs attribute names of shared libraries nix-ld exposes to prebuilt binaries, contributed by stacks.";
+    installedBy = "executor";
+  };
   # Each uv tool needs its own build environment, extras, and --with
   # resolution, so its owning module installs it.
   uvTools = {

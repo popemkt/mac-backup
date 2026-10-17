@@ -22,8 +22,12 @@
     ];
 
     # Prebuilt binaries (npm, curl installers, language toolchains) expect a
-    # conventional dynamic loader; nix-ld provides one.
-    programs.nix-ld.enable = true;
+    # conventional dynamic loader; nix-ld provides one, with the libraries
+    # stacks contribute to the my.pkgs.nixLdLibraries channel.
+    programs.nix-ld = {
+      enable = true;
+      libraries = map (name: pkgs.${name}) (lib.unique config.my.pkgs.nixLdLibraries);
+    };
 
     # The login shell Home Manager configures for everyone.
     programs.zsh.enable = true;
