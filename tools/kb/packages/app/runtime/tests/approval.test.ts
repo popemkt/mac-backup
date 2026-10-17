@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { Effect } from "effect";
 import { z } from "zod";
 import { DecidedEntrySchema, type ActionInvocation } from "@kb/contracts";
+import { CODE_IDS } from "@kb/code";
 import { DECISION_OPTION_IDS, SYSTEM_IDS } from "@kb/model";
 import { codeDigest } from "@kb/sandbox";
 import { invoke } from "../src/invoke.ts";
@@ -30,6 +31,16 @@ const remove = (id: string, rest: Partial<ActionInvocation>): ActionInvocation =
 const mint = (id: string, rest: Partial<ActionInvocation>): ActionInvocation => ({
   id: "node.add",
   input: { id, text: "badges", tags: ["script"] },
+  ...rest,
+});
+
+/** Name the script `s.trusted` on the board `n.board`, as `rest` says who. */
+const attach = (rest: Partial<ActionInvocation>): ActionInvocation => ({
+  id: "node.update",
+  input: {
+    id: "n.board",
+    setProps: [{ field: CODE_IDS.scriptsField, value: { t: "ref", v: "s.trusted" } }],
+  },
   ...rest,
 });
 
@@ -103,6 +114,39 @@ describe("approval policies in the invoke core", () => {
     expect(await invoke(ctx, mint("s.person", { actor: "human" }))).toMatchObject({
       status: "succeeded",
     });
+  });
+
+  test("attaching a script is configuration: trusted code acts only where a person chose", async () => {
+    const ctx = await openKb(root);
+    expect(await invoke(ctx, mint("s.trusted", { actor: "human" }))).toMatchObject({
+      status: "succeeded",
+    });
+    await invoke(ctx, {
+      id: "node.add",
+      input: { id: "n.board", text: "Board", tags: ["canvas"] },
+      actor: "human",
+    });
+    expect(await invoke(ctx, attach({ actor: "agent" }))).toMatchObject({
+      status: "failed",
+      code: "approval_required",
+      details: { writes: "configuration" },
+    });
+    expect(await invoke(ctx, attach({ actor: "script" }))).toMatchObject({
+      status: "failed",
+      details: { writes: "configuration" },
+    });
+    expect(await invoke(ctx, attach({ actor: "agent", approved: true }))).toMatchObject({
+      status: "succeeded",
+    });
+    // Taking it off again is configuration too.
+    expect(
+      await invoke(ctx, {
+        id: "node.update",
+        input: { id: "n.board", unsetProps: [{ field: CODE_IDS.scriptsField }] },
+        actor: "agent",
+      }),
+    ).toMatchObject({ status: "failed", code: "approval_required" });
+    expect(await invoke(ctx, attach({ actor: "human" }))).toMatchObject({ status: "succeeded" });
   });
 
   test("only a person trusts code, by the digest of what runs, and never in the graph", async () => {

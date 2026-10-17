@@ -3642,10 +3642,14 @@ system, one runner, one trust.
   (`sys.f.code`, `sys.f.code.grant`); a node names its scripts in
   `sys.f.scripts` (ref, many), read by `scriptIdsOf` as `hostViewIds` reads
   `sys.f.views`, and `scriptOf` reads a script's code and grant
-  (`@kb/code` `script.ts`). The `#script` tag configures the code family
-  (`sys.f.configures`), so minting, editing or untagging a script is
-  configuration (Action registry → Approval): a person writes one freely,
-  an agent only with the owner's approval, a script never.
+  (`@kb/code` `script.ts`). The `#script` tag and `sys.f.scripts` both
+  configure the code family (`sys.f.configures`), so minting, editing or
+  untagging a script, and attaching one to a node or taking it off, is
+  configuration (Action registry → Approval): a person writes it freely, an
+  agent only with the owner's approval, a script never. Attaching is gated
+  as writing is because trust is per digest: a script a person trusted for
+  one board would otherwise act, with its grant, on any node an agent
+  attached it to.
 - **A view declares what it tells a script** (`ViewKey.events`) and emits
   it on a channel (`createViewEvents`, `@kb/ui-sdk`); it mounts
   `ViewScripts` for the nodes it shows. The family that keeps scripts
