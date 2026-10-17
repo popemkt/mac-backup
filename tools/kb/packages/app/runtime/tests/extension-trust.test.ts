@@ -209,6 +209,52 @@ describe("a root's repository extensions", () => {
     });
 
     test.each([
+      [
+        "as JavaScript with JSX, as Bun reads it",
+        `/** @jsxRuntime classic */\n/** @jsx h */\nimport CARRIED;\nconst h = () => null;\nexport const el = <div />;\n`,
+        "no person approved",
+      ],
+      [
+        "unreadable, so what it loads is not known",
+        `import CARRIED;\nexport const = ;\n`,
+        "cannot be read",
+      ],
+    ])("a file outside the root read %s refuses the extension", async (_how, outer, why) => {
+      const mark = join(root, "ran");
+      await writeFile(join(root, "carried.ts"), helper(mark));
+      const elsewhere = await mkdtemp(join(tmpdir(), "kb-outside-"));
+      await writeFile(
+        join(elsewhere, "outer.js"),
+        outer.replace("CARRIED", JSON.stringify(join(root, "carried.ts"))),
+      );
+      await writeTrustedExtension(
+        root,
+        "hello.ts",
+        extension(`import ${JSON.stringify(join(elsewhere, "outer.js"))};`),
+      );
+      const { failures } = await registry();
+      expect(failures).toEqual([{ file: "hello.ts", error: expect.stringContaining(why) }]);
+      expect(existsSync(mark)).toBe(false);
+      await rm(elsewhere, { recursive: true, force: true });
+    });
+
+    test("a root whose path holds a # is still closed over: no part of a path is taken for a query", async () => {
+      const hashed = join(root, "kb#root");
+      const mark = join(hashed, "ran");
+      await mkdir(join(hashed, ".kb", "extensions"), { recursive: true });
+      await writeFile(join(hashed, "carried.ts"), helper(mark));
+      await writeTrustedExtension(hashed, "hello.ts", extension(`import "../../carried.ts";`));
+      resetRegistryCache();
+      const { failures } = await Effect.runPromise(
+        registryFor(hashed).pipe(Effect.provide(bunFileSystemLayer)),
+      );
+      expect(failures).toEqual([
+        { file: "hello.ts", error: expect.stringContaining("no person approved") },
+      ]);
+      expect(existsSync(mark)).toBe(false);
+    });
+
+    test.each([
       ["by its absolute path", (outside: string) => outside],
       ["through a link the root carries", (_outside: string, link: string) => link],
     ])("code outside the root, imported %s, is not the root's: it loads", async (_how, pick) => {

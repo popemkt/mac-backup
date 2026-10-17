@@ -58,21 +58,32 @@ interface TrustedFile {
   readonly digest: string;
 }
 
-/** How Bun reads a module, by its file's extension; one it does not read as code imports nothing. */
-const LOADERS: Readonly<Record<string, "ts" | "tsx" | "js" | "jsx">> = {
+/**
+ * The loader Bun reads a module with, by its file's extension: TypeScript,
+ * or JavaScript with JSX, which is how Bun reads every JavaScript file, and
+ * a file with none is read as JavaScript too. A file of another extension
+ * (data, a stylesheet, a native addon) is not read as code, and imports
+ * nothing.
+ */
+const LOADERS: Readonly<Record<string, "ts" | "tsx" | "jsx">> = {
   ".ts": "ts",
   ".mts": "ts",
   ".cts": "ts",
   ".tsx": "tsx",
-  ".js": "js",
-  ".mjs": "js",
-  ".cjs": "js",
+  ".js": "jsx",
+  ".mjs": "jsx",
+  ".cjs": "jsx",
   ".jsx": "jsx",
+  "": "jsx",
 };
 const transpilers = new Map<string, Bun.Transpiler>();
 
-/** What `source`, the module at `path`, imports as literals; none when Bun does not read it as code. */
-function literalImports(source: string, path: string): readonly string[] {
+/**
+ * What `source`, the module at `path`, imports as literals: none when Bun
+ * does not read it as code, and null when it is code whose imports cannot
+ * be read, which the closure then refuses rather than take for none.
+ */
+function literalImports(source: string, path: string): readonly string[] | null {
   const loader = LOADERS[extname(path)];
   if (loader === undefined) return [];
   let transpiler = transpilers.get(loader);
@@ -83,18 +94,26 @@ function literalImports(source: string, path: string): readonly string[] {
   try {
     return transpiler.scanImports(source).map(({ path: specifier }) => specifier);
   } catch {
-    // Bun cannot read it, so it cannot load it either.
-    return [];
+    return null;
   }
 }
 
-/** Where Bun resolves `specifier` from `dir`: a real path's file, a built-in's name, or null. */
+/**
+ * The file Bun resolves `specifier` to from `dir`, a built-in's name, or
+ * null. Bun reads a `?` in a specifier as the start of a query, which it
+ * carries onto what it resolves, and every other character as the path's
+ * (`#` included); so the query the specifier carries comes off the end,
+ * and nothing else is cut.
+ */
 function resolved(specifier: string, dir: string): string | null {
+  let found: string;
   try {
-    return Bun.resolveSync(specifier, dir).replace(/[?#].*$/, "");
+    found = Bun.resolveSync(specifier, dir);
   } catch {
     return null;
   }
+  const query = specifier.includes("?") ? specifier.slice(specifier.indexOf("?")) : "";
+  return query !== "" && found.endsWith(query) ? found.slice(0, -query.length) : found;
 }
 
 /**
@@ -118,7 +137,11 @@ const rootCarriedImport = Effect.fn("kb.rootCarriedImport")(function* (
   const pending = [{ from: path, source }];
   for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
     const { from } = next;
-    for (const specifier of literalImports(next.source, from)) {
+    const imports = literalImports(next.source, from);
+    if (imports === null) {
+      return `loads ${from}, whose imports cannot be read, so what it loads is not known`;
+    }
+    for (const specifier of imports) {
       const file = resolved(specifier, dirname(from));
       if (file === null) {
         if (from === path) return `imports ${specifier}, which does not resolve from it`;

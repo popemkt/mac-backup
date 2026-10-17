@@ -2159,11 +2159,15 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   statement, a re-export, an `import()`, a `require`) is resolved as Bun
   resolves it from the file, path aliases and import maps the root
   configures included (`rootCarriedImport`), and so is each import of every
-  file that resolves to, at any depth, outside the root as well. One that
+  file that resolves to, at any depth, outside the root as well, each read
+  with the loader Bun reads it with (JavaScript with JSX for every
+  JavaScript file), and with only the query a specifier carries taken off
+  what it resolves to. One that
   resolves into the root (another file, a package in the root's own
   `node_modules`, a link to either, or a file the root carries that code
   outside it imports) refuses the file before anything is imported, and so
-  does an import of the extension's own that does not resolve. Where code
+  do an import of the extension's own that does not resolve and a file
+  whose imports cannot be read, since what it loads is then not known. Where code
   is, is its real path: a file outside the root, named by its absolute
   path or reached through a link the root carries, is not the root's, and
   loads as an installed package does, since a root someone else wrote
