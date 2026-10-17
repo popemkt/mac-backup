@@ -2634,7 +2634,9 @@ kb ships three:
   (`chooseDesignSystem`). The palette's _Switch design system_ command
   (`sys.cmd.switch-design-system`) steps the setting through the
   contributed systems from the one shown, and wraps. Core's node shows the
-  same field as a field row, as it shows any setting.
+  same field as a field row, as it shows any setting. The swatches are a
+  picker of Preferences' own, where the backdrop's field is drawn by the
+  field editor (gap 01M54PYE750E2GNTTKAVRK7GCK).
 - **The contract** (`app/ui/src/design-system-point.contract.test.tsx`)
   runs over every contributed design system: core's default, the page's
   families' and one from a test plugin, whose sheet restates layer 1 under

@@ -124,6 +124,7 @@ export const DEFAULT_LINK_STYLE: LensLinkStyle = "straight";
 export const LENS_LAYOUTS: readonly LensLayout[] = ["force", "radial", "hierarchical", "grid"];
 export const LENS_LABEL_DENSITIES: readonly LensLabelDensity[] = ["low", "medium", "high"];
 /** The option sets' keys, in their declared order (the settings offer them so). */
+// GAP [[01M54PYCJ6FGCT8SGZDZPVQW7Y]] the graph's themes are a closed set, not a declared kind a family contributes
 export const LENS_THEMES = Object.keys(GRAPH_THEME_VALUES).filter(
   (key): key is LensTheme => key in GRAPH_THEME_VALUES,
 );

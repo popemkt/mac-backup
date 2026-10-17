@@ -279,6 +279,7 @@ const CUBE: GraphTheme = {
 };
 
 /** Keyed by the option set, so a new theme fails the build until it is stated. */
+// GAP [[01M54PYCJ6FGCT8SGZDZPVQW7Y]] a closed Record, not contributions to a graph-theme point
 export const GRAPH_THEMES: Readonly<Record<LensTheme, GraphTheme>> = {
   matte: MATTE,
   cel: CEL,

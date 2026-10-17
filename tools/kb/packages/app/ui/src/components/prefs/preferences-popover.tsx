@@ -115,6 +115,7 @@ function ThemeRow() {
  * ink, accent, face, radius and border, in the current light or dark. The
  * name under it stays in the popover's face, so it reads as a label.
  */
+// GAP [[01M54PYE750E2GNTTKAVRK7GCK]] its own swatch picker for the field, not the field editor that draws the backdrop's
 function DesignSystemRow() {
   const systems = useContributions(DesignSystemPoint);
   const current = useDesignSystemStore((s) => s.painted);
