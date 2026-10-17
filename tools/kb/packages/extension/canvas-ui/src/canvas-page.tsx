@@ -47,6 +47,7 @@ import { CanvasOverlays } from "./canvas-overlays";
 import { CanvasShortcutsSheet } from "./canvas-shortcuts-sheet";
 import { CanvasStage } from "./canvas-stage";
 import { CanvasViewWidget } from "./canvas-view-widget";
+import { CanvasLaserLayer } from "./canvas-laser-layer";
 import { useCanvasCamera } from "./use-canvas-camera";
 import { useCanvasDoc } from "./use-canvas-doc";
 import { useCanvasPictures } from "./use-canvas-pictures";
@@ -732,6 +733,7 @@ export function CanvasPage({ canvasId, item: arrival, viewNode }: CanvasPageProp
           comments={comments}
         />
         <CanvasCommentPanel comments={comments} />
+        <CanvasLaserLayer stage={stageRef} on={presenting !== null} />
         <CanvasOverlays
           transforming={modal}
           scope={scope === null ? null : (byId.get(scope) ?? null)}

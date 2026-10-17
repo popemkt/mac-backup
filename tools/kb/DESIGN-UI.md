@@ -1292,7 +1292,10 @@ manipulation feel professional rather than merely functional.
   keys still come first); a bar where the selection toolbar stands names
   the frame and its place. It stands at a frame, not a place, so frames
   added or taken away elsewhere move no slide, and it ends when its frame
-  goes.
+  goes. While presenting, the pointer is a laser (`canvas-laser.ts`): it
+  leaves a trail over the stage that fades as it ages and is gone
+  `LASER_TRAIL_MS` after the pointer stops, in viewport pixels in either
+  projection; it takes no pointer and nothing of it is written.
 - **Edges are drawings** (the Logseq-whiteboards decision, unchanged): the
   record a drag makes is `connectItems`'s (`@kb/canvas`), the one an agent's
   `ext.canvas.connect` makes, by the ports the drag chose; a live
