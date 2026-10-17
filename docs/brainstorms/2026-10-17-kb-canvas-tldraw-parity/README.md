@@ -564,6 +564,14 @@ finding is verified against the code before it is fixed, on
 invoke core (`app/runtime/tests/script-reach.test.ts`). P14 comments wait
 for it, and its verb rides the bound it sets.
 
+Closed: all eleven fixed on `fix/review-round-5`. R5-1 to R5-4 bound a
+script at the commit, in what a canvas action reads, and through the calls
+an action makes (ce1f347b, on the walk and `referencesOf` of 11995925);
+R5-10 and R5-11 are proved through the real core (913431c8); R5-5 to R5-8
+(4d171578, on kb's one media rule, 710b1d89); R5-9 the press regions
+(32849cdc). With them, every invocation names its actor and the type
+requires it (4def229a, 35e073c8).
+
 | # | Severity | Finding | Fix |
 |---|---|---|---|
 | R5-1 | blocker | A script writes a ref onto a node outside its subject: the canvas verbs declare only `canvasId`, while `place` takes `make.nodeId` unchecked and `connect`'s `bind` writes onto the from item's node. | Bound every write a script's call commits, at the commit (`persistEffect`), the one place every write passes: what it writes or deletes, and every node a written node newly points at, must be the subject or under it. |
@@ -574,3 +582,6 @@ for it, and its verb rides the bound it sets.
 | R5-6 | minor | The SVG export's `escapeXml` passes control characters XML 1.0 forbids. | Drop them. |
 | R5-7 | minor | The diagram cap (`MAX_CARDS`) counts only a query's ids; a mermaid text is uncapped. | One cap on the spec, whichever parser made it, for boxes and links. |
 | R5-8 | minor | The SVG export writes an image's `file` as its `href` unchecked. | Only a kb asset path, http(s) or a `data:image` URL. |
+| R5-9 | major | The overlay mask covers item rects and edge lines only: a card's ports, a selected card's resize and rotate handles, an edge's label and the 3D gizmo are uncovered. | Everything a press reaches is a press region, read from where the pointer takes it: the 2D chrome's one geometry (`canvas-chrome`), declared per projection, and the gizmo's own picker meshes. Properties in 2D and 3D. |
+| R5-10 | major | S-4 not verified end to end: `codeFigure` relies on `CoreInvoke` as `read`. | A property through the real core: a code view whose grant names every write action has each refused as its page's run calls it, and the store is unchanged. |
+| R5-11 | minor | S-5 nested runs not proved end to end. | A `script.run` made through `CoreInvoke` while a script's call runs is that script's (R5-4), and the code family's policy denies it. |
