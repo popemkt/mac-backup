@@ -45,7 +45,7 @@ import {
   type ViewKey,
 } from "@kb/views";
 import { toast } from "./toast";
-import type { BackdropDirection, BackdropStrength } from "./theme";
+import type { BackdropDirection, BackdropStrength, SeedBackdrop } from "@kb/model";
 import type { OutlineNode } from "./types";
 
 /**
@@ -261,11 +261,11 @@ export interface BackdropProps {
 /**
  * A page-head backdrop: the ambience painted behind a page's head
  * (DESIGN-UI.md → Page-head backdrops). Every page head renders the chosen
- * one through one slot (`PageBackdrop`) and names none; Preferences lists
- * every contribution by its `label`.
+ * one through one slot (`PageBackdrop`) and names none. Its `key` is the
+ * backdrop its family declares, whose option node choosing it refers to.
  */
 export interface Backdrop {
-  readonly label: string;
+  readonly key: SeedBackdrop;
   readonly presentation: BackdropPresentation;
   readonly Component: ComponentType<BackdropProps>;
 }
@@ -273,19 +273,27 @@ export interface Backdrop {
 export const BackdropPoint = Point<Backdrop>()("ui.backdrops");
 
 /**
- * The backdrop `id` names among `backdrops`, by its id or one of its aliases;
- * the first contributed when it names none of them (unset, or a backdrop
- * whose plugin is not loaded). Null only when nothing is contributed.
+ * The backdrop its family declares as `key`, as its page plugin contributes
+ * it: under the key's local id, so in the family's namespace it answers to
+ * the declared id, as a view answers to its key (`provideView`).
+ */
+export function provideBackdrop(
+  key: SeedBackdrop,
+  backdrop: Omit<Backdrop, "key">,
+): ContributionEntry<Backdrop> {
+  return { id: key.id.slice(key.id.indexOf(".") + 1), value: { key, ...backdrop } };
+}
+
+/**
+ * The backdrop the declared id `id` names among `backdrops`; the first
+ * contributed when it names none of them (unset, or a backdrop whose plugin
+ * is not loaded). Null only when nothing is contributed.
  */
 export function chosenBackdrop(
   backdrops: readonly Contribution<Backdrop>[],
-  id: string,
+  id: string | null,
 ): Contribution<Backdrop> | null {
-  return (
-    backdrops.find((backdrop) => backdrop.id === id || backdrop.aliases.includes(id)) ??
-    backdrops[0] ??
-    null
-  );
+  return backdrops.find(({ value }) => value.key.id === id) ?? backdrops[0] ?? null;
 }
 
 /** One kernel per page: everything the UI shows is contributed to it. */

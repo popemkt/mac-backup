@@ -85,44 +85,32 @@ describe("loadPrefs", () => {
   it("parses valid values and rejects unknown ones", () => {
     expect(
       prefs.loadPrefs(
-        '{"theme":"dark","designSystem":"paper","width":"full","sidebarOpen":false,"headerBackdrop":"gradient"}',
+        '{"theme":"dark","designSystem":"paper","width":"full","sidebarOpen":false}',
         1280,
       ),
     ).toEqual({
       theme: "dark",
       designSystem: "paper",
-      headerBackdrop: "gradient",
-      backdropStrength: "subtle",
-      backdropDirection: "down",
       width: "full",
       sidebarOpen: false,
     });
-    expect(
-      prefs.loadPrefs(
-        '{"theme":"neon","designSystem":"comic","width":"wide","headerBackdrop":7}',
-        1280,
-      ),
-    ).toEqual({
-      ...prefs.DEFAULT_PREFS,
-      sidebarOpen: true,
-    });
+    expect(prefs.loadPrefs('{"theme":"neon","designSystem":"comic","width":"wide"}', 1280)).toEqual(
+      {
+        ...prefs.DEFAULT_PREFS,
+        sidebarOpen: true,
+      },
+    );
   });
 
-  it("validates backdrop presentation independently of other preferences", () => {
-    expect(
-      prefs.loadPrefs('{"theme":"dark","backdropStrength":"vivid","backdropDirection":"up"}', 1280),
-    ).toEqual({
-      ...prefs.DEFAULT_PREFS,
-      theme: "dark",
-      backdropStrength: "vivid",
-      backdropDirection: "up",
-    });
-    expect(
-      prefs.loadPrefs('{"theme":"dark","backdropStrength":2,"backdropDirection":"sideways"}', 1280),
-    ).toEqual({
-      ...prefs.DEFAULT_PREFS,
-      theme: "dark",
-    });
+  it("ignores the retired backdrop prefs: the backdrop is core's settings now", () => {
+    const loaded = prefs.loadPrefs(
+      '{"theme":"dark","headerBackdrop":"gradient","backdropStrength":"vivid","backdropDirection":"up"}',
+      1280,
+    );
+    expect(loaded).toEqual({ ...prefs.DEFAULT_PREFS, theme: "dark" });
+    for (const key of ["headerBackdrop", "backdropStrength", "backdropDirection"]) {
+      expect(key in loaded).toBe(false);
+    }
   });
 
   it("ignores a stale enabledPlugins key (the server switches extensions now)", () => {
@@ -171,17 +159,11 @@ describe("usePrefsStore", () => {
     prefs.usePrefsStore.getState().setTheme("dark");
     prefs.usePrefsStore.getState().setDesignSystem("terminal");
     prefs.usePrefsStore.getState().setWidth("full");
-    prefs.usePrefsStore.getState().setHeaderBackdrop("gradient");
-    prefs.usePrefsStore.getState().setBackdropStrength("soft");
-    prefs.usePrefsStore.getState().setBackdropDirection("up");
     prefs.usePrefsStore.getState().setSidebarOpen(false);
     const raw = (g.localStorage as Storage).getItem(prefs.PREFS_STORAGE_KEY);
     expect(JSON.parse(present(raw, "raw json"))).toEqual({
       theme: "dark",
       designSystem: "terminal",
-      headerBackdrop: "gradient",
-      backdropStrength: "soft",
-      backdropDirection: "up",
       width: "full",
       sidebarOpen: false,
     });

@@ -8,7 +8,7 @@
  */
 import { Context, Effect } from "effect";
 import { z } from "zod";
-import type { KbNode } from "@kb/model";
+import type { KbNode, SeedBackdrop } from "@kb/model";
 import type { FieldRefCarrier } from "@kb/query";
 import type { ViewKey } from "@kb/views";
 import { definePlugin, type Plugin } from "@kb/plugin";
@@ -42,6 +42,13 @@ export interface ExtensionDeclaration {
    * second provider, so the shell names no view.
    */
   readonly defaultView?: ViewKey<unknown>;
+  /**
+   * The page-head backdrops the family contributes (DESIGN-UI.md →
+   * Page-head backdrops), each by the id its page contribution answers to:
+   * the seed derives each one's option node under `sys.f.backdrop`, so
+   * choosing one is writing that field.
+   */
+  readonly backdrops?: readonly SeedBackdrop[];
   /**
    * The family's fields whose values carry references beyond `[[id]]`
    * tokens and ref values, each with how to read them: the reference

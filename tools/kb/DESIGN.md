@@ -2190,7 +2190,7 @@ end).
   | `@kb/<family>-<adapter>` | backend (shared when isomorphic) | actions, and adapters such as Vega or the Claude SDK                                                                                                  |
 
 - **A family declares itself once.** `defineExtension({name, label,
-optional?, seed?, views?, defaultView?, refCarriers?})` in `@kb/<family>` is the one home of its name
+optional?, seed?, views?, defaultView?, refCarriers?, backdrops?})` in `@kb/<family>` is the one home of its name
   and of whether it can be switched (`optional: {byDefault: "on" | "off"}`,
   its state in a store where no one has switched it), and, for the one
   family that provides it, of the default view type (View nodes):
@@ -2272,6 +2272,8 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     other nodes, and reads it with `ConfigSlots` (`decodeNodeConfig`), the
     mechanism its switch is read with (`familyOn`). There is no second
     registry of settings: which fields configure the agent is a query.
+    Core's node has settings too, seeded by core: the page-head backdrop,
+    its strength and its direction (DESIGN-UI.md → Page-head backdrops).
   - **A setting is written like any field.** `node.update`, the page's field
     rows and `kb set` write its values on the extension's node,
     though the node is `sys.*`, because the write rule
@@ -2374,6 +2376,10 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
   keep their spelling when their declaring package changes, so no store
   migrates and opening still never writes. A rename goes through an explicit
   action, never through open.
+- **Backdrops are declared as views are.** A family's `backdrops` keys
+  derive their option nodes under `sys.f.backdrop` in the fold, owned by
+  the family. Its page plugin contributes each one to `BackdropPoint`
+  under the same key ([DESIGN-UI → Page-head backdrops](DESIGN-UI.md#page-head-backdrops)).
 - **The view catalog is a point.** `ViewKeyPoint` (`kb.views`, in
   `@kb/contracts`) holds one `ViewDef<P> = {key, text?}` per view, keyed by
   view id. A family's shared plugin contributes the `views` its declaration

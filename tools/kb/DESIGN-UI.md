@@ -2587,23 +2587,35 @@ exist is a plugin point, and the kit names none of them.
 
 - **The point.** `BackdropPoint` (`ui.backdrops`, `@kb/ui-sdk`, beside
   `ViewPoint`, `DockPoint` and `OverlayPoint`) holds one `Backdrop` per
-  contribution: its `label`, its `presentation` and its `Component`. The
-  presentation is how a head frames it: the breathing room it reserves
-  above the title (`space`), its frame's `height`, bounded `maxWidth` and
-  vertical `offset`, the `directions` it can face (none for one with no
-  direction), and its `opacity` at each strength. The component receives
-  what the head knows (`BackdropProps`): its colour (the shown node's tag
-  colour, else the accent), the node it shows if any, the strength, the
-  direction and the opacity at that strength.
+  contribution: its `key`, its `presentation` and its `Component`.
+  - The key is the backdrop as its family declares it: an id
+    (`<family>.<local id>`) and a label. `provideBackdrop` contributes it
+    under the key's local id, so the contribution answers to the declared
+    id, as a view answers to its key.
+  - The presentation is how a head frames it: the breathing room it
+    reserves above the title (`space`), its frame's `height`, bounded
+    `maxWidth` and vertical `offset`, the `directions` it can face (none for
+    one with no direction), and its `opacity` at each strength.
+  - The component receives what the head knows (`BackdropProps`): its
+    colour (the shown node's tag colour, else the accent), the node it shows
+    if any, the strength, the direction and the opacity at that strength.
 - **One slot.** `PageBackdrop` (`@kb/ui-sdk`) is the one page-head slot.
   It frames the chosen backdrop by its presentation, behind the head's
   content, and renders nothing when nothing is contributed. Any page head
-  renders it with its colour and its node; the outline's home head and its
-  zoomed head are the heads that do today. A choice that names no loaded
-  backdrop shows the first contributed one (`chosenBackdrop`).
+  renders it with its colour and its node. The outline's home head and its
+  zoomed head are the heads that render it today; canvas and graph pages
+  have no head yet, so nothing renders it there
+  (gap 01M54CEKJJXNDPYNT55AR6KEV8).
+- **A backdrop is declared, and its option is derived.** A family lists its
+  backdrops' keys on its declaration (`backdrops`, beside `views`). The seed
+  fold derives one option node per key under `sys.f.backdrop`
+  (`backdropOptionId`), in declaration order and owned by the family, as it
+  derives view options under `sys.views` (DESIGN.md → Extension families).
+  A contribution whose key no declaration lists has no option, so it cannot
+  be chosen.
 - **kb's backdrops are a family's.** The `backdrops` family
-  (`@kb/backdrops`, `@kb/backdrops-ui`; optional, on by default)
-  contributes the two kb ships, the unicorn first:
+  (`@kb/backdrops`, `@kb/backdrops-ui`; optional, on by default) declares
+  and contributes the two kb ships, the unicorn first:
   - `backdrops.unicorn` is the Unicorn Studio homepage scene over the wash,
     in a taller frame that keeps its stars, feathered at its sides;
   - `backdrops.gradient` is the compact tag/accent wash alone, with no
@@ -2611,16 +2623,42 @@ exist is a plugin point, and the kit names none of them.
 
   They are page ambience, owned by no view family, so not by the outline,
   whose heads only render the slot.
-- **One picker.** Preferences lists every contribution by its label; there
-  is no second list of backdrops anywhere.
-- **The presentation controls** are shared by every backdrop: strength
-  (`subtle` default, `soft`, `vivid`) and direction (`down` default,
-  vertically inverted, or `up`; offered only for a backdrop that has
-  directions).
-- **The choice** is a device preference: `headerBackdrop` holds the chosen
-  backdrop's id (the bare ids a device stored before, `unicorn` and
-  `gradient`, are the family's aliases), and `backdropStrength` and
-  `backdropDirection` the controls.
+- **The choice is fields.** Which backdrop, its strength and its direction
+  are three settings of core's node (`sys.extension.core`), since the slot is
+  core's and names no backdrop. Core seeds the fields. Each field configures
+  core, takes one value, and is a ref to one of its own children:
+  - `sys.f.backdrop`: the declared backdrops' options;
+  - `sys.f.backdrop.strength`: `subtle`, `soft` or `vivid`;
+  - `sys.f.backdrop.direction`: `down` (vertically inverted) or `up`. A
+    backdrop with no directions ignores it.
+
+  The same fields on a node choose for that node's page. Each setting is read
+  from the node shown first, then from core's node (`backdropChoice` in
+  `@kb/model`, `usePageBackdrop` in `@kb/ui-sdk`).
+  - Where neither says, the head shows the first contributed backdrop,
+    `subtle`, facing `down`.
+  - A choice whose backdrop is not loaded shows the first contributed
+    backdrop (`chosenBackdrop`).
+  - Field rows hide `sys.*` fields, so no gesture writes a page's own choice
+    yet (gap 01M54CEM0Z5SMAS7KABS7QZ67C).
+  - The three settings were device preferences once (`headerBackdrop`,
+    `backdropStrength`, `backdropDirection`). A stale key is ignored on read
+    and dropped on the next write.
+- **One picker.** Preferences draws core's three settings with the page's
+  field editor, as it draws any field, so the backdrop field's own options
+  are the one list of backdrops. It draws direction only when the shown
+  backdrop has directions.
+- **The contract** (`app/ui/src/backdrop-point.contract.test.tsx`) runs over
+  every contributed backdrop: the page's families' backdrops and one from a
+  test plugin.
+  - Each backdrop answers to its declared id.
+  - The seed holds each backdrop's option, labelled, under the backdrop
+    field.
+  - The slot shows each backdrop, framed by its presentation, at every
+    strength and direction.
+  - Choosing a backdrop writes core's setting, and the row and the slot
+    then show it.
+  - A page's own node chooses for that page over core's.
 
 The exported scene and matching runtime are served from `public/vendor/unicorn`;
 its README records their sources. Preserve those upstream assets unmodified.

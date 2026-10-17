@@ -3,10 +3,6 @@ import { create } from "zustand";
 import {
   type Appearance,
   appearanceOf,
-  BACKDROP_DIRECTIONS,
-  BACKDROP_STRENGTHS,
-  type BackdropDirection,
-  type BackdropStrength,
   DEFAULT_DESIGN_SYSTEM,
   DESIGN_SYSTEM_IDS,
   type DesignSystemId,
@@ -37,7 +33,9 @@ export const PREFS_STORAGE_KEY = "kb-prefs";
  * an existing payload is ignored on read and dropped on the next write.
  *
  * `enabledPlugins` went the same way: whether an optional extension is on is
- * the server's decision now (`extension.switch`), not the device's.
+ * the server's decision now (`extension.switch`), not the device's. So did
+ * the page-head backdrop's three keys (`headerBackdrop`, `backdropStrength`,
+ * `backdropDirection`): they are core's settings now (`sys.f.backdrop*`).
  */
 
 /** Default open on large viewports; closed on narrow (first visit / missing key). */
@@ -53,9 +51,6 @@ export const DEFAULT_PREFS: Prefs = {
   theme: "system",
   designSystem: DEFAULT_DESIGN_SYSTEM,
   width: "centered",
-  headerBackdrop: "",
-  backdropStrength: "subtle",
-  backdropDirection: "down",
   sidebarOpen: true,
 };
 
@@ -67,10 +62,6 @@ const StoredPrefsSchema = z.object({
   theme: z.enum(THEMES).catch(DEFAULT_PREFS.theme),
   designSystem: z.enum(DESIGN_SYSTEM_IDS).catch(DEFAULT_PREFS.designSystem),
   width: z.enum(WIDTHS).catch(DEFAULT_PREFS.width),
-  // Any id: which backdrops exist is the page kernel's, and an id none answers to shows the first.
-  headerBackdrop: z.string().catch(DEFAULT_PREFS.headerBackdrop),
-  backdropStrength: z.enum(BACKDROP_STRENGTHS).catch(DEFAULT_PREFS.backdropStrength),
-  backdropDirection: z.enum(BACKDROP_DIRECTIONS).catch(DEFAULT_PREFS.backdropDirection),
   sidebarOpen: z.boolean().optional().catch(undefined),
 });
 
@@ -80,9 +71,6 @@ function prefsOf(source: Prefs): Prefs {
     theme: source.theme,
     designSystem: source.designSystem,
     width: source.width,
-    headerBackdrop: source.headerBackdrop,
-    backdropStrength: source.backdropStrength,
-    backdropDirection: source.backdropDirection,
     sidebarOpen: source.sidebarOpen,
   };
 }
@@ -154,9 +142,6 @@ interface PrefsState extends Prefs {
   setTheme: (theme: ThemePref) => void;
   setDesignSystem: (designSystem: DesignSystemId) => void;
   setWidth: (width: WidthPref) => void;
-  setHeaderBackdrop: (headerBackdrop: string) => void;
-  setBackdropStrength: (strength: BackdropStrength) => void;
-  setBackdropDirection: (direction: BackdropDirection) => void;
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
 }
@@ -185,9 +170,6 @@ export const usePrefsStore = create<PrefsState>((set, get) => {
       transitionTheme(() => commit({ designSystem }), changesAppearance);
     },
     setWidth: (width) => commit({ width }),
-    setHeaderBackdrop: (headerBackdrop) => commit({ headerBackdrop }),
-    setBackdropStrength: (backdropStrength) => commit({ backdropStrength }),
-    setBackdropDirection: (backdropDirection) => commit({ backdropDirection }),
     setSidebarOpen: (sidebarOpen) => commit({ sidebarOpen }),
     toggleSidebar: () => commit({ sidebarOpen: !get().sidebarOpen }),
   };

@@ -1,13 +1,15 @@
 /**
  * The bundled seed fold (DESIGN.md → Extension families → the seed is the
  * bundled fold): each declared view's option is derived from its key, in
- * declaration order, `sys.views` names the default view type, and an id two
- * declarations claim is refused.
+ * declaration order, as is each declared backdrop's under `sys.f.backdrop`,
+ * `sys.views` names the default view type, and an id two declarations claim
+ * is refused.
  */
 import { describe, expect, test } from "bun:test";
 import {
   SYSTEM_IDS,
   VIEW_FAMILY_VALUES,
+  backdropOptionId,
   defaultViewTypeOf,
   extensionNodeId,
   foldSeed,
@@ -40,6 +42,18 @@ describe("bundled seed", () => {
     }
   });
 
+  test("sys.f.backdrop lists one option per declared backdrop, labelled, in declaration order", () => {
+    const seed = new Map(bundledSeed(AT).map((node) => [node.id, node]));
+    const declared = BUNDLED_DECLARATIONS.flatMap((declaration) => declaration.backdrops ?? []);
+    expect(declared.length).toBeGreaterThan(0);
+    expect(seed.get(SYSTEM_IDS.backdropField)?.children).toEqual(
+      declared.map((backdrop) => backdropOptionId(backdrop.id)),
+    );
+    for (const backdrop of declared) {
+      expect(seed.get(backdropOptionId(backdrop.id))?.text).toBe(backdrop.label);
+    }
+  });
+
   test("sys.views names the default view type: a declared view's option, the outline's", () => {
     const seed = new Map(bundledSeed(AT).map((node) => [node.id, node]));
     const named = defaultViewTypeOf(seed.get(SYSTEM_IDS.viewsRoot)) ?? "none";
@@ -65,6 +79,7 @@ describe("bundled seed", () => {
       const owned = [
         ...(declaration.seed?.(AT) ?? []).map((node) => node.id),
         ...(declaration.views ?? []).map((view) => viewOptionId(view.key.id)),
+        ...(declaration.backdrops ?? []).map((backdrop) => backdropOptionId(backdrop.id)),
         extensionNodeId(declaration.name),
       ];
       expect(owned.map((id) => [id, owners.get(id)])).toEqual(

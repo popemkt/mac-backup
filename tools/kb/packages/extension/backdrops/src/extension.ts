@@ -2,19 +2,27 @@
  * The backdrops family's declaration and its shared plugin (DESIGN.md →
  * Extension families). It contributes the page-head backdrops kb ships
  * (DESIGN-UI.md → Page-head backdrops): ambience every page head can show,
- * owned by no view family, so neither by the outline. It seeds nothing and
- * declares no view: its shared plugin is its declaration's, empty on both
- * hosts, and its contributions are the browser half's. It is optional and on
- * by default; switched off, page heads show whatever other family
+ * owned by no view family, so neither by the outline. It declares its
+ * backdrops, so the seed derives each one's option under `sys.f.backdrop`,
+ * and contributes them in its browser half; it declares no view, so its
+ * shared plugin is its declaration's, empty on both hosts. It is optional
+ * and on by default; switched off, page heads show whatever other family
  * contributes a backdrop, or none.
  */
 import { declarationPlugin, defineExtension } from "@kb/contracts";
+import type { SeedBackdrop } from "@kb/model";
 import type { Plugin } from "@kb/plugin";
+
+/** The Unicorn Studio scene over the tag/accent wash: the one a head shows while none is chosen. */
+export const UNICORN_BACKDROP: SeedBackdrop = { id: "backdrops.unicorn", label: "Unicorn" };
+/** The compact tag/accent wash alone. */
+export const GRADIENT_BACKDROP: SeedBackdrop = { id: "backdrops.gradient", label: "Gradient" };
 
 export const backdropsExtension = defineExtension({
   name: "backdrops",
   label: "Backdrops",
   optional: { byDefault: "on" },
+  backdrops: [UNICORN_BACKDROP, GRADIENT_BACKDROP],
 });
 
 /** The backdrops family's shared plugin: its declaration's, on either host. */

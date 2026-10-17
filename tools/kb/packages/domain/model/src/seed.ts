@@ -6,7 +6,20 @@ import {
   DECISION_OPTION_IDS,
   approvalPolicyNode,
 } from "./approval-policy.ts";
-import { LEGACY_SEED_RENAMES, SYSTEM_IDS, type KbNode, type NodeId, nowIso } from "./model.ts";
+import {
+  BACKDROP_DIRECTIONS,
+  BACKDROP_DIRECTION_OPTION_IDS,
+  BACKDROP_STRENGTHS,
+  BACKDROP_STRENGTH_OPTION_IDS,
+} from "./backdrop.ts";
+import {
+  LEGACY_SEED_RENAMES,
+  SYSTEM_IDS,
+  extensionNodeId,
+  type KbNode,
+  type NodeId,
+  nowIso,
+} from "./model.ts";
 import {
   FIELD_TYPES,
   FIELD_TYPE_OPTION_IDS,
@@ -526,6 +539,32 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     },
   };
 
+  /*
+   * The page head's backdrop (DESIGN-UI.md → Page-head backdrops): settings
+   * of core's node, since the slot is core's. Each is an option set, so each
+   * is its field's children. Which backdrops there are is not core's to
+   * list: each option is derived from a declared backdrop when the seed is
+   * folded ({@link foldSeed}), so the field is seeded with none.
+   */
+  const configuresCore: KbNode["props"] = {
+    [SYSTEM_IDS.configuresField]: [{ t: "ref", v: extensionNodeId("core") }],
+  };
+  const backdropField = singleField(SYSTEM_IDS.backdropField, "backdrop", "ref", configuresCore);
+  const strengthOptions = BACKDROP_STRENGTHS.map((value) =>
+    mk(BACKDROP_STRENGTH_OPTION_IDS[value], value),
+  );
+  const backdropStrengthField: KbNode = {
+    ...singleField(SYSTEM_IDS.backdropStrengthField, "backdrop.strength", "ref", configuresCore),
+    children: strengthOptions.map((option) => option.id),
+  };
+  const directionOptions = BACKDROP_DIRECTIONS.map((value) =>
+    mk(BACKDROP_DIRECTION_OPTION_IDS[value], value),
+  );
+  const backdropDirectionField: KbNode = {
+    ...singleField(SYSTEM_IDS.backdropDirectionField, "backdrop.direction", "ref", configuresCore),
+    children: directionOptions.map((option) => option.id),
+  };
+
   return [
     field,
     tag,
@@ -587,6 +626,11 @@ export function systemSeedNodes(at: string = nowIso()): KbNode[] {
     extensionsRoot,
     extensionEnabledField,
     configuresField,
+    backdropField,
+    backdropStrengthField,
+    ...strengthOptions,
+    backdropDirectionField,
+    ...directionOptions,
   ];
 }
 

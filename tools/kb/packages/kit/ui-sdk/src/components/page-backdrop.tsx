@@ -1,19 +1,17 @@
-import { usePrefs } from "../hooks";
-import { BackdropPoint, chosenBackdrop, useContributions } from "../lib/plugins";
+import { usePageBackdrop } from "../hooks";
 import type { OutlineNode } from "../lib/types";
 
 /**
  * The one page-head slot (DESIGN-UI.md → Page-head backdrops): the chosen
  * backdrop, framed by its presentation, painted behind the head's content.
  * Every page head renders this, with its colour and the node it shows, and
- * names no backdrop; with none contributed it renders nothing.
+ * names no backdrop; with none contributed it renders nothing. Which one,
+ * how strong and which way are settings (`usePageBackdrop`): the node's own,
+ * then core's. The outline's heads render it; canvas and graph pages have
+ * no head yet, so nothing renders it there. GAP [[01M54CEKJJXNDPYNT55AR6KEV8]]
  */
 export function PageBackdrop({ color, node }: { color: string; node?: OutlineNode }) {
-  const backdrops = useContributions(BackdropPoint);
-  const choice = usePrefs((prefs) => prefs.headerBackdrop);
-  const strength = usePrefs((prefs) => prefs.backdropStrength);
-  const direction = usePrefs((prefs) => prefs.backdropDirection);
-  const chosen = chosenBackdrop(backdrops, choice);
+  const { backdrop: chosen, strength, direction } = usePageBackdrop(node);
   if (chosen === null) return null;
   const { presentation, Component } = chosen.value;
   const opacity = presentation.opacity[strength];

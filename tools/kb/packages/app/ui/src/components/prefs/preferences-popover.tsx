@@ -1,7 +1,5 @@
+import { extensionNodeId, SYSTEM_IDS } from "@kb/model";
 import {
-  BackdropPoint,
-  BACKDROP_STRENGTHS,
-  chosenBackdrop,
   cn,
   DESIGN_SYSTEMS,
   type EnumOption,
@@ -11,9 +9,12 @@ import {
   POPOVER_VALUE_CLASS,
   PopoverShell,
   PrefFieldRow,
+  type PropValue,
   THEME_GLYPHS,
   type ThemePref,
-  useContributions,
+  useFieldEditor,
+  useGraphRead,
+  usePageBackdrop,
   type WidthPref,
 } from "@kb/ui-sdk";
 import { useEffect, useRef } from "react";
@@ -73,9 +74,7 @@ export function PreferencesPopover({
       <ThemeRow />
       <DesignSystemRow />
       <WidthRow />
-      <HeaderBackdropRow />
-      <BackdropStrengthRow />
-      <BackdropDirectionRow />
+      <BackdropRows />
       {switches.length > 0 ? (
         <section aria-label="plugins">
           <h3 className="px-1.5 pb-1 pt-2 text-meta uppercase tracking-wide text-foreground/30">
@@ -174,56 +173,41 @@ function WidthRow() {
   );
 }
 
-/** The one backdrop picker: every backdrop contributed to `BackdropPoint`, by its label. */
-function HeaderBackdropRow() {
-  const backdrops = useContributions(BackdropPoint);
-  const choice = usePrefsStore((s) => s.headerBackdrop);
-  const setBackdrop = usePrefsStore((s) => s.setHeaderBackdrop);
-  const chosen = chosenBackdrop(backdrops, choice);
-  if (chosen === null) return null;
-  return (
-    <PrefFieldRow icon={SwatchesIcon} label="header">
-      <EnumSelect
-        className={POPOVER_VALUE_CLASS}
-        value={chosen.id}
-        options={backdrops.map(({ id, value }) => ({ value: id, label: value.label }))}
-        onChange={setBackdrop}
-      />
-    </PrefFieldRow>
-  );
-}
+const CORE_NODE = extensionNodeId("core");
+const NONE: PropValue[] = [];
 
-function BackdropStrengthRow() {
-  const strength = usePrefsStore((s) => s.backdropStrength);
-  const setStrength = usePrefsStore((s) => s.setBackdropStrength);
-  return (
-    <PrefFieldRow icon={SwatchesIcon} label="strength">
-      <EnumSelect
-        className={POPOVER_VALUE_CLASS}
-        value={strength}
-        options={BACKDROP_STRENGTHS.map((value) => ({ value, label: value }))}
-        onChange={setStrength}
-      />
-    </PrefFieldRow>
+/**
+ * The page-head backdrop, as core's settings (DESIGN-UI.md → Page-head
+ * backdrops): which one, how strong and which way, each an option field
+ * drawn with the page's field editor, as any field is drawn. The backdrops
+ * are the backdrop field's options, one per declared backdrop, so the
+ * field's own picker is the one list of them. The direction is drawn only
+ * where the backdrop shown faces a way.
+ */
+function BackdropRows() {
+  const { backdrop } = usePageBackdrop();
+  const graph = useGraphRead();
+  const Field = useFieldEditor();
+  const core = graph.outline.get(CORE_NODE);
+  if (backdrop === null || core === undefined) return null;
+  const setting = (fieldId: string, label: string) => (
+    <Field
+      nodeId={CORE_NODE}
+      fieldId={fieldId}
+      label={label}
+      values={core.props[fieldId] ?? NONE}
+      context={graph}
+      depth={-1}
+    />
   );
-}
-
-function BackdropDirectionRow() {
-  const direction = usePrefsStore((s) => s.backdropDirection);
-  const setDirection = usePrefsStore((s) => s.setBackdropDirection);
-  const backdrops = useContributions(BackdropPoint);
-  const choice = usePrefsStore((s) => s.headerBackdrop);
-  const directions = chosenBackdrop(backdrops, choice)?.value.presentation.directions ?? [];
-  if (directions.length === 0) return null;
   return (
-    <PrefFieldRow icon={SwatchesIcon} label="direction">
-      <EnumSelect
-        className={POPOVER_VALUE_CLASS}
-        value={direction}
-        options={directions.map((value) => ({ value, label: value }))}
-        onChange={setDirection}
-      />
-    </PrefFieldRow>
+    <section aria-label="backdrop">
+      {setting(SYSTEM_IDS.backdropField, "backdrop")}
+      {setting(SYSTEM_IDS.backdropStrengthField, "strength")}
+      {backdrop.value.presentation.directions.length > 0
+        ? setting(SYSTEM_IDS.backdropDirectionField, "direction")
+        : null}
+    </section>
   );
 }
 

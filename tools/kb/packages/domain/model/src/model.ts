@@ -284,6 +284,14 @@ export const SYSTEM_IDS = {
    * them as its configuration.
    */
   configuresField: "sys.f.configures",
+  /**
+   * A page head's backdrop (`backdrop.ts`): which one, how strong and which
+   * way it faces, each a ref to one of its field's children.
+   * Settings of core's node, and on any node, of that node's page.
+   */
+  backdropField: "sys.f.backdrop",
+  backdropStrengthField: "sys.f.backdrop.strength",
+  backdropDirectionField: "sys.f.backdrop.direction",
 } as const;
 
 /**

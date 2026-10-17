@@ -2,10 +2,12 @@
  * The bundled fold (DESIGN.md → Extension families → the seed is the bundled
  * fold): every declaration's seed nodes, the node each declaration derives
  * under `sys.extensions`, the option node each declared view derives under
- * `sys.views`, and the default view type its one provider declares, folded
+ * `sys.views`, the option node each declared backdrop derives under
+ * `sys.f.backdrop`, and the default view type its one provider declares, folded
  * into the seed a store is opened with, together with which declaration
  * each folded node came from.
  */
+import { backdropOptionId, type SeedBackdrop } from "./backdrop.ts";
 import { SYSTEM_IDS, extensionNodeId, type KbNode, type NodeId, nowIso } from "./model.ts";
 import { VIEW_FAMILY_VALUES, viewOptionId, type ViewFamily } from "./view-node.ts";
 
@@ -32,6 +34,8 @@ export interface SeedSource {
   readonly label: string;
   readonly seed?: (at: string) => readonly KbNode[];
   readonly views?: readonly { readonly key: SeedView }[];
+  /** The page-head backdrops it contributes; the fold derives each one's option node. */
+  readonly backdrops?: readonly SeedBackdrop[];
   /**
    * The view type a node that names no view opens in: one of this source's
    * own `views`, by its key, so it selects from the list and names nothing
@@ -78,6 +82,18 @@ function viewOptionNode(view: SeedView, at: string): KbNode {
   };
 }
 
+/** The option node that names `backdrop` under `sys.f.backdrop`. */
+function backdropOptionNode(backdrop: SeedBackdrop, at: string): KbNode {
+  return {
+    id: backdropOptionId(backdrop.id),
+    text: backdrop.label,
+    props: {},
+    children: [],
+    createdAt: at,
+    updatedAt: at,
+  };
+}
+
 /**
  * A source's own node, `sys.extension.<name>`, as the fold derives it: named
  * by its label and holding nothing, so an optional family's switch reads as
@@ -115,8 +131,8 @@ function fileUnder(nodes: readonly KbNode[], rootId: string, derived: readonly K
 /**
  * One fold, read two ways: the seed a store is opened with, and its
  * provenance, the name of the source each of those nodes came from. A
- * source owns its seed nodes, the option node of each view it declares and
- * its own node; the list nodes the derived ones are filed under stay their
+ * source owns its seed nodes, the option node of each view and each
+ * backdrop it declares, and its own node; the list nodes the derived ones are filed under stay their
  * declarer's. The owner is known only here, where the fold already proves
  * each id has exactly one, so nothing else keeps a second copy of it.
  */
@@ -129,7 +145,8 @@ export interface FoldedSeed {
  * The seed a store is opened with: every source's nodes, in source order;
  * every source's own node, a child of `sys.extensions` in the same order;
  * and every source's views as option nodes, children of `sys.views` in the
- * same order, with `sys.views` naming the default view type its one
+ * same order; every source's backdrops as option nodes, children of
+ * `sys.f.backdrop` in the same order; with `sys.views` naming the default view type its one
  * provider declares (`defaultViewProps`). Each derived node is placed right
  * after its list. Each node's owner comes with it ({@link FoldedSeed}).
  * Pure data: it opens nothing, and it throws on an id two sources declare,
@@ -140,13 +157,18 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
     name: source.name,
     seed: source.seed?.(at) ?? [],
     options: (source.views ?? []).map((view) => viewOptionNode(view.key, at)),
+    backdrops: (source.backdrops ?? []).map((backdrop) => backdropOptionNode(backdrop, at)),
     own: extensionNode(source, at),
   }));
   const folded = fileUnder(
     fileUnder(
-      parts.flatMap((part) => part.seed),
-      SYSTEM_IDS.viewsRoot,
-      parts.flatMap((part) => part.options),
+      fileUnder(
+        parts.flatMap((part) => part.seed),
+        SYSTEM_IDS.viewsRoot,
+        parts.flatMap((part) => part.options),
+      ),
+      SYSTEM_IDS.backdropField,
+      parts.flatMap((part) => part.backdrops),
     ),
     SYSTEM_IDS.extensionsRoot,
     parts.map((part) => part.own),
@@ -165,7 +187,9 @@ export function foldSeed(sources: readonly SeedSource[], at: string = nowIso()):
     ),
     owners: new Map(
       parts.flatMap((part) =>
-        [...part.seed, ...part.options, part.own].map((node) => [node.id, part.name] as const),
+        [...part.seed, ...part.options, ...part.backdrops, part.own].map(
+          (node) => [node.id, part.name] as const,
+        ),
       ),
     ),
   };

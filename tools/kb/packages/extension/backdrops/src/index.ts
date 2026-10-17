@@ -4,4 +4,9 @@
  * both hosts build their entries from. The backdrops themselves are page
  * ambience, so they live in the browser half, `@kb/backdrops-ui`.
  */
-export { backdropsExtension, backdropsPlugin } from "./extension.ts";
+export {
+  GRADIENT_BACKDROP,
+  UNICORN_BACKDROP,
+  backdropsExtension,
+  backdropsPlugin,
+} from "./extension.ts";

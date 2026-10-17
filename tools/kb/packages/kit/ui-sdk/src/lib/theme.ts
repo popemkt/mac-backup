@@ -10,16 +10,6 @@ export const WIDTHS = ["centered", "full"] as const;
 export type WidthPref = (typeof WIDTHS)[number];
 
 /**
- * The presentation controls every page-head backdrop answers to
- * (`BackdropPoint`): how strong it is, and which way it faces. Which
- * backdrops exist is the point's, never a list here.
- */
-export const BACKDROP_STRENGTHS = ["subtle", "soft", "vivid"] as const;
-export type BackdropStrength = (typeof BACKDROP_STRENGTHS)[number];
-export const BACKDROP_DIRECTIONS = ["down", "up"] as const;
-export type BackdropDirection = (typeof BACKDROP_DIRECTIONS)[number];
-
-/**
  * The design systems (DESIGN-UI.md → Design tokens → Design systems), in
  * picker order, the default first. Each id other than the default names one
  * stylesheet, `design-systems/<id>.css`, whose blocks override layer 1 under
@@ -79,10 +69,12 @@ export interface Prefs {
    */
   designSystem: DesignSystemId;
   width: WidthPref;
-  /** The chosen page-head backdrop, by its id in `BackdropPoint`; empty, the first contributed. */
-  headerBackdrop: string;
-  backdropStrength: BackdropStrength;
-  backdropDirection: BackdropDirection;
+  /*
+   * The page-head backdrop, its strength and its direction were prefs here
+   * (`headerBackdrop`, `backdropStrength`, `backdropDirection`). They are
+   * core's settings now (DESIGN-UI.md → Page-head backdrops), so a stale key
+   * is ignored on read and dropped on the next write.
+   */
   /** Tana-style left rail. Absent in storage → viewport default (≥1024 open). */
   sidebarOpen: boolean;
 }

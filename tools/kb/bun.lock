@@ -463,6 +463,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/contracts": "workspace:*",
+        "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
       },
       "devDependencies": {
@@ -474,6 +475,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@kb/backdrops": "workspace:*",
+        "@kb/model": "workspace:*",
         "@kb/plugin": "workspace:*",
         "@kb/ui-sdk": "workspace:*",
         "effect": "catalog:",

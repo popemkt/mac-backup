@@ -164,6 +164,18 @@ export {
 } from "./schema-seam.ts";
 export type { ActionSchema } from "./schema-seam.ts";
 export {
+  BACKDROP_DIRECTIONS,
+  BACKDROP_DIRECTION_OPTION_IDS,
+  BACKDROP_STRENGTHS,
+  BACKDROP_STRENGTH_OPTION_IDS,
+  backdropChoice,
+  backdropOptionId,
+  type BackdropChoice,
+  type SeedBackdrop,
+  type BackdropDirection,
+  type BackdropStrength,
+} from "./backdrop.ts";
+export {
   ensureSystemSeed,
   seededCommand,
   seededField,

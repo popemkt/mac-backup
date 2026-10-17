@@ -65,9 +65,6 @@ const PREFS: Prefs = {
   theme: "light",
   designSystem: DEFAULT_DESIGN_SYSTEM,
   width: "centered",
-  headerBackdrop: "",
-  backdropStrength: "subtle",
-  backdropDirection: "down",
   sidebarOpen: true,
 };
 /** The graph state this host stands at: home, unscoped, with no replica of its own. */

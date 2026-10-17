@@ -5,6 +5,12 @@
  */
 import { useContext, useMemo, useSyncExternalStore } from "react";
 import type { WireNode } from "@kb/contracts";
+import {
+  backdropChoice,
+  extensionNodeId,
+  type BackdropDirection,
+  type BackdropStrength,
+} from "@kb/model";
 import type { NodeTextHostBinding } from "./components/node-text-host";
 import { useNodeTextBindingThrough } from "./components/node-text-port";
 import type { KbIndex } from "./query";
@@ -20,7 +26,15 @@ import type { Appearance, Prefs, ThemePref } from "./lib/theme";
 import { useNarrowViewport } from "./lib/viewport";
 import { browserHost, type BrowserHost } from "./host";
 import { type FrameViewKey, isFrameViewKey } from "@kb/views";
-import { familyViews, useContributions, ViewPoint } from "./lib/plugins";
+import {
+  BackdropPoint,
+  chosenBackdrop,
+  familyViews,
+  useContributions,
+  ViewPoint,
+  type Backdrop,
+} from "./lib/plugins";
+import type { Contribution } from "@kb/plugin";
 import { type FrameView, frameViewNodeOf, frameViewThrough } from "./lib/frame-view";
 import type { FamilyView } from "./lib/view-key";
 
@@ -34,6 +48,31 @@ function useHostValue<T>(read: (host: BrowserHost) => T): T {
 /** A node of the live graph; undefined for no id or no such node. */
 export function useNode(id: string | undefined): OutlineNode | undefined {
   return useHostValue((host) => (id === undefined ? undefined : host.node(id)));
+}
+
+/** A page head's backdrop: the contribution it shows (null, none contributed), its strength and direction. */
+export interface PageBackdropChoice {
+  readonly backdrop: Contribution<Backdrop> | null;
+  readonly strength: BackdropStrength;
+  readonly direction: BackdropDirection;
+}
+
+/**
+ * The backdrop `node`'s page head shows (DESIGN-UI.md → Page-head
+ * backdrops): the node's own settings, then core's node's; with no node,
+ * core's alone, which is what every page shows unless it says otherwise.
+ * A page's own settings are `sys.*` fields, which field rows hide, so no
+ * gesture writes them yet. GAP [[01M54CEM0Z5SMAS7KABS7QZ67C]]
+ */
+export function usePageBackdrop(node?: OutlineNode): PageBackdropChoice {
+  const backdrops = useContributions(BackdropPoint);
+  const core = useNode(extensionNodeId("core"));
+  const choice = backdropChoice([node?.props, core?.props]);
+  return {
+    backdrop: chosenBackdrop(backdrops, choice.backdrop),
+    strength: choice.strength,
+    direction: choice.direction,
+  };
 }
 
 /** Every node of the live graph. */

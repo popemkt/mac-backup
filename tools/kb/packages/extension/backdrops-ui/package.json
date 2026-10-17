@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@kb/backdrops": "workspace:*",
+    "@kb/model": "workspace:*",
     "@kb/plugin": "workspace:*",
     "@kb/ui-sdk": "workspace:*",
     "effect": "catalog:",
