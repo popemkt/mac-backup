@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { CanvasNode } from "@kb/canvas";
-import { screenBounds, viewOfPan } from "./canvas-camera";
-import { visibleItemIds } from "./canvas-visible";
+import { edgeRoute, routePoints, type CanvasDoc, type CanvasNode } from "@kb/canvas";
+import { projectPoint, screenBounds, viewOfPan } from "./canvas-camera";
+import { edgeScreenLines, visibleItemIds } from "./canvas-visible";
 
 function item(id: string, x: number, y: number, width = 100, height = 50): CanvasNode {
   return { id, type: "text", text: id, x, y, width, height };
@@ -42,5 +42,28 @@ describe("visibleItemIds", () => {
 
   it("sees nothing through a stage with no size", () => {
     expect(visibleItemIds(items, flat({ x: 0, y: 0 }, 1), { width: 0, height: 0 })).toEqual([]);
+  });
+});
+
+describe("edgeScreenLines", () => {
+  const doc: CanvasDoc = {
+    nodes: [item("a", 0, 0), item("b", 300, 120)],
+    edges: [
+      { id: "e", fromNode: "a", toNode: "b" },
+      { id: "gone", fromNode: "a", toNode: "nowhere" },
+    ],
+  };
+
+  it("is each edge's route projected through the camera; an edge with an end gone has none", () => {
+    for (const view of [
+      flat({ x: 40, y: 30 }, 1.5),
+      { x: 200, y: 80, z: 0, zoom: 0.8, yaw: 0.7, pitch: 0.9, fov: 34 },
+    ]) {
+      const [a, b] = doc.nodes;
+      const edge = doc.edges[0];
+      if (a === undefined || b === undefined || edge === undefined) throw new Error("no doc");
+      const model = routePoints(edgeRoute(a, b, edge)).map((p) => projectPoint(view, size, p));
+      expect(edgeScreenLines(doc, view, size)).toEqual([{ id: "e", points: model }]);
+    }
   });
 });

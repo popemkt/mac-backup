@@ -67,6 +67,7 @@ export {
   type ScriptHostProps,
   type ViewLayout,
   type ViewLayoutState,
+  type ScreenRegion,
   type ViewEvents,
 } from "./view-scripts";
 export { ViewScripts } from "./components/view-scripts";

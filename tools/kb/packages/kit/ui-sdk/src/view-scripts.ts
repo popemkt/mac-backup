@@ -10,7 +10,7 @@
  */
 import type { ComponentType } from "react";
 import { Service } from "@kb/plugin";
-import type { KbEvent, SandboxAnchors } from "@kb/sandbox";
+import type { KbEvent, SandboxAnchor, SandboxAnchors } from "@kb/sandbox";
 import type { ViewKey } from "@kb/views";
 
 /** The events a view tells the scripts run for it, as it emits them. */
@@ -34,9 +34,23 @@ export function createViewEvents(): ViewEvents {
   };
 }
 
-/** How a view lies on screen now: where it draws each of its things (`SandboxAnchors`). */
+/** Where on its screen a view takes a gesture: a box, or a line `width` wide. */
+export type ScreenRegion =
+  | { readonly box: SandboxAnchor }
+  | {
+      readonly line: readonly { readonly x: number; readonly y: number }[];
+      readonly width: number;
+    };
+
+/**
+ * How a view lies on screen now: where it draws each of its things
+ * (`SandboxAnchors`), and where it takes gestures (`interactive`) — what a
+ * script's drawing never lies over, so a press always reaches what is
+ * drawn there.
+ */
 export interface ViewLayoutState {
   readonly anchors: SandboxAnchors;
+  readonly interactive: readonly ScreenRegion[];
 }
 
 /**
@@ -52,7 +66,7 @@ export interface ViewLayout {
 /** A view's layout: one per mounted view, created once, knowing nothing until it is told. */
 export function createViewLayout(): ViewLayout {
   const listeners = new Set<(layout: ViewLayoutState) => void>();
-  let now: ViewLayoutState = { anchors: {} };
+  let now: ViewLayoutState = { anchors: {}, interactive: [] };
   return {
     set: (layout) => {
       now = layout;

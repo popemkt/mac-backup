@@ -110,7 +110,7 @@ describe("the scripts host", () => {
     const events = createViewEvents();
     const layout = createViewLayout();
     const here = { left: 1, top: 2, right: 30, bottom: 40 };
-    layout.set({ anchors: { a: here } });
+    layout.set({ anchors: { a: here }, interactive: [] });
     await act(async () => {
       root.render(createElement(ScriptsHost, { subjects: ["c"], view: View, events, layout }));
     });
@@ -138,8 +138,15 @@ describe("the scripts host", () => {
     expect(frames[0]?.closest("[data-script-overlays]")).not.toBeNull();
     expect(frames[0]?.className).toContain("pointer-events-none");
     expect(placed).toEqual([{ a: here }]);
-    layout.set({ anchors: {} });
+    layout.set({ anchors: {}, interactive: [] });
     expect(placed).toEqual([{ a: here }, {}]);
+
+    // The layer is masked off where the view takes gestures: nothing a script draws lies there.
+    const overlay = container.querySelector<HTMLElement>("[data-script-overlays]");
+    layout.set({ anchors: {}, interactive: [{ box: here }] });
+    expect(decodeURIComponent(overlay?.style.getPropertyValue("mask-image") ?? "")).toContain(
+      "<rect x='1.0' y='2.0' width='29.0' height='38.0' fill='black'/>",
+    );
 
     // A person runs a trusted script once more, against its node; an untrusted one offers no run.
     const runOnce = [...container.querySelectorAll("button")].filter(

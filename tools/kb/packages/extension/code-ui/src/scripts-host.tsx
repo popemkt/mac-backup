@@ -7,13 +7,16 @@
  * trusting it is the person's gesture. A call that asks is a card, as in a
  * code view. Each running script's frame lies over the whole view, see-through
  * and letting every gesture pass, so what it draws stands over the view —
- * on the view's things where it names them (`data-anchor`, `ViewLayout`).
+ * on the view's things where it names them (`data-anchor`, `ViewLayout`) —
+ * except where the view takes gestures, which the layer is masked off
+ * (`overlayMask`): a script never paints over a thing a press reaches.
  * The code family provides it to every view (`ScriptHostService`).
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { CodeIcon } from "@phosphor-icons/react";
 import { grantSentence, scriptIdsOf, scriptOf, type ScriptSource } from "@kb/code";
+import { overlayMask } from "./overlay-mask";
 import { ENGINE_LIMITS, engineKindFor, type RunStatus } from "@kb/sandbox";
 import {
   browserHost,
@@ -205,6 +208,16 @@ function AttachedScript({ attached, ...rest }: { readonly attached: Attached } &
 export function ScriptsHost({ subjects, view, events, layout }: ScriptHostProps) {
   const nodes = useNodes();
   const [overlay, setOverlay] = useState<HTMLElement | null>(null);
+  // The layer never shows over where the view takes gestures, so a press reaches what is drawn there.
+  useEffect(() => {
+    if (overlay === null) return undefined;
+    return layout.listen(({ interactive }) => {
+      const mask = overlayMask(interactive, overlay.clientWidth, overlay.clientHeight);
+      for (const name of ["mask-image", "-webkit-mask-image"]) {
+        overlay.style.setProperty(name, mask);
+      }
+    });
+  }, [overlay, layout]);
   const attached: Attached[] = subjects.flatMap((subject) =>
     scriptIdsOf(nodes.get(subject)).map((script) => ({ subject, script })),
   );
@@ -213,7 +226,7 @@ export function ScriptsHost({ subjects, view, events, layout }: ScriptHostProps)
     <>
       <div
         ref={setOverlay}
-        className="pointer-events-none absolute inset-0 z-10 overflow-hidden"
+        className="pointer-events-none absolute inset-0 z-10 overflow-hidden [mask-repeat:no-repeat] [mask-size:100%_100%]"
         data-script-overlays="true"
       />
       <section

@@ -3797,6 +3797,15 @@ system, one runner, one trust.
   anchors are its items' screen bounds in whichever projection shows
   (`itemScreenRects`), which the projection contract holds to where each
   projection draws them (DESIGN-UI.md → Canvas → Projections).
+- **It never lies over what takes a press.** A frame lets every gesture
+  pass, so a drawing over a card or an edge could pass for a control and
+  send the press to the card beneath. The view therefore also tells where
+  it takes gestures (`ViewLayoutState.interactive`: boxes, and lines as
+  wide as they reach), and the scripts host masks its overlay layer off
+  every one of them (`overlayMask`): what a script draws shows only where
+  the view takes no press, so a press always reaches what is drawn where
+  it lands. The canvas's are each item's rectangle and each edge's route
+  projected through the camera (`edgeScreenLines`), in either projection.
 - **Once, on request** (tldraw's exec): `ext.code.script.run` runs a
   trusted `#script` against a node until it is quiet (`snapshotRun`, with
   `CoreInvoke` as `write`), on the host's engine, each call the script's.

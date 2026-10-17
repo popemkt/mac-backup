@@ -55,7 +55,7 @@ import { createCanvasEdgeActions } from "./use-canvas-edge-actions";
 import { useCanvasGestures } from "./use-canvas-gestures";
 import { useCanvasKeyboard } from "./use-canvas-keyboard";
 import { useCanvasScreen } from "./use-canvas-screen";
-import { CanvasScriptAnchors } from "./canvas-script-anchors";
+import { CanvasScriptLayout } from "./canvas-script-layout";
 import { useCanvasCapture } from "./canvas-capture";
 import { useCanvasSelection } from "./use-canvas-selection";
 import { createCanvasNode, listRefFields } from "./canvas-api";
@@ -691,13 +691,13 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
           />
         )}
         <CanvasShortcutsSheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
-        <CanvasScriptAnchors
+        <CanvasScriptLayout
           rig={projection.rig}
           in3d={in3d}
           flatView={projection.flatView()}
           width={projection.camera().size.width}
           height={projection.camera().size.height}
-          items={doc.nodes}
+          doc={doc}
           layout={scriptLayout}
         />
         <ViewScripts
