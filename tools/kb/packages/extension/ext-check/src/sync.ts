@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { GraphWrites, KbCtx } from "@kb/contracts";
+import { GraphWrites } from "@kb/contracts";
 import { currentIso, type KbNode, type NodeId } from "@kb/model";
 import {
   buildCheckModel,
@@ -38,8 +38,10 @@ export function enforcementSyncs(model: CheckModel, at: string): KbNode[] {
 }
 
 export const checkSyncEffect = Effect.fn("ext.check.sync")(function* (_input: EmptyInput) {
-  const ctx = yield* KbCtx;
-  const upserts = enforcementSyncs(buildCheckModel(ctx.nodes), yield* currentIso);
-  if (upserts.length > 0) yield* (yield* GraphWrites).commit({ upserts, deletes: [] });
-  return syncOutput.parse({ updated: upserts.map((node) => node.id) });
+  const at = yield* currentIso;
+  const committed = yield* (yield* GraphWrites).commit((nodes) => {
+    const upserts = enforcementSyncs(buildCheckModel(nodes), at);
+    return Effect.succeed(upserts.length === 0 ? null : { upserts, deletes: [] });
+  });
+  return syncOutput.parse({ updated: (committed?.upserts ?? []).map((node) => node.id) });
 });

@@ -2438,10 +2438,13 @@ figure?}`. `viewText` looks the view up in the catalog and falls back to
   backbone every surface asks; which docs views a graph holds is
   `docsViewsOf` and `docsViewNamed` (`@kb/views`). `GraphWrites`
   (`@kb/contracts`) is the write path, and `kbRuntimeLayer` binds it:
-  - `commit(tx)` is `persistEffect`: the transaction's integrity is checked
-    against the graph it merges into, the approval resolver is asked again
-    with what it writes when it runs inside a call, and the index and the
-    transaction log move with it.
+  - `commit(plan)` is `persistPlannedEffect`: the family plans its
+    transaction over the graph as the session has caught it up, and it
+    lands only on that state, planned again when another process wrote in
+    between, so a node a family rewrites from what it read never loses a
+    concurrent write. The transaction's integrity is checked, the approval
+    resolver is asked again with what it writes when it runs inside a call,
+    and the index and the transaction log move with it.
 
   `graph-writes.test.ts` (`app/runtime`) holds this over the binding.
 

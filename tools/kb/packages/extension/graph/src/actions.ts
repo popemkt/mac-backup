@@ -152,12 +152,20 @@ export const graphRelationTypeEffect = Effect.fn("ext.graph.relation.type")(func
   input: z.infer<typeof relationInput>,
 ): Effect.fn.Return<z.infer<typeof relationOutput>, DomainError, KbCtx | GraphWrites> {
   const { index } = yield* KbCtx;
-  const nodes = new Map([...index.allNodes()].map((node) => [node.id, node]));
-  const typed = typedRelation(nodes, input, (edn) => index.runDatalog(edn), yield* currentIso);
-  if (Result.isFailure(typed)) return yield* domainError(typed.failure.code, typed.failure.message);
-  if (typed.success !== null)
-    yield* (yield* GraphWrites).commit({ upserts: [typed.success], deletes: [] });
-  return { ...input, written: typed.success !== null };
+  const at = yield* currentIso;
+  // Planned over the index as the commit has caught it up, and planned again
+  // if the store moves before it lands, so a write to the source in between
+  // is never lost.
+  const written = yield* (yield* GraphWrites).commit(() => {
+    const nodes = new Map([...index.allNodes()].map((node) => [node.id, node]));
+    const typed = typedRelation(nodes, input, (edn) => index.runDatalog(edn), at);
+    if (Result.isFailure(typed))
+      return Effect.fail(domainError(typed.failure.code, typed.failure.message));
+    return Effect.succeed(
+      typed.success === null ? null : { upserts: [typed.success], deletes: [] },
+    );
+  });
+  return { ...input, written: written !== null };
 });
 
 export const GRAPH_ACTIONS: readonly ExtensionAction[] = [

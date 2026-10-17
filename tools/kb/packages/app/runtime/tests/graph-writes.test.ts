@@ -3,8 +3,9 @@
  * action writes through, and `kbRuntimeLayer` is its one binding (DESIGN.md →
  * Extension families). These are its promises, held over that binding: a
  * commit is one recorded transaction the session reads at once, a
- * transaction the graph refuses writes nothing, and inside a call the commit
- * is decided as part of that call.
+ * transaction the graph refuses writes nothing, inside a call the commit is
+ * decided as part of that call, and a plan is planned again over a store
+ * that moved, so a write made in between is never lost.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -19,6 +20,7 @@ import {
   type RunningCall,
 } from "@kb/contracts";
 import { present, type DomainError, type KbNode } from "@kb/model";
+import { persist } from "@kb/test-kit";
 import { kbRuntimeLayer } from "../src/layers.ts";
 import { invoke } from "../src/invoke.ts";
 import { openKb } from "../src/session.ts";
@@ -65,7 +67,7 @@ describe("GraphWrites, as kbRuntimeLayer binds it", () => {
       upserts: [plainNode("n.parent", "parent", ["n.child"]), plainNode("n.child", "child")],
       deletes: [],
     };
-    await withWrites(ctx, (writes) => writes.commit(tx));
+    await withWrites(ctx, (writes) => writes.commit(() => Effect.succeed(tx)));
     expect(ctx.index.getNode("n.child")?.text).toBe("child");
     expect(ctx.log.head).toBe(head + 1);
     const reopened = await openKb(root);
@@ -77,7 +79,7 @@ describe("GraphWrites, as kbRuntimeLayer binds it", () => {
     const head = ctx.log.head;
     const broken = plainNode("n.orphan-parent", "parent", ["n.nowhere"]);
     const failure = await failureOf(ctx, (writes) =>
-      writes.commit({ upserts: [broken], deletes: [] }),
+      writes.commit(() => Effect.succeed({ upserts: [broken], deletes: [] })),
     );
     expect(failure.code).toBe("invalid_input");
     expect(ctx.index.getNode("n.orphan-parent")).toBeUndefined();
@@ -93,7 +95,9 @@ describe("GraphWrites, as kbRuntimeLayer binds it", () => {
     };
     const failure = await failureOf(ctx, (writes) =>
       writes
-        .commit({ upserts: [{ ...policy, text: "agents never ask" }], deletes: [] })
+        .commit(() =>
+          Effect.succeed({ upserts: [{ ...policy, text: "agents never ask" }], deletes: [] }),
+        )
         .pipe(Effect.provideService(CurrentCall, call)),
     );
     expect(failure.code).toBe("approval_required");
@@ -105,5 +109,41 @@ describe("GraphWrites, as kbRuntimeLayer binds it", () => {
       actor: "human",
     });
     expect(ctx.index.getNode("approval.agent-delete")?.text).toBe("agents never ask");
+  });
+
+  test("a plan is planned again over a store that moved, so the write in between is kept", async () => {
+    const ctx = await openKb(root);
+    await withWrites(ctx, (writes) =>
+      writes.commit(() =>
+        Effect.succeed({ upserts: [plainNode("n.target", "target", [])], deletes: [] }),
+      ),
+    );
+    const other = await openKb(root);
+    let plans = 0;
+    await withWrites(ctx, (writes) =>
+      writes.commit((nodes) =>
+        Effect.gen(function* () {
+          plans += 1;
+          const target = present(
+            nodes.find((n) => n.id === "n.target"),
+            "the target",
+          );
+          // Another process renames the node after this plan read it.
+          if (plans === 1) {
+            yield* Effect.promise(() =>
+              persist(other, { upserts: [{ ...target, text: "renamed" }], deletes: [] }),
+            );
+          }
+          return {
+            upserts: [{ ...target, props: { "n.mark": [{ t: "str", v: "x" }] } }],
+            deletes: [],
+          };
+        }),
+      ),
+    );
+    expect(plans).toBe(2);
+    const reopened = present((await openKb(root)).index.getNode("n.target"), "the target");
+    expect(reopened.text).toBe("renamed");
+    expect(reopened.props["n.mark"]).toEqual([{ t: "str", v: "x" }]);
   });
 });
