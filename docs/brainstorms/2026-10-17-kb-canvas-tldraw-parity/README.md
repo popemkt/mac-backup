@@ -539,12 +539,12 @@ Batch S: a review of canvas scripting S1–S5 as it landed (read at
 on `fix/scripts-review`. Security comes before P14 comments, which wait for
 it.
 
-Closed: all six fixed on `fix/scripts-review`. S-1 `hears` (3ec05b74);
-S-6 `grantOfText` (6a9a72fa); S-4 by design, stated once under Sandbox →
-Trust and pinned on the render path (d692acf5); S-2 `targets` +
-`scriptRefusal` in the invoke core (a09e3bbc); S-5 the code family's
-declared `approval.script-run` denial (5b2736a7); S-3 the overlay mask
-(89feaf97, 2c4888c0).
+Closed: all six fixed on `fix/scripts-review`. S-1 `hears` (5dd25250);
+S-6 `grantOfText` (3a2ff8f3); S-4 by design, stated once under Sandbox →
+Trust and pinned on the render path (1b038cb5); S-2 `targets` +
+`scriptRefusal` in the invoke core (613df362); S-5 the code family's
+declared `approval.script-run` denial (d4e1bc68); S-3 the overlay mask
+(c19fc9b6, d8a78be8).
 
 | # | Severity | Finding | Fix |
 |---|---|---|---|
