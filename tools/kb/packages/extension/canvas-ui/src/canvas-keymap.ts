@@ -69,7 +69,9 @@ export type CanvasIntent =
   /** The selection lined up on an edge of the box round it. */
   | { type: "align"; edge: CanvasAlignEdge }
   /** The selection spread evenly along an axis. */
-  | { type: "distribute"; axis: CanvasFlipAxis };
+  | { type: "distribute"; axis: CanvasFlipAxis }
+  /** Where the one item selected leads (its `link`), followed. */
+  | { type: "followLink" };
 
 /** What a key does to present mode. */
 export type PresentAct = "start" | "next" | "previous" | "stop";
@@ -136,7 +138,14 @@ interface CanvasChord {
 type ShortcutMode = "rest" | "transforming" | "presenting";
 
 /** Where a shortcut is listed. */
-export type CanvasShortcutSection = "Tools" | "Edit" | "Arrange" | "View" | "Transform" | "Present";
+export type CanvasShortcutSection =
+  | "Tools"
+  | "Edit"
+  | "Arrange"
+  | "Navigate"
+  | "View"
+  | "Transform"
+  | "Present";
 
 /**
  * One canvas shortcut: what it is called, where it is listed, the chords
@@ -434,6 +443,9 @@ export const CANVAS_SHORTCUTS: readonly CanvasShortcut[] = [
     needsSelection: "swallow",
   }),
   shortcut("Edit", "Lock or unlock", { type: "lock" }, [{ key: "l", shift: true }], {
+    needsSelection: "swallow",
+  }),
+  shortcut("Navigate", "Follow link", { type: "followLink" }, [{ key: "Enter", mod: true }], {
     needsSelection: "swallow",
   }),
   arrange("Forward one step", { type: "order", order: "forward" }, [

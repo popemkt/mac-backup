@@ -7,7 +7,7 @@ import { act, createElement, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import type { CanvasNode } from "@kb/canvas";
+import { canvasWorld, type CanvasItemLink, type CanvasNode } from "@kb/canvas";
 import { ItemInspector } from "./item-inspector";
 
 const sticky: CanvasNode = {
@@ -67,6 +67,8 @@ describe("item inspector", () => {
         item,
         anchor: { x: 200, y: 100 },
         onClose: () => {},
+        world: canvasWorld([]),
+        onFollow: () => {},
         onChange: (next: CanvasNode) => {
           changes.push(next);
           setItem(next);
@@ -101,6 +103,8 @@ describe("item inspector", () => {
             anchor: { x: 200, y: 100 },
             onClose: () => {},
             onChange: () => {},
+            world: canvasWorld([]),
+            onFollow: () => {},
           }),
         ),
       );
@@ -125,10 +129,47 @@ describe("item inspector", () => {
           anchor: { x: 200, y: 100 },
           onClose: () => {},
           onChange: () => {},
+          world: canvasWorld([]),
+          onFollow: () => {},
         }),
       ),
     );
     expect([fieldValue("X"), fieldValue("Y"), fieldValue("Z")]).toEqual(["10", "0", "-45"]);
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  test("a link says where it leads, is followed, and is cleared in one change", () => {
+    const changes: CanvasNode[] = [];
+    const followed: CanvasItemLink[] = [];
+    const world = canvasWorld([{ id: "n.page", text: "Page two", props: {} }]);
+    const linked: CanvasNode = { ...sticky, link: { node: "n.page", item: "i1" } };
+    function Host() {
+      const [item, setItem] = useState(linked);
+      return createElement(ItemInspector, {
+        item,
+        anchor: { x: 200, y: 100 },
+        onClose: () => {},
+        world,
+        onFollow: (link: CanvasItemLink) => followed.push(link),
+        onChange: (next: CanvasNode) => {
+          changes.push(next);
+          setItem(next);
+        },
+      });
+    }
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    act(() => root.render(createElement(Host)));
+    expect(fieldValue("Link")).toBe("[[n.page]]#i1");
+    expect(document.body.textContent).toContain("Opens Page two, at i1");
+    act(() => button("Follow")?.click());
+    expect(followed).toEqual([{ node: "n.page", item: "i1" }]);
+    act(() => button("Clear")?.click());
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).not.toHaveProperty("link");
+    expect(fieldValue("Link")).toBe("");
     act(() => root.unmount());
     container.remove();
   });

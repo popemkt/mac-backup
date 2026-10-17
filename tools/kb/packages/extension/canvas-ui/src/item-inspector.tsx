@@ -18,9 +18,13 @@ import {
   withRotation,
   withStyle,
   type CanvasItemFlag,
+  type CanvasItemLink,
   type CanvasNode,
+  type CanvasWorld,
 } from "@kb/canvas";
 import { isOutside, PopoverShell } from "@kb/ui-sdk";
+import { LinkRow } from "./item-link-row";
+import { textOfLink } from "./item-link-text";
 import { ColorRow, LookRows } from "./item-style-rows";
 import { NumberField } from "./number-field";
 
@@ -29,6 +33,10 @@ export interface ItemInspectorProps {
   anchor: { x: number; y: number };
   onClose: () => void;
   onChange: (item: CanvasNode) => void;
+  /** What the canvas reads of kb: where the item's link leads, in words. */
+  world: CanvasWorld;
+  /** Go where a link leads. */
+  onFollow: (link: CanvasItemLink) => void;
 }
 
 /** How deep Extrude makes a flat item: a block, not a tower; the field takes it from there. */
@@ -174,7 +182,14 @@ function titleOf(item: CanvasNode): string {
  * The selected item's inspector: a canvas widget, not kb's node inspector,
  * because canvas items are not nodes yet (plan 2026-10-02, owner answer 2).
  */
-export function ItemInspector({ item, anchor, onClose, onChange }: ItemInspectorProps) {
+export function ItemInspector({
+  item,
+  anchor,
+  onClose,
+  onChange,
+  world,
+  onFollow,
+}: ItemInspectorProps) {
   const ref = useRef<HTMLDivElement>(null);
   // Below the anchor, or above it when the viewport has no room below.
   const [top, setTop] = useState(anchor.y + 8);
@@ -212,6 +227,13 @@ export function ItemInspector({ item, anchor, onClose, onChange }: ItemInspector
         <OpacityRow item={item} onChange={onChange} />
         <FlagRow item={item} flag="billboard" onChange={onChange} />
         <FlagRow item={item} flag="locked" onChange={onChange} />
+        <LinkRow
+          key={`link:${textOfLink(item.link)}`}
+          item={item}
+          world={world}
+          onChange={onChange}
+          onFollow={onFollow}
+        />
         {/* Where it stands is what a lock holds: its height and turn are read-only while locked. */}
         <fieldset
           disabled={item.locked === true}

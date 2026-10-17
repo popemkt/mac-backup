@@ -23,6 +23,7 @@ import {
   type CanvasDoc,
   type CanvasEdge,
   type CanvasHead,
+  type CanvasItemLink,
   type CanvasNode,
   type CanvasPathNode,
   type CanvasRoute,
@@ -90,6 +91,8 @@ export interface DescribedItem {
   readonly box: CanvasBounds;
   readonly detail: "focus" | "blurry";
   readonly nodeId?: string;
+  /** Where it leads when followed. */
+  readonly link?: CanvasItemLink;
   readonly frame?: string;
   readonly rotation?: CanvasNode["rotation"];
   readonly faces?: "camera";
@@ -239,6 +242,7 @@ function describeItems(
       ...(color === undefined ? {} : { color: paintName(color) }),
       ...(Object.keys(looks).length === 0 ? {} : { style: looks }),
       ...(node.nodeId === undefined ? {} : { nodeId: node.nodeId }),
+      ...(node.link === undefined ? {} : { link: node.link }),
       ...(frame === null ? {} : { frame }),
       ...(node.rotation === undefined ? {} : { rotation: node.rotation }),
       ...(node.billboard === true ? { faces: "camera" as const } : {}),

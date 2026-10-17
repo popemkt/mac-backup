@@ -18,6 +18,7 @@ const SECTIONS: readonly CanvasShortcutSection[] = [
   "Tools",
   "Edit",
   "Arrange",
+  "Navigate",
   "View",
   "Transform",
   "Present",

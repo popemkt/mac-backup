@@ -2,15 +2,17 @@ import {
   Suspense,
   lazy,
   useCallback,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useReducer,
   useRef,
   useState,
 } from "react";
-import type { CanvasNode } from "@kb/canvas";
+import type { CanvasItemLink, CanvasNode } from "@kb/canvas";
 import {
   canvasMembership,
+  canvasWorld,
   editItem,
   upsertCanvasEdge,
   upsertCanvasNode,
@@ -47,6 +49,7 @@ import { useCanvasCapture } from "./canvas-capture";
 import { useCanvasSelection } from "./use-canvas-selection";
 import { listRefFields } from "./canvas-api";
 import { CANVAS_LIST_PATH } from "./routes";
+import { linkStep } from "./canvas-links";
 import { classifyCardPointer } from "./card-pointer";
 import { placesItem, pressPans, type CanvasChooser, type ToolState } from "./canvas-tool";
 import type { PresentAct } from "./canvas-keymap";
@@ -80,9 +83,11 @@ function cardIdAt(target: EventTarget | null): string | undefined {
 
 interface CanvasPageProps {
   canvasId: string;
+  /** An item to show and select as the canvas opens: where a link to it leads. */
+  item?: string;
 }
 
-export function CanvasPage({ canvasId }: CanvasPageProps) {
+export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
   const nodes = useNodes();
   const schema = useSchema();
   const queryDb = useIndex();
@@ -300,6 +305,33 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     viewport,
     capture: drawing.capture,
   });
+  /** What the canvas reads of kb around it: where its links lead. */
+  const world = useMemo(() => canvasWorld(nodes.values()), [nodes]);
+  /** An item on this canvas shown and selected; nothing when it is not on it. */
+  const showItem = (id: string) => {
+    const shown = byId.get(id);
+    if (shown === undefined) return;
+    setSelection(selNode(id));
+    viewport.frame([shown]);
+  };
+  // GAP [[01M546BF0GJ09QQV8H747X0JM7]] an item's link shows no mark on the canvas; it is followed from the inspector or ⌘↵
+  /** Go where `link` leads: out of kb, to another page, or to an item here. */
+  const follow = (link: CanvasItemLink) => {
+    const step = linkStep(link, canvasId, world);
+    if (step === null) return;
+    if (step.kind === "web") window.open(step.url, "_blank", "noopener,noreferrer");
+    else if (step.kind === "path") navigate(step.path);
+    else showItem(step.item);
+  };
+  /** The item the route names, shown once as the canvas opens with it on. */
+  const arrived = useRef<string | null>(null);
+  useEffect(() => {
+    if (arrival === undefined || !byId.has(arrival)) return;
+    const at = `${canvasId}/${arrival}`;
+    if (arrived.current === at) return;
+    arrived.current = at;
+    showItem(arrival);
+  });
   const modal = pointerState.drag?.kind === "transform" && pointerState.drag.modal;
   const modalDrag = modal ? pointerState.drag : null;
   /** Present mode steps through the frames, flying to each face-on; past either end it stays. */
@@ -341,6 +373,7 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
     chooseProjection: projection.choose,
     openViewMenu: () => setViewMenuOpen(true),
     openShortcuts: () => setShortcutsOpen(true),
+    follow,
   });
 
   const { onDeleteEdge, onFieldChange, onModeChange } = createCanvasEdgeActions({
@@ -597,6 +630,8 @@ export function CanvasPage({ canvasId }: CanvasPageProps) {
           onCloseItemInspector={() => setItemInspectorAnchor(null)}
           onInspectItem={setItemInspectorAnchor}
           onItemChange={(item) => schedulePersist(editItem(docRef.current, item))}
+          world={world}
+          onFollowLink={follow}
           onPickNode={addKbNode}
           onClosePicker={() => setPickerOpen(false)}
           gizmo={in3d ? gizmo : null}

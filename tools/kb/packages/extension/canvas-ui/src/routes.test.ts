@@ -8,6 +8,13 @@ describe("canvas routes", () => {
     }
   });
 
+  test("an item on a canvas reads back as both", () => {
+    for (const item of ["i1", "a/b c"]) {
+      expect(matchCanvas(canvasPath({ id: "n.board", item }))).toEqual({ id: "n.board", item });
+    }
+    expect(matchCanvas("/canvas/a/b/c")).toBeNull();
+  });
+
   test("the list's path is not a canvas's", () => {
     expect(matchCanvasList("/canvas")).toEqual({});
     expect(matchCanvas("/canvas")).toBeNull();

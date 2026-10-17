@@ -19,6 +19,7 @@ import {
   CANVAS_SIZES,
   CANVAS_VALIGNS,
   isCanvasColor,
+  isLinkUrl,
   type CanvasHead,
 } from "@kb/canvas";
 
@@ -99,6 +100,18 @@ export const AnchorSchema = z
   })
   .describe("a point of the item's box, carried out from its centre onto its outline");
 
+/** Where an item leads when followed (DESIGN.md → Canvas documents, `link`). */
+export const LinkSchema = z
+  .union([
+    z.object({ url: z.string().refine(isLinkUrl, "an http, https or mailto address") }).strict(),
+    z.object({ node: z.string().min(1), item: z.string().min(1).optional() }).strict(),
+    z.object({ item: z.string().min(1) }).strict(),
+  ])
+  .describe(
+    "where it leads when followed: a web address ({url}), a node ({node}; a canvas is a page) " +
+      "and an item on that canvas ({node, item}), or an item on this canvas ({item})",
+  );
+
 export const DescribedItemSchema = z.object({
   id: z.string(),
   kind: z.string(),
@@ -106,6 +119,7 @@ export const DescribedItemSchema = z.object({
   box: Bounds,
   detail: z.enum(["focus", "blurry"]),
   nodeId: z.string().optional(),
+  link: LinkSchema.optional(),
   frame: z.string().optional(),
   rotation: z.object({ x: z.number(), y: z.number(), z: z.number() }).partial().optional(),
   faces: z.literal("camera").optional(),

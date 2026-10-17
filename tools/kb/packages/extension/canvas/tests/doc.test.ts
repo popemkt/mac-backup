@@ -107,6 +107,7 @@ const ITEM_SAMPLES: Record<string, unknown> = {
   color: "2",
   nodeId: "n.a",
   parent: "f",
+  link: { node: "n.b", item: "i" },
   billboard: true,
   locked: true,
   style: { fill: "solid" },
@@ -291,6 +292,31 @@ describe("elevation and depth", () => {
     expect(doc.nodes[0]?.color).toBeUndefined();
     expect(doc.edges[0]?.fromSide).toBeUndefined();
     expect(doc.edges[0]?.kbLink).toBeUndefined();
+    expect(JSON.parse(stringifyCanvasDoc(doc))).toEqual(raw);
+  });
+
+  test("a link is a web address alone, or a node, an item or both; any other is kept as written", () => {
+    const read = [
+      { url: "https://tldraw.dev/x" },
+      { url: "mailto:a@b.c" },
+      { node: "n.a" },
+      { node: "n.a", item: "i" },
+      { item: "i" },
+    ];
+    const unread = [
+      { url: "javascript:alert(1)" },
+      { url: "https://a.b", node: "n.a" },
+      { node: "" },
+      { node: "n.a", page: 2 },
+      {},
+      "n.a",
+    ];
+    const raw = {
+      nodes: [...read, ...unread].map((link, i) => ({ ...itemAt(`i${i}`), link })),
+      edges: [],
+    };
+    const doc = parseCanvasDoc(raw);
+    expect(doc.nodes.map((node) => node.link)).toEqual([...read, ...unread.map(() => undefined)]);
     expect(JSON.parse(stringifyCanvasDoc(doc))).toEqual(raw);
   });
 

@@ -11,6 +11,8 @@ const CANVAS_NAMESPACE = "canvas";
 export const CanvasParams = Schema.Struct({
   /** The `#canvas` node's id. */
   id: Schema.String,
+  /** An item on it to show and select as it opens: where a link to it leads. */
+  item: Schema.optional(Schema.String),
 }).annotate({
   description:
     "One canvas, which owns its own viewport. Its params come from the route: a view node holds none.",

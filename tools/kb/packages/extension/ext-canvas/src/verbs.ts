@@ -54,6 +54,7 @@ import {
   CanvasIdSchema,
   ColorSchema,
   DescribedItemSchema,
+  LinkSchema,
   Direction,
   EdgeLooksSchema,
   headPatch,
@@ -249,6 +250,7 @@ const MakeSchema = z
       .optional()
       .describe("a line's or an arrow's points and heads (preset line or arrow)"),
     nodeId: z.string().min(1).optional().describe("the node it stands for (a card needs one)"),
+    link: LinkSchema.optional(),
     file: z.string().min(1).optional().describe("an image's asset path, assets/…"),
     width: z.number().positive().optional(),
     height: z.number().positive().optional(),

@@ -87,7 +87,7 @@ describe("canvas family", () => {
     ]);
   });
 
-  test("its document field carries references: each card's node and a bound edge's ends", () => {
+  test("its document field carries references: each card's node, each link's, a bound edge's ends", () => {
     expect(canvasExtension.refCarriers?.map((carrier) => carrier.field)).toEqual([
       CANVAS_IDS.canvasField,
     ]);
@@ -102,6 +102,17 @@ describe("canvas family", () => {
           y: 20,
           width: 10,
           height: 10,
+          link: { node: "n.d", item: "x" },
+        },
+        {
+          id: "t2",
+          type: "text",
+          text: "out",
+          x: 0,
+          y: 40,
+          width: 10,
+          height: 10,
+          link: { url: "https://tldraw.dev" },
         },
         { id: "c2", type: "kb-node", nodeId: "n.b", x: 20, y: 0, width: 10, height: 10 },
       ],
@@ -123,6 +134,7 @@ describe("canvas family", () => {
     };
     expect(canvasReferences({ t: "str", v: JSON.stringify(doc) })).toEqual([
       "n.a",
+      "n.d",
       "n.b",
       "n.a",
       "n.c",

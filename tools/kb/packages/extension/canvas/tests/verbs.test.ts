@@ -7,9 +7,11 @@
  */
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
+import { SYSTEM_IDS } from "@kb/model";
 import {
   CANVAS_DIRECTIONS,
   arrangeItems,
+  CANVAS_IDS,
   canvasMembership,
   canvasWorld,
   connectItems,
@@ -27,6 +29,7 @@ import {
   orderItems,
   overlaps,
   parseCanvasDoc,
+  stringifyCanvasDoc,
   placeItem,
   promoteItem,
   promotableText,
@@ -59,9 +62,9 @@ const item = (d: CanvasDoc, id: string) => {
 };
 /** The rules of the lints on `d`, its store holding only node `n.here`. */
 const all = (d: CanvasDoc) =>
-  lintCanvas(d, canvasWorld([{ id: "n.here", text: "here" }])).map((l) => l.rule);
+  lintCanvas(d, canvasWorld([{ id: "n.here", text: "here", props: {} }])).map((l) => l.rule);
 /** A store of one node, for a description. */
-const world = canvasWorld([{ id: "n.idea", text: "An idea" }]);
+const world = canvasWorld([{ id: "n.idea", text: "An idea", props: {} }]);
 const where = (d: CanvasDoc, a: string, b: string) =>
   directionFrom(itemBounds(item(d, a)), itemBounds(item(d, b)));
 
@@ -583,6 +586,39 @@ describe("promote", () => {
 });
 
 describe("lints", () => {
+  test("a link that leads to a node or an item that is not there is dead", () => {
+    const page = {
+      id: "n.page",
+      text: "Page",
+      props: {
+        [SYSTEM_IDS.typeField]: [{ t: "ref" as const, v: CANVAS_IDS.canvasTag }],
+        [CANVAS_IDS.canvasField]: [
+          { t: "str" as const, v: stringifyCanvasDoc(doc(card("p1", 0, 0))) },
+        ],
+      },
+    };
+    const kb = canvasWorld([page, { id: "n.note", text: "note", props: {} }]);
+    const links = [
+      { node: "n.gone" },
+      { node: "n.page", item: "p1" },
+      { node: "n.page", item: "p2" },
+      { item: "i0" },
+      { item: "zz" },
+      { node: "n.note", item: "x" },
+      { node: "n.note" },
+      { url: "https://tldraw.dev" },
+    ];
+    const linked = doc(...links.map((link, i) => card(`i${i}`, i * 200, 0, { link })));
+    const dead = lintCanvas(linked, kb).filter((lint) => lint.rule === "dead-link");
+    expect(dead.map((lint) => lint.ids[0])).toEqual(["i0", "i2", "i4", "i5"]);
+    expect(dead.map((lint) => lint.message)).toEqual([
+      "i0 leads to node n.gone, which is gone",
+      "i2 leads to item p2, which is not on canvas n.page",
+      "i4 leads to item zz, which is not on this canvas",
+      "i5 leads to item x on n.note, which is no canvas",
+    ]);
+  });
+
   test("each rule, and a clean canvas has none", () => {
     expect(all(doc(card("a", 0, 0), box("b", 300, 0)))).toEqual([]);
     expect(all(doc(box("a", 0, 0), box("b", 50, 50)))).toEqual(["overlap"]);
@@ -610,6 +646,15 @@ describe("lints", () => {
     const diff = lintDiff(before, after);
     expect(diff.new.map((l) => l.rule)).toEqual(["overlap"]);
     expect(diff.resolved.map((l) => l.rule)).toEqual(["floating"]);
+  });
+});
+
+describe("links", () => {
+  test("an item is made leading where it is asked to, and described with it", () => {
+    const made = makeItem({ preset: "text", text: "go", link: { node: "n.page", item: "i" } }, "t");
+    expect(made.link).toEqual({ node: "n.page", item: "i" });
+    const told = describeCanvas(doc(made), { world });
+    expect(told.items[0]?.link).toEqual({ node: "n.page", item: "i" });
   });
 });
 

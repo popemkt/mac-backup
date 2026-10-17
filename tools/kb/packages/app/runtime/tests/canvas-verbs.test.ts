@@ -260,6 +260,49 @@ describe("a canvas references what it shows", () => {
   });
 });
 
+describe("links on items", () => {
+  test("an item placed leading to a node makes the canvas one of its references", async () => {
+    const ctx = await canvasKb();
+    await invoke(ctx, { id: "node.add", input: { text: "Page two", id: "n.page" } });
+    const out = output(
+      await invoke(
+        ctx,
+        verb("place", {
+          items: [
+            { make: { id: "go", text: "Next", link: { node: "n.page" } }, at: { x: 0, y: 0 } },
+          ],
+        }),
+      ),
+    );
+    expect(out.lints).toEqual({ new: [], resolved: [] });
+    expect(stored(ctx).nodes[0]?.link).toEqual({ node: "n.page" });
+    const back = output(
+      await invoke(ctx, { id: "graph.query", input: { query: backlinksQuery("n.page") } }),
+    );
+    expect((back.rows as unknown[][]).map((row) => row[0])).toEqual(["n.canvas"]);
+  });
+
+  test("a link to what is not there is refused as no link, or written and linted as dead", async () => {
+    const ctx = await canvasKb();
+    const refused = await invoke(
+      ctx,
+      verb("place", {
+        items: [{ make: { link: { url: "javascript:alert(1)" } }, at: { x: 0, y: 0 } }],
+      }),
+    );
+    expect(refused.status).toBe("failed");
+    const dead = output(
+      await invoke(
+        ctx,
+        verb("place", {
+          items: [{ make: { id: "x", link: { item: "gone" } }, at: { x: 0, y: 0 } }],
+        }),
+      ),
+    );
+    expect(dead.lints).toMatchObject({ new: [{ rule: "dead-link", ids: ["x"] }] });
+  });
+});
+
 describe("ext.canvas.describe and lint", () => {
   test("a canvas told in words: kinds, words, boxes, relations; no tab, so every item in full", async () => {
     const ctx = await canvasKb([

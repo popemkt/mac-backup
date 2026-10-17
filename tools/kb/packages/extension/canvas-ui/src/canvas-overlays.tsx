@@ -1,4 +1,11 @@
-import type { CanvasEdge, CanvasNode, CanvasProjectionKind, KbLinkMode } from "@kb/canvas";
+import type {
+  CanvasEdge,
+  CanvasItemLink,
+  CanvasNode,
+  CanvasProjectionKind,
+  CanvasWorld,
+  KbLinkMode,
+} from "@kb/canvas";
 import { CaretLeftIcon, CaretRightIcon, SlidersHorizontalIcon, XIcon } from "@phosphor-icons/react";
 import type { PresentAct } from "./canvas-keymap";
 import { frameName } from "./canvas-frame-name";
@@ -56,6 +63,10 @@ interface CanvasOverlaysProps {
   /** Open the selected item's inspector at a point on screen. */
   onInspectItem: (anchor: { x: number; y: number }) => void;
   onItemChange: (shape: CanvasNode) => void;
+  /** What the canvas reads of kb: where an item's link leads. */
+  world: CanvasWorld;
+  /** Go where an item's link leads. */
+  onFollowLink: (link: CanvasItemLink) => void;
   onPickNode: (nodeId: string) => void;
   onClosePicker: () => void;
   /** The 3D gizmo's choice, which the selection toolbar switches; null where there is no gizmo (2D). */
@@ -319,6 +330,8 @@ export function CanvasOverlays({
   onCloseItemInspector,
   onInspectItem,
   onItemChange,
+  world,
+  onFollowLink,
   onPickNode,
   onClosePicker,
   gizmo,
@@ -380,6 +393,8 @@ export function CanvasOverlays({
           anchor={itemInspectorAnchor}
           onClose={onCloseItemInspector}
           onChange={onItemChange}
+          world={world}
+          onFollow={onFollowLink}
         />
       )}
 

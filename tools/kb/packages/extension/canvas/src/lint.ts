@@ -11,11 +11,19 @@
  *   solid it rests on (`restingOn`), and no frame whose face it lies on.
  * - `missing-end`: an edge names an item the canvas does not hold.
  * - `missing-node`: an item stands for a node the store does not hold.
+ * - `dead-link`: an item's link leads to a node the store does not hold,
+ *   or to an item its canvas does not hold.
  * - `missing-group`: an item names a group that is not one (`parent`).
  * - `outside-frame`: an item belongs to a frame whose face no longer holds it.
  */
 import { boxFrame } from "./box.ts";
-import { canvasElevation, isGroupNode, type CanvasDoc, type CanvasNode } from "./doc.ts";
+import {
+  canvasElevation,
+  isGroupNode,
+  type CanvasDoc,
+  type CanvasItemLink,
+  type CanvasNode,
+} from "./doc.ts";
 import { canvasMembership, faceHolds } from "./membership.ts";
 import { isSolid, overlaps } from "./relations.ts";
 import { restingOn } from "./snap.ts";
@@ -27,6 +35,7 @@ export const CANVAS_LINT_RULES = [
   "floating",
   "missing-end",
   "missing-node",
+  "dead-link",
   "missing-group",
   "outside-frame",
 ] as const;
@@ -54,6 +63,22 @@ function liesOnFace(item: CanvasNode, frame: CanvasNode): boolean {
 }
 
 const round = (v: number) => Math.round(v * 100) / 100;
+
+/** Why `link`, on an item of `doc`, leads nowhere; undefined when it leads somewhere (or out of kb). */
+function deadLink(link: CanvasItemLink, doc: CanvasDoc, world: CanvasWorld): string | undefined {
+  if ("url" in link) return undefined;
+  const node = "node" in link ? link.node : undefined;
+  if (node !== undefined && world.textOf(node) === undefined) {
+    return `leads to node ${node}, which is gone`;
+  }
+  if (link.item === undefined) return undefined;
+  const target = node === undefined ? doc : world.docOf(node);
+  const where = node === undefined ? "this canvas" : `canvas ${node}`;
+  if (target === undefined) return `leads to item ${link.item} on ${node}, which is no canvas`;
+  return target.nodes.some((item) => item.id === link.item)
+    ? undefined
+    : `leads to item ${link.item}, which is not on ${where}`;
+}
 
 /** Every lint on `doc`, in a stable order, reading kb through `world`. */
 export function lintCanvas(doc: CanvasDoc, world: CanvasWorld): CanvasLint[] {
@@ -97,6 +122,10 @@ export function lintCanvas(doc: CanvasDoc, world: CanvasWorld): CanvasLint[] {
         ids: [node.id],
         message: `${node.id} stands for node ${node.nodeId}, which is gone`,
       });
+    }
+    const dead = node.link === undefined ? undefined : deadLink(node.link, doc, world);
+    if (dead !== undefined) {
+      lints.push({ rule: "dead-link", ids: [node.id], message: `${node.id} ${dead}` });
     }
     const parent = membership.parentOf(node.id);
     if (node.parent !== undefined && parent === null) {

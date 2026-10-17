@@ -20,9 +20,11 @@ import {
   isTextNode,
   withDepth,
   withElevation,
+  withLink,
   withRotation,
   type CanvasFileNode,
   type CanvasGroupNode,
+  type CanvasItemLink,
   type CanvasKbNode,
   type CanvasNode,
   type CanvasPathNode,
@@ -149,6 +151,7 @@ export interface CanvasItemSpec {
   readonly color?: string;
   readonly style?: CanvasLooksPatch;
   readonly nodeId?: string;
+  readonly link?: CanvasItemLink;
   readonly file?: string;
   readonly width?: number;
   readonly height?: number;
@@ -181,7 +184,8 @@ export function makeItem(spec: CanvasItemSpec, id: string): CanvasNode {
     ...(spec.color === undefined ? {} : { color: canvasColor(spec.color) }),
     ...(spec.nodeId === undefined ? {} : { nodeId: spec.nodeId }),
   };
-  const lined = spec.line === undefined ? sized : lineOf(sized, spec.line, spec.preset);
+  const linked = withLink(sized, spec.link);
+  const lined = spec.line === undefined ? linked : lineOf(linked, spec.line, spec.preset);
   const styled = spec.style === undefined ? lined : withStyle(lined, spec.style);
   const deep = spec.depth === undefined ? styled : withDepth(styled, spec.depth);
   if (spec.text === undefined) return deep;

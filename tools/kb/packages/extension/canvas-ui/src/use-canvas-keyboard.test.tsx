@@ -2,7 +2,7 @@ import { act, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Window } from "happy-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, test } from "vitest";
-import type { CanvasDoc } from "@kb/canvas";
+import type { CanvasDoc, CanvasItemLink } from "@kb/canvas";
 import { EMPTY_SELECTION, selectNode, type CanvasSelection } from "./canvas-selection";
 import type { ToolState } from "./canvas-tool";
 import type { CanvasIntent } from "./canvas-keymap";
@@ -250,6 +250,7 @@ function mount(selection: CanvasSelection, transforming: boolean, around: Surrou
     chooseProjection: (kind: string) => log.push(`projection=${kind}`),
     openViewMenu: () => log.push("viewMenu"),
     openShortcuts: () => log.push("shortcuts"),
+    follow: (link: CanvasItemLink) => log.push(`follow=${JSON.stringify(link)}`),
   };
 
   const appliers: ((intent: CanvasIntent) => void)[] = [];
@@ -521,6 +522,30 @@ describe("locking", () => {
     expect(deleted?.nodes.map((node) => node.id)).toEqual(["a"]);
     const all = press({ key: "a", metaKey: true }, EMPTY_SELECTION, false, { doc: held });
     expect(all.log).toEqual(["selection=b"]);
+  });
+});
+
+describe("following a link", () => {
+  const linked: CanvasDoc = {
+    ...doc,
+    nodes: doc.nodes.map((node) =>
+      node.id === "a" ? { ...node, link: { node: "n.page" } } : node,
+    ),
+  };
+
+  test("⌘↵ follows where the one item selected leads", () => {
+    const followed = press({ key: "Enter", metaKey: true }, selectNode("a"), false, {
+      doc: linked,
+    });
+    expect(followed.log).toEqual(['follow={"node":"n.page"}']);
+  });
+
+  test("with more selected, or an item that leads nowhere, it does nothing", () => {
+    const both = { nodeIds: new Set(["a", "b"]), edgeIds: new Set<string>() };
+    expect(press({ key: "Enter", metaKey: true }, both, false, { doc: linked }).log).toEqual([]);
+    expect(
+      press({ key: "Enter", metaKey: true }, selectNode("b"), false, { doc: linked }).log,
+    ).toEqual([]);
   });
 });
 

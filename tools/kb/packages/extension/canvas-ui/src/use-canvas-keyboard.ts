@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { ulid } from "ulid";
-import type { CanvasDoc, CanvasNode, CanvasProjectionKind } from "@kb/canvas";
+import type { CanvasDoc, CanvasItemLink, CanvasNode, CanvasProjectionKind } from "@kb/canvas";
 import {
   GRID_STEP,
   CanvasRelationError,
@@ -92,6 +92,8 @@ interface CanvasKeyboardContext {
   openViewMenu: () => void;
   /** Open the sheet listing every shortcut. */
   openShortcuts: () => void;
+  /** Go where a link leads (`linkStep`). */
+  follow: (link: CanvasItemLink) => void;
 }
 
 /** Pasted and duplicated content lands this far from its origin. */
@@ -245,6 +247,13 @@ function toggleLock(context: CanvasKeyboardContext): void {
   });
 }
 
+/** Where the one item selected leads, followed; nothing when more are selected or it leads nowhere. */
+function followSelection(context: CanvasKeyboardContext): void {
+  const [id, ...more] = context.selRef.current.nodeIds;
+  const link = id === undefined || more.length > 0 ? undefined : context.byId.get(id)?.link;
+  if (link !== undefined) context.follow(link);
+}
+
 function chooseTool(context: CanvasKeyboardContext, tool: CanvasToolPick) {
   pickTool(tool, false, context);
 }
@@ -344,6 +353,7 @@ const INTENT_APPLIERS: { readonly [K in CanvasIntent["type"]]: IntentApplier<K> 
     arrangeSelection(context, (doc, ids) =>
       arrangeItems(doc, ids, { layout: "distribute", axis: intent.axis }),
     ),
+  followLink: followSelection,
 };
 
 /** Apply `intent` through the applier its kind names. */
