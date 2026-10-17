@@ -16,6 +16,12 @@ gap 1 work, config as fields with re-apply, expected next.
 | 4 | [A family's footprint on the graph](2026-10-17-kb-family-contributions/README.md) | "probably make it so that plugins can declare how it contribute to data graph" |
 | 5 | [Tracing and labelling connections](2026-10-17-kb-trace-and-label/README.md) | "ability to trace connections to make out new insights, (also labeling connections where appropriate, probably under a toggle)" |
 
+## Added during the day (2026-10-17)
+
+| Plan | Owner's words |
+|---|---|
+| [Page-head backdrops as a plugin point](2026-10-17-kb-backdrop-point/README.md) | "the header viz, should be a kind of plugin as well, or a surface for plugin to be able to influence" |
+
 ## Cross-dependencies
 
 Each item below is one mechanism that more than one plan needs. Whichever plan
