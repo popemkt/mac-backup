@@ -118,7 +118,7 @@
       # The script runs under the app's own bash, never whatever `env bash`
       # finds: on a minimal PATH that is macOS's /bin/bash 3.2.
       mkGithubSources =
-        nvfetcher:
+        pkgs: nvfetcher:
         pkgs.writeShellApplication {
           name = "github-sources";
           runtimeInputs = with pkgs; [
@@ -135,13 +135,11 @@
           '';
         };
 
-      githubSources = mkGithubSources pkgs.nvfetcher;
-
       # Offline fixture test of the app, run as CI runs it (env -i, empty
       # HOME, no TMPDIR, PATH=/usr/bin:/bin).
       githubSourcesCheck =
         let
-          app = mkGithubSources (
+          app = mkGithubSources pkgs (
             pkgs.writeShellScriptBin "nvfetcher" (builtins.readFile ./scripts/tests/nvfetcher-stub.sh)
           );
         in
@@ -295,10 +293,20 @@
         darwin-work = self.darwinConfigurations.popemkt-work.system;
       };
 
-      apps.${system}.github-sources = {
-        type = "app";
-        program = "${githubSources}/bin/github-sources";
-      };
+      # Per tooling system: the pre-commit gate runs `nix run .#github-sources`
+      # on whichever host commits, so Linux needs it too, built from its own pkgs.
+      apps = nixpkgs.lib.genAttrs toolingSystems (
+        system:
+        let
+          pkgs = pkgsFor system;
+        in
+        {
+          github-sources = {
+            type = "app";
+            program = "${mkGithubSources pkgs pkgs.nvfetcher}/bin/github-sources";
+          };
+        }
+      );
 
       devShells = nixpkgs.lib.genAttrs toolingSystems (
         system:
