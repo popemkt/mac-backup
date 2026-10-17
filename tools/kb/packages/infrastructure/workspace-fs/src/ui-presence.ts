@@ -1,8 +1,8 @@
 import { resolve } from "node:path";
 import { Effect, Option, Schema } from "effect";
 import { FileSystem } from "effect/FileSystem";
-import { ServerIdentitySchema } from "@kb/contracts";
-import type { DomainError } from "@kb/model";
+import { ServerIdentitySchema, isLoopbackHost } from "@kb/contracts";
+import { domainError, type DomainError } from "@kb/model";
 import { internal, isNotFound } from "./errors.ts";
 
 /**
@@ -13,13 +13,39 @@ import { internal, isNotFound } from "./errors.ts";
  * readable by its owner only. A file left by a server that died names a URL
  * that no longer answers, or that another root's server now answers, so a
  * reader asks the server which root it serves before it trusts the file.
+ * The file is only a file in the root, so whatever wrote it, it names a
+ * server on this machine or nothing (`isUiOrigin`).
  */
 function uiPresenceFile(root: string): string {
   return resolve(root, ".kb", "ui.json");
 }
 
+/**
+ * Whether `url` is where a `kb ui` on this machine answers: the bare origin
+ * of plain `http` to a loopback host on an explicit port, with no
+ * credentials, path, query or fragment. A reader goes to nothing else, so a
+ * presence file written by anyone but a server (a checkout, a tool) cannot
+ * send a probe, a call or the page anywhere else.
+ */
+function isUiOrigin(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  return (
+    parsed.protocol === "http:" &&
+    isLoopbackHost(parsed.hostname) &&
+    parsed.port !== "" &&
+    parsed.origin === url
+  );
+}
+
 const PresenceSchema = Schema.Struct({
-  url: Schema.String,
+  url: Schema.String.check(
+    Schema.makeFilter((url) => isUiOrigin(url) || "not a kb ui on this machine"),
+  ),
   pid: Schema.Finite,
   root: Schema.String,
 });
@@ -40,10 +66,15 @@ export const writeUiPresence = Effect.fn("kb.uiPresence.write")(function* (
   root: string,
   url: string,
 ): Effect.fn.Return<void, DomainError, FileSystem> {
+  if (!isUiOrigin(url))
+    return yield* domainError(
+      "invalid_input",
+      `.kb/ui.json names only a kb ui on this machine (http://127.0.0.1:<port>), not ${url}`,
+    );
   const fs = yield* FileSystem;
   const file = uiPresenceFile(root);
   const presence: UiPresence = { url, pid: process.pid, root: yield* canonicalRoot(root) };
-  yield* fs
+  return yield* fs
     .writeFileString(file, `${JSON.stringify(presence)}\n`, { mode: 0o600 })
     // The mode applies only to a file this write creates; one left behind keeps its own.
     .pipe(
@@ -52,7 +83,10 @@ export const writeUiPresence = Effect.fn("kb.uiPresence.write")(function* (
     );
 });
 
-/** What `.kb/ui.json` says, or null when there is none or it is not one this module wrote. */
+/**
+ * What `.kb/ui.json` says, or null when there is none or it is not one this
+ * module would write: a URL that is not a `kb ui` on this machine included.
+ */
 export const readUiPresence = Effect.fn("kb.uiPresence.read")(function* (
   root: string,
 ): Effect.fn.Return<UiPresence | null, DomainError, FileSystem> {
