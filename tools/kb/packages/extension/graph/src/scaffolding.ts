@@ -23,17 +23,12 @@ export function isScaffolding(node: Pick<LensSource, "id" | "props">): boolean {
 
 /**
  * `nodes` as the graph shows them: without the scaffolding unless
- * `includeSystem`, and with the nodes a read names (`keeping`: a trace's
- * ends, a suggestion's subject) whatever they are.
+ * `includeSystem`. A read anchored at a node walks from it whatever it is
+ * (`read.ts`).
  */
 export function visibleNodes<N extends Pick<LensSource, "id" | "props">>(
   nodes: readonly N[],
-  {
-    includeSystem = false,
-    keeping = [],
-  }: { includeSystem?: boolean; keeping?: readonly string[] } = {},
+  { includeSystem = false }: { includeSystem?: boolean } = {},
 ): N[] {
-  if (includeSystem) return [...nodes];
-  const kept = new Set(keeping);
-  return nodes.filter((node) => kept.has(node.id) || !isScaffolding(node));
+  return includeSystem ? [...nodes] : nodes.filter((node) => !isScaffolding(node));
 }

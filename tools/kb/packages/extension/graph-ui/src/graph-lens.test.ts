@@ -8,6 +8,8 @@ import {
   DEFAULT_MAX_NODES,
   type LensPerspective,
   GRAPH_IDS,
+  traceOf,
+  visibleNodes,
 } from "@kb/graph";
 import {
   extractLensGraph,
@@ -216,6 +218,28 @@ describe("extractLensGraph", () => {
     const none = extractLensGraph(db, nodes, perspective({ traceFrom: "n.a", traceTo: "n.c" }));
     // Under mentions and children alone nothing reaches n.c: no path, no nodes.
     expect(none.nodes).toEqual([]);
+  });
+
+  it("a saved trace from a node the graph elides starts there, as the server's trace does", () => {
+    const db = new DatascriptIndex(nodes, { derived: derivedWith({}) });
+    const kinds = ["mention", "child", "ref-prop"] as const;
+    const traced = extractLensGraph(
+      db,
+      nodes,
+      perspective({ edgeKinds: [...kinds], traceFrom: "tag.todo", traceTo: "n.c" }),
+    );
+    // The server's graph.trace: the visible nodes, and the ends it is asked for.
+    const server = traceOf(nodes, {
+      from: "tag.todo",
+      to: "n.c",
+      kinds,
+      within: new Set(visibleNodes(nodes).map((n) => n.id)),
+    });
+    expect(server.paths).not.toEqual([]);
+    expect(new Set(traced.nodes.map((n) => n.id))).toEqual(
+      new Set(server.paths.flatMap((path) => path.nodes)),
+    );
+    expect(traced.nodes.map((n) => n.id)).toContain("tag.todo");
   });
 
   it("selects only ref-prop edges when configured", () => {

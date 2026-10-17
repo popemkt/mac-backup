@@ -239,11 +239,11 @@ function resolveNodeSet(
   );
   const all = new Set(candidates.map((n) => n.id));
   const edn = perspective.query.trim();
-  if (!edn) return { nodeSet: tracedSet(candidates, all, perspective), queryError: null };
+  if (!edn) return { nodeSet: tracedSet(wireNodes, all, perspective), queryError: null };
   try {
     const rows = runQuery(db, edn);
     return {
-      nodeSet: tracedSet(candidates, idsFromQueryRows(rows, all), perspective),
+      nodeSet: tracedSet(wireNodes, idsFromQueryRows(rows, all), perspective),
       queryError: null,
     };
   } catch (err) {
@@ -257,8 +257,8 @@ function resolveNodeSet(
  * The page's one trace read: the paths between `from` and `to` over the
  * perspective's edge kinds and path count (`@kb/graph`'s `traceOf`, the read
  * the server's `graph.trace` runs), walking only `drawn`, the nodes the
- * graph's elision (`visibleNodes`) chose, as the server's read chooses its
- * own, and naming hops from every node the page holds.
+ * graph's elision (`visibleNodes`) chose, and its two ends, as the server's
+ * read does, and naming hops from every node the page holds.
  */
 export function tracePerspective(
   nodes: readonly WireNode[],
@@ -277,17 +277,18 @@ export function tracePerspective(
 }
 
 /**
- * A saved trace's node set: the paths between its ends within `nodeSet`. A
- * perspective that names no trace keeps the set it has.
+ * A saved trace's node set: the paths between its ends within `nodeSet`,
+ * named from all of `nodes`, as the live trace's are. A perspective that
+ * names no trace keeps the set it has.
  */
 function tracedSet(
-  candidates: readonly WireNode[],
+  nodes: readonly WireNode[],
   nodeSet: Set<string>,
   perspective: LensPerspective,
 ): Set<string> {
   const { traceFrom: from, traceTo: to } = perspective;
   if (from === null || to === null) return nodeSet;
-  const { paths } = tracePerspective(candidates, nodeSet, perspective, from, to);
+  const { paths } = tracePerspective(nodes, nodeSet, perspective, from, to);
   return new Set(paths.flatMap((path) => path.nodes));
 }
 

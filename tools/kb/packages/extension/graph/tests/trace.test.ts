@@ -127,7 +127,7 @@ describe("trace", () => {
       node({ id: "b", text: "B" }),
     ];
     const request = { from: "a", to: "b", kinds: ["child"] } as const;
-    const shown = visibleNodes(nodes, { keeping: ["a", "b"] });
+    const shown = visibleNodes(nodes);
     expect(traceOf(shown, request).paths).toEqual([]);
     const whole = visibleNodes(nodes, { includeSystem: true });
     expect(traceOf(whole, request).paths[0]?.nodes).toEqual(["a", "sys.hub", "b"]);
@@ -143,7 +143,7 @@ describe("trace", () => {
       node({ id: "sys.s", text: "s", children: ["x"] }),
     ];
     const request = { from: "a", to: "b", kinds: ["child"], k: 2 } as const;
-    const server = traceOf(visibleNodes(nodes, { keeping: ["a", "b"] }), request);
+    const server = traceOf(visibleNodes(nodes), request);
     const page = traceOf(visibleNodes(nodes), request);
     expect(server).toEqual(page);
     expect(server.paths.map((path) => path.hubCost)).toEqual([Math.log(2), Math.log(2)]);
@@ -294,7 +294,7 @@ describe("suggest", () => {
       node({ id: "d", text: "D", children: ["c"] }),
     ];
     const kinds = new Set(["child", "ref-prop"] as const);
-    const shown = projectionOf(visibleNodes(nodes, { keeping: ["a", "b"] }), kinds);
+    const shown = projectionOf(visibleNodes(nodes), kinds);
     const whole = projectionOf(nodes, kinds);
     expect(suggest(shown, "a").map((s) => s.id)).toEqual(["d"]);
     expect(suggest(whole, "a").map((s) => s.id)).toContain("b");

@@ -115,8 +115,7 @@ export const graphTraceEffect = Effect.fn("ext.graph.trace")(function* (
   const { index, nodes } = yield* KbCtx;
   yield* existing(index, [input.from, input.to]);
   const { includeSystem: whole, kinds, ...request } = input;
-  const shown = visibleNodes(nodes, { includeSystem: whole, keeping: [input.from, input.to] });
-  const within = new Set(shown.map((node) => node.id));
+  const within = new Set(visibleNodes(nodes, { includeSystem: whole }).map((node) => node.id));
   const answer = traceOf(nodes, { ...request, kinds: kindsOf(kinds), within });
   return traceOutput.parse(answer);
 });
@@ -127,8 +126,7 @@ export const graphSuggestEffect = Effect.fn("ext.graph.suggest")(function* (
   const { index, nodes } = yield* KbCtx;
   yield* existing(index, [input.id]);
   const { includeSystem: whole, kinds, ...request } = input;
-  const shown = visibleNodes(nodes, { includeSystem: whole, keeping: [input.id] });
-  const within = new Set(shown.map((node) => node.id));
+  const within = new Set(visibleNodes(nodes, { includeSystem: whole }).map((node) => node.id));
   return suggestOutput.parse({
     suggestions: suggestOf(nodes, { ...request, kinds: kindsOf(kinds), within }),
   });

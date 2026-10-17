@@ -1680,14 +1680,17 @@ layer), so neither is computed by DataScript. Plan and prior art:
   non-system targets of its `sys.f.type`, read whatever the kinds). Both
   reads walk its undirected view (`adjacencyOf`) and keep each edge whole,
   so a hop crosses an edge either way and still says which way it points.
-- **The caller picks the nodes.** A read walks exactly the nodes it is
-  given, and its adjacency and every degree are of those nodes. Which nodes
-  the graph shows is `visibleNodes` (`isScaffolding` — `sys.*` nodes,
-  commands, tag and field nodes — elided unless `includeSystem`, and the
-  nodes a read names kept), the one function the renderers' node set reads
+- **The caller picks the nodes.** A read walks the nodes it is given
+  (`within`) and the nodes it is anchored at (a trace's ends, a
+  suggestion's subject) whatever they are, and its adjacency and every
+  degree are of those nodes. Which nodes the graph shows is `visibleNodes`
+  (`isScaffolding` — `sys.*` nodes, commands, tag and field nodes — elided
+  unless `includeSystem`), the one function the renderers' node set reads
   too. The page reads over the nodes it drew; `graph.trace` and
-  `graph.suggest` over the visible nodes and their ends, so a hub the graph
-  elides costs nothing on either host and both rank paths alike.
+  `graph.suggest` over the visible nodes. Keeping the anchors is the read's
+  own rule (`traceOf`, `suggestOf`), so a trace from a node the graph
+  elides starts there on both hosts, a hub the graph elides costs nothing
+  on either, and both rank paths alike.
 - **Trace** (`trace`) is the k shortest simple paths between two nodes
   (Yen over a Dijkstra). Cost is hops; a tie goes to the lower sum of
   `log(degree)` over the intermediates, so a specific connector beats a hub
