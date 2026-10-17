@@ -43,8 +43,8 @@ export interface GuestRun {
   readonly over: Effect.Effect<boolean>;
   /**
    * Wait until the run is quiet — no call waits on the host and nothing the
-   * guest sent is unread — or has ended: how a snapshot knows the drawing is
-   * the code's last word.
+   * guest sent is unread — or has ended, and `ended` answers: how a snapshot
+   * knows the drawing is the code's last word, and how the run ended.
    */
   readonly settled: Effect.Effect<void>;
   readonly stop: Effect.Effect<void>;
@@ -142,10 +142,17 @@ export const runGuest = Effect.fn("sandbox.runGuest")(function* (
     ended: Deferred.await(ended),
     over: Deferred.isDone(ended),
     settled: Effect.raceFirst(
-      // Quiet: nothing waits on the host, and nothing the guest sent is unread.
+      // Quiet: the run goes on, nothing waits on the host, and nothing the
+      // guest sent is unread. A session that is over is not quiet but ended,
+      // and settles only once its end is known (`ended`), which lags the
+      // session while its last messages drain.
       Effect.repeat(
         Effect.sync(
-          () => pending === 0 && handling === 0 && Queue.sizeUnsafe(session.outbox) === 0,
+          () =>
+            !session.over() &&
+            pending === 0 &&
+            handling === 0 &&
+            Queue.sizeUnsafe(session.outbox) === 0,
         ),
         { until: (quiet) => quiet, schedule: Schedule.spaced(SETTLE_POLL_MS) },
       ),
