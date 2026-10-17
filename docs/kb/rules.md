@@ -258,14 +258,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A "Change reference target..." step in the node's ⌘K menu using the shared picker.
 - **node** — `01M3KA3AZTJVQNADZ12SDPE9X1`
 
-### GAP: a repository extension has no node, switch or settings
-
-- **expected** — An extension in .kb/extensions/*.ts declares itself like a bundled family, so the store it lives in carries its sys.extension.<name> node, its switch and its settings as fields.
-- **current** — Repository plugins load into the kernel but have no declaration and contribute no seed (DESIGN.md → seed fold), so they cannot be switched off or configured as bundled families are.
-- **impact** — A local extension is always on and its configuration lives in code, not in the graph.
-- **closes** — A declaration export for repository extensions, folded into that store's seed only, with the extension contract run over a repository fixture.
-- **node** — `01M53PZ0DWZ8MJN9T64TTQ10VD`
-
 ### GAP: a sandboxed graph.query is bounded in size, not in time
 
 - **expected** — a guest's graph.query has a deadline in the query layer
@@ -1101,6 +1093,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M545DBMQA0RGRWZY21HT3XD9`
 
+### GAP: the page and client derive ownership from the bundled fold only
+
+- **expected** — Every host's index derives its refs and owners from the root's fold, repository extensions included.
+- **current** — The page (graph.store.ts) and the client (client/src/index.ts) build their index with bundledDerived().
+- **impact** — A repository extension's seeded nodes have an owner and References on the server but not on the page or in external clients.
+- **closes** — The manifest or snapshot carries the root's declarations or owners, and both hosts derive from it.
+- **node** — `01M549TK1WP4E6T4QHNDRSDYQA`
+
 ### GAP: the page's offline family list reads only the bundled families
 
 - **expected** — The rows the page follows while no server answers come from one list of every family source, each hosted family reported as not hosted.
@@ -1124,6 +1124,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A seeded node's props cannot be cleared, and replacing one with unset followed by set in two commands silently stores the value twice. A replace has to be one node.update carrying both unsetProps and setProps.
 - **closes** — Record which seed prop keys a store has already been offered (for example a seed revision per node, or a tombstone written when a seeded key is unset) and fill only keys added since. Then add a test that an unset seeded key survives reopening.
 - **node** — `01M3A0ZEWWG0VEHXEM3YNKRQ0Y`
+
+### GAP: the shell's page plugins belong to no family
+
+- **expected** — The shell's page plugins are children of core's page entry, so core's footprint lists them.
+- **current** — CORE_UI_PLUGINS are top-level plugins, so no family's footprint lists them.
+- **impact** — The plugin view cannot attribute shell UI to a family.
+- **closes** — A core page entry plugin holding them as children.
+- **node** — `01M549THN6RH36SEE9QTSZ0PZP`
 
 ### GAP: the sigma renderer's lifecycle effect carries 32 branches
 
@@ -1359,6 +1367,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — an agent cannot propose a focused graph view in one call
 - **closes** — the graph lens settings get a schema that proposals compose
 - **node** — `01M40X30Q8N7NYCYHW3J0GFKY7`
+
+### GAP: a repository extension has no node, switch or settings
+
+- **expected** — An extension in .kb/extensions/*.ts declares itself like a bundled family, so the store it lives in carries its sys.extension.<name> node, its switch and its settings as fields.
+- **current** — Repository plugins load into the kernel but have no declaration and contribute no seed (DESIGN.md → seed fold), so they cannot be switched off or configured as bundled families are.
+- **impact** — A local extension is always on and its configuration lives in code, not in the graph.
+- **closes** — A declaration export for repository extensions, folded into that store's seed only, with the extension contract run over a repository fixture.
+- **node** — `01M53PZ0DWZ8MJN9T64TTQ10VD`
 
 ### GAP: a UI test gates on wall-clock time and fails under machine load
 

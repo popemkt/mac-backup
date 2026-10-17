@@ -155,6 +155,7 @@ function run<A>(effect: Effect.Effect<A, DomainError>): Promise<A> {
 
 function clientOver(store: EffectStore): KbClient {
   const held: HeldIndex = {
+    // GAP [[01M549TK1WP4E6T4QHNDRSDYQA]] the page and client derive ownership from the bundled fold only
     index: new DatascriptIndex([], { derived: bundledDerived() }),
     revision: null,
   };

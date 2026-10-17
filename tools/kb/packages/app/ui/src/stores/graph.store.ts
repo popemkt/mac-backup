@@ -37,6 +37,7 @@ import { ingestBrowserTx, installBrowserNodes, replaceBrowserSession } from "@/s
  * (`bundledDerived`), as the server's index does, so References agree.
  */
 const indexOver = (nodes: readonly WireNode[]) =>
+  // GAP [[01M549TK1WP4E6T4QHNDRSDYQA]] the page and client derive ownership from the bundled fold only
   new DatascriptIndex(nodes, { derived: bundledDerived() });
 
 const HISTORY_LIMIT = 50;

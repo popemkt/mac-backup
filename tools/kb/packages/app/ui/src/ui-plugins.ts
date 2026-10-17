@@ -58,6 +58,7 @@ import { shownNodes, useGraphStore } from "@/stores/graph.store";
 import { useUiStore } from "@/stores/ui.store";
 import { webMcpUiPlugin } from "@/webmcp";
 
+// GAP [[01M549THN6RH36SEE9QTSZ0PZP]] the shell's page plugins belong to no family
 /**
  * Always loaded: the shell's own projections. Core's views reach the page
  * kernel's catalog through the same declaration the server loads them from.
