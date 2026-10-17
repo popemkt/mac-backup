@@ -16,6 +16,7 @@ import {
   legacyViewShapes,
   type DomainError,
   type KbNode,
+  type StoreTx,
 } from "@kb/model";
 import { derivedOf } from "@kb/bundled";
 import type { KbContext } from "@kb/contracts";
@@ -71,18 +72,24 @@ export const openKbEffect = Effect.fn("kb.open")(function* (
   const store = yield* selectStore(root);
   const { declarations } = yield* rootFamilies(root);
   const loaded = yield* store.loadEffect;
-  const at = yield* currentIso;
-  const {
-    nodes: seeded,
-    seeded: didSeed,
-    deletes,
-  } = ensureSystemSeed(loaded, foldSeed(declarations, at).nodes);
-  const typed = migrateFieldTypeValues(seeded);
-  const dated = migrateDateValues(typed.nodes);
+  const seed = foldSeed(declarations, yield* currentIso).nodes;
   const ctx = yield* sessionOver(root, store, loaded, derivedOf(declarations));
-  if (didSeed || deletes.length > 0 || typed.changed || dated.changed) {
-    yield* persistOwnWrite(ctx, diffTx(loaded, dated.nodes));
+  if (migrationOf(loaded, seed) !== null) {
+    yield* persistOwnWrite(ctx, (nodes) => Effect.succeed(migrationOf(nodes, seed)));
   }
   yield* reportLegacyViews(root, ctx.nodes);
   return ctx;
 });
+
+/**
+ * What opening writes to a store holding `nodes`: the system seed's
+ * additions and retirements, and field-type and legacy date values
+ * rewritten, as the nodes that change; null when nothing does.
+ */
+function migrationOf(nodes: readonly KbNode[], seed: readonly KbNode[]): StoreTx | null {
+  const { nodes: seeded, seeded: didSeed, deletes } = ensureSystemSeed([...nodes], seed);
+  const typed = migrateFieldTypeValues(seeded);
+  const dated = migrateDateValues(typed.nodes);
+  if (!didSeed && deletes.length === 0 && !typed.changed && !dated.changed) return null;
+  return diffTx([...nodes], dated.nodes);
+}

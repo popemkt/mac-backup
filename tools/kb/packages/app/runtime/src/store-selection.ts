@@ -14,7 +14,7 @@ import { domainError, ensureDomainError, type DomainError } from "@kb/model";
 import type { EffectStore } from "@kb/contracts";
 import { JsonlStore } from "@kb/store-jsonl";
 import { SqliteStore, sqliteStoreFiles } from "@kb/store-sqlite";
-import { persistOwnWrite, sessionOver } from "./own-write.ts";
+import { createOwnStore, persistOwnWrite, sessionOver } from "./own-write.ts";
 
 /** The backends a root can be stored in. Also the `--store` / `--to` values. */
 export const STORE_BACKENDS = ["jsonl", "sqlite"] as const;
@@ -150,8 +150,7 @@ export const createStore = Effect.fn("kb.createStore")(function* (
     );
   }
   const opened = BACKENDS[name].open(root);
-  const session = yield* sessionOver(root, opened.store, [], []);
-  yield* persistOwnWrite(session, { upserts: [], deletes: [] });
+  yield* createOwnStore(yield* sessionOver(root, opened.store, [], []));
   opened.release();
   return undefined;
 });
@@ -190,10 +189,34 @@ export const migrateStore = Effect.fn("kb.migrateStore")(function* (
 
   const source = BACKENDS[from].open(root);
   const target = BACKENDS[to].open(root);
+  const before = yield* source.store.fingerprint;
   const nodes = yield* source.store.loadEffect;
   const tail = source.store.txTail.entries();
+  // A copy lands only on an empty target: one that holds nodes by the time
+  // the commit finds it is another writer's, and is never written over.
   const into = yield* sessionOver(root, target.store, [], []);
-  yield* persistOwnWrite(into, { upserts: nodes, deletes: [] });
+  yield* persistOwnWrite(into, (held) =>
+    held.length === 0
+      ? Effect.succeed({ upserts: nodes, deletes: [] })
+      : domainError("conflict", `${root}'s ${to} store was written while it was migrated into`, {
+          root,
+          to,
+        }),
+  );
+  // A write to the source after it was read would be lost with its files:
+  // then the copy is undone and the root keeps the store it had.
+  if ((yield* source.store.fingerprint) !== before) {
+    target.release();
+    for (const file of BACKENDS[to].files(root)) {
+      yield* fs.remove(file, { force: true }).pipe(Effect.mapError(ensureDomainError));
+    }
+    source.release();
+    return yield* domainError(
+      "conflict",
+      `${root}'s ${from} store changed while it was migrated; it is left as it was, so migrate again`,
+      { root, from, to },
+    );
+  }
   // The tail moves with the nodes, revs and all. The migration changes nothing
   // a client can see, so it must not be the thing that forces every client
   // into a snapshot — and `adopt` re-stamps the store mark, because the marks
