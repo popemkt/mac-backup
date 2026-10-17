@@ -1,4 +1,4 @@
-import { useEffectEvent, useLayoutEffect, useMemo, type RefObject } from "react";
+import { useEffectEvent, useInsertionEffect, useLayoutEffect, useRef, type RefObject } from "react";
 import { asElement, asInstance, isOutside } from "../lib/dom";
 
 /**
@@ -41,12 +41,16 @@ interface Layer {
 /** The popovers open now, in the order they opened: the last is on top. */
 const layers: Layer[] = [];
 
-/** Escape dismisses the popover on top, reaches nothing else, and gives focus back. */
+/**
+ * Escape dismisses the popover on top, reaches nothing else, and gives focus
+ * back. Nothing else: no listener below the window, and none on the window
+ * after this one, which every popover's opening adds to before.
+ */
 function onKey(e: KeyboardEvent): void {
   const top = layers.at(-1);
   if (top === undefined || e.key !== "Escape" || e.isComposing) return;
   e.preventDefault();
-  e.stopPropagation();
+  e.stopImmediatePropagation();
   top.dismiss();
   if (top.opener?.isConnected === true) asInstance(top.opener, HTMLElement)?.focus();
 }
@@ -94,13 +98,14 @@ export function useDismiss(
   const holds = useEffectEvent((target: EventTarget | null) =>
     within(trigger === null ? inside : [...inside, trigger], target),
   );
-  // Read as it opens, before anything it renders takes focus.
-  const opener = useMemo(
-    () => (open && typeof document !== "undefined" ? document.activeElement : null),
-    [open],
-  );
+  const opener = useRef<Element | null>(null);
+  // Read as it opens, in the commit's mutation phase: before anything it
+  // renders takes focus, as an autoFocus input does in the layout phase.
+  useInsertionEffect(() => {
+    if (open) opener.current = document.activeElement;
+  }, [open]);
   useLayoutEffect(() => {
     if (!open) return undefined;
-    return openLayer({ holds, dismiss: onDismiss, opener });
-  }, [open, opener]);
+    return openLayer({ holds, dismiss: onDismiss, opener: opener.current });
+  }, [open]);
 }

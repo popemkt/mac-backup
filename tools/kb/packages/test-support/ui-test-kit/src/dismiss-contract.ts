@@ -10,7 +10,8 @@
  * - a press on its own trigger, while it is open, closes it exactly once:
  *   the trigger's click closes it, and nothing opens it again;
  * - a press outside it dismisses it, even one a handler there stops;
- * - Escape dismisses it and reaches nothing else;
+ * - Escape dismisses it and reaches nothing else: no listener below the
+ *   window, in either phase, and none on the window added after it opened;
  * - Escape gives focus back to what had it as the popover opened;
  * - a popover opened over it is dismissed first: a press in that one
  *   leaves both open, and Escape dismisses that one, then this one.
@@ -153,15 +154,21 @@ export function dismissContract(popovers: Readonly<Record<string, PopoverMount>>
     });
 
     it("is dismissed by Escape, which reaches nothing else", async () => {
+      const heard: string[] = [];
+      const hearing = (where: string) => (e: KeyboardEvent) => heard.push(`${where} ${e.key}`);
+      // Capture listeners, the earliest a handler can hear: the document's
+      // added before it opened, the window's after.
+      const onDocument = hearing("document");
+      document.addEventListener("keydown", onDocument, true);
       const popover = await open();
       panelOf(popover);
-      const heard: string[] = [];
-      const hear = (e: KeyboardEvent) => heard.push(e.key);
-      window.addEventListener("keydown", hear);
+      const onWindow = hearing("window");
+      window.addEventListener("keydown", onWindow, true);
       try {
         escape();
       } finally {
-        window.removeEventListener("keydown", hear);
+        document.removeEventListener("keydown", onDocument, true);
+        window.removeEventListener("keydown", onWindow, true);
       }
       expect(popover.panel()).toBeNull();
       expect(heard).toEqual([]);

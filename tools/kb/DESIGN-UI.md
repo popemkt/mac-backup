@@ -1664,9 +1664,12 @@ The rules that hold everywhere, so no surface re-invents them:
   ontology picker, the add-a-ref picker and the pane switcher — dismisses
   through `@kb/ui-sdk`'s `useDismiss`, never a listener of its own. The
   open popovers are a stack, the last opened on top. Escape dismisses the
-  one on top, reaches nothing else, and gives focus back to what had it as
-  that one opened (read in the render that opens it, before an input it
-  renders takes focus). A press dismisses every popover above the one it
+  one on top, reaches nothing else (no listener below the window, and none
+  on the window after the popover's, which it stops immediately; a window
+  capture listener added before any popover opened hears it first, so the
+  page's own, its global shortcuts, act on no Escape), and gives focus back
+  to what had it as that one opened (read in the commit that opens it,
+  before an input it renders takes focus). A press dismisses every popover above the one it
   lands in, so a press in a popover opened from another leaves both open,
   and one on the page dismisses them all. A popover names its parts
   (`{inside, trigger}`): what counts as itself, its panel, and its
