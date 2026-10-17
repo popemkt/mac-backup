@@ -114,6 +114,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — authenticated callers per surface (a UI session token, an agent identity), checked where the actor is filled in
 - **node** — `01M413SP3QSSQJMKKDK3W3J6G8`
 
+### GAP: a canvas comment has no author
+
+- **expected** — A comment shows who wrote it (a person, an agent or a script, and which), read from the record of who wrote the node.
+- **current** — The store and the tx log record no writer for a node, so a comment and its replies show text and time only.
+- **impact** — In a thread where a person and an agent both comment, you cannot tell who said what.
+- **closes** — The commit records the invoking actor on each tx entry (or on the node), and the thread panel and describe read it.
+- **node** — `01M54GBYH3K67TAW016HFCJHBC`
+
 ### GAP: a canvas item with a link shows no mark on the canvas
 
 - **expected** — An item that carries a link wears a small link mark in both projections, as tldraw's shape link button does, so a reader sees what leads somewhere and clicks it to follow.
