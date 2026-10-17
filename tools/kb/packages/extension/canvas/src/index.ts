@@ -128,7 +128,14 @@ export {
   withHead,
   withRoute,
 } from "./edges.ts";
-export type { EdgeEnd, EdgeHead, EdgeRoute, EdgeRoutePatch, EdgeTerminal } from "./edges.ts";
+export type {
+  CanvasEnded,
+  EdgeEnd,
+  EdgeHead,
+  EdgeRoute,
+  EdgeRoutePatch,
+  EdgeTerminal,
+} from "./edges.ts";
 export type { CanvasConnection } from "./connect.ts";
 export { describeCanvas, itemKind } from "./describe.ts";
 export type {

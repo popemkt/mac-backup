@@ -7,6 +7,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   describeCanvas,
+  headOf,
   isPathNode,
   itemKind,
   itemOutline,
@@ -17,7 +18,9 @@ import {
   presetItem,
   stringifyCanvasDoc,
   styleOf,
+  withHead,
   withLine,
+  type CanvasEdge,
   type CanvasPathNode,
 } from "../src/index.ts";
 
@@ -147,5 +150,29 @@ describe("made", () => {
       { nodeText: () => undefined },
     );
     expect(told.items[0]).toMatchObject({ id: "p", kind: "arrow" });
+  });
+});
+
+describe("ends", () => {
+  test("a line's ends read and write as an edge's do: the head each end wears, or none", () => {
+    const edge: CanvasEdge = { id: "e", fromNode: "a", toNode: "b" };
+    const records = [line(), edge] as const;
+    for (const record of records) {
+      for (const [end, head] of [
+        ["from", "dot"],
+        ["to", "open"],
+        ["to", null],
+      ] as const) {
+        const worn = record === edge ? withHead(edge, end, head) : withHead(line(), end, head);
+        expect(headOf(worn, end), `${"type" in record ? "line" : "edge"} ${end}`).toBe(head);
+      }
+    }
+    // Each keeps its own default: a line leaves and arrives bare, an edge arrives with an arrow.
+    expect([headOf(line(), "from"), headOf(line(), "to")]).toEqual([null, null]);
+    expect([headOf(edge, "from"), headOf(edge, "to")]).toEqual([null, "arrow"]);
+  });
+
+  test("a closed line has no ends, so wears no head", () => {
+    expect(headOf(line({ closed: true, toHead: "arrow" }), "to")).toBeNull();
   });
 });

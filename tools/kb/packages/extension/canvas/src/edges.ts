@@ -18,6 +18,7 @@ import type {
   CanvasEdge,
   CanvasHead,
   CanvasNode,
+  CanvasPathNode,
   CanvasRoute,
   CanvasSide,
 } from "./doc.ts";
@@ -444,28 +445,53 @@ export function routeMidpoint(route: EdgeRoute): { x: number; y: number } {
   return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
 }
 
+/** A record whose ends wear heads: an edge, or a line item. */
+export type CanvasEnded = CanvasEdge | CanvasPathNode;
+
+/** Whether a record with ends is a line: an item, where an edge has no type. */
+const isLine = (record: CanvasEnded): record is CanvasPathNode => "type" in record;
+
 /**
- * The head an edge's `end` wears, or null for none. JSON Canvas's
- * `fromEnd`/`toEnd` says whether it wears one (none leaving, an arrow
- * arriving, by default), kb's `fromHead`/`toHead` which: JSON Canvas's
- * arrow when it names none.
+ * The head `end` of `record` wears, or null for none — the one reading of
+ * an end for edges and lines alike. A line names the head an end wears,
+ * and wears none at an end that names none; a closed line has no ends. An
+ * edge keeps JSON Canvas's form beside kb's: `fromEnd`/`toEnd` says whether
+ * it wears one (none leaving, an arrow arriving, by default),
+ * `fromHead`/`toHead` which — JSON Canvas's arrow when it names none.
  */
-export function headOf(edge: CanvasEdge, end: EdgeEnd): CanvasHead | null {
-  if (end === "from") return edge.fromEnd === "arrow" ? (edge.fromHead ?? "arrow") : null;
-  return edge.toEnd === "none" ? null : (edge.toHead ?? "arrow");
+export function headOf(record: CanvasEnded, end: EdgeEnd): CanvasHead | null {
+  if (isLine(record)) {
+    if (record.closed === true) return null;
+    return (end === "from" ? record.fromHead : record.toHead) ?? null;
+  }
+  if (end === "from") return record.fromEnd === "arrow" ? (record.fromHead ?? "arrow") : null;
+  return record.toEnd === "none" ? null : (record.toHead ?? "arrow");
 }
 
 /**
- * `edge` with its `end` wearing `head`, or none (null): its JSON Canvas end
- * written as the coarse form other readers keep (`arrow` for any head), and
- * the head named only when it is not JSON Canvas's own arrow. A default is
- * written as no field, and one set here supersedes a value this version
- * could not read.
+ * `record` with its `end` wearing `head`, or none (null), written as its
+ * form keeps it (`headOf`): a line's head named, or no field for none; an
+ * edge's JSON Canvas end written as the coarse form other readers keep
+ * (`arrow` for any head), and the head named only when it is not JSON
+ * Canvas's own arrow. A default is written as no field, and one set here
+ * supersedes a value this version could not read.
  */
-export function withHead(edge: CanvasEdge, end: EdgeEnd, head: CanvasHead | null): CanvasEdge {
-  const endKey = end === "from" ? "fromEnd" : "toEnd";
+export function withHead(edge: CanvasEdge, end: EdgeEnd, head: CanvasHead | null): CanvasEdge;
+export function withHead(
+  line: CanvasPathNode,
+  end: EdgeEnd,
+  head: CanvasHead | null,
+): CanvasPathNode;
+export function withHead(record: CanvasEnded, end: EdgeEnd, head: CanvasHead | null): CanvasEnded {
   const headKey = end === "from" ? "fromHead" : "toHead";
-  const next: CanvasEdge = dropExtra(dropExtra({ ...edge }, endKey), headKey);
+  if (isLine(record)) {
+    const line: CanvasPathNode = dropExtra({ ...record }, headKey);
+    if (head === null) delete line[headKey];
+    else line[headKey] = head;
+    return line;
+  }
+  const endKey = end === "from" ? "fromEnd" : "toEnd";
+  const next: CanvasEdge = dropExtra(dropExtra({ ...record }, endKey), headKey);
   delete next[headKey];
   const wears = head !== null;
   // JSON Canvas: an edge leaves bare and arrives with an arrow unless it says otherwise.

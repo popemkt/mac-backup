@@ -51,7 +51,7 @@ export function itemKind(item: CanvasNode): string {
   if (isShapeNode(item)) return canvasDepth(item) > 0 ? SOLID_NAMES[item.shape] : item.shape;
   if (isPathNode(item)) {
     if (item.closed === true) return "outline";
-    return item.fromHead === undefined && item.toHead === undefined ? "line" : "arrow";
+    return headOf(item, "from") === null && headOf(item, "to") === null ? "line" : "arrow";
   }
   return item.type;
 }

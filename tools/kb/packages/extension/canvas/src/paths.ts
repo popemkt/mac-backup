@@ -13,7 +13,7 @@ import {
   type CanvasNode,
   type CanvasPathNode,
 } from "./doc.ts";
-import { headOnLine, type EdgeEnd, type EdgeHead } from "./edges.ts";
+import { headOf, headOnLine, withHead, type EdgeEnd, type EdgeHead } from "./edges.ts";
 import { dropExtra } from "./extra.ts";
 import { itemShape, shapeOutline, type CanvasPathCommand } from "./shapes.ts";
 
@@ -68,12 +68,11 @@ export function withLine(item: CanvasPathNode, patch: CanvasLinePatch): CanvasPa
     if (patch.closed) next.closed = true;
     else delete next.closed;
   }
-  for (const key of ["fromHead", "toHead"] as const) {
-    const head = patch[key];
-    if (head === undefined) continue;
-    next = dropExtra(next, key);
-    if (head === null) delete next[key];
-    else next[key] = head;
+  for (const [end, head] of [
+    ["from", patch.fromHead],
+    ["to", patch.toHead],
+  ] as const) {
+    if (head !== undefined) next = withHead(next, end, head);
   }
   return next;
 }
@@ -90,12 +89,9 @@ export function pathHeads(
 ): { readonly end: EdgeEnd; readonly head: EdgeHead }[] {
   if (!isOpenLine(item)) return [];
   const points = pathPoints(item, w, h);
-  const worn: readonly [EdgeEnd, CanvasHead | undefined][] = [
-    ["from", item.fromHead],
-    ["to", item.toHead],
-  ];
-  return worn.flatMap(([end, kind]) => {
-    const head = kind === undefined ? null : headOnLine(kind, points, end, length);
+  return (["from", "to"] as const).flatMap((end) => {
+    const kind = headOf(item, end);
+    const head = kind === null ? null : headOnLine(kind, points, end, length);
     return head === null ? [] : [{ end, head }];
   });
 }
