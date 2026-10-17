@@ -30,6 +30,7 @@ import { locationsExtension } from "@kb/locations";
 import { extensionNodeId, foldSeed, type KbNode, type NodeId } from "@kb/model";
 import { coreExtension } from "@kb/operations";
 import { outlineExtension } from "@kb/outline";
+import { themesExtension } from "@kb/themes";
 import { derivedWith, type DerivedRef } from "@kb/query";
 
 /**
@@ -49,6 +50,7 @@ export const BUNDLED_FAMILIES: readonly ExtensionDeclaration[] = [
   chartExtension,
   locationsExtension,
   backdropsExtension,
+  themesExtension,
 ];
 
 /**

@@ -9,7 +9,7 @@
  * and stay the default's; `--lab-accent` derives from `--primary`.
  */
 
-[data-theme="paper"] {
+[data-theme="themes.paper"] {
   --background: oklch(0.975 0.012 85);
   --foreground: oklch(0.25 0.02 60);
   --card: oklch(0.99 0.008 85);
@@ -86,8 +86,8 @@
   --font-weight-ui: 500;
 }
 
-.dark[data-theme="paper"],
-.dark [data-theme="paper"] {
+.dark[data-theme="themes.paper"],
+.dark [data-theme="themes.paper"] {
   --background: oklch(0.2 0.012 60);
   --foreground: oklch(0.91 0.015 85);
   --card: oklch(0.235 0.013 60);

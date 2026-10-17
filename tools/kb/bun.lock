@@ -42,6 +42,7 @@
         "@kb/operations": "workspace:*",
         "@kb/outline": "workspace:*",
         "@kb/query": "workspace:*",
+        "@kb/themes": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "catalog:",
@@ -140,6 +141,7 @@
         "@kb/sandbox-quickjs": "workspace:*",
         "@kb/store-jsonl": "workspace:*",
         "@kb/store-sqlite": "workspace:*",
+        "@kb/themes": "workspace:*",
         "@kb/tx-log": "workspace:*",
         "@kb/views": "workspace:*",
         "@kb/workspace-fs": "workspace:*",
@@ -235,6 +237,8 @@
         "@kb/sandbox-quickjs": "workspace:*",
         "@kb/sandbox-worker": "workspace:*",
         "@kb/scene": "workspace:*",
+        "@kb/themes": "workspace:*",
+        "@kb/themes-ui": "workspace:*",
         "@kb/tx-log": "workspace:*",
         "@kb/ui-sdk": "workspace:*",
         "@kb/views": "workspace:*",
@@ -902,6 +906,30 @@
         "vitest": "catalog:",
       },
     },
+    "packages/extension/themes": {
+      "name": "@kb/themes",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/contracts": "workspace:*",
+        "@kb/plugin": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
+    "packages/extension/themes-ui": {
+      "name": "@kb/themes-ui",
+      "version": "0.0.0",
+      "dependencies": {
+        "@kb/plugin": "workspace:*",
+        "@kb/themes": "workspace:*",
+        "@kb/ui-sdk": "workspace:*",
+        "effect": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
     "packages/infrastructure/sandbox-quickjs": {
       "name": "@kb/sandbox-quickjs",
       "version": "0.0.0",
@@ -1482,6 +1510,10 @@
     "@kb/store-sqlite": ["@kb/store-sqlite@workspace:packages/infrastructure/store-sqlite"],
 
     "@kb/test-kit": ["@kb/test-kit@workspace:packages/app/test-kit"],
+
+    "@kb/themes": ["@kb/themes@workspace:packages/extension/themes"],
+
+    "@kb/themes-ui": ["@kb/themes-ui@workspace:packages/extension/themes-ui"],
 
     "@kb/tx-log": ["@kb/tx-log@workspace:packages/infrastructure/tx-log"],
 

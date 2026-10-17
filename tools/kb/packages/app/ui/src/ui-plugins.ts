@@ -25,6 +25,8 @@ import { canvasExtension } from "@kb/canvas";
 import { chartExtension } from "@kb/chart";
 import { locationsExtension } from "@kb/locations";
 import { checkExtension } from "@kb/check";
+import { themesExtension } from "@kb/themes";
+import { themesUiPlugin } from "@kb/themes-ui";
 import { codeExtension } from "@kb/code";
 import { collectionsExtension } from "@kb/collections";
 import { collectionsUiPlugin } from "@kb/collections-ui";
@@ -114,7 +116,7 @@ export interface BrowserExtension {
  * The browser entry of each family, keyed by the name its declaration gives
  * it. Whether the page loads one is the server's report, never this table.
  * How it is fetched is: a family a store always has on (the outline) or has
- * on by default (collections, graph, canvas, code, chart, locations, backdrops) loads
+ * on by default (collections, graph, canvas, code, chart, locations, backdrops, themes) loads
  * from the main bundle, and one off by default (the lab) or hosted only by
  * `kb ui` (the agent) is its own chunk, fetched when it is first on. A family with no
  * browser half is listed too, as `null`, so a bundled family is never left
@@ -134,6 +136,7 @@ export const BROWSER_EXTENSIONS: Readonly<Record<string, BrowserExtension | null
   [chartExtension.name]: { load: () => Promise.resolve(chartUiPlugin) },
   [locationsExtension.name]: { load: () => Promise.resolve(locationsUiPlugin) },
   [backdropsExtension.name]: { load: () => Promise.resolve(backdropsUiPlugin) },
+  [themesExtension.name]: { load: () => Promise.resolve(themesUiPlugin) },
   [agentExtension.name]: { load: loadAgentEntry },
 };
 

@@ -8,7 +8,7 @@
  * and stay the default's; `--lab-accent` derives from `--primary`.
  */
 
-[data-theme="terminal"] {
+[data-theme="themes.terminal"] {
   --background: oklch(0.985 0.005 150);
   --foreground: oklch(0.22 0.03 150);
   --card: oklch(1 0 0);
@@ -96,8 +96,8 @@
   --font-weight-ui: 500;
 }
 
-.dark[data-theme="terminal"],
-.dark [data-theme="terminal"] {
+.dark[data-theme="themes.terminal"],
+.dark [data-theme="themes.terminal"] {
   --background: oklch(0.14 0.012 150);
   --foreground: oklch(0.9 0.06 150);
   --card: oklch(0.17 0.014 150);

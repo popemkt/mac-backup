@@ -104,7 +104,7 @@ describe("kb tokens", () => {
     expect(index).toMatch(/data-scrolling/);
   });
 
-  // The default only: Paper (design-systems/paper.css) chooses a serif on purpose.
+  // The default only: Paper (@kb/themes-ui) chooses a serif on purpose.
   it("legacy skin is gone from the default: no serif stack, gradients, or --kb palette bridges", () => {
     for (const css of [tokens, index, designSystem]) {
       expect(css).not.toMatch(/radial-gradient/);
@@ -147,7 +147,8 @@ describe("kb tokens", () => {
     // The page runs the shared packages too, so a token they read is read.
     const shared = sharedSources().flatMap(({ src }) => collectSourceFiles(src));
     const readers = [...pageSourceFiles().map(({ file }) => file), ...shared]
-      // A design system restates layer 1; restating a token is not reading it.
+      // A design system restates layer 1 (its family keeps its sheets under
+      // `design-systems/`); restating a token is not reading it.
       .filter(
         (file) =>
           !file.endsWith("design-system.css") &&

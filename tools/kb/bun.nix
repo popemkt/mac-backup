@@ -651,6 +651,8 @@
   "@kb/store-jsonl" = copyPathToStore ./packages/infrastructure/store-jsonl;
   "@kb/store-sqlite" = copyPathToStore ./packages/infrastructure/store-sqlite;
   "@kb/test-kit" = copyPathToStore ./packages/app/test-kit;
+  "@kb/themes" = copyPathToStore ./packages/extension/themes;
+  "@kb/themes-ui" = copyPathToStore ./packages/extension/themes-ui;
   "@kb/tx-log" = copyPathToStore ./packages/infrastructure/tx-log;
   "@kb/ui" = copyPathToStore ./packages/app/ui;
   "@kb/ui-sdk" = copyPathToStore ./packages/kit/ui-sdk;

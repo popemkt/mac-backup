@@ -26,11 +26,14 @@ import { bundledSeed } from "@kb/bundled";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { outlineNodes, outlineUiPlugin, useOutlineStore } from "@kb/outline-ui";
 import { collectionsUiPlugin } from "@kb/collections-ui";
+import { themesUiPlugin } from "@kb/themes-ui";
 import { designSystemsUiPlugin } from "@/design-systems";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.
-beforeAll(() => syncPagePlugins([designSystemsUiPlugin, outlineUiPlugin, collectionsUiPlugin]));
+beforeAll(() =>
+  syncPagePlugins([designSystemsUiPlugin, themesUiPlugin, outlineUiPlugin, collectionsUiPlugin]),
+);
 afterAll(() => syncUiPlugins([]));
 
 /**
@@ -197,9 +200,9 @@ describe("palette command routing (characterization)", () => {
   it("switch-design-system steps through the registry and wraps", async () => {
     usePrefsStore.getState().setDesignSystem("kb");
     await run(SYSTEM_IDS.cmdSwitchDesignSystem);
-    expect(usePrefsStore.getState().designSystem).toBe("paper");
+    expect(usePrefsStore.getState().designSystem).toBe("themes.paper");
     await run(SYSTEM_IDS.cmdSwitchDesignSystem);
-    expect(usePrefsStore.getState().designSystem).toBe("terminal");
+    expect(usePrefsStore.getState().designSystem).toBe("themes.terminal");
     await run(SYSTEM_IDS.cmdSwitchDesignSystem);
     expect(usePrefsStore.getState().designSystem).toBe("kb");
   });
