@@ -1125,11 +1125,11 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M545DBMQA0RGRWZY21HT3XD9`
 
-### GAP: the page and client derive ownership from the bundled fold only
+### GAP: the page and client derive refs and ownership from the bundled fold only
 
 - **expected** — Every host's index derives its refs and owners from the root's fold, repository extensions included.
-- **current** — The page (graph.store.ts) and the client (client/src/index.ts) build their index with bundledDerived().
-- **impact** — A repository extension's seeded nodes have an owner and References on the server but not on the page or in external clients.
+- **current** — The page (graph.store.ts) and the client (client/src/index.ts) build their index with bundledDerived(), the bundled fold alone, while the server derives from the root's fold (derivedOf).
+- **impact** — On a root with repository extensions, nodes those extensions seed have an owner on the server but not on the page or in clients, and fields they declare as refCarriers feed References on the server only.
 - **closes** — The manifest or snapshot carries the root's declarations or owners, and both hosts derive from it.
 - **node** — `01M549TK1WP4E6T4QHNDRSDYQA`
 
