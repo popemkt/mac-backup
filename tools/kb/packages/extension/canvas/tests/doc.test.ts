@@ -32,6 +32,7 @@ import {
   type CanvasDoc,
   type CanvasNode,
 } from "../src/index.ts";
+import { CANVAS_LOOKS } from "../src/style-fields.ts";
 
 const roundTrip = (doc: CanvasDoc) => parseCanvasDoc(stringifyCanvasDoc(doc));
 const finite = fc
@@ -91,6 +92,140 @@ const itemAt = (id: string, z?: number, depth?: number): CanvasNode => ({
   height: 1,
   ...(z === undefined ? {} : { z }),
   ...(depth === undefined ? {} : { depth }),
+});
+
+/** A value no field codec reads: every field kb knows stays unread when it holds this. */
+const UNREAD = [["unread"]];
+/** A readable value of every optional field, as written: an item's, a line's and an edge's. */
+const ITEM_SAMPLES: Record<string, unknown> = {
+  z: 40,
+  depth: 20,
+  rotation: { z: 30 },
+  color: "2",
+  nodeId: "n.a",
+  parent: "f",
+  billboard: true,
+  locked: true,
+  style: { fill: "solid" },
+};
+const PATH_SAMPLES: Record<string, unknown> = { closed: true, fromHead: "dot", toHead: "bar" };
+const EDGE_SAMPLES: Record<string, unknown> = {
+  fromSide: "top",
+  toSide: "left",
+  fromEnd: "arrow",
+  toEnd: "none",
+  color: "4",
+  label: "leads",
+  kbLink: {
+    mode: "layout",
+    via: "prop",
+    fieldId: "f",
+    sourceNodeId: "a",
+    targetNodeId: "b",
+    bindingId: "k",
+  },
+  fromAnchor: { x: 0.25, y: 0 },
+  toAnchor: { x: 1, y: 0.5 },
+  route: "arc",
+  bend: 12,
+  fromHead: "open",
+  toHead: "diamond",
+  style: { dash: "dotted" },
+};
+const STYLE_SAMPLES: Record<string, unknown> = {
+  fill: "semi",
+  dash: "dashed",
+  size: "xl",
+  font: "mono",
+  align: "end",
+  valign: "bottom",
+  opacity: 0.5,
+};
+const line = { id: "l", type: "path", x: 0, y: 0, width: 9, height: 9 };
+const lineAt = {
+  ...line,
+  points: [
+    { x: 0, y: 0 },
+    { x: 1, y: 1 },
+  ],
+};
+const card = { id: "a", type: "text", text: "", x: 0, y: 0, width: 1, height: 1 };
+
+/** `stale` given `fresh`'s value of `key`, as an edit sets a field (a spread, not a setter). */
+const given = <R extends object>(stale: R, fresh: R | undefined, key: string): R => ({
+  ...stale,
+  ...Object.fromEntries(Object.entries(fresh ?? {}).filter(([k]) => k === key)),
+});
+
+/**
+ * The document `raw` describes twice — once holding `key` unread, once
+ * holding it as `value` — the first given the second's value by `edit`, and
+ * written back as JSON.
+ */
+function edited(
+  raw: (held: unknown) => Record<string, unknown>,
+  value: unknown,
+  edit: (stale: CanvasDoc, fresh: CanvasDoc) => CanvasDoc,
+) {
+  const stale = parseCanvasDoc(raw(UNREAD));
+  return JSON.parse(stringifyCanvasDoc(edit(stale, parseCanvasDoc(raw(value)))));
+}
+
+/** A doc's first item given `key` from another's: what the record says, written. */
+const itemEdit = (key: string) => (stale: CanvasDoc, fresh: CanvasDoc) => ({
+  ...stale,
+  nodes: stale.nodes.map((n) => given(n, fresh.nodes[0], key)),
+});
+
+/** A 3D document whose camera's pose is `held`, and one given another's pose. */
+const posed = (held: unknown) => ({ nodes: [], camera: { projection: "3d", pose: held } });
+const posing = (stale: CanvasDoc, fresh: CanvasDoc) =>
+  stale.camera === undefined
+    ? stale
+    : { ...stale, camera: given(stale.camera, fresh.camera, "pose") };
+/** A document whose camera is `held`, and one given another's camera. */
+const viewed = (held: unknown) => ({ nodes: [], camera: held });
+const viewing = (stale: CanvasDoc, fresh: CanvasDoc) => given(stale, fresh, "camera");
+
+describe("the record wins over what kb kept unread", () => {
+  test.each(Object.entries(ITEM_SAMPLES))("item %s", (key, value) => {
+    const raw = (held: unknown) => ({ nodes: [{ ...card, [key]: held }], edges: [] });
+    expect(edited(raw, value, itemEdit(key)).nodes[0][key]).toEqual(value);
+  });
+  test.each(Object.entries(PATH_SAMPLES))("line %s", (key, value) => {
+    const raw = (held: unknown) => ({ nodes: [{ ...lineAt, [key]: held }], edges: [] });
+    expect(edited(raw, value, itemEdit(key)).nodes[0][key]).toEqual(value);
+  });
+  test.each(Object.entries(EDGE_SAMPLES))("edge %s", (key, value) => {
+    const raw = (held: unknown) => ({
+      nodes: [],
+      edges: [{ id: "e", fromNode: "a", toNode: "b", [key]: held }],
+    });
+    const edit = (stale: CanvasDoc, fresh: CanvasDoc) => ({
+      ...stale,
+      edges: stale.edges.map((e) => given(e, fresh.edges[0], key)),
+    });
+    expect(edited(raw, value, edit).edges[0][key]).toEqual(value);
+  });
+  test.each(Object.entries(STYLE_SAMPLES))("look %s", (key, value) => {
+    const raw = (held: unknown) => ({ nodes: [{ ...card, style: { [key]: held } }], edges: [] });
+    const edit = (stale: CanvasDoc, fresh: CanvasDoc) => ({
+      ...stale,
+      nodes: stale.nodes.map((n) =>
+        n.style === undefined ? n : { ...n, style: given(n.style, fresh.nodes[0]?.style, key) },
+      ),
+    });
+    expect(edited(raw, value, edit).nodes[0].style[key]).toEqual(value);
+  });
+  test("the camera's pose, and the document's camera", () => {
+    const pose = { x: 1, y: 2, z: 3, zoom: 1, yaw: 0, pitch: 0 };
+    expect(edited(posed, pose, posing).camera.pose).toEqual(pose);
+    const camera = { projection: "3d" };
+    expect(edited(viewed, camera, viewing).camera).toEqual(camera);
+  });
+  test("every look is sampled", () => {
+    expect(Object.keys(STYLE_SAMPLES).toSorted()).toEqual([...CANVAS_LOOKS].toSorted());
+  });
 });
 
 describe("elevation and depth", () => {

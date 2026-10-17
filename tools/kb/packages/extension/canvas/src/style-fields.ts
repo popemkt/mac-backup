@@ -13,6 +13,7 @@ import {
   oneOf,
   readFields,
   writeFields,
+  writeUnread,
   type FieldCodecs,
 } from "./fields.ts";
 
@@ -84,9 +85,7 @@ export function parseStyleField(raw: unknown): CanvasStyleField | undefined {
 
 /** A style as the format writes it: its looks, then what kb could not read. */
 export function emitStyleField(style: CanvasStyleField): Record<string, unknown> {
-  const out = writeFields(LOOK_FIELDS, style, {});
-  if (style.extra) Object.assign(out, style.extra);
-  return out;
+  return writeUnread(writeFields(LOOK_FIELDS, style, {}), style.extra);
 }
 
 /** Whether a style holds nothing at all: no look, nothing unread. */

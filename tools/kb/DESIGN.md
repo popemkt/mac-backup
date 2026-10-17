@@ -2302,7 +2302,9 @@ item types and fields it does not know survive a round trip untouched, and
 so does a known field holding a value it cannot read (a `z` that is not a
 finite number, a `rotation` that is not an object of finite angles, a
 `fromSide` that names no side, a `camera` or `pose` of the wrong shape) until
-kb writes that field itself. Every record's optional fields — an item's, an
+kb writes that field itself. The record wins: a field a record holds is
+written over the unread value of the same name it was read with, however
+the record came to hold it (`writeUnread`). Every record's optional fields — an item's, an
 edge's, a `style`'s, the document's and its camera's — are one table each,
 read and written by one reader (`@kb/canvas` `fields.ts`), which is the only
 place that rule is applied. The `#canvas` tag

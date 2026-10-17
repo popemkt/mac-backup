@@ -11,7 +11,7 @@
  */
 // GAP [[01M3S5DD5W4B3BSZMA6DE8ZVP8]]
 import { dropExtra } from "./extra.ts";
-import { isRecord, readFields, writeFields, type FieldCodecs } from "./fields.ts";
+import { isRecord, readFields, writeFields, writeUnread, type FieldCodecs } from "./fields.ts";
 
 /** How a canvas is drawn: from the top and orthographic, or in depth on a turntable. */
 export type CanvasProjectionKind = "2d" | "3d";
@@ -92,10 +92,10 @@ export function parseCanvasCamera(raw: unknown): CanvasCamera | undefined {
   return camera;
 }
 
-/** The camera as JSON. A known field wins over an unknown one of the same name. */
+/** The camera as JSON: its fields, then what kb could not read. */
 export function emitCanvasCamera(camera: CanvasCamera): Record<string, unknown> {
-  const out: Record<string, unknown> = { ...camera.extra, projection: camera.projection };
-  return writeFields(CAMERA_FIELDS, camera, out);
+  const out = writeFields(CAMERA_FIELDS, camera, { projection: camera.projection });
+  return writeUnread(out, camera.extra);
 }
 
 /** The projection a camera opens in; no camera is 2D. */

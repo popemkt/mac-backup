@@ -22,6 +22,7 @@ import {
   readFields,
   text,
   writeFields,
+  writeUnread,
   type FieldCodecs,
 } from "./fields.ts";
 import { normalizeDegrees, type CanvasRotation } from "./rotation.ts";
@@ -541,8 +542,7 @@ function emitNode(n: CanvasNode): Record<string, unknown> {
     out.points = n.points.map(({ x, y }) => ({ x, y }));
     writeFields(PATH_FIELDS, n, out);
   }
-  if (n.extra) Object.assign(out, n.extra);
-  return out;
+  return writeUnread(out, n.extra);
 }
 
 function emitEdge(e: CanvasEdge): Record<string, unknown> {
@@ -551,9 +551,7 @@ function emitEdge(e: CanvasEdge): Record<string, unknown> {
     fromNode: e.fromNode,
     toNode: e.toNode,
   };
-  writeFields(EDGE_FIELDS, e, out);
-  if (e.extra) Object.assign(out, e.extra);
-  return out;
+  return writeUnread(writeFields(EDGE_FIELDS, e, out), e.extra);
 }
 
 /** The document's optional fields: how it is looked at (`./camera.ts`). */
@@ -594,8 +592,7 @@ export function stringifyCanvasDoc(doc: CanvasDoc): string {
     nodes: doc.nodes.map(emitNode),
     edges: doc.edges.map(emitEdge),
   };
-  if (doc.extra) Object.assign(out, doc.extra);
-  return JSON.stringify(writeFields(DOC_FIELDS, doc, out));
+  return JSON.stringify(writeUnread(writeFields(DOC_FIELDS, doc, out), doc.extra));
 }
 
 /** An item's elevation: the height of its base above the floor, 0 when it has none. */

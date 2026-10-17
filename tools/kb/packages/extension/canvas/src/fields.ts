@@ -7,8 +7,10 @@
  * from what is written and how it is written back. A field read is typed on
  * the record; one present that holds a value kb cannot read — another
  * writer's, or a newer kb's — stays an unknown field (`extra`), untouched,
- * until kb writes that field itself (`dropExtra`). That is the format's
- * round-trip rule, and this module is the only place that applies it.
+ * until kb writes that field itself. That is the format's round-trip rule,
+ * and this module is the only place that applies it: a record's own value
+ * wins over an unread one of the same name (`writeUnread`), however it was
+ * set.
  */
 
 /** How one field is read (undefined: nothing kb can read) and written back. */
@@ -97,6 +99,19 @@ function writeField<R, K extends keyof R & string>(
   if (value === undefined || value === null) return;
   const { write } = codecs[key];
   out[key] = write === undefined ? value : write(value);
+}
+
+/**
+ * What kb could not read, written after the record's own fields: each key
+ * the record did not write itself. A value kb holds wins over a stale one it
+ * kept, however the record came to hold it.
+ */
+export function writeUnread(
+  out: Record<string, unknown>,
+  extra: Readonly<Record<string, unknown>> | undefined,
+): Record<string, unknown> {
+  for (const [key, value] of Object.entries(extra ?? {})) if (!(key in out)) out[key] = value;
+  return out;
 }
 
 /** The fields of `codecs` that `record` holds, written into `out` in the table's order. */
