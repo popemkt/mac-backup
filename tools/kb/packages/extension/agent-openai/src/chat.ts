@@ -11,7 +11,7 @@ import {
   type StepMessage,
   type StepTool,
 } from "@kb/agent";
-import type { SecretSource } from "@kb/contracts";
+import { isLoopbackHost, type SecretSource } from "@kb/contracts";
 
 /**
  * The `openai-chat` adapter (`DESIGN.md` → Agent packages): any endpoint that
@@ -215,13 +215,6 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-const LOOPBACK_HOSTS: ReadonlySet<string> = new Set(["localhost", "[::1]"]);
-
-/** Whether `host` is this machine: `localhost`, `::1` or an address in 127.0.0.0/8. */
-function isLoopback(host: string): boolean {
-  return LOOPBACK_HOSTS.has(host) || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host);
-}
-
 /**
  * The endpoint a provider names, as a URL kb will send to, or why not: it
  * must parse, carry no credentials of its own, and be `https`, or `http` on
@@ -239,7 +232,7 @@ function endpointUrl(endpoint: string): URL | string {
     return `${its} carries credentials; name a credential instead.`;
   }
   if (url.protocol === "https:") return url;
-  if (url.protocol === "http:" && isLoopback(url.hostname)) return url;
+  if (url.protocol === "http:" && isLoopbackHost(url.hostname)) return url;
   return `${its} must be https, or http on this machine (localhost).`;
 }
 
