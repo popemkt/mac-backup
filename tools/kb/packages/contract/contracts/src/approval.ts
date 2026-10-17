@@ -20,6 +20,7 @@ import {
   ManifestEntrySchema,
   requiresApproval,
   type ActionInvocation,
+  type ActionRequest,
   type ActionMode,
   type ActionReceipt,
   type BatchPart,
@@ -53,8 +54,8 @@ export interface SurfaceWire {
  * declares, or else the wire's. Every surface hands the core its calls
  * through this, so no call arrives without the actor its surface stated.
  */
-export function onWire(wire: SurfaceWire, invocation: ActionInvocation): ActionInvocation {
-  return { ...invocation, actor: invocation.actor ?? wire.actor };
+export function onWire(wire: SurfaceWire, request: ActionRequest): ActionInvocation {
+  return { ...request, actor: request.actor ?? wire.actor };
 }
 
 /**

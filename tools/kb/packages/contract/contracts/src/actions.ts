@@ -191,10 +191,11 @@ export interface ActionDefinition<
  * action whose mode requires approval gets an `approval_required` receipt.
  *
  * `actor` is who makes the call, declared the same way and for the same
- * reason. A surface fills in its own when the envelope names none
- * (`onWire`), so only a surface with an envelope lets its caller say.
+ * reason. A request may name none; a surface fills in its own (`onWire`),
+ * so only a surface with an envelope lets its caller say, and what reaches
+ * the invoke core is an {@link ActionInvocation}, which always names one.
  */
-export const ActionInvocationSchema = z.object({
+export const ActionRequestSchema = z.object({
   id: z.string().min(1),
   input: z
     .unknown()
@@ -209,7 +210,11 @@ export const ActionInvocationSchema = z.object({
    */
   script: z.object({ subject: z.string().nullable(), grant: z.unknown() }).optional(),
 });
-export type ActionInvocation = z.output<typeof ActionInvocationSchema>;
+/** A call as a caller or a wire states it: who makes it may be left to the surface. */
+export type ActionRequest = z.output<typeof ActionRequestSchema>;
+
+/** A call as it reaches the invoke core, through a surface's wire (`onWire`). */
+export type ActionInvocation = ActionRequest;
 
 export const SucceededReceiptSchema = z.object({
   status: z.literal("succeeded"),
@@ -322,9 +327,12 @@ export class ActionCatalog extends Context.Service<ActionCatalog, readonly Manif
  */
 export type InvokeScope = "read" | "write";
 
-/** One call through the invoke core, within `scope`. */
+/**
+ * One call through the invoke core, within `scope`, made while another runs:
+ * it is made as that one's caller, and a request naming no actor takes it.
+ */
 export type CoreInvoker = (
-  invocation: ActionInvocation,
+  request: ActionRequest,
   scope: InvokeScope,
 ) => Effect.Effect<ActionReceipt>;
 

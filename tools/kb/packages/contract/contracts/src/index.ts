@@ -1,7 +1,7 @@
 export { COLOR_TOKEN_FALLBACKS, type ColorToken } from "./design-tokens.ts";
 export {
   ActionCatalog,
-  ActionInvocationSchema,
+  ActionRequestSchema,
   ActionReceiptSchema,
   ManifestEntrySchema,
   CoreInvoke,
@@ -44,6 +44,7 @@ export type {
   ActionMode,
   IsomorphicActionEnv,
   ActionInvocation,
+  ActionRequest,
   ActionReceipt,
   ManifestEntry,
   CoreInvoker,

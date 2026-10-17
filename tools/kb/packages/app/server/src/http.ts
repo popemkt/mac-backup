@@ -2,7 +2,7 @@ import { relative } from "node:path";
 import { Cause, Effect, Option } from "effect";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import {
-  ActionInvocationSchema,
+  ActionRequestSchema,
   TxOrigin,
   listingOf,
   onWire,
@@ -120,7 +120,7 @@ const handleHttpRequestEffect = (
         return invalidInput("request body must be JSON");
       }
 
-      const parsed = ActionInvocationSchema.safeParse(body.value);
+      const parsed = ActionRequestSchema.safeParse(body.value);
       if (!parsed.success) {
         return invalidInput(parsed.error.issues.map((i) => i.message).join("; "));
       }
