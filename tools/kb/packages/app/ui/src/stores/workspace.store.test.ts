@@ -83,6 +83,7 @@ describe("the workspace", () => {
     });
     await expect(useWorkspaceStore.getState().save("Morning")).resolves.toBe("v.saved");
     expect(invoke).toHaveBeenCalledWith("view.propose", {
+      id: expect.any(String),
       view: LayoutView.id,
       text: "Morning",
       params: {
