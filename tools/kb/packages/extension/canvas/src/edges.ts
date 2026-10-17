@@ -541,7 +541,10 @@ const STROKED_HEADS: ReadonlySet<CanvasHead> = new Set(["open", "bar"]);
 /**
  * The head of `kind` worn at `end` of the line through `points`, `length`
  * long: its tip on the end's point, pointing the way the line runs into it
- * (out of the line at the end it leaves). Null for a line of one point.
+ * (out of the line at the end it leaves) — from the nearest point that
+ * stands apart from the tip across the floor, so a corner on the end (an
+ * elbow whose ends meet at one) leaves the head its run. Null for a line
+ * whose points all stand on its tip.
  */
 export function headOnLine(
   kind: CanvasHead,
@@ -549,9 +552,11 @@ export function headOnLine(
   end: EdgeEnd,
   length: number,
 ): EdgeHead | null {
-  const [tip, before] = end === "to" ? [points.at(-1), points.at(-2)] : [points[0], points[1]];
+  const run = end === "to" ? points.toReversed() : points;
+  const [tip] = run;
+  const before = run.find((p) => tip !== undefined && Math.hypot(tip.x - p.x, tip.y - p.y) > 1e-6);
   if (tip === undefined || before === undefined) return null;
-  const span = Math.hypot(tip.x - before.x, tip.y - before.y) || 1;
+  const span = Math.hypot(tip.x - before.x, tip.y - before.y);
   const dir = { x: (tip.x - before.x) / span, y: (tip.y - before.y) / span };
   return {
     kind,

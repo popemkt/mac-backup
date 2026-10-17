@@ -122,6 +122,17 @@ describe("routes", () => {
     expect(points[1]?.[0]).toBe(320);
   });
 
+  test("an elbow whose corner falls on its end still wears that end's head along its run", () => {
+    // Out of the right side at y = 50, into a top side that is also at y = 50: the corner is the tip.
+    const below: CanvasNode = { ...rect, id: "b", x: 400, y: 50 };
+    const elbow = edge({ route: "elbow", toSide: "top", toEnd: "arrow" });
+    const route = edgeRoute(rect, below, elbow);
+    const head = edgeHead(elbow, route, "to", 10);
+    const xs = outlinePoints(head?.path ?? []).map(([x]) => x);
+    // An arrow pointing right, along the run: its back 10 behind its tip.
+    expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(10, 5);
+  });
+
   test("a route climbs from one end's height to the other's, level at each end", () => {
     const raised: CanvasNode = { ...ellipse, z: 60 };
     const points = routePoints(edgeRoute(rect, raised, edge({ route: "straight" })));
