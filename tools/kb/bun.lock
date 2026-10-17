@@ -488,8 +488,12 @@
         "react": "catalog:",
       },
       "devDependencies": {
+        "@kb/ui-test-kit": "workspace:*",
         "@types/bun": "catalog:",
         "@types/react": "catalog:",
+        "happy-dom": "catalog:",
+        "vite-plus": "catalog:",
+        "vitest": "catalog:",
       },
     },
     "packages/extension/canvas": {

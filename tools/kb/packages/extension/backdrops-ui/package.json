@@ -7,7 +7,8 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vp test"
   },
   "dependencies": {
     "@kb/backdrops": "workspace:*",
@@ -18,8 +19,12 @@
     "react": "catalog:"
   },
   "devDependencies": {
+    "@kb/ui-test-kit": "workspace:*",
     "@types/bun": "catalog:",
-    "@types/react": "catalog:"
+    "@types/react": "catalog:",
+    "happy-dom": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
   },
   "nx": {
     "tags": [

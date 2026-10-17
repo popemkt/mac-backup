@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { logWarn, useReducedMotion, type BackdropProps } from "@kb/ui-sdk";
+import { watchPlayback } from "./playback";
 import { TintBackdrop } from "./tint-backdrop";
 import { createUnicornScene, type UnicornScene } from "./unicorn-scene";
 
@@ -13,17 +14,10 @@ function UnicornBackdrop({ opacity }: { opacity: number }) {
     if (!element) return undefined;
     const controller = new AbortController();
     let disposed = false;
-    let visible = true;
     let scene: UnicornScene | null = null;
-    const updatePlayback = () => {
-      if (scene) scene.paused = reducedMotion || document.hidden || !visible;
-    };
-    const observer = new IntersectionObserver(([entry]) => {
-      visible = entry?.isIntersecting === true;
-      updatePlayback();
+    const watch = watchPlayback(element, reducedMotion, (playing) => {
+      if (scene) scene.paused = !playing;
     });
-    observer.observe(element);
-    document.addEventListener("visibilitychange", updatePlayback);
     void createUnicornScene(element, controller.signal)
       .then((ready) => {
         if (disposed) {
@@ -31,7 +25,7 @@ function UnicornBackdrop({ opacity }: { opacity: number }) {
           return;
         }
         scene = ready;
-        updatePlayback();
+        scene.paused = !watch.playing();
         element.dataset.sceneState = "ready";
       })
       .catch((error: unknown) => {
@@ -42,8 +36,7 @@ function UnicornBackdrop({ opacity }: { opacity: number }) {
     return () => {
       disposed = true;
       controller.abort();
-      observer.disconnect();
-      document.removeEventListener("visibilitychange", updatePlayback);
+      watch.dispose();
       scene?.destroy();
     };
   }, [reducedMotion]);
