@@ -2131,23 +2131,22 @@ where, how rows become markdown, repo-specific output of any kind — lives in
   whoever opens a root someone else wrote (a clone, a location an agent
   asked to open) runs none of its code before they have read it, and an
   untrusted module's declaration is neither seeded nor loaded. Trust
-  covers what runs. An extension is its one file and the packages
-  installed outside the root, and it names every import as a literal: a
-  file that imports another file (`./lib/x.ts`, `../src/x.ts`), a package
-  the root carries in a `node_modules` of its own (a directory or a link to
-  one elsewhere), or anything only known when it runs (a computed
-  `import()`, a `require` not called with a literal; a string that merely
-  reads like one is refused too, the safe direction) is refused before
-  anything is imported. An extension is a file of its directory: one whose
-  real path is outside `.kb/extensions` (a link out) is refused. What is
-  imported is the source whose digest was trusted, not the file as it is
-  by then: each extensions directory has one Bun load hook, matching its
-  real path and nothing else (`importVerified`), which loads a verified
-  file from its verified bytes and refuses any other file there, so it
-  never runs. Bun loads a module once per process, so a file trusted again
-  after an edit runs its new source from the next process on. Trusted code
-  still runs with the server's reach (it can start a process or read a
-  file); trust is that a person read it, and what they read is what runs.
+  covers what it loads. An extension is its one file and the packages
+  installed outside the root: each import it names as a literal (a
+  statement, a re-export, an `import()`, a `require`) is resolved as Bun
+  resolves it from the file, path aliases and import maps the root
+  configures included (`rootCarriedImport`), and one that resolves into the
+  root (another file, a package in the root's own `node_modules`, a link to
+  either) or does not resolve refuses the file before anything is
+  imported. An extension is a file of its directory: one whose real path
+  is outside `.kb/extensions` (a link out) is refused. What is imported is
+  the source whose digest was trusted, not the file as it is by then: it is
+  imported as its real path and that digest, and a Bun load hook matching
+  exactly that specifier serves the trusted bytes (`importVerified`), so a
+  digest trusted later in the same process is a module of its own and the
+  one that runs. What it does when it runs, what it loads or evaluates
+  included, is the bytes a person read ([Sandbox](#sandbox) → Trust, What
+  trust approves).
 - **Everything loads as a plugin into one kernel** (`@kb/plugin`,
   `packages/domain/plugin`, `scope:shared`; the model is DeepSeek Harness's
   Cordis). A plugin is `{ name, namespace?, inject?, apply(ctx) }`; through
@@ -3755,6 +3754,19 @@ sends it more than 400 messages a second.
   code a person has not seen; the CLI asks. Trust changes the engine and
   its limits, never the capabilities: a trusted run has the same API and
   the same grant.
+- **What trust approves.** Trusting a digest approves the behaviour of
+  bytes a person read, and those bytes run with the reach they are given:
+  a repository extension's, the server's. What they load as they are
+  imported is closed (a repository extension's imports, above); what they
+  do when they run is theirs, a computed `import()`, a `require` of a name
+  they build, a function they make, an `eval` of text they read, a
+  process they start. No lint refuses that: whether code loads code at
+  runtime is not decidable from its text (`[].constructor.constructor`,
+  `globalThis[name]`, a `bun -e` it spawns), so a lint would read as a
+  check that holds while it does not. Nor does a load hook: Bun 1.4.2
+  reads a specifier whose query holds a colon (`./x.ts?a:b`) from disk,
+  past every runtime plugin hook, so no in-process hook sees every load.
+  GAP [[01M54NXDA4X8VZJ5DCZXX0PRHP]]
 - Promoting a code view to a view type is the same act, later
   (GAP-CODE-VIEW-PROMOTION below).
 
