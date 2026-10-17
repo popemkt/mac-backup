@@ -1,7 +1,6 @@
-import { useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
 import { styleOf, type CanvasEdge, type KbLinkMode } from "@kb/canvas";
-import { cn, EnumSelect, isOutside, type EnumOption } from "@kb/ui-sdk";
+import { cn, EnumSelect, type EnumOption } from "@kb/ui-sdk";
+import { CanvasPopover } from "./canvas-popover";
 import { ColorSwatches, EdgeLookRows } from "./item-style-rows";
 
 export interface EdgeInspectorProps {
@@ -86,70 +85,50 @@ export function EdgeInspector({
   onDelete,
   onChange,
 }: EdgeInspectorProps) {
-  const ref = useRef<HTMLDivElement>(null);
+  return (
+    <CanvasPopover anchor={anchor} onClose={onClose}>
+      <div className="w-72 rounded-lg border border-foreground/10 bg-popover p-3 shadow-overlay">
+        <div className="mb-2 text-label font-medium text-foreground/50">Edge</div>
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    const onDown = (e: MouseEvent) => {
-      if (isOutside(ref.current, e.target)) onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("mousedown", onDown);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("mousedown", onDown);
-    };
-  }, [onClose]);
+        <label className="mb-2 flex flex-col gap-1 text-meta">
+          <span className="text-foreground/60">Label</span>
+          <input
+            type="text"
+            className="rounded-md border border-foreground/10 bg-background px-2 py-1 text-meta"
+            value={edge.label ?? ""}
+            placeholder="Edge label…"
+            onChange={(e) => onChange(withText(edge, "label", e.target.value))}
+          />
+        </label>
 
-  return createPortal(
-    <div
-      ref={ref}
-      className="fixed z-50 w-72 rounded-lg border border-foreground/10 bg-popover p-3 shadow-overlay"
-      style={{ top: anchor.y + 8, left: Math.max(8, anchor.x - 144) }}
-    >
-      <div className="mb-2 text-label font-medium text-foreground/50">Edge</div>
+        <EdgeLookRows edge={edge} onChange={onChange} />
 
-      <label className="mb-2 flex flex-col gap-1 text-meta">
-        <span className="text-foreground/60">Label</span>
-        <input
-          type="text"
-          className="rounded-md border border-foreground/10 bg-background px-2 py-1 text-meta"
-          value={edge.label ?? ""}
-          placeholder="Edge label…"
-          onChange={(e) => onChange(withText(edge, "label", e.target.value))}
+        <div className="mb-2">
+          <div className="mb-1 text-meta text-foreground/60">Color</div>
+          <ColorSwatches
+            value={styleOf(edge).color}
+            onChange={(color) => onChange(withText(edge, "color", color))}
+            small
+          />
+        </div>
+
+        <LinkRows
+          edge={edge}
+          refFields={refFields}
+          onModeChange={onModeChange}
+          onFieldChange={onFieldChange}
         />
-      </label>
-
-      <EdgeLookRows edge={edge} onChange={onChange} />
-
-      <div className="mb-2">
-        <div className="mb-1 text-meta text-foreground/60">Color</div>
-        <ColorSwatches
-          value={styleOf(edge).color}
-          onChange={(color) => onChange(withText(edge, "color", color))}
-          small
-        />
+        <button
+          type="button"
+          className={cn(
+            "mt-1 w-full rounded-md border border-destructive/30 px-2 py-1.5",
+            "text-meta text-destructive hover:bg-destructive/10",
+          )}
+          onClick={onDelete}
+        >
+          Delete edge
+        </button>
       </div>
-
-      <LinkRows
-        edge={edge}
-        refFields={refFields}
-        onModeChange={onModeChange}
-        onFieldChange={onFieldChange}
-      />
-      <button
-        type="button"
-        className={cn(
-          "mt-1 w-full rounded-md border border-destructive/30 px-2 py-1.5",
-          "text-meta text-destructive hover:bg-destructive/10",
-        )}
-        onClick={onDelete}
-      >
-        Delete edge
-      </button>
-    </div>,
-    document.body,
+    </CanvasPopover>
   );
 }

@@ -1,5 +1,3 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import {
   canvasDepth,
   canvasElevation,
@@ -22,7 +20,8 @@ import {
   type CanvasNode,
   type CanvasWorld,
 } from "@kb/canvas";
-import { isOutside, PopoverShell } from "@kb/ui-sdk";
+import { PopoverShell } from "@kb/ui-sdk";
+import { CanvasPopover } from "./canvas-popover";
 import { LinkRow } from "./item-link-row";
 import type { CanvasPageTab } from "./canvas-page-strip";
 import { textOfLink } from "./item-link-text";
@@ -194,38 +193,9 @@ export function ItemInspector({
   pages,
   onFollow,
 }: ItemInspectorProps) {
-  const ref = useRef<HTMLDivElement>(null);
-  // Below the anchor, or above it when the viewport has no room below.
-  const [top, setTop] = useState(anchor.y + 8);
-  useLayoutEffect(() => {
-    const height = ref.current?.getBoundingClientRect().height ?? 0;
-    const below = anchor.y + 8;
-    setTop(below + height > window.innerHeight - 8 ? Math.max(8, anchor.y - height - 8) : below);
-  }, [anchor.y]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    const onDown = (e: MouseEvent) => {
-      if (isOutside(ref.current, e.target)) onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("mousedown", onDown);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("mousedown", onDown);
-    };
-  }, [onClose]);
-
-  return createPortal(
-    <div className="fixed z-50" style={{ top, left: Math.max(8, anchor.x - 160) }}>
-      <PopoverShell
-        title={titleOf(item)}
-        panelRef={ref}
-        className="w-72"
-        data-testid="item-inspector"
-      >
+  return (
+    <CanvasPopover anchor={anchor} onClose={onClose}>
+      <PopoverShell title={titleOf(item)} className="w-72" data-testid="item-inspector">
         {drawsGround(item) && <ColorRow item={item} onChange={onChange} />}
         <LookRows item={item} onChange={onChange} />
         <OpacityRow item={item} onChange={onChange} />
@@ -250,7 +220,6 @@ export function ItemInspector({
           {!facesCamera(item) && <RotationRow item={item} onChange={onChange} />}
         </fieldset>
       </PopoverShell>
-    </div>,
-    document.body,
+    </CanvasPopover>
   );
 }
