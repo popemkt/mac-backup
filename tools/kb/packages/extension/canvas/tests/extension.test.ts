@@ -11,7 +11,14 @@ import { ViewKeyPoint } from "@kb/contracts";
 import { SYSTEM_IDS } from "@kb/model";
 import { makeKernel } from "@kb/plugin";
 import { issueText, paramsFrom, viewNodeFor } from "@kb/views";
-import { CANVAS_IDS, CanvasListView, CanvasView, canvasExtension, canvasPlugin } from "@kb/canvas";
+import {
+  CANVAS_IDS,
+  CanvasListView,
+  CanvasView,
+  canvasExtension,
+  canvasPlugin,
+  canvasReferences,
+} from "@kb/canvas";
 
 const AT = "2026-01-01T00:00:00.000Z";
 
@@ -78,5 +85,53 @@ describe("canvas family", () => {
     expect(Result.isFailure(proposed) ? proposed.failure.map(issueText) : []).toEqual([
       "id: a view node of canvas.page cannot hold this setting; it reads back as: Missing key",
     ]);
+  });
+
+  test("its document field carries references: each card's node and a bound edge's ends", () => {
+    expect(canvasExtension.refCarriers?.map((carrier) => carrier.field)).toEqual([
+      CANVAS_IDS.canvasField,
+    ]);
+    const doc = {
+      nodes: [
+        { id: "c1", type: "kb-node", nodeId: "n.a", x: 0, y: 0, width: 10, height: 10 },
+        {
+          id: "t1",
+          type: "text",
+          text: "words, not [[n.words]]",
+          x: 0,
+          y: 20,
+          width: 10,
+          height: 10,
+        },
+        { id: "c2", type: "kb-node", nodeId: "n.b", x: 20, y: 0, width: 10, height: 10 },
+      ],
+      edges: [
+        {
+          id: "e1",
+          fromNode: "c1",
+          toNode: "c2",
+          kbLink: {
+            mode: "native",
+            via: "prop",
+            fieldId: "f.rel",
+            sourceNodeId: "n.a",
+            targetNodeId: "n.c",
+            bindingId: "b1",
+          },
+        },
+      ],
+    };
+    expect(canvasReferences({ t: "str", v: JSON.stringify(doc) })).toEqual([
+      "n.a",
+      "n.b",
+      "n.a",
+      "n.c",
+    ]);
+  });
+
+  test("a value that is no canvas document carries no references", () => {
+    expect(canvasReferences({ t: "str", v: "{not json" })).toEqual([]);
+    expect(canvasReferences({ t: "str", v: "[]" })).toEqual([]);
+    expect(canvasReferences({ t: "ref", v: "n.a" })).toEqual([]);
   });
 });

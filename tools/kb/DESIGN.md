@@ -2427,6 +2427,15 @@ place that rule is applied. The `#canvas` tag
 `canvas.page` view keys are the canvas family's too (`CANVAS_IDS` and its
 declaration, [Extension families](#extension-families)).
 
+A canvas references what it shows. The family declares `sys.f.canvas` as
+a field that carries references (`refCarriers`, `canvasReferences` in
+`@kb/canvas` `references.ts`): each card's `nodeId` and both ends of each
+edge's `kbLink`. So the reference relation (`:node/mentions`, Data model → Refs) holds
+"this canvas references that node" exactly as it holds a `[[id]]` in
+words, and a node's References and `kb backlinks` list every canvas that
+shows it with no question of their own. A value that is no canvas document
+carries none.
+
 An item's or an edge's JSON Canvas `color` is one of the palette's
 (`CANVAS_PALETTE`): the format's presets `1`–`6` (red, orange, yellow,
 green, cyan, purple) and the colours kb names, written by name (`blue`,

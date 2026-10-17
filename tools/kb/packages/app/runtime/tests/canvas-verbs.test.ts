@@ -26,6 +26,7 @@ import {
   fieldTypeValue,
   present,
 } from "@kb/model";
+import { backlinksQuery } from "@kb/query";
 import { invoke } from "../src/invoke.ts";
 import { resetRegistryCache } from "../src/registry.ts";
 import { openKb } from "../src/session.ts";
@@ -231,6 +232,31 @@ describe("ext.canvas.place", () => {
       await invoke(ctx, verb("place", { items: [{ move: "a", at: { x: 0, y: 0, z: 0 } }] })),
     );
     expect(down.lints).toMatchObject({ new: [], resolved: [{ rule: "floating" }] });
+  });
+});
+
+describe("a canvas references what it shows", () => {
+  test("a card's node lists the canvas among its references, and stops when the card goes", async () => {
+    const ctx = await canvasKb();
+    await invoke(ctx, { id: "node.add", input: { text: "Shown", id: "n.shown" } });
+    const referrers = async () => {
+      const back = output(
+        await invoke(ctx, { id: "graph.query", input: { query: backlinksQuery("n.shown") } }),
+      );
+      return (back.rows as unknown[][]).map((row) => row[0]);
+    };
+    expect(await referrers()).toEqual([]);
+    const show = async (nodes: unknown[]) =>
+      output(
+        await invoke(ctx, {
+          id: "ext.canvas.tx.apply",
+          input: { canvasId: "n.canvas", doc: { nodes, edges: [] } },
+        }),
+      );
+    await show([card("c1", 0, 0, { type: "kb-node", nodeId: "n.shown" })]);
+    expect(await referrers()).toEqual(["n.canvas"]);
+    await show([]);
+    expect(await referrers()).toEqual([]);
   });
 });
 
