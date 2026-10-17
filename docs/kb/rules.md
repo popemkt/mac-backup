@@ -430,6 +430,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — view nodes (roadmap step 2), then canvas as a view type
 - **node** — `01M3S5DD5W4B3BSZMA6DE8ZVP8`
 
+### GAP: canvas script overlays take no gestures
+
+- **expected** — A control a script draws over a canvas (a button or an input anchored to an item) can be pressed, while presses anywhere else still reach the canvas under it.
+- **current** — Each script's frame covers the whole view with pointer-events none, so every gesture passes through to the canvas and overlays are pictures only; the frame hears click, input and change on what it draws, but nothing can reach them.
+- **impact** — A script cannot offer an in-canvas control such as a per-card button; its interaction is limited to canvas events and the scripts panel.
+- **closes** — The frame reports the boxes of its interactive elements (kb/hit-regions) and the page lets pointer events through only there, or the page hit-tests and forwards the gesture as a kb/event.
+- **node** — `01M54DFMDJFYRDM8ZZXQB749PQ`
+
 ### GAP: canvas solid body tones are still set per projection
 
 - **expected** — CanvasItemBody (2D) and the 3D bodyMaterial/edgeMaterial resolve canvas-style tones.
