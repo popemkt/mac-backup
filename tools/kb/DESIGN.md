@@ -2367,7 +2367,12 @@ enabled, source}`. The `kb ui` server adds the host plugins it loaded,
     derived and filed under core's list of every policy
     (`approval.policies`), editable as any is. A declared policy only
     denies: the most specific policy wins, so one that asked or allowed
-    could outrank a policy the person wrote, and the fold refuses it;
+    could outrank a policy the person wrote, and the fold refuses it. A
+    policy the person writes beside it never lowers it: at the same match
+    a declared deny naming the actor outranks one naming none, and a tie
+    goes to the stricter. The person lifts a declared deny only by editing
+    that policy itself, a write to a policy, which always asks; the fold
+    never writes over an edit, and seeds a deleted one again;
   - pure data: it opens nothing and fails on an id declared twice, or on a
     default view type provided twice or naming a view its provider does
     not provide;

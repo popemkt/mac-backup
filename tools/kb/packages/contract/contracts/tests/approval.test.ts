@@ -100,6 +100,23 @@ describe("resolveApproval", () => {
     expect(decide([deny, allow], "node.delete", WRITE, "agent").decision).toBe("deny");
   });
 
+  test("a person's allow beside a declared deny never lowers it, whichever names the actor", () => {
+    // As the code family declares it: sandboxed code never starts a script run.
+    const declared = policy("ext.code.script.run", "deny", "script");
+    for (const actor of ["script", null] as const) {
+      const mine = policy("ext.code.script.run", "allow", actor);
+      for (const policies of [
+        [declared, mine],
+        [mine, declared],
+      ]) {
+        expect(decide(policies, "ext.code.script.run", GATED, "script")).toEqual({
+          decision: "deny",
+          by: { policy: declared.id },
+        });
+      }
+    }
+  });
+
   test("only a policy naming the action lowers its declared approval; any policy may raise it", () => {
     const pattern = policy("ext.*", "allow", "agent");
     const exact = policy("ext.x.stamp", "allow", "cli");
