@@ -582,7 +582,7 @@ lib.mkIf (aiCfg.enable && cfg.enable) {
         $DRY_RUN_CMD ${ensureState}
       '';
 
-      # GAP [[01M3E9TMG3C90N8VBEDXGHHK45]] one of four copied uv installers.
+      # GAP [[01M3E9TMG3C90N8VBEDXGHHK45]] one of three copied uv installers.
       home.activation.installCogneeUvTool = lib.hm.dag.entryAfter [ "ensureCogneeState" ] ''
         export SDKROOT="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)"
         # Prefer Apple's toolchain over any Nix clang/ar on PATH — maturin/cc-rs

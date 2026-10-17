@@ -121,7 +121,6 @@
 - Open: flaky canvas-camera.test.ts timeout; confirm the test:ui per-package total
 - Overnight plans (2026-10-17): canvas tldraw parity first, then locations, agent providers, family footprints, trace and label — start only after O3–O5. Index: docs/brainstorms/2026-10-17-kb-overnight-plans.md
 - oxlint 1.83 → 1.86 with @oxlint/plugins and oxc-parser
-- Review reconcile_claude_direct_routing.py: retire or simplify once Headroom stops mutating global ~/.claude/settings.json
 - safe minors and patches + bun audit fix (35 advisories, 15 high: rerun bun audit for the full list); drop root overrides that repeat the catalog's vite/vitest
 - Sidebar agent config (model, executable) as fields on the agent's extension node; folds into the plugin-config step
 - Vite+ 1.0 stack: vite-plus 1.0, vitest 5, plugin-react 6, vp migrate (vi.mock in 16 files)
@@ -141,6 +140,7 @@
 - O5 · Table/Board/Cards leave the outline as their own family
 - O5 + graph follow-up review fixes (Sol, 2026-10-17): (A-major) frame view: apply isViewNode once in kit frameViewNodeOf so render and keyboard walk agree; decide names-no-view case explicitly; restore or gap the node-config.policy list-fallback test; (A-minor) findView re-implements kernel lookup; view-contract stand-ins skip namespaced+alias path; kit still names the outline (LIST_OPTION outline.list default, frame-layout/frame-subject docs, OutlineNode); (B-major) delete dead perspectiveProps, move its tests onto rendererParamsOf; (B-major) saved graph copy keeps only renderer's params — carry full lens or state it in the plan; (B-minor) confirm the lab 'waits while graph off' test moved, not dropped; confirm query errors still surface after NodeLinkGraph
 - outline perf: a graph update or expand re-renders every row (63 ms at 1x, ~660 ms at 6x CPU) — fix candidate memo, per-row selectors, coalesce WS updates, content-visibility
+- Review reconcile_claude_direct_routing.py: retire or simplify once Headroom stops mutating global ~/.claude/settings.json
 
 ### later
 

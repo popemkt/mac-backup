@@ -77,7 +77,7 @@
     # ANTHROPIC_BASE_URL/AUTH_TOKEN go through --settings, not shell env: a
     # project .claude/settings(.local).json `env` block outranks the process
     # environment, so an inline env var here loses to any repo pinning a
-    # different base URL (e.g. a local Headroom proxy). --settings is the
+    # different base URL (e.g. a local proxy). --settings is the
     # highest-precedence layer and wins from any working directory.
     claudex() {
       CLAUDE_CODE_SUBAGENT_MODEL="gpt-5.6-sol" \

@@ -230,6 +230,10 @@ kb ext list                     # loaded extensions + their actions
 Rules for agents:
 - Prefer `kb` over ad-hoc TODO files for durable repo todos/notes; `--json` for machine output.
 - Props are multi-valued: `set` appends — `unset` the old value when changing e.g. `status`.
+- Software the repo stops tracking becomes an `#archived` node (fields `purpose`,
+  `reason`, `droppedOn`, `lastDeclared`, `cleanup`), never a doc: `kb run archived`
+  lists them. Removing a declaration does not uninstall it, so `cleanup` says what
+  each machine keeps.
 - `[[id|label]]` in node text and any `{t:"ref"}` prop value are both the ref form; load extracts `:node/mentions` datoms from either (see `tools/kb/DESIGN.md`). Use `kb backlinks <id>` or the datalog example above.
 - `docs/kb/*.md` is generated (header marks it); edit data, then materialize.
   Pre-commit runs `docs.check` and blocks stale generated docs.
@@ -330,7 +334,7 @@ Behavior is gated with `mkIf` against options from `mkStack`.
 
 - **Stack gate** (`my.stacks.<name>.enable`): core always-on behavior for that
   stack. Prefer this for siblings that are inseparable from the stack itself
-  (e.g. `ai-agents` → CLIProxyAPI, Headroom, Hermes).
+  (e.g. `ai-agents` → CLIProxyAPI, Hermes).
 - **Component gate** (`componentOptions` on `mkStack`): optional, host-split, or
   mutually exclusive pieces (e.g. `ai-agents.ollama`, `ai-agents.archon`,
   `ai-agents.cognee.{server,client}`, `vpn.services.<name>`).

@@ -11,8 +11,8 @@ in
 {
   imports = [
     # Intent layer: functional stacks contributing to my.pkgs.* channel lists
-    # and their per-tool daemons/config (ai-agents owns cli-proxy-api,
-    # headroom, hermes).
+    # and their per-tool daemons/config (ai-agents owns cli-proxy-api and
+    # hermes).
     ../../stacks/darwin.nix
     ./external-workspace.nix
     ./identity.nix

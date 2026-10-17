@@ -22,7 +22,7 @@ still declared and surfaced by `system-setup`.
 | Homebrew config | nix-darwin | Homebrew taps, brews, casks, MAS apps | `modules/darwin/system/homebrew.nix` |
 | User environment | home-manager | CLI tools, shell, git, neovim, starship, npm/Bun globals | `modules/common/home-manager/` + `modules/darwin/home-manager/` |
 | Direct release packages | nvfetcher + Nix | upstream versions, assets, and hashes | `nvfetcher.toml` + `_sources/` + `pkgs/` |
-| Behavior modules | nix-darwin + home-manager | Headroom, CLIProxyAPI, Hermes, external workspace, input sources | `modules/stacks/ai-agents/` (AI daemons) + `modules/darwin/system/` |
+| Behavior modules | nix-darwin + home-manager | CLIProxyAPI, Hermes, external workspace, input sources | `modules/stacks/ai-agents/` (AI daemons) + `modules/darwin/system/` |
 | External enrollment | Nix-built Python application | OAuth, device identity, SaaS approvals, generated keys, readiness | `modules/darwin/system/system-setup/default.nix` |
 | Private service exposure | Tailscale Services + nix-darwin | stable service identities, TailVIP endpoints, HTTPS termination | `modules/stacks/vpn/services-reconcile.nix` + host declarations |
 | GUI app configs | Mackup → iCloud | portable app preferences and kb media | `applications_to_sync` in `modules/darwin/home-manager/mackup.nix` |

@@ -503,15 +503,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — 3D workspace step 3 (items get depth), or drawn outlines on flat items
 - **node** — `01M41AB7YM5801ZJNM1Q647SYD`
 
-### GAP: four hand-copied uv tool installers, each reading a failed uv tool list as not installed
-
-- **expected** — One uv tool installer (a shared helper each owning module calls with its spec, extras and extra freshness checks) that captures uv tool list, checks its exit status, and warns and continues on failure, as AGENTS.md Writing an executor requires.
-- **current** — headroom.nix, semantica.nix, cognee/server.nix and cognee/client.nix each repeat the same toolchain exports and uv tool install --force block, and each probes with uv tool list | grep -q, so a crashed uv reads as not installed and forces a reinstall. The copies already drifted once: the cognee checks matched hand-typed versions until 3d9e0bd0.
-- **impact** — A uv failure costs a heavy forced reinstall (torch/faiss for Cognee) on every rebuild, and a fix to one copy misses the other three.
-- **closes** — Extract the installer into one function under modules/stacks/ai-agents/ (or a uvTools executor if install ownership moves to the channel), move the four call sites onto it, and have it check uv's exit status.
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M3E9TMG3C90N8VBEDXGHHK45`
-
 ### GAP: GraphPage carries 35 branches of renderer and perspective selection
 
 - **expected** — GraphPage picks a renderer and hands it a resolved lens; renderer capability differences live in graph-capabilities.ts, not in the page.
@@ -824,9 +815,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: service ports are restated outside the module that owns them
 
 - **expected** — Each service port has one owner, exposed as a read-only option (or passthru) of its component, and every other reader derives from it.
-- **current** — CLIProxyAPI 8317 is a let binding in cli-proxy-api.nix and is retyped in ai-agents/system-setup.nix (four probes), cognee/server.nix LLM_ENDPOINT and modules/darwin/home-manager/default.nix. The Cognee gateway 8088 is retyped in system-setup.nix and hosts/popemkt-personal (vpn service target). The Cognee MCP port 8001 is a separate binding in server.nix and client.nix. Headroom 8787 is retyped in scripts/reconcile_claude_direct_routing.py.
-- **impact** — Changing a port in its module silently breaks the health probes, the tailnet route or the routing reconciler.
-- **closes** — Give cli-proxy-api, cognee and headroom read-only port options, derive the other sites from them, and pass the Headroom URL to the reconciler as an argument.
+- **current** — CLIProxyAPI 8317 is a let binding in cli-proxy-api.nix and is retyped in ai-agents/system-setup.nix (four probes), cognee/server.nix LLM_ENDPOINT and modules/darwin/home-manager/default.nix. The Cognee gateway 8088 is retyped in system-setup.nix and hosts/popemkt-personal (vpn service target). The Cognee MCP port 8001 is a separate binding in server.nix and client.nix.
+- **impact** — Changing a port in its module silently breaks the health probes or the tailnet route.
+- **closes** — Give cli-proxy-api and cognee read-only port options and derive the other sites from them.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M3E9VX8SQJKV3K2Q1JEKT309`
 
@@ -1090,6 +1081,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Map each onto a step (xs 4px or sm 6px, a 1-2px visible change), or add a step if the size is a real role. That is a visible change, so it lands outside the no-visual-change token restructure (wave 2026-09-24 f1).
 - **rule** — Design tokens: no bypass
 - **node** — `01M3AF8G4N9JHJB8YYEWF8F5SZ`
+
+### GAP: three hand-copied uv tool installers, each reading a failed uv tool list as not installed
+
+- **expected** — One uv tool installer (a shared helper each owning module calls with its spec, extras and extra freshness checks) that captures uv tool list, checks its exit status, and warns and continues on failure, as AGENTS.md Writing an executor requires.
+- **current** — semantica.nix, cognee/server.nix and cognee/client.nix each repeat the same toolchain exports and uv tool install --force block, and each probes with uv tool list | grep -q, so a crashed uv reads as not installed and forces a reinstall. The copies already drifted once: the cognee checks matched hand-typed versions until 3d9e0bd0.
+- **impact** — A uv failure costs a heavy forced reinstall (torch/faiss for Cognee) on every rebuild, and a fix to one copy misses the other two.
+- **closes** — Extract the installer into one function under modules/stacks/ai-agents/ (or a uvTools executor if install ownership moves to the channel), move the three call sites onto it, and have it check uv's exit status.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M3E9TMG3C90N8VBEDXGHHK45`
 
 ### GAP: top view paints cones and spheres by their point, not their true height
 
