@@ -11,7 +11,7 @@ import type { ReactNode } from "react";
 import { Point } from "@kb/plugin";
 import type { WireNode } from "@kb/contracts";
 import type { FrameViewKey, LayoutTree } from "@kb/views";
-import type { DesignSystemId, ThemePref, WidthPref } from "./theme";
+import type { ThemePref, WidthPref } from "./theme";
 import type { PickerCandidate } from "./picker";
 import type { SchemaIndex } from "./schema";
 import type { NodeMap } from "./types";
@@ -32,10 +32,10 @@ export interface OutlineCommandApi {
 
 interface PrefsCommandApi {
   readonly theme: ThemePref;
-  readonly designSystem: DesignSystemId;
+  readonly designSystem: string | null;
   readonly width: WidthPref;
   setTheme: (theme: ThemePref) => void;
-  setDesignSystem: (designSystem: DesignSystemId) => void;
+  setDesignSystem: (designSystem: string | null) => void;
   setWidth: (width: WidthPref) => void;
 }
 

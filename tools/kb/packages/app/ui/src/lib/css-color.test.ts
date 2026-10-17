@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { present } from "@kb/model";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { COLOR_TOKEN_FALLBACKS } from "@kb/contracts";
-import { DESIGN_SYSTEM_IDS, oklchToRgb, toRenderableColor } from "@kb/ui-sdk";
-import { readDesignSystemSheets } from "./design-system-sheets";
+import { oklchToRgb, toRenderableColor } from "@kb/ui-sdk";
+import { PAGE_SHEETS } from "@/test-support/design-systems";
 
 /**
  * Canvas consumers parse only hex and integer `rgb()`/`rgba()` (the strict
@@ -92,16 +90,11 @@ describe("toRenderableColor", () => {
 });
 
 describe("the token fallbacks are bound to the stylesheets", () => {
-  const src = join(import.meta.dirname, "..");
-  const sheets = readDesignSystemSheets(
-    readFileSync(join(src, "design-system.css"), "utf8"),
-    (id) => readFileSync(join(src, "design-systems", `${id}.css`), "utf8"),
-  );
   for (const [token, fallback] of Object.entries(COLOR_TOKEN_FALLBACKS)) {
-    it(`${token} is set by every design system in both variants, and its fallback renders`, () => {
-      for (const id of DESIGN_SYSTEM_IDS)
-        for (const variant of ["light", "dark"] as const)
-          expect(sheets.resolve(id, variant, token).length).toBeGreaterThan(0);
+    // A layer-1 token, so the design-system point's contract holds every
+    // contributed system to setting it in both variants.
+    it(`${token} is a layer-1 token, and its fallback renders`, () => {
+      expect(PAGE_SHEETS.layer1.base.has(token)).toBe(true);
       expect(toRenderableColor(fallback)).not.toBeNull();
     });
   }

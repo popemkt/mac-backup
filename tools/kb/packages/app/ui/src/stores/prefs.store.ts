@@ -3,9 +3,6 @@ import { create } from "zustand";
 import {
   type Appearance,
   appearanceOf,
-  DEFAULT_DESIGN_SYSTEM,
-  DESIGN_SYSTEM_IDS,
-  type DesignSystemId,
   hasText,
   type Prefs,
   SIDEBAR_REGION_SELECTOR,
@@ -49,7 +46,7 @@ export function defaultSidebarOpen(
 
 export const DEFAULT_PREFS: Prefs = {
   theme: "system",
-  designSystem: DEFAULT_DESIGN_SYSTEM,
+  designSystem: null,
   width: "centered",
   sidebarOpen: true,
 };
@@ -60,7 +57,8 @@ export const DEFAULT_PREFS: Prefs = {
  */
 const StoredPrefsSchema = z.object({
   theme: z.enum(THEMES).catch(DEFAULT_PREFS.theme),
-  designSystem: z.enum(DESIGN_SYSTEM_IDS).catch(DEFAULT_PREFS.designSystem),
+  // Any id: which ones are contributed is the page's to know, not the payload's.
+  designSystem: z.string().nullable().catch(DEFAULT_PREFS.designSystem),
   width: z.enum(WIDTHS).catch(DEFAULT_PREFS.width),
   sidebarOpen: z.boolean().optional().catch(undefined),
 });
@@ -109,12 +107,15 @@ function systemPrefersDark(): boolean {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
-/** Push prefs onto <html>: .dark class + data-theme / data-width attributes. */
+/**
+ * Push prefs onto <html>: the .dark class and the data-width attribute.
+ * `data-theme` is the design-system painter's (`stores/design-system.store`),
+ * since which system it names depends on what is contributed.
+ */
 export function applyPrefs(prefs: Prefs, systemDark = systemPrefersDark()) {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
   root.classList.toggle("dark", resolveDark(prefs.theme, systemDark));
-  root.setAttribute("data-theme", prefs.designSystem);
   root.setAttribute("data-width", prefs.width);
 }
 
@@ -140,7 +141,7 @@ interface PrefsState extends Prefs {
   /** Live device signal, never persisted as an intentional preference. */
   systemDark: boolean;
   setTheme: (theme: ThemePref) => void;
-  setDesignSystem: (designSystem: DesignSystemId) => void;
+  setDesignSystem: (designSystem: string | null) => void;
   setWidth: (width: WidthPref) => void;
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
@@ -163,12 +164,8 @@ export const usePrefsStore = create<PrefsState>((set, get) => {
         document.documentElement.classList.contains("dark") !== dark;
       transitionTheme(() => commit({ theme }), changesAppearance);
     },
-    setDesignSystem: (designSystem) => {
-      const changesAppearance =
-        typeof document !== "undefined" &&
-        document.documentElement.getAttribute("data-theme") !== designSystem;
-      transitionTheme(() => commit({ designSystem }), changesAppearance);
-    },
+    // The painter crossfades the change, whoever makes it.
+    setDesignSystem: (designSystem) => commit({ designSystem }),
     setWidth: (width) => commit({ width }),
     setSidebarOpen: (sidebarOpen) => commit({ sidebarOpen }),
     toggleSidebar: () => commit({ sidebarOpen: !get().sidebarOpen }),
@@ -178,14 +175,16 @@ export const usePrefsStore = create<PrefsState>((set, get) => {
 let lastAppearance: Appearance | null = null;
 
 /**
- * The page's appearance in `state`: the same object while its key holds, so
- * a reader that compares by identity (a selector, `useSyncExternalStore`, a
- * memo) sees a change only when there was one.
+ * The page's appearance: the design system painting it (`designSystem`, the
+ * painter's) in `state`'s light or dark. The same object while its key
+ * holds, so a reader that compares by identity (a selector,
+ * `useSyncExternalStore`, a memo) sees a change only when there was one.
  */
 export function appearanceIn(
-  state: Pick<PrefsState, "designSystem" | "theme" | "systemDark">,
+  designSystem: string,
+  state: Pick<PrefsState, "theme" | "systemDark">,
 ): Appearance {
-  const next = appearanceOf(state.designSystem, resolveDark(state.theme, state.systemDark));
+  const next = appearanceOf(designSystem, resolveDark(state.theme, state.systemDark));
   if (lastAppearance === null || lastAppearance.key !== next.key) {
     lastAppearance = next;
     return next;

@@ -10,34 +10,6 @@ export const WIDTHS = ["centered", "full"] as const;
 export type WidthPref = (typeof WIDTHS)[number];
 
 /**
- * The design systems (DESIGN-UI.md → Design tokens → Design systems), in
- * picker order, the default first. Each id other than the default names one
- * stylesheet, `design-systems/<id>.css`, whose blocks override layer 1 under
- * `[data-theme="<id>"]`; the default is layer 1 itself. `design-systems.test.ts`
- * holds this list and those stylesheets to each other.
- */
-export const DESIGN_SYSTEM_IDS = ["kb", "paper", "terminal"] as const;
-export type DesignSystemId = (typeof DESIGN_SYSTEM_IDS)[number];
-export const DEFAULT_DESIGN_SYSTEM: DesignSystemId = "kb";
-
-/** What the picker calls each one; a Record, so an id without a label does not compile. */
-const DESIGN_SYSTEM_LABELS: Record<DesignSystemId, string> = {
-  kb: "kb",
-  paper: "Paper",
-  terminal: "Terminal",
-};
-
-export interface DesignSystem {
-  readonly id: DesignSystemId;
-  readonly label: string;
-}
-
-export const DESIGN_SYSTEMS: readonly DesignSystem[] = DESIGN_SYSTEM_IDS.map((id) => ({
-  id,
-  label: DESIGN_SYSTEM_LABELS[id],
-}));
-
-/**
  * What the page is painted in, resolved: everything that changes the values
  * the design-system tokens hold. DOM styling follows a change by itself (every
  * utility is a live `var()`); canvas and WebGL renderers copied token values
@@ -45,13 +17,14 @@ export const DESIGN_SYSTEMS: readonly DesignSystem[] = DESIGN_SYSTEM_IDS.map((id
  * they listen to.
  */
 export interface Appearance {
-  readonly designSystem: DesignSystemId;
+  /** The id of the design system painting the page (`DesignSystemPoint`). */
+  readonly designSystem: string;
   readonly dark: boolean;
   /** Changes exactly when any field above does. */
   readonly key: string;
 }
 
-export function appearanceOf(designSystem: DesignSystemId, dark: boolean): Appearance {
+export function appearanceOf(designSystem: string, dark: boolean): Appearance {
   return { designSystem, dark, key: `${designSystem}:${dark ? "dark" : "light"}` };
 }
 
@@ -62,12 +35,14 @@ export function appearanceOf(designSystem: DesignSystemId, dark: boolean): Appea
 export interface Prefs {
   theme: ThemePref;
   /**
-   * Which design system paints the page: every layer-1 value, faces
-   * included. The UI face used to be a pref of its own (`font`); a face is a
-   * design-system value, so a stale `font` key is ignored on read and
-   * dropped on the next write.
+   * Which design system paints the page, by its id (null: none chosen):
+   * every layer-1 value, faces included. Any id is held; the page paints
+   * the contributed one it names, else the default (`chosenDeclared`). The
+   * UI face used to be a
+   * pref of its own (`font`); a face is a design-system value, so a stale
+   * `font` key is ignored on read and dropped on the next write.
    */
-  designSystem: DesignSystemId;
+  designSystem: string | null;
   width: WidthPref;
   /*
    * The page-head backdrop, its strength and its direction were prefs here

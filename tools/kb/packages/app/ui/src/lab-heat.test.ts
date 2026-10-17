@@ -2,15 +2,14 @@
  * Only contact heat may bloom (L2): whatever the resting glow's field does,
  * a resting sphere's emissive stays at or under 1 in every channel, for the
  * real accent of every design system in both variants. The accents are read
- * from the stylesheets, so a palette change, or a new design system, is
- * checked too.
+ * from the contributed systems' sheets, so a palette change, or a design
+ * system a family adds, is checked too.
  */
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { BLOOM_THRESHOLD, NUMBER_OPS } from "@kb/scene";
-import { DESIGN_SYSTEM_IDS, oklchToRgb, type DesignSystemId } from "@kb/ui-sdk";
-import { readDesignSystemSheets, type Variant } from "@/lib/design-system-sheets";
+import { oklchToRgb } from "@kb/ui-sdk";
+import type { Variant } from "@/lib/design-system-sheets";
+import { PAGE_SHEETS as SHEETS } from "@/test-support/design-systems";
 import {
   HEAT_GAIN,
   heatAlbedo,
@@ -21,10 +20,7 @@ import {
   type Rgb,
 } from "@kb/lab-ui";
 
-const SRC = import.meta.dirname;
-const SHEETS = readDesignSystemSheets(readFileSync(join(SRC, "design-system.css"), "utf8"), (id) =>
-  readFileSync(join(SRC, "design-systems", `${id}.css`), "utf8"),
-);
+const DESIGN_SYSTEM_IDS = [...SHEETS.systems.keys()];
 
 /** An sRGB byte as a linear channel, as three stores a colour. */
 function linear(byte: number): number {
@@ -33,7 +29,7 @@ function linear(byte: number): number {
 }
 
 /** A `--lab-*` token of one design system and variant, as linear RGB. */
-function token(id: DesignSystemId, variant: Variant, name: string): Rgb {
+function token(id: string, variant: Variant, name: string): Rgb {
   const value = SHEETS.resolve(id, variant, name);
   const srgb = oklchToRgb(value);
   if (srgb === null) throw new Error(`${id}/${variant}: ${name} is not oklch (${value})`);
@@ -41,7 +37,7 @@ function token(id: DesignSystemId, variant: Variant, name: string): Rgb {
 }
 
 /** The lab accent (`--lab-accent`) of one design system and variant, as linear RGB. */
-function accent(id: DesignSystemId, variant: Variant): Rgb {
+function accent(id: string, variant: Variant): Rgb {
   return token(id, variant, "--lab-accent");
 }
 

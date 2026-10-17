@@ -296,19 +296,67 @@ export function provideBackdrop(
   key: SeedBackdrop,
   backdrop: Omit<Backdrop, "key">,
 ): ContributionEntry<Backdrop> {
-  return { id: key.id.slice(key.id.indexOf(".") + 1), value: { key, ...backdrop } };
+  return provideDeclared({ key, ...backdrop });
 }
 
 /**
- * The backdrop `id` names among `backdrops` (`backdropChoice` answers only
- * contributed ids); the first contributed for null. Null only when nothing
- * is contributed.
+ * A design system as the page holds it (DESIGN-UI.md → Design tokens →
+ * Design systems): one complete set of layer-1 values, light and dark. Its
+ * `key` is the system as its family names it, and the id `<html
+ * data-theme>` carries while it paints the page. Its `stylesheet` is what
+ * the page adds to paint it: its base and dark blocks over layer 1 under
+ * `[data-theme="<id>"]`, empty for core's default, which is layer 1 itself.
+ * The page adds every contributed sheet and names none, so a family's
+ * system paints while its plugin is loaded and is gone when it unloads.
  */
-export function chosenBackdrop(
-  backdrops: readonly Contribution<Backdrop>[],
+export interface DesignSystem {
+  readonly key: DesignSystemKey;
+  readonly stylesheet: string;
+}
+
+/** A design system as its family names it: its id and what a picker calls it. */
+export interface DesignSystemKey {
+  readonly id: string;
+  readonly label: string;
+}
+
+export const DesignSystemPoint = Point<DesignSystem>()("ui.design-systems");
+
+/** The design system its family names `key`, as its page plugin contributes it (`provideBackdrop`). */
+export function provideDesignSystem(
+  key: DesignSystemKey,
+  system: Omit<DesignSystem, "key">,
+): ContributionEntry<DesignSystem> {
+  return provideDeclared({ key, ...system });
+}
+
+/**
+ * A contribution its family names by a key (a backdrop, a design system):
+ * it answers to the key's id, `<family>.<local id>`, so it is contributed
+ * under the local id and the family's namespace restores the rest, as a
+ * view answers to its key. A key of core's, in the root namespace, has no
+ * family part and is contributed as it is.
+ */
+interface Keyed {
+  readonly key: { readonly id: string };
+}
+
+function provideDeclared<T extends Keyed>(value: T): ContributionEntry<T> {
+  const { id } = value.key;
+  return { id: id.slice(id.indexOf(".") + 1), value };
+}
+
+/**
+ * The contribution `id` names among `contributed`; the first contributed
+ * for null, or for an id nobody contributes now. Null only when nothing is
+ * contributed. One reading for every keyed point, so a stale choice falls
+ * through the same way for a backdrop and a design system.
+ */
+export function chosenDeclared<T extends Keyed>(
+  contributed: readonly Contribution<T>[],
   id: string | null,
-): Contribution<Backdrop> | null {
-  return backdrops.find(({ value }) => value.key.id === id) ?? backdrops[0] ?? null;
+): Contribution<T> | null {
+  return contributed.find(({ value }) => value.key.id === id) ?? contributed[0] ?? null;
 }
 
 /** One kernel per page: everything the UI shows is contributed to it. */

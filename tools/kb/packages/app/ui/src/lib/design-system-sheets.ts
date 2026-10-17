@@ -1,35 +1,52 @@
 /**
- * The design-system stylesheets read as data: which tokens each system sets
- * in its base and dark blocks, and the value a token resolves to for one
- * system and variant, the way the cascade resolves it on `<html>`.
+ * The design systems' stylesheets read as data: which tokens layer 1 and each
+ * contributed system set, in their base and dark blocks, and the value a
+ * token resolves to for one system and variant, the way the cascade resolves
+ * it on `<html data-theme="<id>">`.
  *
- * It exists for the checks that hold the stylesheets to their contract
- * (completeness and contrast in `design-systems.test.ts`, the lab's bloom
- * bound in `embers/heat.test.ts`), so each reads the real CSS rather than a
+ * It exists for the checks that hold the systems to their contract (the
+ * design-system point's contract, contrast in `design-systems.test.ts`, the
+ * lab's bloom bound in `lab-heat.test.ts`), so each reads the real CSS: layer
+ * 1, and each system's sheet as its contribution carries it, rather than a
  * copy of its values. The caller hands in the CSS text; nothing here touches
- * the file system.
+ * the file system or the page.
+ *
+ * Every system is read the same way, the default included: its blocks are
+ * the ones whose selector list names its id, wherever they sit. The default's
+ * are layer 1's own (`:root, [data-theme="kb"]`), every other system's are in
+ * its sheet.
  */
-import { DEFAULT_DESIGN_SYSTEM, DESIGN_SYSTEM_IDS, type DesignSystemId } from "@kb/ui-sdk";
-
-export type Decls = ReadonlyMap<string, string>;
+type Decls = ReadonlyMap<string, string>;
 interface Block {
   readonly selector: string;
   readonly decls: Decls;
 }
 interface SystemSheet {
+  /** The blocks of its own sheet, in order; none for a system that is layer 1. */
   readonly blocks: readonly Block[];
+  /** Its base block's declarations: the block, here or in layer 1, that names its id. */
   readonly base: Decls;
+  /** Its dark block's declarations, likewise. */
   readonly dark: Decls;
+  /** How many blocks name its id as a base and as a dark block: exactly one each, for a sound system. */
+  readonly named: { readonly base: number; readonly dark: number };
 }
 export type Variant = "light" | "dark";
 
-/** The selectors a non-default system's two blocks carry. */
+/** A system's sheet as its contribution carries it. */
+export interface SheetSource {
+  readonly id: string;
+  readonly stylesheet: string;
+}
+
+/** The selectors a system's two blocks carry. */
 export const baseSelector = (id: string): string => `[data-theme="${id}"]`;
 export const darkSelector = (id: string): string =>
   `.dark[data-theme="${id}"], .dark [data-theme="${id}"]`;
-/** The default's blocks also answer to its id, so a subtree can show it. */
-const DEFAULT_BASE = `:root, ${baseSelector(DEFAULT_DESIGN_SYSTEM)}`;
-const DEFAULT_DARK = `.dark, .dark ${baseSelector(DEFAULT_DESIGN_SYSTEM)}`;
+/** What layer 1 answers to with no system named: the page's ground before any paint. */
+const ROOT_BASE = ":root";
+const ROOT_DARK = ".dark";
+const NONE: Decls = new Map();
 
 function stripComments(css: string): string {
   return css.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -55,51 +72,70 @@ function blocksOf(css: string): Block[] {
   });
 }
 
-function block(blocks: readonly Block[], selector: string): Decls {
-  const found = blocks.find((b) => b.selector === selector);
-  if (found === undefined) throw new Error(`no block ${selector}`);
+/** The selectors in a block's selector list. */
+function selectorsOf(block: Block): readonly string[] {
+  return block.selector.split(",").map((selector) => selector.trim());
+}
+
+/** Whether `block` is a base block for `id`, a dark block for it, or neither. */
+function roleOf(block: Block, id: string): "base" | "dark" | null {
+  const selectors = selectorsOf(block);
+  if (selectors.includes(baseSelector(id))) return "base";
+  if (selectors.includes(`.dark ${baseSelector(id)}`)) return "dark";
+  return null;
+}
+
+function rootBlock(blocks: readonly Block[], selector: string): Decls {
+  const found = blocks.find((block) => selectorsOf(block).includes(selector));
+  if (found === undefined) throw new Error(`layer 1 has no ${selector} block`);
   return found.decls;
 }
 
 export interface DesignSystemSheets {
-  readonly default: SystemSheet;
-  /** Every non-default system, by id. */
-  readonly systems: ReadonlyMap<DesignSystemId, SystemSheet>;
+  /** Layer 1 as the page has it with no system named: its `:root` and `.dark` blocks. */
+  readonly layer1: { readonly base: Decls; readonly dark: Decls };
+  /** Every system read, by id, in the order handed in. */
+  readonly systems: ReadonlyMap<string, SystemSheet>;
   /** A token's value for one system and variant, `var()` references followed. */
-  readonly resolve: (id: DesignSystemId, variant: Variant, token: string) => string;
+  readonly resolve: (id: string, variant: Variant, token: string) => string;
 }
 
 /**
- * @param defaultCss `design-system.css`
- * @param systemCss `design-systems/<id>.css` for every non-default id
+ * @param layer1Css `design-system.css`
+ * @param systems every system's sheet, as its contribution carries it
  */
 export function readDesignSystemSheets(
-  defaultCss: string,
-  systemCss: (id: DesignSystemId) => string,
+  layer1Css: string,
+  systems: readonly SheetSource[],
 ): DesignSystemSheets {
-  const defaultBlocks = blocksOf(defaultCss);
-  const fallback: SystemSheet = {
-    blocks: defaultBlocks,
-    base: block(defaultBlocks, DEFAULT_BASE),
-    dark: block(defaultBlocks, DEFAULT_DARK),
+  const layer1Blocks = blocksOf(layer1Css);
+  const layer1 = {
+    base: rootBlock(layer1Blocks, ROOT_BASE),
+    dark: rootBlock(layer1Blocks, ROOT_DARK),
   };
-  const systems = new Map(
-    DESIGN_SYSTEM_IDS.filter((id) => id !== DEFAULT_DESIGN_SYSTEM).map(
-      (id): [DesignSystemId, SystemSheet] => {
-        const blocks = blocksOf(systemCss(id));
-        return [
-          id,
-          { blocks, base: block(blocks, baseSelector(id)), dark: block(blocks, darkSelector(id)) },
-        ];
-      },
-    ),
+  const read = new Map(
+    systems.map(({ id, stylesheet }): [string, SystemSheet] => {
+      const blocks = blocksOf(stylesheet);
+      const naming = [...layer1Blocks, ...blocks].filter((block) => roleOf(block, id) !== null);
+      const withRole = (role: "base" | "dark") =>
+        naming.filter((block) => roleOf(block, id) === role);
+      return [
+        id,
+        {
+          blocks,
+          base: withRole("base")[0]?.decls ?? NONE,
+          dark: withRole("dark")[0]?.decls ?? NONE,
+          named: { base: withRole("base").length, dark: withRole("dark").length },
+        },
+      ];
+    }),
   );
-  const resolve = (id: DesignSystemId, variant: Variant, token: string): string => {
-    // Later layers win: the default, its dark set, the system, its dark set.
-    const own = systems.get(id);
+  const resolve = (id: string, variant: Variant, token: string): string => {
+    // Later layers win: layer 1, its dark set, the system, its dark set.
+    const own = read.get(id);
     const layers = [
-      fallback.base,
-      variant === "dark" ? fallback.dark : null,
+      layer1.base,
+      variant === "dark" ? layer1.dark : null,
       own?.base,
       variant === "dark" ? own?.dark : null,
     ];
@@ -113,5 +149,5 @@ export function readDesignSystemSheets(
     };
     return lookup(token, []);
   };
-  return { default: fallback, systems, resolve };
+  return { layer1, systems: read, resolve };
 }

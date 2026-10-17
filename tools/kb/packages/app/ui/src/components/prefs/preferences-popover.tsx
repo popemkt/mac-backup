@@ -1,7 +1,7 @@
 import { extensionNodeId, SYSTEM_IDS } from "@kb/model";
 import {
   cn,
-  DESIGN_SYSTEMS,
+  DesignSystemPoint,
   type EnumOption,
   EnumSelect,
   type ExtensionSwitch,
@@ -12,6 +12,7 @@ import {
   type PropValue,
   THEME_GLYPHS,
   type ThemePref,
+  useContributions,
   useFieldEditor,
   useGraphRead,
   usePageBackdrop,
@@ -19,6 +20,7 @@ import {
 } from "@kb/ui-sdk";
 import { useEffect, useRef } from "react";
 import { ArrowsHorizontalIcon, PuzzlePieceIcon, SwatchesIcon } from "@phosphor-icons/react";
+import { useDesignSystemStore } from "@/stores/design-system.store";
 import { usePrefsStore } from "@/stores/prefs.store";
 import { useUiStore } from "@/stores/ui.store";
 
@@ -105,13 +107,15 @@ function ThemeRow() {
 }
 
 /**
- * One swatch per design system. Each sample is live, not a picture: it
+ * One swatch per contributed design system, in contribution order, the one
+ * painting the page checked. Each sample is live, not a picture: it
  * carries `data-theme`, so that system's own stylesheet paints its ground,
  * ink, accent, face, radius and border, in the current light or dark. The
  * name under it stays in the popover's face, so it reads as a label.
  */
 function DesignSystemRow() {
-  const current = usePrefsStore((s) => s.designSystem);
+  const systems = useContributions(DesignSystemPoint);
+  const current = useDesignSystemStore((s) => s.painted);
   const setDesignSystem = usePrefsStore((s) => s.setDesignSystem);
   return (
     <PrefFieldRow icon={SwatchesIcon} label="design">
@@ -120,7 +124,7 @@ function DesignSystemRow() {
         aria-label="design system"
         className="flex min-w-0 flex-1 gap-1.5 py-1"
       >
-        {DESIGN_SYSTEMS.map((system) => {
+        {systems.map(({ value: { key: system } }) => {
           const checked = system.id === current;
           return (
             <button

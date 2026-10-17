@@ -26,10 +26,11 @@ import { bundledSeed } from "@kb/bundled";
 import { syncPagePlugins } from "@/test-support/page-plugins";
 import { outlineNodes, outlineUiPlugin, useOutlineStore } from "@kb/outline-ui";
 import { collectionsUiPlugin } from "@kb/collections-ui";
+import { designSystemsUiPlugin } from "@/design-systems";
 
 // The outline runs as the app boots it: its frame views provided, and the
 // store's row walk wired to them.
-beforeAll(() => syncPagePlugins([outlineUiPlugin, collectionsUiPlugin]));
+beforeAll(() => syncPagePlugins([designSystemsUiPlugin, outlineUiPlugin, collectionsUiPlugin]));
 afterAll(() => syncUiPlugins([]));
 
 /**

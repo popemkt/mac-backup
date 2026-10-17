@@ -66,5 +66,9 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.test.{ts,tsx}"],
     setupFiles: ["src/test-setup.ts"],
+    // A design system's sheet is imported as text (`?raw`) and is what the
+    // design-system contract reads, so the runner keeps raw CSS imports as
+    // the build does rather than blanking them as it blanks stylesheets.
+    css: { include: [/\.css\?raw$/] },
   },
 });

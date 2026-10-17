@@ -15,6 +15,7 @@ import { invoke } from "@/session/runtime";
 import { reachedState, useGraphStore } from "@/stores/graph.store";
 import { pageRows, subscribePage } from "@/stores/page";
 import { useDebugFieldsStore } from "@/stores/debug-fields.store";
+import { useDesignSystemStore } from "@/stores/design-system.store";
 import { pageCommandContext } from "@/stores/page-commands";
 import { pageEditor } from "@/stores/page-editor";
 import {
@@ -33,7 +34,7 @@ import { useWorkspaceStore } from "@/stores/workspace.store";
  * The stores the host's reads answer from, beside the page itself (its graph,
  * projection and editor, `subscribePage`).
  */
-const SOURCES = [usePrefsStore, useUiStore, useDebugFieldsStore] as const;
+const SOURCES = [usePrefsStore, useDesignSystemStore, useUiStore, useDebugFieldsStore] as const;
 
 const host: BrowserHost = {
   // A node text port is what the shell binds its own text hosts through, so
@@ -61,7 +62,7 @@ const host: BrowserHost = {
   wireNodes: () => useGraphStore.getState().wireNodes,
   live: () => useUiStore.getState().wsStatus === "open",
   subscribeQuery: subscribeLiveQueryNode,
-  appearance: () => appearanceIn(usePrefsStore.getState()),
+  appearance: () => appearanceIn(useDesignSystemStore.getState().painted, usePrefsStore.getState()),
   prefs: () => usePrefsStore.getState(),
   prefsOpen: () => useUiStore.getState().prefsOpen,
   setPrefsOpen: (open) => useUiStore.getState().setPrefsOpen(open),

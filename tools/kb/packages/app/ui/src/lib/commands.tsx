@@ -44,8 +44,9 @@ import {
   type Command,
   type CommandContext,
   CommandPoint,
+  chosenDeclared,
   currentContributions,
-  DESIGN_SYSTEM_IDS,
+  DesignSystemPoint,
   isContextualRef,
   isPinned,
   isSysPrefixed,
@@ -209,7 +210,14 @@ const GLOBAL_COMMANDS: readonly Command[] = [
   {
     id: SYSTEM_IDS.cmdSwitchDesignSystem,
     scope: "global",
-    run: (ctx) => ctx.prefs.setDesignSystem(nextIn(DESIGN_SYSTEM_IDS, ctx.prefs.designSystem)),
+    run: (ctx) => {
+      // Through the contributed systems from the one shown, so a stale choice steps from the default.
+      const contributed = currentContributions(DesignSystemPoint);
+      const shown = chosenDeclared(contributed, ctx.prefs.designSystem);
+      if (shown === null) return;
+      const ids = contributed.map(({ value }) => value.key.id);
+      ctx.prefs.setDesignSystem(nextIn(ids, shown.value.key.id));
+    },
   },
   {
     id: SYSTEM_IDS.cmdToggleWidth,

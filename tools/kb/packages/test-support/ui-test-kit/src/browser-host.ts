@@ -16,7 +16,6 @@ import {
   type BrowserHost,
   BrowserHostService,
   type CaretIntent,
-  DEFAULT_DESIGN_SYSTEM,
   type NodeMap,
   type OutlineNode,
   type PageGraphState,
@@ -63,7 +62,7 @@ const LIGHT = appearanceOf("kb", false);
 const NO_WIRE: WireNode[] = [];
 const PREFS: Prefs = {
   theme: "light",
-  designSystem: DEFAULT_DESIGN_SYSTEM,
+  designSystem: null,
   width: "centered",
   sidebarOpen: true,
 };

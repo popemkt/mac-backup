@@ -94,12 +94,15 @@ describe("loadPrefs", () => {
       width: "full",
       sidebarOpen: false,
     });
-    expect(prefs.loadPrefs('{"theme":"neon","designSystem":"comic","width":"wide"}', 1280)).toEqual(
-      {
-        ...prefs.DEFAULT_PREFS,
-        sidebarOpen: true,
-      },
-    );
+    expect(prefs.loadPrefs('{"theme":"neon","designSystem":7,"width":"wide"}', 1280)).toEqual({
+      ...prefs.DEFAULT_PREFS,
+      sidebarOpen: true,
+    });
+  });
+
+  it("holds any design-system id: which are contributed is the page's to say", () => {
+    // An id nobody contributes paints the default (the design-system contract).
+    expect(prefs.loadPrefs('{"designSystem":"comic"}', 1280).designSystem).toBe("comic");
   });
 
   it("ignores the retired backdrop prefs: the backdrop is core's settings now", () => {
@@ -177,8 +180,9 @@ describe("usePrefsStore", () => {
     expect(JSON.parse(present(raw, "raw json")).sidebarOpen).toBe(false);
   });
 
-  it("applies theme class + design-system attribute to <html>", () => {
+  it("applies the theme class and the width to <html>, and leaves data-theme to the painter", () => {
     prefs.usePrefsStore.getState().setTheme("dark");
+    (g.document as Document).documentElement.setAttribute("data-theme", "painted");
     prefs.usePrefsStore.getState().setDesignSystem("kb");
     const root = (
       g.document as {
@@ -189,7 +193,7 @@ describe("usePrefsStore", () => {
       }
     ).documentElement;
     expect(root.classList.contains("dark")).toBe(true);
-    expect(root.getAttribute("data-theme")).toBe("kb");
+    expect(root.getAttribute("data-theme")).toBe("painted");
     expect(root.getAttribute("data-width")).toBe("full");
 
     prefs.usePrefsStore.getState().setTheme("light");
@@ -266,7 +270,6 @@ describe("initPrefs cross-tab sync", () => {
       }
     ).documentElement;
     expect(root.classList.contains("dark")).toBe(false);
-    expect(root.getAttribute("data-theme")).toBe("paper");
     expect(root.getAttribute("data-width")).toBe("centered");
   });
 });

@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "@/components/App";
 import { initScrollbarManager } from "@/lib/scrollbar-manager";
+import { startDesignSystems } from "@/stores/design-system.store";
 import { initPrefs } from "@/stores/prefs.store";
 import interLatin from "@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url";
 import "./index.css";
@@ -22,6 +23,7 @@ function preloadInterLatin() {
 
 preloadInterLatin();
 initPrefs();
+startDesignSystems();
 initScrollbarManager();
 
 const el = document.getElementById("root");

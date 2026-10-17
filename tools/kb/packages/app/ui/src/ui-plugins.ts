@@ -47,6 +47,7 @@ import { coreExtension, extensionSwitchDef } from "@kb/operations";
 import type { Plugin } from "@kb/plugin";
 import { getLiveClient } from "@/api/live";
 import { browserHostUiPlugin } from "@/browser-host";
+import { designSystemsUiPlugin } from "@/design-systems";
 import { canvasUiPlugin } from "@kb/canvas-ui";
 import { chartUiPlugin } from "@kb/chart-ui";
 import { codeUiPlugin } from "@kb/code-ui";
@@ -68,6 +69,7 @@ import { webMcpUiPlugin } from "@/webmcp";
 export const CORE_UI_PLUGINS: readonly Plugin[] = [
   declarationPlugin(coreExtension),
   browserHostUiPlugin,
+  designSystemsUiPlugin,
   ontologyUiPlugin,
   layoutUiPlugin,
   webMcpUiPlugin,

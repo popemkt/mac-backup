@@ -28,7 +28,7 @@ import { browserHost, type BrowserHost } from "./host";
 import { type FrameViewKey, isFrameViewKey } from "@kb/views";
 import {
   BackdropPoint,
-  chosenBackdrop,
+  chosenDeclared,
   familyViews,
   useContributions,
   ViewPoint,
@@ -72,7 +72,7 @@ export function usePageBackdrop(node?: OutlineNode): PageBackdropChoice {
     backdrops.map(({ value }) => value.key.id),
   );
   return {
-    backdrop: chosenBackdrop(backdrops, choice.backdrop),
+    backdrop: chosenDeclared(backdrops, choice.backdrop),
     strength: choice.strength,
     direction: choice.direction,
   };

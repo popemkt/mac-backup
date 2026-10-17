@@ -5,18 +5,16 @@
  * the swatch editor — so the proof is over colour space, not a palette: at
  * rest, and under any lift, no fragment passes white, for the unit cube's
  * corners, every pure channel and a seeded spread of colours, under the ink
- * of every design system in both variants (read from the stylesheets), on
+ * of every contributed design system in both variants (read from their sheets), on
  * the ground each theme stands on, and for every theme: the themes are the
  * implementations, and the bloom rule is their one contract. A theme that
  * blooms lets its hubs pass white; a theme that does not never does. The shader caps a lift at each fragment's own
  * headroom; this checks the cap.
  */
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { BLOOM_THRESHOLD, NUMBER_OPS } from "@kb/scene";
-import { DESIGN_SYSTEM_IDS, oklchToRgb, TAG_PALETTE } from "@kb/ui-sdk";
-import { readDesignSystemSheets } from "@/lib/design-system-sheets";
+import { oklchToRgb, TAG_PALETTE } from "@kb/ui-sdk";
+import { PAGE_SHEETS as SHEETS } from "@/test-support/design-systems";
 import { LENS_THEMES, type LensTheme } from "@kb/graph";
 import {
   GLOW,
@@ -27,10 +25,7 @@ import {
   GRAPH_THEMES,
 } from "@kb/graph-ui";
 
-const SRC = join(import.meta.dirname, "..", "..");
-const SHEETS = readDesignSystemSheets(readFileSync(join(SRC, "design-system.css"), "utf8"), (id) =>
-  readFileSync(join(SRC, "design-systems", `${id}.css`), "utf8"),
-);
+const DESIGN_SYSTEM_IDS = [...SHEETS.systems.keys()];
 
 /** An sRGB channel (0–1) as a linear one, as three stores a colour. */
 function linear(c: number): number {
@@ -43,11 +38,7 @@ function hexRgb(hex: string): Rgb {
 }
 
 /** A token of one appearance, as the linear colour three holds. */
-function tokenRgb(
-  id: (typeof DESIGN_SYSTEM_IDS)[number],
-  variant: "light" | "dark",
-  token: string,
-): Rgb {
+function tokenRgb(id: string, variant: "light" | "dark", token: string): Rgb {
   const srgb = oklchToRgb(SHEETS.resolve(id, variant, token));
   if (srgb === null) throw new Error(`${id}/${variant}: ${token} is not oklch`);
   return [linear(srgb.r / 255), linear(srgb.g / 255), linear(srgb.b / 255)];
