@@ -229,6 +229,35 @@ test("force2d labels each link with its relation once the perspective turns link
   await expect.poll(labels, PAGE_READY).toEqual({ drawn: false, labels: [""] });
 });
 
+test("force2d traces from the selection to a shift-clicked node and lights the paths in place", async ({
+  page,
+}) => {
+  await selectRenderer(page, "force2d");
+  const host = "[data-sigma-container]";
+  const first = await sigmaPagePoint(page, host, "render.fixture.node.1");
+  await page.mouse.click(first.x, first.y);
+  await expect(page.getByTestId("graph-selection-card")).toContainText("Fixture node 1");
+  const second = await sigmaPagePoint(page, host, "render.fixture.node.2");
+  await page.keyboard.down("Shift");
+  await page.mouse.click(second.x, second.y);
+  await page.keyboard.up("Shift");
+  // Two leaves meet at the root, one hop each way: a mention, read back.
+  const card = page.getByTestId("graph-trace-card");
+  await expect(card).toContainText("Path 1 · 2 hops", PAGE_READY);
+  await expect(card).toContainText("mentions");
+  // Off the paths every node recedes: its label is not drawn.
+  await expect
+    .poll(() =>
+      page.locator(host).evaluate((element) => {
+        const sigma = (element as SigmaHost).__kbSigma;
+        return sigma?.getNodeDisplayData("render.fixture.node.3")?.label ?? null;
+      }),
+    )
+    .toBe("");
+  await page.keyboard.press("Escape");
+  await expect(card).toBeHidden();
+});
+
 test("cluster paints labels and a hull spanning its members", async ({ page }) => {
   await selectRenderer(page, "cluster");
   const host = "[data-testid='cluster-graph'] > div";
