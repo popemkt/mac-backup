@@ -9,6 +9,7 @@ import type { WireNode } from "@kb/contracts";
 import {
   collectEdges,
   decodePerspective,
+  isScaffolding,
   resolvePerspective,
   type LensEdge,
   DEFAULT_CLUSTER_BY,
@@ -20,7 +21,6 @@ import {
 import {
   graphDisplayText,
   hashTagColor,
-  isSysPrefixed,
   type BulletAppearance,
   type KbIndex,
   logWarn,
@@ -213,24 +213,8 @@ export function idsFromQueryRows(rows: unknown[][], known: Set<string>): Set<str
   return out;
 }
 
-/**
- * Smart-elide targets: sys.* ids, #command nodes, and tag/field template
- * nodes (schema), so default empty-query lenses paint content — not scaffolding.
- */
-function isElidedSchemaNode(wire: WireNode): boolean {
-  if (isSysPrefixed(wire.id)) return true;
-  const types = wire.props[SYSTEM_IDS.typeField] ?? [];
-  for (const v of types) {
-    if (v.t !== "ref") continue;
-    if (v.v === SYSTEM_IDS.command || v.v === SYSTEM_IDS.field || v.v === SYSTEM_IDS.tag) {
-      return true;
-    }
-  }
-  return false;
-}
-
 export interface ExtractLensOptions {
-  /** When true, keep sys/command/schema nodes. Default false (smart-elide). */
+  /** When true, keep the scaffolding (`@kb/graph`'s `isScaffolding`). Default false. */
   includeSystemNodes?: boolean;
   /**
    * Ontology scope: intersect the lens node set with these ids, so the graph
@@ -250,7 +234,7 @@ function resolveNodeSet(
   const restrictTo = opts.restrictTo;
   const candidates = wireNodes.filter((n) => {
     if (restrictTo && !restrictTo.has(n.id)) return false;
-    return includeSystem || !isElidedSchemaNode(n);
+    return includeSystem || !isScaffolding(n);
   });
   const all = new Set(candidates.map((n) => n.id));
   const edn = perspective.query.trim();

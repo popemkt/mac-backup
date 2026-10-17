@@ -28,6 +28,7 @@ export {
   type RendererTraits,
 } from "./views.ts";
 export { collectEdges, type LensEdge, type LensSource } from "./edges.ts";
+export { isScaffolding } from "./scaffolding.ts";
 export { adjacencyOf, projectionOf, type Adjacency, type GraphProjection } from "./projection.ts";
 export {
   TRACE_DEFAULTS,
