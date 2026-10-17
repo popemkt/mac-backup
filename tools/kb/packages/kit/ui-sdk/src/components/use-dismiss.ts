@@ -1,4 +1,4 @@
-import { useEffectEvent, useInsertionEffect, useLayoutEffect, useRef, type RefObject } from "react";
+import { useInsertionEffect, useLayoutEffect, useRef, type RefObject } from "react";
 import { asElement, asInstance, isOutside } from "../lib/dom";
 
 /**
@@ -30,7 +30,11 @@ function within(inside: readonly DismissInside[], target: EventTarget | null): b
   );
 }
 
-/** One open popover, as the stack holds it. */
+/**
+ * One open popover, as the stack holds it: plain callbacks, which the
+ * window's listeners call, reading the popover's latest parts and dismiss
+ * from what its last commit left them.
+ */
 interface Layer {
   readonly holds: (target: EventTarget | null) => boolean;
   readonly dismiss: () => void;
@@ -94,10 +98,11 @@ export function useDismiss(
   { inside, trigger }: DismissParts,
   dismiss: () => void,
 ): void {
-  const onDismiss = useEffectEvent(dismiss);
-  const holds = useEffectEvent((target: EventTarget | null) =>
-    within(trigger === null ? inside : [...inside, trigger], target),
-  );
+  // What the last commit rendered, for the stack's callbacks to read.
+  const latest = useRef({ inside, trigger, dismiss });
+  useLayoutEffect(() => {
+    latest.current = { inside, trigger, dismiss };
+  });
   const opener = useRef<Element | null>(null);
   // Read as it opens, in the commit's mutation phase: before anything it
   // renders takes focus, as an autoFocus input does in the layout phase.
@@ -106,6 +111,16 @@ export function useDismiss(
   }, [open]);
   useLayoutEffect(() => {
     if (!open) return undefined;
-    return openLayer({ holds, dismiss: onDismiss, opener: opener.current });
+    return openLayer({
+      holds: (target) => {
+        const parts = latest.current;
+        return within(
+          parts.trigger === null ? parts.inside : [...parts.inside, parts.trigger],
+          target,
+        );
+      },
+      dismiss: () => latest.current.dismiss(),
+      opener: opener.current,
+    });
   }, [open]);
 }
