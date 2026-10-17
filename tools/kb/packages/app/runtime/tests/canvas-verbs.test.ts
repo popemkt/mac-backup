@@ -260,6 +260,37 @@ describe("a canvas references what it shows", () => {
   });
 });
 
+describe("which node is a canvas", () => {
+  test("only a node tagged #canvas takes a canvas write; a user tag named canvas is no canvas", async () => {
+    const ctx = await canvasKb();
+    const tag = output(
+      await invoke(ctx, {
+        id: "node.add",
+        input: { text: "canvas", id: "n.mytag", tags: ["sys.tag"] },
+      }),
+    );
+    expect(tag.id).toBe("n.mytag");
+    await invoke(ctx, {
+      id: "node.add",
+      input: {
+        text: "Not a board",
+        id: "n.fake",
+        props: [{ field: SYSTEM_IDS.typeField, value: { t: "ref", v: "n.mytag" } }],
+      },
+    });
+    const refused = await invoke(ctx, {
+      id: "ext.canvas.tx.apply",
+      input: { canvasId: "n.fake", doc: { nodes: [], edges: [] } },
+    });
+    expect(refused.status).toBe("failed");
+    const taken = await invoke(ctx, {
+      id: "ext.canvas.tx.apply",
+      input: { canvasId: "n.canvas", doc: { nodes: [], edges: [] } },
+    });
+    expect(taken.status).toBe("succeeded");
+  });
+});
+
 describe("links on items", () => {
   test("an item placed leading to a node makes the canvas one of its references", async () => {
     const ctx = await canvasKb();

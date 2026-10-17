@@ -46,9 +46,17 @@ export function canvasWorld(nodes: Iterable<WorldNode>): CanvasWorld {
   };
 }
 
+/**
+ * Whether `node` is a canvas: tagged `#canvas`. The one statement of it —
+ * the world, the canvas list and the write path all ask this.
+ */
+export function isCanvasNode(node: Pick<KbNode, "props">): boolean {
+  return typeRefsOf(node).includes(CANVAS_IDS.canvasTag);
+}
+
 /** `node`'s document, when it is a canvas (`docOf`). */
 function readDoc(node: WorldNode | undefined): CanvasDoc | undefined {
-  if (node === undefined || !typeRefsOf(node).includes(CANVAS_IDS.canvasTag)) return undefined;
+  if (node === undefined || !isCanvasNode(node)) return undefined;
   const raw = node.props[CANVAS_IDS.canvasField]?.[0];
   if (raw?.t !== "str") return EMPTY_CANVAS_DOC;
   try {

@@ -20,6 +20,7 @@ import { ulid } from "ulid";
 import {
   CANVAS_IDS,
   EMPTY_CANVAS_DOC,
+  isCanvasNode,
   isNativeEdgeBound,
   parseCanvasDoc,
   stringifyCanvasDoc,
@@ -44,8 +45,7 @@ export function readCanvasDoc(node: OutlineNode | undefined): CanvasDoc {
 export function listCanvasNodes(nodes: ReadonlyMap<string, OutlineNode>): OutlineNode[] {
   const out: OutlineNode[] = [];
   for (const n of nodes.values()) {
-    const tagged = typeRefsOf(n).includes(CANVAS_IDS.canvasTag);
-    if (tagged) out.push(n);
+    if (isCanvasNode(n)) out.push(n);
   }
   return out.toSorted((a, b) => a.text.localeCompare(b.text));
 }

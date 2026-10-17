@@ -11,7 +11,6 @@ import type { FileSystem } from "effect/FileSystem";
 import { KbCtx, type KbContext, type KbStore } from "@kb/contracts";
 import { persistEffect } from "@kb/operations";
 import {
-  SYSTEM_IDS,
   isSysPrefixed,
   currentIso,
   ResolveError,
@@ -27,6 +26,7 @@ import {
   CANVAS_IDS,
   CanvasRelationError,
   canvasWorld,
+  isCanvasNode,
   lintCanvas,
   lintDiff,
   parseCanvasDoc,
@@ -70,23 +70,12 @@ function assertUserWritable(id: string): void {
   }
 }
 
-// GAP [[01M5486ZYQCASYPS01PSVTCAH2]] two definitions of which node is a canvas
+/** The node `id`, when it is a canvas a write may take (`isCanvasNode`); throws otherwise. */
 function assertCanvasHost(ctx: KbContext, id: NodeId): KbNode {
   assertUserWritable(id);
   const node = requireNode(ctx, id);
-  const types = node.props[SYSTEM_IDS.typeField] ?? [];
-  const tagged = types.some((v) => v.t === "ref" && v.v === CANVAS_IDS.canvasTag);
-  if (!tagged) {
-    // Also accept a user tag named "canvas" typed as sys.tag (text match).
-    const canvasTagNodes = ctx.nodes.filter(
-      (n) =>
-        n.text === "canvas" &&
-        (n.props[SYSTEM_IDS.typeField] ?? []).some((v) => v.t === "ref" && v.v === SYSTEM_IDS.tag),
-    );
-    const ok = types.some((v) => v.t === "ref" && canvasTagNodes.some((t) => t.id === v.v));
-    if (!ok) {
-      throw new CanvasTxError(`canvas host must be tagged #canvas: ${id}`, { id });
-    }
+  if (!isCanvasNode(node)) {
+    throw new CanvasTxError(`canvas host must be tagged #canvas: ${id}`, { id });
   }
   return node;
 }
