@@ -4,7 +4,7 @@
  * and mounts {@link ViewScripts} for the nodes it shows; the family that
  * keeps scripts (code) provides the host that finds the scripts those
  * nodes name and runs them, through this service. A view that draws its
- * things somewhere also tells where ({@link ViewAnchors}), so what a script
+ * things somewhere also tells where ({@link ViewLayout}), so what a script
  * draws can stand on them. The view names no script, field or runner; the
  * host names no view.
  */
@@ -34,25 +34,29 @@ export function createViewEvents(): ViewEvents {
   };
 }
 
-/**
- * Where a view draws its things now (`SandboxAnchors`), as it last said: a
- * state, not a stream, so a script that starts later stands its drawing on
- * them at once.
- */
-export interface ViewAnchors {
-  readonly set: (anchors: SandboxAnchors) => void;
-  /** Hear where the things are now, then every change; the returned function stops. */
-  readonly listen: (listener: (anchors: SandboxAnchors) => void) => () => void;
+/** How a view lies on screen now: where it draws each of its things (`SandboxAnchors`). */
+export interface ViewLayoutState {
+  readonly anchors: SandboxAnchors;
 }
 
-/** A view's anchors: one per mounted view, created once, knowing nothing until it is told. */
-export function createViewAnchors(): ViewAnchors {
-  const listeners = new Set<(anchors: SandboxAnchors) => void>();
-  let now: SandboxAnchors = {};
+/**
+ * How a view lies on screen now, as it last said: a state, not a stream, so
+ * a script that starts later stands its drawing on its things at once.
+ */
+export interface ViewLayout {
+  readonly set: (layout: ViewLayoutState) => void;
+  /** Hear how it lies now, then every change; the returned function stops. */
+  readonly listen: (listener: (layout: ViewLayoutState) => void) => () => void;
+}
+
+/** A view's layout: one per mounted view, created once, knowing nothing until it is told. */
+export function createViewLayout(): ViewLayout {
+  const listeners = new Set<(layout: ViewLayoutState) => void>();
+  let now: ViewLayoutState = { anchors: {} };
   return {
-    set: (anchors) => {
-      now = anchors;
-      for (const listener of listeners) listener(anchors);
+    set: (layout) => {
+      now = layout;
+      for (const listener of listeners) listener(layout);
     },
     listen: (listener) => {
       listeners.add(listener);
@@ -64,14 +68,14 @@ export function createViewAnchors(): ViewAnchors {
 
 /**
  * What a script host runs: the scripts the `subjects` name, for `view`,
- * hearing `events`, their drawings over the view standing on `anchors`.
+ * hearing `events`, their drawings over the view standing on its `layout`.
  */
 export interface ScriptHostProps {
   /** The nodes the view shows whose scripts run, each script with its node as `kb.subject`. */
   readonly subjects: readonly string[];
   readonly view: ViewKey<unknown>;
   readonly events: ViewEvents;
-  readonly anchors: ViewAnchors;
+  readonly layout: ViewLayout;
 }
 
 /** The host that runs a view's scripts, as the family that keeps scripts provides it. */

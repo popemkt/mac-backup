@@ -7,7 +7,7 @@
  */
 import { useEffect } from "react";
 import type { CanvasNode } from "@kb/canvas";
-import type { ViewAnchors } from "@kb/ui-sdk";
+import type { ViewLayout } from "@kb/ui-sdk";
 import type { CanvasView } from "./canvas-camera";
 import type { CanvasCameraRig } from "./canvas-camera-rig";
 import { itemScreenRects } from "./canvas-visible";
@@ -20,7 +20,7 @@ export function CanvasScriptAnchors({
   width,
   height,
   items,
-  anchors,
+  layout,
 }: {
   readonly rig: CanvasCameraRig;
   /** The 3D scene is the one showing (otherwise the view is `flatView`). */
@@ -30,11 +30,11 @@ export function CanvasScriptAnchors({
   readonly width: number;
   readonly height: number;
   readonly items: readonly CanvasNode[];
-  readonly anchors: ViewAnchors;
+  readonly layout: ViewLayout;
 }) {
   const view = useShownView(rig, in3d, flatView);
   useEffect(() => {
-    anchors.set(Object.fromEntries(itemScreenRects(items, view, { width, height })));
-  }, [anchors, items, view, width, height]);
+    layout.set({ anchors: Object.fromEntries(itemScreenRects(items, view, { width, height })) });
+  }, [layout, items, view, width, height]);
   return null;
 }

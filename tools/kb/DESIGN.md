@@ -3789,7 +3789,7 @@ system, one runner, one trust.
   see-through, and lets every gesture pass to the view beneath. An element
   it draws with `data-anchor` naming a thing of the view (a canvas item's
   id) stands on that thing's rectangle as the view draws it now: the view
-  tells where its things are (`ViewAnchors`, `createViewAnchors`), the page
+  tells where its things are (`ViewLayout`, `createViewLayout`), the page
   passes it to the frame (`kb/anchors`, `SandboxAnchors`), and the frame,
   not the guest, keeps every anchored element there (`placeAnchored`,
   `@kb/sandbox` `anchors.ts`), so a drawing follows the camera without

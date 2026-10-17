@@ -13,7 +13,7 @@ import { succeeded } from "@kb/contracts";
 import { SYSTEM_IDS, canonicalJson } from "@kb/model";
 import { codeDigest, type KbEvent, type SandboxAnchors } from "@kb/sandbox";
 import {
-  createViewAnchors,
+  createViewLayout,
   createViewEvents,
   syncUiPlugins,
   type HostedFrame,
@@ -108,11 +108,11 @@ describe("the scripts host", () => {
     ]);
     act(() => syncUiPlugins([testHostPlugin(host)]));
     const events = createViewEvents();
-    const anchors = createViewAnchors();
+    const layout = createViewLayout();
     const here = { left: 1, top: 2, right: 30, bottom: 40 };
-    anchors.set({ a: here });
+    layout.set({ anchors: { a: here } });
     await act(async () => {
-      root.render(createElement(ScriptsHost, { subjects: ["c"], view: View, events, anchors }));
+      root.render(createElement(ScriptsHost, { subjects: ["c"], view: View, events, layout }));
     });
     await act(async () => new Promise((done) => setTimeout(done, 20)));
 
@@ -138,7 +138,7 @@ describe("the scripts host", () => {
     expect(frames[0]?.closest("[data-script-overlays]")).not.toBeNull();
     expect(frames[0]?.className).toContain("pointer-events-none");
     expect(placed).toEqual([{ a: here }]);
-    anchors.set({});
+    layout.set({ anchors: {} });
     expect(placed).toEqual([{ a: here }, {}]);
 
     // A person runs a trusted script once more, against its node; an untrusted one offers no run.
@@ -162,7 +162,7 @@ describe("the scripts host", () => {
           subjects: ["c"],
           view: View,
           events: createViewEvents(),
-          anchors: createViewAnchors(),
+          layout: createViewLayout(),
         }),
       );
     });

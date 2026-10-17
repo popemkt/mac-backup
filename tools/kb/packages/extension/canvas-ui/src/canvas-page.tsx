@@ -39,7 +39,7 @@ import {
   useNodes,
   useSchema,
   ViewScripts,
-  createViewAnchors,
+  createViewLayout,
   createViewEvents,
 } from "@kb/ui-sdk";
 import { useCanvasProjection } from "./use-canvas-projection";
@@ -183,7 +183,7 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
   } = useCanvasSelection(doc, byId, membership);
   /** The events the canvas tells its scripts (`CANVAS_EVENTS`), on one channel for its life. */
   const [scriptEvents] = useState(createViewEvents);
-  const [scriptAnchors] = useState(createViewAnchors);
+  const [scriptLayout] = useState(createViewLayout);
   /** An item pressed, in either projection: the scripts hear it, then the press does what it does. */
   const pressCard: typeof onCardPointerDown = (card, ...rest) => {
     scriptEvents.emit({
@@ -698,13 +698,13 @@ export function CanvasPage({ canvasId, item: arrival }: CanvasPageProps) {
           width={projection.camera().size.width}
           height={projection.camera().size.height}
           items={doc.nodes}
-          anchors={scriptAnchors}
+          layout={scriptLayout}
         />
         <ViewScripts
           subjects={scripted}
           view={CanvasView}
           events={scriptEvents}
-          anchors={scriptAnchors}
+          layout={scriptLayout}
         />
         <CanvasOverlays
           transforming={modal}

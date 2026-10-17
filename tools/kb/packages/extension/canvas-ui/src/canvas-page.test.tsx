@@ -128,7 +128,7 @@ describe("CanvasPage pointer interactions", () => {
             hosted.push(props);
             if (hosted.length === 1) {
               props.events.listen((event) => heard.push(event));
-              props.anchors.listen((anchors) => placed.push(anchors));
+              props.layout.listen((layout) => placed.push(layout.anchors));
             }
           }
           return null;

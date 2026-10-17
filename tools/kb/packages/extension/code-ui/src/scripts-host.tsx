@@ -7,7 +7,7 @@
  * trusting it is the person's gesture. A call that asks is a card, as in a
  * code view. Each running script's frame lies over the whole view, see-through
  * and letting every gesture pass, so what it draws stands over the view —
- * on the view's things where it names them (`data-anchor`, `ViewAnchors`).
+ * on the view's things where it names them (`data-anchor`, `ViewLayout`).
  * The code family provides it to every view (`ScriptHostService`).
  */
 import { useState } from "react";
@@ -82,7 +82,7 @@ function ScriptRow({
   script,
   view,
   events,
-  anchors,
+  layout,
   overlay,
 }: { readonly subject: string; readonly script: ScriptSource } & RowProps) {
   const generation = useGeneration();
@@ -181,7 +181,7 @@ function ScriptRow({
               generation={generation}
               title={`${script.label}, a sandboxed script`}
               listen={events.listen}
-              anchored={anchors.listen}
+              layout={layout.listen}
               className="pointer-events-none absolute inset-0 size-full border-0 bg-transparent"
             />,
             overlay,
@@ -202,7 +202,7 @@ function AttachedScript({ attached, ...rest }: { readonly attached: Attached } &
   );
 }
 
-export function ScriptsHost({ subjects, view, events, anchors }: ScriptHostProps) {
+export function ScriptsHost({ subjects, view, events, layout }: ScriptHostProps) {
   const nodes = useNodes();
   const [overlay, setOverlay] = useState<HTMLElement | null>(null);
   const attached: Attached[] = subjects.flatMap((subject) =>
@@ -228,7 +228,7 @@ export function ScriptsHost({ subjects, view, events, anchors }: ScriptHostProps
               attached={one}
               view={view}
               events={events}
-              anchors={anchors}
+              layout={layout}
               overlay={overlay}
             />
           ))}
