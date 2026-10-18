@@ -27,6 +27,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Decide the home for the checklist in this repo, port R1-R20, and wire the mechanical subset the way the reference repo does before adding more skills.
 - **node** — `01M1M08W6Z70XV3KCQB5CWH3ZR`
 
+### GAP: CI cannot create the declared Tailscale Services yet
+
+- **expected** — tailscale-services.yml's sync job runs on every push to main that changes a declared Service, creating each one in tailscaleServices through PUT vip-services, so exposing an app needs only its host declaration and its policy entries
+- **current** — The sync job is workflow_dispatch-only and has never run: the GitOps trust credential is scoped to Policy File only, so vip-services answers 404 (the probe job shows it). Each Service identity is still created by hand in the admin console
+- **impact** — A newly declared Service is advertised by its host but stays unapproved until someone creates it in the console and reruns the policy apply; undeclared Services are only reported, never removed
+- **closes** — Grant the trust credential the Services scope (docs/tailscale.md, Recreate The Trust), dispatch the sync once to prove the PUT preserves addrs, then add a push trigger on the Nix paths and policy
+- **node** — `01M578YK5E3AJARNEY196G2DGM`
+
 ### GAP: kb.server has no NixOS side
 
 - **expected** — kb.server runs on NixOS as a supervised service for a named person, rendered from the same service declaration the macOS launchd agent comes from.

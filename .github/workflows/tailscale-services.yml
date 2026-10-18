@@ -1,7 +1,11 @@
 name: Tailscale Services
 
-# Probe for now: proves the GitOps credential can reach the Services API
-# (vip-services) before CI starts creating the Services hosts declare.
+# Creates the Tailscale Services the hosts declare (the flake's
+# tailscaleServices), so a Service needs no admin-console step. The probe
+# shows whether the GitOps credential reaches the Services API (vip-services)
+# at all; sync creates or updates each declared Service and reports, without
+# deleting, the ones nothing declares.
+# GAP [[01M578YK5E3AJARNEY196G2DGM]] dispatch-only: the credential gets 404 on vip-services.
 on:
   workflow_dispatch:
 
@@ -46,3 +50,84 @@ jobs:
           else
             exit 1
           fi
+
+  sync:
+    runs-on: ubuntu-latest
+    needs: probe
+    env:
+      TS_OAUTH_ID: ${{ secrets.TS_OAUTH_ID }}
+      TS_AUDIENCE: ${{ secrets.TS_AUDIENCE }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v22
+
+      - name: Evaluate the declared Services
+        shell: bash
+        run: |
+          # One entry per Service; a Service several hosts advertise exposes
+          # every port any of them declares.
+          nix eval --json .#tailscaleServices \
+            | jq 'group_by(.name) | map({name: .[0].name, ports: (map("tcp:\(.port)") | unique)})' \
+            > declared.json
+          jq -r '.[] | "\(.name) \(.ports | join(","))"' declared.json
+
+      - name: Create or update each declared Service
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          jwt=$(curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$TS_AUDIENCE" | jq -r .value)
+          token=$(curl -fsS -X POST https://api.tailscale.com/api/v2/oauth/token-exchange \
+            -d "client_id=$TS_OAUTH_ID" -d "jwt=$jwt" | jq -r .access_token)
+          echo "::add-mask::$token"
+          api=https://api.tailscale.com/api/v2/tailnet/-/vip-services
+
+          status=$(curl -sS -o existing.json -w '%{http_code}' \
+            -H "Authorization: Bearer $token" "$api")
+          if [ "$status" != 200 ]; then
+            echo "::error::listing Services returned HTTP $status"
+            jq -c . existing.json || true
+            exit 1
+          fi
+
+          jq -c '.[]' declared.json | while IFS= read -r service; do
+            name=$(jq -r .name <<<"$service")
+            status=$(curl -sS -o current.json -w '%{http_code}' \
+              -H "Authorization: Bearer $token" "$api/$name")
+            case "$status" in
+              200) current=$(command cat current.json) ;;
+              404) current='{}' ;;
+              *)
+                echo "::error::reading $name returned HTTP $status"
+                jq -c . current.json || true
+                exit 1
+                ;;
+            esac
+
+            # Start from what exists, so addrs (auto-allocated TailVIPs, lost
+            # by an update that omits them), tags, and annotations survive.
+            jq -n --argjson current "$current" --argjson declared "$service" \
+              '$current + $declared + {comment: "declared in popemkt/mac-backup"}' \
+              > body.json
+            status=$(curl -sS -o result.json -w '%{http_code}' -X PUT \
+              -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
+              --data @body.json "$api/$name")
+            if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+              echo "::error::PUT $name returned HTTP $status"
+              jq -c . result.json || true
+              exit 1
+            fi
+            echo "$name: $(jq -r '.ports | join(",")' body.json) (HTTP $status)"
+          done
+
+          # Report, never delete: removing a Service drops its TailVIP.
+          jq -r --slurpfile declared declared.json \
+            '.vipServices[].name | select(. as $n | $declared[0] | map(.name) | index($n) | not)' \
+            existing.json | while IFS= read -r name; do
+            echo "::warning::$name exists in the tailnet but no host declares it"
+          done

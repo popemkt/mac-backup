@@ -123,7 +123,13 @@ The remaining manual control-plane steps are:
 1. Sign the machine into Tailscale from the menu bar. Device identity and node
    keys must never be committed.
 2. For a new tailnet, open **Services** in the Tailscale console and create
-   `svc:cognee`, `svc:kb`, and `svc:adhoc` once.
+   `svc:cognee`, `svc:kb`, and `svc:adhoc` once. The `sync` job of
+   `.github/workflows/tailscale-services.yml` is meant to replace this step:
+   dispatched, it creates or updates every Service in `tailscaleServices`
+   (keeping each one's existing addresses) and warns about Services nothing
+   declares, deleting none. It cannot run yet: the trust credential is scoped
+   to the policy file, so the Services API answers 404 until a Services scope
+   is added to it.
 3. Apply the tracked policy through the GitHub workflow so that
    `tag:home-server`, its owner, grants, and the Service auto-approver exist.
    Service auto-approvers are resolved against existing Service identities, so
