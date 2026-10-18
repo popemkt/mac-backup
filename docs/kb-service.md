@@ -15,7 +15,7 @@ as the graph checkout. The server listens on loopback port 9000. Its
 computed `publicOrigin` supplies the UI's `--public-origin` argument. The
 route, request guard, and health check therefore derive their addresses from
 the same declarations. The guard's contract is in
-[kb's DESIGN.md](https://github.com/popemkt/kb/blob/v0.2.1/DESIGN.md).
+[kb's DESIGN.md](https://github.com/popemkt/kb/blob/v0.2.2/DESIGN.md).
 
 The `org.nixos.kb-ui` user launchd agent executes the Nix-packaged binary with
 an explicit `--root`, `--port`, `--no-open`, and, when configured,
