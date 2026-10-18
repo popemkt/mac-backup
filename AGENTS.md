@@ -85,6 +85,8 @@ pins.
 This repo holds no kb code: it installs kb's GitHub release (`pkgs/kb`, a
 [direct release package](docs/github-release-packages.md) bumped like the
 others) on every host and in the dev shell, and keeps its own small store.
+Everything here calls it as `kb` from PATH (the gate, CI, `.mcp.json`), and
+the gate refuses a session whose `kb` is not the pinned release.
 Todos, notes, rules, gaps, and any structured facts about this repo live as
 nodes in `.kb/nodes.jsonl` (committed). Everything is a node — fields and tags
 too. Props are keyed by field-node id; tags template fields; values may
