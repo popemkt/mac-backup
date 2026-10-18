@@ -196,6 +196,7 @@ in [Module Boundaries](AGENTS.md#module-boundaries).
 | **bun-global.nix** | Bun global CLIs, including Oh My Pi | `modules/darwin/home-manager/bun-global.nix` |
 | **agent-plugins.nix** | tracked Claude Code and Codex plugins and their marketplaces | `modules/darwin/home-manager/agent-plugins.nix` |
 | **nvfetcher + `pkgs/`** | pinned direct release packages | `nvfetcher.toml` + `_sources/` |
+| **kb** | the repo's knowledge base: todos, notes, rules and gaps as nodes; the tool is [popemkt/kb](https://github.com/popemkt/kb)'s release, pinned like the other release packages | `.kb/` (data), `pkgs/kb` (package) |
 | **Tailscale** | app, MagicDNS domain, private services, and access policy | `modules/stacks/vpn/`, host declarations, and `configs/tailscale/policy.hujson` |
 | **Cognee** | pinned service version, launchd jobs, routing, and non-secret configuration | `modules/stacks/ai-agents/cognee/server.nix` |
 | **system-setup** | declared external requirements, dependency ordering, enrollment guidance, readiness checks | `modules/darwin/system/system-setup/default.nix` |
