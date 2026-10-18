@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "kb": {
-      "command": "/Users/popemkt/.dotfiles/tools/kb/bin/kb",
+      "command": "kb",
       "args": ["mcp"]
     }
   }

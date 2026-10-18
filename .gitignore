@@ -21,11 +21,6 @@ secrets/
 .claude/settings.local.json
 .codex/config.toml
 
-# kb ui (Vite build + deps)
-tools/kb/ui/dist/
-tools/kb/ui/storybook-static/
-tools/kb/ui/node_modules/
-
 # kb opaque media files (W6a) — never commit binaries. No trailing slash so a
 # future Mackup symlink is also ignored, not just the real directory. Backup
 # ownership is declared in modules/darwin/home-manager/mackup.nix.
@@ -44,7 +39,7 @@ tools/kb/ui/node_modules/
 .kb/kb.sqlite-shm
 
 # kb code trust — which sandboxed code a person trusted, by digest, per
-# machine (tools/kb/DESIGN.md → Sandbox → Trust). Backup state owned by the
+# machine (kb's DESIGN.md → Sandbox → Trust). Backup state owned by the
 # Mackup `kb` application, never committed: docs/backup-strategy.md.
 .kb/trust.json
 .kb/trust.json.*.tmp
