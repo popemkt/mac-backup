@@ -7,7 +7,10 @@ reviewed and reproduced safely:
 
 - `flake.nix` owns the MagicDNS tailnet domain used by hosts and clients.
 - `hosts/*` and `modules/stacks/vpn/*` own local app installation and
-  `tailscale serve` declarations.
+  `tailscale serve` declarations. Each host also records the tags its machine
+  record carries in `my.stacks.vpn.tags`; assigning them stays manual.
+- `flake.nix` gathers every host's declared Services, with the host and its
+  tags, into one output: `nix eval --json .#tailscaleServices`.
 - `configs/tailscale/policy.hujson` owns grants, tag ownership, service host
   auto-approval, and Tailscale SSH authorization.
 - `.github/workflows/tailscale-policy.yml` tests policy changes on pull

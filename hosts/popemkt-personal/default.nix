@@ -26,6 +26,10 @@
     t3-code.enable = true;
     vpn = {
       enable = true;
+      tags = [
+        "tag:home-server"
+        "tag:orca-host"
+      ];
       # The home kb UI listens on loopback; Tailscale provides its HTTPS name.
       services.kb.target = config.my.stacks.kb.server.listenOrigin;
       # Keep a separate endpoint available for temporary HTTP apps.

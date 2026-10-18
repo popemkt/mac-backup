@@ -348,5 +348,29 @@
       nixosConfigurations = {
         shared-server = mkNixos "shared-server";
       };
+
+      # Every Tailscale Service any host declares, as plain data: one entry
+      # per (service, host), since more than one host may advertise a
+      # Service. It is what tooling outside Nix reads, so a Service is
+      # declared once, in its host's my.stacks.vpn.services.
+      tailscaleServices =
+        let
+          hostServices =
+            hostname: configuration:
+            let
+              vpn = configuration.config.my.stacks.vpn;
+            in
+            nixpkgs.lib.optionals vpn.enable (
+              nixpkgs.lib.mapAttrsToList (name: service: {
+                name = "svc:${name}";
+                host = hostname;
+                inherit (service) port protocol;
+                inherit (vpn) tags;
+              }) vpn.services
+            );
+        in
+        nixpkgs.lib.concatLists (
+          nixpkgs.lib.mapAttrsToList hostServices (self.darwinConfigurations // self.nixosConfigurations)
+        );
     };
 }

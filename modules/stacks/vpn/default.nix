@@ -33,6 +33,17 @@ in
         };
         description = "Known Tailscale device names and stable IPv4 addresses.";
       };
+      tags = mkOption {
+        type = types.listOf (types.strMatching "tag:[a-z0-9][a-z0-9-]*");
+        default = [ ];
+        example = [ "tag:home-server" ];
+        description = ''
+          Tailscale tags this host's machine record carries. Assigning a tag
+          stays a control-plane step (docs/tailscale.md); this records it, so
+          the policy's Service auto-approvers can be checked against the hosts
+          that advertise each Service.
+        '';
+      };
       services = mkOption {
         default = { };
         description = ''

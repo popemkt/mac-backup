@@ -84,6 +84,7 @@
     };
     vpn = {
       enable = true;
+      tags = [ "tag:shared-server" ];
       # Each T3 Code server gets its own HTTPS name on the tailnet.
       services = lib.mapAttrs' (
         name: instance: lib.nameValuePair "t3-${name}" { target = instance.listenOrigin; }

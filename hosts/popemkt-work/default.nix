@@ -25,7 +25,10 @@
     kb.enable = true;
     office-docs.enable = true;
     t3-code.enable = true;
-    vpn.enable = true;
+    vpn = {
+      enable = true;
+      tags = [ "tag:orca-host" ];
+    };
   };
 
   # Work-only GUI apps; merged with the shared Homebrew module.
