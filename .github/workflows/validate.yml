@@ -40,16 +40,12 @@ jobs:
       - name: Build flake checks
         run: nix flake check
 
-  # The kb datastore is TypeScript on Bun and shares nothing with the Nix
-  # evaluation above, so it runs as its own job rather than serialising behind
-  # a 45-minute flake build. macos-15 matches the only platform the suite has
-  # ever run on; moving it to ubuntu would be cheaper but would conflate real
-  # regressions with first-ever-Linux-run portability noise.
-  kb:
+  # kb itself is built and tested in popemkt/kb; this repo only holds a small
+  # kb store. The job checks that data with the release `kb` the flake pins,
+  # the same one every host installs, inside the dev shell like the hook.
+  kb-data:
     runs-on: macos-15
-    timeout-minutes: 40
-    # Every step runs inside the flake's dev shell, so Bun is the one the
-    # pre-commit hook and `pkgs/kb` use, not whatever setup-bun calls latest.
+    timeout-minutes: 15
     defaults:
       run:
         shell: nix develop -c bash -e {0}
@@ -57,54 +53,12 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
-        with:
-          # The warn ratchet counts from the fork point with main
-          # (harness/src/snapshot.ts, baselineAtRatchetBase); a shallow clone
-          # has no history to find it in.
-          fetch-depth: 0
 
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v22
 
-      - name: Install dependencies
-        run: bun install --cwd tools/kb --frozen-lockfile
-
-      # `verify` is the one name for the kb toolchain gate; what it runs is its
-      # definition in tools/kb/package.json, stated nowhere else. Invoked with
-      # bun, not npm: the workspace root declares devEngines npm 12 and
-      # `npm run` fails EBADDEVENGINES on the runner.
-      - name: Verify
-        run: bun run verify
-        working-directory: tools/kb
-
-      - name: Core suite
-        run: bun run test
-        working-directory: tools/kb
-
-      - name: UI suite
-        run: bun run test:ui
-        working-directory: tools/kb
-
-      # Wider than the committed seeds that `bun test` already runs. Cheap
-      # (pure, in-memory histories) and the only thing that exercises replay
-      # determinism across seeds nobody has looked at.
-      - name: Deterministic simulation sweep
-        run: bun run test:dst
-        working-directory: tools/kb
-
-      - name: Install Chromium for the render suite
-        run: bunx playwright install chromium
-        working-directory: tools/kb/packages/test-support/render-tests
-
-      # Real-browser specs. No retries (playwright.config.ts): a flaky spec is
-      # fixed, not retried into green. A runner without a WebGPU adapter runs
-      # the WebGL2 half and skips the WebGPU-only specs, each under its GAP.
-      - name: Render suite
-        run: bun run test:render
-        working-directory: tools/kb
-
       - name: Generated docs match .kb data
-        run: bun tools/kb/packages/app/cli/src/bin/docs-check.ts
+        run: kb docs check
 
       - name: kb media backup ownership
         run: ./scripts/check-kb-assets-backup.sh check
