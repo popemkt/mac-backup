@@ -116,6 +116,12 @@ T3 Code server per person. Each target is derived from that instance's port in
 | `svc:t3-popemkt` | `https://t3-popemkt.<tailnet-domain>` | `127.0.0.1:3773` | popemkt's T3 Code server |
 | `svc:t3-bytetum` | `https://t3-bytetum.<tailnet-domain>` | `127.0.0.1:3774` | bytetum's T3 Code server |
 
+A native app placed with `my.services.<app>` on a NixOS host is exposed the
+same way, as `svc:<app>-<owner>` targeting its loopback port, unless it sets
+`expose = false`. Like any Service it needs a grant and an
+`autoApprovers.services` entry for the host's tag; the gate and CI fail until
+both exist.
+
 ### First Tailnet Or Replacement Host
 
 The remaining manual control-plane steps are:

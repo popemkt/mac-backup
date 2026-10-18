@@ -147,6 +147,7 @@ they live in their own repos and can't be restored from a version string.
 | Setup manifest | generated `/etc/system-setup/integrations.json`; Pydantic-validated at runtime | `modules/darwin/system/system-setup/default.nix` |
 | Tailscale Service reconciliation | root launchd daemon after Tailscale is online | `modules/stacks/vpn/services-reconcile.nix` |
 | Tailscale Service declarations | typed `my.stacks.vpn.services` host inventory | `modules/stacks/vpn/default.nix`, `hosts/<hostname>/default.nix` |
+| Native app placement | typed `my.services.<app>` (owner, loopback port, command); a systemd unit `app-<app>` run as the owner on NixOS; macOS refuses it by assertion (`#gap`) | `modules/options/services.nix`, `modules/nixos/system/services.nix`, `modules/darwin/system/services.nix` |
 | Cognee server | API/UI/databases/models and loopback gateway on `popemkt-personal` | `modules/stacks/ai-agents/cognee/server.nix` |
 | Cognee remote client | pinned loopback MCP bridge plus agent enrollment/configuration | `modules/stacks/ai-agents/cognee/client.nix` |
 | Tailnet service domain | typed VPN binding consumed by service hosts and clients | `modules/stacks/vpn/default.nix`, `flake.nix` |
@@ -159,6 +160,9 @@ they live in their own repos and can't be restored from a version string.
 | Functional need | Implementation | File |
 |---|---|---|
 | Stable service identity | attribute name becomes `svc:<name>` | host `my.stacks.vpn.services` declaration |
+| Native app exposure | an exposed `my.services.<app>` becomes `my.stacks.vpn.services."<app>-<owner>"`, targeting its loopback port | `modules/nixos/system/services.nix` |
+| Loopback port uniqueness | apps may not share a port, nor take a T3 Code instance's or another Service target's | module assertion |
+| Policy coverage | every declared Service has a grant and an auto-approver for one of its host's `my.stacks.vpn.tags` | `scripts/check-tailscale-policy.sh` (gate and CI) |
 | HTTPS and TailVIP endpoint | generated `tailscale serve --service` invocation | `modules/stacks/vpn/services-reconcile.nix` |
 | Local app isolation | target must resolve to `127.0.0.1` or `localhost` | module assertion |
 | Removed-service cleanup | root-owned managed-service inventory under `/var/db` | module launchd implementation |

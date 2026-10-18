@@ -160,7 +160,8 @@ Rules for agents:
 | Add a direct GitHub release package | `nvfetcher.toml` and `pkgs/`; see `docs/github-release-packages.md` |
 | Change kb, or the kb version this repo runs | kb's code in [popemkt/kb](https://github.com/popemkt/kb); the version is its release pin, moved with `nix run .#github-sources -- update kb` |
 | Add a durable repo todo, note, rule or gap | a node in `.kb/nodes.jsonl` through `kb` (see [kb](#kb--repo-knowledge-base)) |
-| Expose a private app on the tailnet | `my.stacks.vpn.services` in `hosts/<hostname>/default.nix`; see `configs/specs/app-service-contract.md` |
+| Run a native server app on a NixOS host (and expose it) | `my.services.<app>` in `hosts/<hostname>/default.nix` (schema `modules/options/services.nix`); exposed apps become `svc:<app>-<owner>`, which still need a grant and auto-approver in `configs/tailscale/policy.hujson` |
+| Expose a private app on the tailnet | `my.stacks.vpn.services` in `hosts/<hostname>/default.nix`, plus its grant and `autoApprovers.services` entry in `configs/tailscale/policy.hujson` (CI checks both); see `configs/specs/app-service-contract.md` |
 | Review local voice-tool choices | `docs/local-voice-tools.md` |
 
 Run `rtk rebuild` after a change that should affect the live system.
@@ -257,7 +258,9 @@ referenced.
   configuration per host from a shared host base; each attribute name is the
   hostname.
 - `modules/options/` contains cross-cutting typed options only:
-  `my.hostname` and `my.pkgs.*` channel merge targets. Identity only one
+  `my.hostname`, `my.people`, `my.pkgs.*` channel merge targets, and
+  `my.services`, the native apps a host places (each platform base runs them:
+  `modules/nixos/system/services.nix`). Identity only one
   platform has is declared by that platform (`my.{username,role}` in
   `modules/darwin/system/identity.nix`). System
   modules read `config.my.*`; Home Manager reads `osConfig.my.*`. Per-stack

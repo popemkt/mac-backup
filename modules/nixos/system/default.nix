@@ -9,7 +9,10 @@
 # by the people it lists in `my.people`; each gets an account and the same Home
 # Manager layers, plus their own folder under users/ (modules/options/people.nix).
 {
-  imports = [ ../../stacks/nixos.nix ];
+  imports = [
+    ../../stacks/nixos.nix
+    ./services.nix
+  ];
 
   config = {
     # Keep the OS host name in sync with the flake attribute, so

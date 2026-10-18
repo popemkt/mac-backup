@@ -62,6 +62,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Admission gate
 - **node** — `01M1PJXGKQ0HAYEWY2V0QPWVX1`
 
+### GAP: my.services runs native apps on NixOS only
+
+- **expected** — An app declared in my.services runs on any host as its owner, under that platform's service manager (systemd on NixOS, a launchd agent on macOS), and is exposed the same way
+- **current** — Only modules/nixos/system/services.nix implements the schema; a macOS host that declares an app fails evaluation on an assertion in modules/darwin/system/services.nix
+- **impact** — Native apps on the Macs (popemkt-personal is the home service host) are still hand-wired: a launchd agent plus a my.stacks.vpn.services entry
+- **closes** — A darwin implementation generating launchd.user.agents for the primary user from the same schema, with the same exposure and port assertions, replacing the assertion
+- **node** — `01M5791R8EWJ0NB0Z3ENAFVMEH`
+
 ### GAP: NixOS rebuild runs neither the drift audit nor system-setup
 
 - **expected** — rebuild on NixOS ends with the same read-only checks the Mac gets: a drift audit of what the host runs versus what the repo declares, and the system-setup readiness status.

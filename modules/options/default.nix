@@ -8,6 +8,7 @@ _:
     ./my.nix
     ./people.nix
     ./pkgs.nix
+    ./services.nix
     ./uv-pins.nix
   ];
 }

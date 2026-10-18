@@ -80,6 +80,18 @@ my.stacks.vpn.services.my-api = {
 };
 ```
 
+On a NixOS host, an app this repo runs natively is placed with `my.services`
+instead, which generates both the systemd unit and the Service:
+
+```nix
+my.services.my-api = {
+  owner = "popemkt";          # one of the host's my.people
+  port = 3000;                # the app must listen on 127.0.0.1:3000
+  command = "bun run start";  # started with HOST and PORT set
+  workingDirectory = "/home/popemkt/src/my-api";
+};                            # exposed as svc:my-api-popemkt
+```
+
 The attribute name becomes the Tailscale identity `svc:my-api`. Tailscale gives
 it a separate TailVIP and MagicDNS name, so other services can also use port
 443. Access is controlled by grants targeting `svc:my-api`.
@@ -88,9 +100,10 @@ Do not expose a service until it has authentication appropriate to its data and
 the intended tailnet clients. Tailscale grants are the network boundary; app
 authentication remains the application boundary.
 
-After declaring a service, create its matching Service resource in the
-Tailscale admin console and approve this host, or configure policy-based
-automatic approval. A rebuild then owns the host-side endpoint configuration.
+After declaring a service, add its grant and its `autoApprovers.services`
+entry for the host's tag to `configs/tailscale/policy.hujson` (the gate and CI
+fail until both exist), and create its matching Service resource in the
+Tailscale admin console. A rebuild then owns the host-side endpoint configuration.
 
 ## State And Secrets
 
