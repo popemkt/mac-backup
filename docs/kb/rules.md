@@ -40,7 +40,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 - **expected** — pkgs/kb reads sources.kb from nvfetcher (nvfetcher.toml [kb] → _sources/generated.nix), bumped by github-sources like every release pin
 - **current** — pkgs/default.nix adds sources.kb by hand: the v0.2.0 tarball URL with lib.fakeHash, because the release does not exist yet and verify cannot pin a 404
-- **impact** — nix build .#kb and the darwin systems fail on the hash until it is pinned; nothing on this branch can be switched to
+- **impact** — Until it is pinned, nix build .#kb, the dev shell (so nix develop, and both CI jobs) and the darwin systems fail on the hash; nothing on this branch can be switched to or go green
 - **closes** — publish v0.2.0, add [kb] to nvfetcher.toml, run github-sources update kb, delete the hand-written source
 - **node** — `01M56GS17DHFTQ4F64WKSMMAE1`
 
