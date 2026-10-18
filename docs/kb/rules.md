@@ -36,14 +36,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M52TVK8YAZDN3R8V0CB99GSW`
 
-### GAP: kb's release source is a placeholder until popemkt/kb v0.2.0 is published
-
-- **expected** — pkgs/kb reads sources.kb from nvfetcher (nvfetcher.toml [kb] → _sources/generated.nix), bumped by github-sources like every release pin
-- **current** — pkgs/default.nix adds sources.kb by hand: the v0.2.0 tarball URL with lib.fakeHash, because the release does not exist yet and verify cannot pin a 404
-- **impact** — Until it is pinned, nix build .#kb, the dev shell (so nix develop, and both CI jobs) and the darwin systems fail on the hash; nothing on this branch can be switched to or go green
-- **closes** — publish v0.2.0, add [kb] to nvfetcher.toml, run github-sources update kb, delete the hand-written source
-- **node** — `01M56GS17DHFTQ4F64WKSMMAE1`
-
 ### GAP: main has no required branch protection
 
 - **expected** — Branch protection requires the Nix and KB validation checks before main can advance.
@@ -134,6 +126,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 
 ## Closed
+
+### GAP: kb's release source is a placeholder until popemkt/kb v0.2.0 is published
+
+- **expected** — pkgs/kb reads sources.kb from nvfetcher (nvfetcher.toml [kb] → _sources/generated.nix), bumped by github-sources like every release pin
+- **current** — pkgs/default.nix adds sources.kb by hand: the v0.2.0 tarball URL with lib.fakeHash, because the release does not exist yet and verify cannot pin a 404
+- **impact** — Until it is pinned, nix build .#kb, the dev shell (so nix develop, and both CI jobs) and the darwin systems fail on the hash; nothing on this branch can be switched to or go green
+- **closes** — publish v0.2.0, add [kb] to nvfetcher.toml, run github-sources update kb, delete the hand-written source
+- **node** — `01M56GS17DHFTQ4F64WKSMMAE1`
 
 ### GAP: two launch paths for the kb binary
 

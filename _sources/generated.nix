@@ -38,6 +38,14 @@
       sha256 = "sha256-gO9CVnkLd+YNVvKnlawZHNK7wyjdZ3TDihW89pIUYT4=";
     };
   };
+  kb = {
+    pname = "kb";
+    version = "0.2.0";
+    src = fetchurl {
+      url = "https://github.com/popemkt/kb/releases/download/v0.2.0/kb-0.2.0.tar.gz";
+      sha256 = "sha256-35/E/FB3e+p1+FzkjIlWqA8l6q7Yzraf5qEnwuOWMVY=";
+    };
+  };
   logseq = {
     pname = "logseq";
     version = "2.0.2";

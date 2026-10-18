@@ -59,6 +59,21 @@
         },
         "version": "0.11.829"
     },
+    "kb": {
+        "cargoLock": null,
+        "date": null,
+        "extract": null,
+        "name": "kb",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "name": null,
+            "sha256": "sha256-35/E/FB3e+p1+FzkjIlWqA8l6q7Yzraf5qEnwuOWMVY=",
+            "type": "url",
+            "url": "https://github.com/popemkt/kb/releases/download/v0.2.0/kb-0.2.0.tar.gz"
+        },
+        "version": "0.2.0"
+    },
     "logseq": {
         "cargoLock": null,
         "date": null,
