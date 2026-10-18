@@ -17,20 +17,7 @@ let
     in
     source // lib.optionalAttrs (repo != null) { homepage = builtins.head repo; };
 
-  sources = lib.mapAttrs withHomepage (
-    pkgs.callPackage ../_sources/generated.nix { }
-    # GAP [[01M56GS17DHFTQ4F64WKSMMAE1]]: kb's pin, by hand until v0.2.0 exists.
-    // {
-      kb = {
-        pname = "kb";
-        version = "0.2.0";
-        src = pkgs.fetchurl {
-          url = "https://github.com/popemkt/kb/releases/download/v0.2.0/kb-0.2.0.tar.gz";
-          hash = lib.fakeHash;
-        };
-      };
-    }
-  );
+  sources = lib.mapAttrs withHomepage (pkgs.callPackage ../_sources/generated.nix { });
 in
 {
   chat2db = pkgs.callPackage ./chat2db {
