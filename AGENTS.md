@@ -2,12 +2,13 @@
 
 ## Shared engineering rules
 
+<!-- GAP [[01M56SQJF52DWN2T00D510BRQ3]]: kb links name the pinned release by hand. -->
 Four rules are shared with kb and have their one home in
-[kb's AGENTS.md](https://github.com/popemkt/kb/blob/main/AGENTS.md):
-[Rule 1 — Abstraction before addition](https://github.com/popemkt/kb/blob/main/AGENTS.md#rule-1--abstraction-before-addition),
-[One contract, every implementation](https://github.com/popemkt/kb/blob/main/AGENTS.md#one-contract-every-implementation),
-[Canonical statements](https://github.com/popemkt/kb/blob/main/AGENTS.md#canonical-statements), and
-[Drift markers and gaps](https://github.com/popemkt/kb/blob/main/AGENTS.md#drift-markers-and-gaps). They apply in full
+[kb's AGENTS.md](https://github.com/popemkt/kb/blob/v0.2.1/AGENTS.md):
+[Rule 1 — Abstraction before addition](https://github.com/popemkt/kb/blob/v0.2.1/AGENTS.md#rule-1--abstraction-before-addition),
+[One contract, every implementation](https://github.com/popemkt/kb/blob/v0.2.1/AGENTS.md#one-contract-every-implementation),
+[Canonical statements](https://github.com/popemkt/kb/blob/v0.2.1/AGENTS.md#canonical-statements), and
+[Drift markers and gaps](https://github.com/popemkt/kb/blob/v0.2.1/AGENTS.md#drift-markers-and-gaps). They apply in full
 here too, and Rule 1 still outranks every other consideration in this repo.
 Read them there before any change; they are not restated here. Where they
 speak of nodes, rules, and gaps, this repo's are in its own kb store (see
@@ -75,11 +76,12 @@ pins.
 
 ## kb — repo knowledge base
 
+<!-- GAP [[01M56SQJF52DWN2T00D510BRQ3]]: kb links name the pinned release by hand. -->
 `kb` is a graph datastore with an outliner projection, developed in
 [popemkt/kb](https://github.com/popemkt/kb) (specs:
-[DESIGN.md](https://github.com/popemkt/kb/blob/main/DESIGN.md),
-[DESIGN-UI.md](https://github.com/popemkt/kb/blob/main/DESIGN-UI.md),
-[DESIGN-REFINE.md](https://github.com/popemkt/kb/blob/main/DESIGN-REFINE.md)).
+[DESIGN.md](https://github.com/popemkt/kb/blob/v0.2.1/DESIGN.md),
+[DESIGN-UI.md](https://github.com/popemkt/kb/blob/v0.2.1/DESIGN-UI.md),
+[DESIGN-REFINE.md](https://github.com/popemkt/kb/blob/v0.2.1/DESIGN-REFINE.md)).
 This repo holds no kb code: it installs kb's GitHub release (`pkgs/kb`, a
 [direct release package](docs/github-release-packages.md) bumped like the
 others) on every host and in the dev shell, and keeps its own small store.

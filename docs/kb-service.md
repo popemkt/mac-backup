@@ -8,13 +8,14 @@ Both hosts enable the stack; only `popemkt-personal` enables `server.enable`.
 
 ## Personal instance
 
+<!-- GAP [[01M56SQJF52DWN2T00D510BRQ3]]: kb links name the pinned release by hand. -->
 `hosts/popemkt-personal/default.nix` selects `/Volumes/Data/workspace/repos/_brain`
 as the graph checkout. The server listens on loopback port 9000. Its
 `listenOrigin` supplies the target for `vpn.services.kb`; that service's
 computed `publicOrigin` supplies the UI's `--public-origin` argument. The
 route, request guard, and health check therefore derive their addresses from
 the same declarations. The guard's contract is in
-[kb's DESIGN.md](https://github.com/popemkt/kb/blob/main/DESIGN.md).
+[kb's DESIGN.md](https://github.com/popemkt/kb/blob/v0.2.1/DESIGN.md).
 
 The `org.nixos.kb-ui` user launchd agent executes the Nix-packaged binary with
 an explicit `--root`, `--port`, `--no-open`, and, when configured,
