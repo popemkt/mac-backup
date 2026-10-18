@@ -1,0 +1,41 @@
+name: Tailscale Services
+
+# Probe for now: proves the GitOps credential can reach the Services API
+# (vip-services) before CI starts creating the Services hosts declare.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    env:
+      TS_OAUTH_ID: ${{ secrets.TS_OAUTH_ID }}
+      TS_AUDIENCE: ${{ secrets.TS_AUDIENCE }}
+      TS_TAILNET: ${{ secrets.TS_TAILNET }}
+
+    steps:
+      - name: List Services through the API
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          jwt=$(curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$TS_AUDIENCE" | jq -r .value)
+          token=$(curl -fsS -X POST https://api.tailscale.com/api/v2/oauth/token-exchange \
+            -d "client_id=$TS_OAUTH_ID" -d "jwt=$jwt" | jq -r .access_token)
+          echo "::add-mask::$token"
+
+          status=$(curl -sS -o services.json -w '%{http_code}' \
+            -H "Authorization: Bearer $token" \
+            "https://api.tailscale.com/api/v2/tailnet/$TS_TAILNET/vip-services")
+          echo "vip-services: HTTP $status"
+          if [ "$status" = 200 ]; then
+            jq -r '.vipServices[] | "\(.name) ports=\(.ports | join(",")) tags=\(.tags // [] | join(","))"' services.json
+          else
+            cat services.json
+            exit 1
+          fi
