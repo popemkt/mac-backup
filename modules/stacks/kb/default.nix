@@ -50,6 +50,17 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    my.everyone.home.packages = [ pkgs.kb ];
+    my.everyone = {
+      home.packages = [ pkgs.kb ];
+
+      # The merge driver `.gitattributes` names for kb node stores, declared
+      # with kb by its store path so it exists exactly when kb does: git that
+      # finds no driver program marks the store conflicted but keeps only one
+      # side's nodes, with no markers.
+      programs.git.settings.merge.kb-jsonl = {
+        name = "kb node store (three-way by node id)";
+        driver = "${lib.getExe pkgs.kb} merge-jsonl %O %A %B %P";
+      };
+    };
   };
 }

@@ -31,6 +31,19 @@ check_env() {
   for t in "${SOFT_TOOLS[@]}"; do
     command -v "$t" >/dev/null 2>&1 || soft_missing+=("$t")
   done
+  # Every custom merge driver .gitattributes names must resolve to a program:
+  # git that cannot run one marks the file conflicted but keeps only one side.
+  local driver_name driver_cmd
+  while IFS= read -r driver_name; do
+    driver_cmd="$(git -C "$REPO_ROOT" config --get "merge.$driver_name.driver" || true)"
+    if [ -z "$driver_cmd" ] || ! (cd "$REPO_ROOT" && command -v "${driver_cmd%% *}" >/dev/null 2>&1); then
+      echo "UNRESOLVED_DRIVER: merge.$driver_name.driver = '${driver_cmd}' $(git -C "$REPO_ROOT" config --show-origin --get "merge.$driver_name.driver" 2>/dev/null | cut -f1)"
+      hard_missing+=("merge.$driver_name.driver")
+    fi
+  done < <(
+    grep -oE 'merge=[A-Za-z0-9_.-]+' "$REPO_ROOT/.gitattributes" 2>/dev/null \
+      | cut -d= -f2 | grep -vxE 'text|binary|union' | sort -u
+  )
   [ ${#soft_missing[@]} -gt 0 ] && echo "SOFT_MISSING: ${soft_missing[*]}"
   if [ ${#hard_missing[@]} -gt 0 ]; then
     echo "HARD_MISSING: ${hard_missing[*]}"

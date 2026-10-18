@@ -1,8 +1,7 @@
 # The node store is a set of nodes keyed by id, not a list of lines: ULIDs put
 # every newly created node at the tail of the file, so two branches that each
 # add nodes collide on adjacent lines over a difference that is not one.
-# The driver merges by node id instead. It is the installed kb's, registered
-# once per clone:
-#   git config merge.kb-jsonl.name "kb node store (three-way by node id)"
-#   git config merge.kb-jsonl.driver "kb merge-jsonl %O %A %B %P"
+# The driver merges by node id instead. The kb stack declares it in every
+# user's git config, beside kb itself (modules/stacks/kb), and the gate
+# refuses a session whose driver does not resolve (intent/gate.sh).
 .kb/nodes.jsonl merge=kb-jsonl
