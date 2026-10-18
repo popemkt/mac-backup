@@ -11,9 +11,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Rule | Home | Scope | Principle | Enforcement | Gate |
 |---|---|---|---|---|---|
 | Admission gate | CLAUDE.md#gate-run-first | repo | Every session and every commit records admission through the one gate script; a missing tool is restored, never worked around. | hook | — |
+| Drift markers | https://github.com/popemkt/kb/blob/main/AGENTS.md#drift-markers-and-gaps | repo | A deferred clean shape carries a GAP marker at the deferral site and a matching gap node naming expected, current, impact and closes. An unlabelled workaround is drift. | ci | — |
 | Abstraction before addition (Rule 1) | https://github.com/popemkt/kb/blob/main/AGENTS.md#rule-1--abstraction-before-addition | repo | Every change lands in the shape it would have had if the requirement had always existed; when the model does not fit, the model gets fixed, not special-cased. | prose | — |
 | Canonical statements | https://github.com/popemkt/kb/blob/main/AGENTS.md#canonical-statements | repo | Every rule, principle and decision has exactly one home; other files link to it and never restate it. Restatement is drift. | prose | — |
-| Drift markers | https://github.com/popemkt/kb/blob/main/AGENTS.md#drift-markers-and-gaps | repo | A deferred clean shape carries a GAP marker at the deferral site and a matching gap node naming expected, current, impact and closes. An unlabelled workaround is drift. | prose | kb's gap-markers-resolve, shipped in the release as a command that intent/gate.sh record runs over this repo; until then it is a harness test of the kb repo only |
 | Module boundaries | CLAUDE.md#module-boundaries | repo | A stack owns its slice end to end and decides package membership; an executor installs whatever lands in its channel and never decides per package. | prose | A flake check that no executor in modules/ names a package, only the channel it reads |
 | One contract, every implementation | https://github.com/popemkt/kb/blob/main/AGENTS.md#one-contract-every-implementation | repo | A behaviour one implementation of a port guarantees is a guarantee of the port: stated once in the spec and proved by one contract suite that runs over every implementation. | prose | A harness check that every port with more than one implementation has a contract suite run over its whole registry. Not built yet, because half the ports are not discoverable: the store and tail ports are nominal (class … implements), but the scene handle, the graph renderers and the design systems are object-literal registries, so a check over implements clauses alone would read as covering the rule while missing them. The first step is one registry form every port declares. Found while looking: storeContract and logContract run over JsonlStore and SqliteStore (and their tails), but not over the UI's BrowserStore or tx-log's MemoryTxTail. |
 
@@ -53,14 +53,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A NixOS drift audit that reads nixosConfigurations and the NixOS channels, and system-setup checks gaining NixOS runtime dependencies (Tailscale and so on) so system-setup status runs there; both invoked from the Linux branch of scripts/rebuild in place of the notice.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M53WTHZ1YAW03WWCCFEV0QY1`
-
-### GAP: nothing audits this store's checks and rules
-
-- **expected** — the commit gate audits every store's checks and rules, so a check node in .kb that drifts from its hook fails a commit
-- **current** — The check audit ran only in kb's own verify, over kb's own store, and it left with tools/kb; intent/gate.sh record runs no audit over this repo's .kb
-- **impact** — Check: intent-record drifted from .githooks/pre-commit unnoticed when exec was dropped
-- **closes** — intent/gate.sh record runs the installed kb's check audit (a kb subcommand in the release) when .kb/, .githooks/ or a rule's home changes
-- **node** — `01M41YB3V2NC6NPXJYB9PH97D9`
 
 ### GAP: package executors share no contract check
 
@@ -134,6 +126,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Until it is pinned, nix build .#kb, the dev shell (so nix develop, and both CI jobs) and the darwin systems fail on the hash; nothing on this branch can be switched to or go green
 - **closes** — publish v0.2.0, add [kb] to nvfetcher.toml, run github-sources update kb, delete the hand-written source
 - **node** — `01M56GS17DHFTQ4F64WKSMMAE1`
+
+### GAP: nothing audits this store's checks and rules
+
+- **expected** — the commit gate audits every store's checks and rules, so a check node in .kb that drifts from its hook fails a commit
+- **current** — The check audit ran only in kb's own verify, over kb's own store, and it left with tools/kb; intent/gate.sh record runs no audit over this repo's .kb
+- **impact** — Check: intent-record drifted from .githooks/pre-commit unnoticed when exec was dropped
+- **closes** — intent/gate.sh record runs the installed kb's check audit (a kb subcommand in the release) when .kb/, .githooks/ or a rule's home changes
+- **node** — `01M41YB3V2NC6NPXJYB9PH97D9`
 
 ### GAP: two launch paths for the kb binary
 

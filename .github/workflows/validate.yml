@@ -41,8 +41,9 @@ jobs:
         run: nix flake check
 
   # kb itself is built and tested in popemkt/kb; this repo only holds a small
-  # kb store. The job checks that data with the release `kb` the flake pins,
-  # the same one every host installs, inside the dev shell like the hook.
+  # kb store. The job checks that data, and the GAP markers that cite it, with
+  # the release `kb` the flake pins, the same one every host installs, inside
+  # the dev shell like the hook.
   kb-data:
     runs-on: macos-15
     timeout-minutes: 15
@@ -59,6 +60,12 @@ jobs:
 
       - name: Generated docs match .kb data
         run: kb docs check
+
+      - name: Rules and checks are wired to what they name
+        run: kb check audit
+
+      - name: Every GAP marker names an open gap
+        run: git ls-files -z | kb check gaps --files-from -
 
       - name: kb media backup ownership
         run: ./scripts/check-kb-assets-backup.sh check
