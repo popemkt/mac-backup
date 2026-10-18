@@ -4,4 +4,5 @@
 # Install: git config core.hooksPath .githooks
 set -euo pipefail
 
-exec "$(git rev-parse --show-toplevel)/intent/gate.sh" record git-commit
+repo_root="$(git rev-parse --show-toplevel)"
+"$repo_root/intent/gate.sh" record git-commit
