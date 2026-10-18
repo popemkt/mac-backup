@@ -25,13 +25,6 @@
       inputs.pyproject-nix.follows = "pyproject-nix";
     };
 
-    # Keep in step with the `bun2nix` catalog entry in tools/kb/package.json:
-    # that CLI writes tools/kb/bun.nix, this input's fetchBunDeps reads it.
-    bun2nix = {
-      url = "github:nix-community/bun2nix/2.1.2";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     pyproject-build-systems = {
       url = "github:pyproject-nix/build-system-pkgs";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -46,7 +39,6 @@
       nixpkgs,
       nix-darwin,
       home-manager,
-      bun2nix,
       pyproject-build-systems,
       pyproject-nix,
       uv2nix,
@@ -76,7 +68,6 @@
       localPackages = import ./pkgs {
         inherit
           pkgs
-          bun2nix
           pyproject-build-systems
           pyproject-nix
           uv2nix
@@ -278,7 +269,6 @@
         import ./pkgs {
           pkgs = final;
           inherit
-            bun2nix
             pyproject-build-systems
             pyproject-nix
             uv2nix
