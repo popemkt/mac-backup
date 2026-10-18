@@ -68,11 +68,11 @@
         "pinned": false,
         "src": {
             "name": null,
-            "sha256": "sha256-35/E/FB3e+p1+FzkjIlWqA8l6q7Yzraf5qEnwuOWMVY=",
+            "sha256": "sha256-TlKJAsjCe4JAFg02VQDr8l6iWV4+O65WXEbp+mTKmXk=",
             "type": "url",
-            "url": "https://github.com/popemkt/kb/releases/download/v0.2.0/kb-0.2.0.tar.gz"
+            "url": "https://github.com/popemkt/kb/releases/download/v0.2.1/kb-0.2.1.tar.gz"
         },
-        "version": "0.2.0"
+        "version": "0.2.1"
     },
     "logseq": {
         "cargoLock": null,
