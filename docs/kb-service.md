@@ -1,6 +1,9 @@
 # kb service
 
 The `kb` stack owns the packaged CLI and the optional supervised browser UI.
+The package is kb's release bundle from
+[popemkt/kb](https://github.com/popemkt/kb) (`pkgs/kb`, pinned like every
+[direct release package](github-release-packages.md)).
 Both hosts enable the stack; only `popemkt-personal` enables `server.enable`.
 
 ## Personal instance
@@ -11,7 +14,7 @@ as the graph checkout. The server listens on loopback port 9000. Its
 computed `publicOrigin` supplies the UI's `--public-origin` argument. The
 route, request guard, and health check therefore derive their addresses from
 the same declarations. The guard's contract is in
-[tools/kb/DESIGN.md](../tools/kb/DESIGN.md).
+[kb's DESIGN.md](https://github.com/popemkt/kb/blob/main/DESIGN.md).
 
 The `org.nixos.kb-ui` user launchd agent executes the Nix-packaged binary with
 an explicit `--root`, `--port`, `--no-open`, and, when configured,
