@@ -319,6 +319,7 @@
               (pkgs.extend self.overlays.default).kb
               actionlint
               deadnix
+              hujsonfmt
               jq
               nixfmt
               nvfetcher

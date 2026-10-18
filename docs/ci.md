@@ -12,8 +12,11 @@ One workflow gates this repo, plus two that maintain it.
 independent jobs that run in parallel because they share nothing:
 
 - **`nix`** — `shellcheck`, `actionlint`, `nixfmt --check`, `statix`, `deadnix`,
-  `nix flake check` (eval, then build), and release-source consistency
-  (`github-sources verify`). Runs inside `nix develop`, so the tool versions
+  `nix flake check` (eval, then build), release-source consistency
+  (`github-sources verify`), and the Tailscale policy check
+  (`scripts/check-tailscale-policy.sh check`: every Service a host declares
+  has a grant naming it and a Service auto-approver for one of its host's
+  `my.stacks.vpn.tags`). Runs inside `nix develop`, so the tool versions
   are the repo's own. It does not ask whether the pins are current; what each
   command proves, and why freshness gates nothing, lives in
   [github-release-packages.md](github-release-packages.md#commands).
@@ -48,6 +51,7 @@ there has a known answer already:
 | kb generated docs (`kb docs check`) | `.kb/**`, `docs/kb/**` |
 | `kb check audit`, `kb check gaps` | every commit: their inputs are every file the store names and every GAP marker, which only kb can list |
 | `.kb/assets` backup ownership | `.kb/**`, `.gitignore`, `docs/backup-strategy.md`, `modules/darwin/home-manager/mackup.nix`, `scripts/check-kb-assets-backup.sh` |
+| Tailscale policy covers every declared Service | any `*.nix`, `flake.lock`, `configs/tailscale/policy.hujson`, `scripts/check-tailscale-policy.sh` |
 | Nix lane — `nixfmt`, `statix`, `deadnix`, `nix flake check`, release-source consistency | any `*.nix`, plus `nvfetcher.toml`, `_sources/**`, `pkgs/**` for the sources |
 
 ## What CI deliberately does NOT run

@@ -20,7 +20,7 @@ MODE="${1:-session}"
 SURFACE="${2:-unspecified}"
 
 HARD_TOOLS=(git jq nix nixfmt statix deadnix kb)
-SOFT_TOOLS=(shellcheck actionlint nvfetcher)
+SOFT_TOOLS=(shellcheck actionlint nvfetcher hujsonfmt)
 ADMISSION_CHECKS_DIR=""
 
 check_env() {
@@ -95,6 +95,13 @@ record_admission() {
   if grep -qE '^(\.kb/|\.gitignore$|docs/backup-strategy\.md$|modules/darwin/home-manager/mackup\.nix$|scripts/check-kb-assets-backup\.sh$)' <<<"$staged_paths"; then
     echo "==> kb media backup ownership (staged snapshot)"
     KB_ASSETS_ROOT="$staged_tree" "$staged_tree/scripts/check-kb-assets-backup.sh" check
+  fi
+
+  # Any Nix file may declare a Tailscale Service, so every Nix change, like
+  # every policy change, asks whether the policy still covers them all.
+  if grep -qE '(\.nix$|^flake\.lock$|^configs/tailscale/policy\.hujson$|^scripts/check-tailscale-policy\.sh$)' <<<"$staged_paths"; then
+    echo "==> Tailscale policy covers every declared Service (staged snapshot)"
+    TAILSCALE_POLICY_ROOT="$staged_tree" "$staged_tree/scripts/check-tailscale-policy.sh" check
   fi
 
   # The whole-store kb checks run on every commit. Their inputs are every file
