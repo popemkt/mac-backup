@@ -11,7 +11,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 | Rule | Home | Scope | Principle | Enforcement | Gate |
 |---|---|---|---|---|---|
 | Admission gate | CLAUDE.md#gate-run-first | repo | Every session and every commit records admission through the one gate script; a missing tool is restored, never worked around. | hook | — |
-| Drift markers | https://github.com/popemkt/kb/blob/main/AGENTS.md#drift-markers-and-gaps | repo | A deferred clean shape carries a GAP marker at the deferral site and a matching gap node naming expected, current, impact and closes. An unlabelled workaround is drift. | ci | — |
+| Drift markers | https://github.com/popemkt/kb/blob/main/AGENTS.md#drift-markers-and-gaps | repo | A deferred clean shape carries a GAP marker at the deferral site and a matching gap node naming expected, current, impact and closes. An unlabelled workaround is drift. | hook | — |
 | Abstraction before addition (Rule 1) | https://github.com/popemkt/kb/blob/main/AGENTS.md#rule-1--abstraction-before-addition | repo | Every change lands in the shape it would have had if the requirement had always existed; when the model does not fit, the model gets fixed, not special-cased. | prose | — |
 | Canonical statements | https://github.com/popemkt/kb/blob/main/AGENTS.md#canonical-statements | repo | Every rule, principle and decision has exactly one home; other files link to it and never restate it. Restatement is drift. | prose | — |
 | Module boundaries | CLAUDE.md#module-boundaries | repo | A stack owns its slice end to end and decides package membership; an executor installs whatever lands in its channel and never decides per package. | prose | A flake check that no executor in modules/ names a package, only the channel it reads |
