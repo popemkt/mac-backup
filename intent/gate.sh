@@ -31,6 +31,18 @@ check_env() {
   for t in "${SOFT_TOOLS[@]}"; do
     command -v "$t" >/dev/null 2>&1 || soft_missing+=("$t")
   done
+  # kb is called by name from PATH (this gate, CI, .mcp.json), so the kb found
+  # there must be the release the repo pins, not an older install or a shim.
+  local kb_pinned kb_found
+  if command -v kb >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+    kb_pinned="$(jq -r '.kb.version // empty' "$REPO_ROOT/_sources/generated.json" 2>/dev/null || true)"
+    kb_found="$(kb --version 2>/dev/null || true)"
+    if [ -n "$kb_pinned" ] && [ "$kb_found" != "$kb_pinned" ]; then
+      echo "STALE_TOOL: kb on PATH ($(command -v kb)) is '${kb_found}', the pin is '${kb_pinned}'"
+      hard_missing+=("kb@$kb_pinned")
+    fi
+  fi
+
   # Every custom merge driver .gitattributes names must resolve to a program:
   # git that cannot run one marks the file conflicted but keeps only one side.
   local driver_name driver_cmd
