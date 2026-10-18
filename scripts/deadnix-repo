@@ -12,7 +12,6 @@ set -euo pipefail
 
 generated=(
   ./_sources/generated.nix # nvfetcher
-  ./tools/kb/bun.nix # bun2nix, from tools/kb/bun.lock
 )
 
 cd "${1:-.}"
