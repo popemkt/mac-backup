@@ -1,78 +1,47 @@
 {
   lib,
+  sources,
   stdenvNoCC,
   bun,
-  bun2nix,
   makeBinaryWrapper,
-  callPackage,
 }:
 
-# Single entry point: one `kb` binary with the SPA baked beside it.
-# Operator never minds KB_UI_DIST — the wrapper sets KB_PKG_ROOT so
-# paths.ts resolves `$out/lib/kb/packages/app/ui/dist` the same as a checkout.
-#
-# Dependencies come from tools/kb/bun.nix, which bun2nix generates from
-# bun.lock (kb's `postinstall`; its harness fails a stale copy). Each package
-# is fetched against the hash the lockfile already records, and the build
-# itself is an ordinary offline derivation — so no hash here tracks kb's own
-# code, and editing kb never needs a hash refresh. Only this host's slice of
-# them is fetched (`host-bun-nix.nix`): the foreign-platform natives bun would
-# skip anyway, e.g. the Agent SDK's per-platform CLI binaries, stay unfetched.
+# kb's release is one platform-independent bundle (popemkt/kb): the bun-built
+# CLI and the UI's `dist` under `lib/kb`. This wraps that bundle's `cli.js`
+# with nixpkgs' bun instead of running the tarball's own `bin/kb` launcher, so
+# the runtime is a store path rather than whatever `bun` is on PATH. The
+# wrapper sets KB_PKG_ROOT, so kb resolves `$out/lib/kb/packages/app/ui/dist`
+# the same as a checkout does.
+let
+  source = sources.kb;
+in
 stdenvNoCC.mkDerivation {
-  pname = "kb";
-  version = "0.1.0";
+  inherit (source) pname version src;
 
-  src = lib.cleanSourceWith {
-    src = ../../tools/kb;
-    filter =
-      path: _type:
-      !(builtins.elem (baseNameOf path) [
-        "node_modules"
-        "dist"
-        "out"
-        ".source-hash"
-      ]);
-  };
+  nativeBuildInputs = [ makeBinaryWrapper ];
 
-  nativeBuildInputs = [
-    bun
-    bun2nix.hook
-    makeBinaryWrapper
-  ];
-
-  bunDeps = bun2nix.fetchBunDeps {
-    bunNix = callPackage ./host-bun-nix.nix { };
-  };
-
-  # The hook installs node_modules from bunDeps; building and installing are
-  # kb's own two artifacts, below.
-  dontUseBunBuild = true;
-  dontUseBunCheck = true;
-  dontUseBunInstall = true;
-
-  buildPhase = ''
-    runHook preBuild
-    (cd packages/app/ui && bun run build)
-    bun build ./packages/app/cli/src/main.ts \
-      --outdir="$TMPDIR/bundle" \
-      --target=bun \
-      --sourcemap=none
-    runHook postBuild
-  '';
+  dontBuild = true;
 
   installPhase = ''
     runHook preInstall
-    mkdir -p "$out/lib/kb/packages/app/ui" "$out/bin"
-    cp -a "$TMPDIR/bundle/main.js" "$out/lib/kb/cli.js"
-    cp -a packages/app/ui/dist "$out/lib/kb/packages/app/ui/dist"
+    mkdir -p "$out/lib" "$out/bin"
+    cp -a lib/kb "$out/lib/kb"
     makeBinaryWrapper ${lib.getExe bun} "$out/bin/kb" \
       --set KB_PKG_ROOT "$out/lib/kb" \
       --add-flags "$out/lib/kb/cli.js"
     runHook postInstall
   '';
 
+  doInstallCheck = true;
+  installCheckPhase = ''
+    runHook preInstallCheck
+    "$out/bin/kb" --version
+    runHook postInstallCheck
+  '';
+
   meta = {
     description = "Repo-native outliner datastore (CLI + browser UI)";
+    inherit (source) homepage;
     mainProgram = "kb";
     platforms = lib.platforms.darwin ++ lib.platforms.linux;
   };
