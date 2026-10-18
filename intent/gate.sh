@@ -72,6 +72,18 @@ record_admission() {
     KB_ASSETS_ROOT="$staged_tree" "$staged_tree/scripts/check-kb-assets-backup.sh" check
   fi
 
+  # The whole-store kb checks run on every commit. Their inputs are every file
+  # the store names (each rule's home, each check's evidence) and every GAP
+  # marker in the tree, a set only kb can list, so no path filter fits them.
+  #   audit   rules and checks are wired to what they name, honestly
+  #   gaps    every GAP marker names an open #gap node
+  echo "==> kb check audit (staged snapshot)"
+  (cd "$staged_tree" && kb check audit)
+  # kb check gaps scans the files it is given. checkout-index wrote every
+  # index entry, so the index's own list is exactly the snapshot's files.
+  echo "==> kb check gaps (staged snapshot)"
+  git ls-files -z | (cd "$staged_tree" && kb check gaps --files-from -)
+
   # Admission asks whether the staged sources are consistent, never whether
   # upstream has published something newer (docs/github-release-packages.md).
   if [ -n "$source_files_staged" ]; then

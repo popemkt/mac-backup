@@ -17,8 +17,10 @@ independent jobs that run in parallel because they share nothing:
   are the repo's own. It does not ask whether the pins are current; what each
   command proves, and why freshness gates nothing, lives in
   [github-release-packages.md](github-release-packages.md#commands).
-- **`kb-data`** — `kb docs check` (the generated docs match `.kb` data) and
-  the `.kb/assets` backup-ownership check. The `kb` is the release the flake
+- **`kb-data`** — `kb docs check` (the generated docs match `.kb` data),
+  `kb check audit` (every rule and check is wired to the home, evidence and
+  enforcement it names), `kb check gaps` (every GAP marker in a tracked file
+  names an open `#gap` node), and the `.kb/assets` backup-ownership check. The `kb` is the release the flake
   pins (`pkgs/kb`, in the dev shell), the same one every host installs and the
   pre-commit gate calls. kb's own code is built and tested in
   [popemkt/kb](https://github.com/popemkt/kb)'s CI, not here.
@@ -44,6 +46,7 @@ there has a known answer already:
 | Check | Runs when the commit stages |
 |---|---|
 | kb generated docs (`kb docs check`) | `.kb/**`, `docs/kb/**` |
+| `kb check audit`, `kb check gaps` | every commit: their inputs are every file the store names and every GAP marker, which only kb can list |
 | `.kb/assets` backup ownership | `.kb/**`, `.gitignore`, `docs/backup-strategy.md`, `modules/darwin/home-manager/mackup.nix`, `scripts/check-kb-assets-backup.sh` |
 | Nix lane — `nixfmt`, `statix`, `deadnix`, `nix flake check`, release-source consistency | any `*.nix`, plus `nvfetcher.toml`, `_sources/**`, `pkgs/**` for the sources |
 
