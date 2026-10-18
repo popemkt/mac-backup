@@ -7,5 +7,6 @@ _:
     ./npm-global.nix
     ./shell.nix
     ./neovim.nix
+    ./claude-code.nix
   ];
 }
