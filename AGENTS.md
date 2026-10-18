@@ -1,136 +1,17 @@
 # Agent Notes
 
-## Rule 1 — Abstraction before addition
+## Shared engineering rules
 
-This is the first rule and it outranks every other consideration in this repo:
-speed, diff size, and "it already works" all lose to it.
-
-Every change lands as a clean abstraction. Nothing gets bolted onto the side of
-an existing one. When new behavior does not fit the current model, the job is to
-fix the model, not to special-case around it.
-
-Before writing code:
-
-- Name the concept the change is actually about, then find where that concept
-  already lives. If it lives in two places, collapse them **first**.
-- Prefer deleting a special case to adding one. A second `if` on the same
-  distinction means that distinction belongs in the data or the type, not at
-  the call site.
-- One mechanism per concept, and one place that owns it. No parallel path that
-  "also" does the thing — no `fooV2`, no `handleSpecialFoo`, no second picker
-  for an enum that already has one.
-- If a token, option, or module exists for a purpose, make it actually apply.
-  A declared abstraction that no code path reads is worse than none, because it
-  reads as covered — **a dead seam is still a duplicate**. Wire it or delete it.
-- **Bridges over mirrors.** When two things turn out to be the same concept,
-  make one derive from or resolve to the other. Two copies kept in sync by hand
-  are drift waiting to happen.
-- If the clean version is too big for the moment, say so and stop. Do not ship
-  the patch as a stopgap. A named gap is cheaper than a silent fork.
-
-**Restructure, then add — as separate commits.** When the current shape resists
-the change, first rework the structure so the change becomes a natural addition
-(behavior-preserving, proven by the tests that already pass), then add the
-behavior. Two clean commits beat one entangled one. The redesign radius is the
-unit whose contract the change touches, not the subsystem around it.
-
-Symptoms that this rule is being broken:
-
-- a new boolean parameter that forks an existing function's behavior;
-- a second, slightly-different copy of an existing path;
-- a guard clause that exempts one caller;
-- a wrapper that exists only to avoid touching the thing it wraps;
-- special-casing that grows at call sites instead of moving into the unit that
-  owns the distinction.
-
-**The reviewer test:** could a reader reconstruct why the code has this shape
-from the current requirement alone, without knowing the edit history? If the
-shape is only explainable by "it used to do X, then Y was added", it is a patch,
-not an implementation.
-
-Corollary for the knowledge base: **everything is a node.** New capability is
-expressed as nodes, fields, and tags behaving like every other node — never as
-a bespoke surface standing beside them. A tag is a node that is tagged as a
-tag; a field is a node; a field's allowed values are nodes. If a feature needs
-its own widget, its own storage shape, or its own editing gesture, that is the
-signal the model is wrong, not that the widget is needed.
-
-**kb is a graph of everything.** Relationships are the core model. Fields are
-relationships we choose to display as fields; field definitions, tags, and their
-allowed values are themselves nodes. Outlines, tables, task boards, canvases,
-and visual graphs are projections of that same graph, not separate product
-models. Do not let outliner or task-management conventions become the default
-meaning of kb, or add bespoke workflows that weaken this principle. New
-interactions, playful details, and milestones should express creating,
-connecting, discovering, or understanding nodes and relationships. Task
-completion is meaningful only within an explicitly chosen task model, never
-as a universal kb milestone.
-
-
-## One contract, every implementation
-
-When a concept has more than one implementation (a port with several
-adapters, a store with a JSONL and a SQLite backend, a renderer with a WebGPU
-and a WebGL path), the promise belongs to the concept, not to any one
-implementation.
-
-- **The interface names the capability.** Anything a caller relies on,
-  including behaviour such as "notices writes from another process",
-  "opening never writes" or "ids are unique after a merge", is a member or a
-  documented guarantee of the port. Callers never name a backend, a file or a
-  flag to get it.
-- **One shared contract suite proves it.** The guarantee is a property in the
-  suite that runs over every implementation, for example `store-contract.ts`
-  over `STORE_BACKENDS`. It is not a test of one adapter. A new implementation
-  joins that suite, and a guarantee that one adapter keeps and another breaks
-  makes it go red.
-- **The spec states it once.** The design doc says what the port promises, and
-  the adapters point to it. An adapter-specific test may add detail, but it
-  never replaces the shared property.
-
-This is Rule 1 applied to implementations. Two backends that meet one promise
-in two unrelated ways are a mirror; the contract suite is the bridge.
-
-## Canonical statements
-
-Every rule, principle, and decision has exactly one home. Other files link to
-it; they never restate the body. Restatement is drift — two copies diverge
-silently and a reader cannot tell which one is live.
-
-The index of rules is data, not a document: `#rule` nodes in kb, materialized
-to `docs/kb/rules.md`. Each rule names its `home` (the file that states it),
-`scope`, `principle`, `enforcement`, and `gate`.
-
-`enforcement` is honest, never aspirational. It is one of `prose`, `lint`,
-`tsc`, `harness`, `hook`, `ci`. **`prose` means nothing checks it** — the next
-agent can break that rule and nothing goes red. That is information worth
-seeing, not an embarrassment to paper over; `gate` names the check that will
-close it.
-
-## Drift markers and gaps
-
-The goal is not zero drift. The goal is *visible, intentional* drift.
-
-- **A workaround is a decision, and decisions are recorded.** When the clean
-  shape is deferred, the deferral site carries `// GAP [[<node-id>]]` and kb
-  carries the matching `#gap` node: `expected` (the canonical shape),
-  `current` (what is there instead), `impact` (what it costs or risks),
-  `closes` (what would close it), and `rule` when it bends a specific `#rule`.
-  An unlabelled workaround is drift.
-- Same for tests: every `.skip` / `.todo` names a `GAP [[<node-id>]]`. A
-  skipped test is a debt, not a solved problem.
-- **A soft lint rule uses exactly one of two mechanisms, chosen by count —
-  never both, never a third.** Up to roughly 30 sites: the rule is `error` and
-  each site carries `// oxlint-disable-next-line <rule> -- GAP [[<node-id>]]`.
-  More than that: the ratchet lane — `warn`, the count frozen in a committed
-  baseline, a rise fails the build, and the rule is promoted to `error` when
-  its count reaches 0. A second severity tier for the same rule in the same
-  config is a second quality stack wearing a disguise.
-
-```bash
-kb add "GAP: <one line>" --tag gap --create \
-  --prop expected="…" --prop current="…" --prop impact="…" --prop closes="…"
-```
+Four rules are shared with kb and have their one home in
+[kb's AGENTS.md](https://github.com/popemkt/kb/blob/main/AGENTS.md):
+[Rule 1 — Abstraction before addition](https://github.com/popemkt/kb/blob/main/AGENTS.md#rule-1--abstraction-before-addition),
+[One contract, every implementation](https://github.com/popemkt/kb/blob/main/AGENTS.md#one-contract-every-implementation),
+[Canonical statements](https://github.com/popemkt/kb/blob/main/AGENTS.md#canonical-statements), and
+[Drift markers and gaps](https://github.com/popemkt/kb/blob/main/AGENTS.md#drift-markers-and-gaps). They apply in full
+here too, and Rule 1 still outranks every other consideration in this repo.
+Read them there before any change; they are not restated here. Where they
+speak of nodes, rules, and gaps, this repo's are in its own kb store (see
+[kb](#kb--repo-knowledge-base)).
 
 ## Gate (run first)
 
@@ -194,37 +75,33 @@ pins.
 
 ## kb — repo knowledge base
 
-`kb` (code in `tools/kb/`, specs in `tools/kb/DESIGN.md`,
-`tools/kb/DESIGN-UI.md`, and `tools/kb/DESIGN-REFINE.md`) is this repo's
-graph datastore with an outliner projection: todos, notes, and
-any structured facts live as nodes in `.kb/nodes.jsonl` (committed).
-Everything is a node — fields and tags too. Props are keyed by field-node id;
-tags template fields; values may reference other nodes. Query with datalog
-(DataScript), or via the MCP server registered in `.mcp.json` (tools
-`node_add`, `graph_query`, `kb_manifest`, `render_view`, plus `ui://kb/view/*`
-html resources). `kb ui` serves the human outliner UI on 127.0.0.1:4321
-(Tana-style editing, ⌘K palette, inline markdown + `[[id|label]]` ref links,
-inline fields, query nodes — a `#query`-tagged node with a `sys.f.query` EDN
-prop renders live results while expanded — media via `![](assets/…)` backed
-by `.kb/assets/` (Mackup-owned backup, never committed; see
-`docs/backup-strategy.md`) and the `asset.upload` action, live WS updates);
-other apps
-can subscribe to live datalog queries over its `/ws` endpoint (see protocol in
-`tools/kb/packages/contract/contracts/src/protocol.ts`). `sys.*` nodes are write-guarded (CLI
-`--force` to override).
+`kb` is a graph datastore with an outliner projection, developed in
+[popemkt/kb](https://github.com/popemkt/kb) (specs:
+[DESIGN.md](https://github.com/popemkt/kb/blob/main/DESIGN.md),
+[DESIGN-UI.md](https://github.com/popemkt/kb/blob/main/DESIGN-UI.md),
+[DESIGN-REFINE.md](https://github.com/popemkt/kb/blob/main/DESIGN-REFINE.md)).
+This repo holds no kb code: it installs kb's GitHub release (`pkgs/kb`, a
+[direct release package](docs/github-release-packages.md) bumped like the
+others) on every host and in the dev shell, and keeps its own small store.
+Todos, notes, rules, gaps, and any structured facts about this repo live as
+nodes in `.kb/nodes.jsonl` (committed). Everything is a node — fields and tags
+too. Props are keyed by field-node id; tags template fields; values may
+reference other nodes. Query with datalog (DataScript), or via the MCP server
+registered in `.mcp.json` (`kb mcp`). `kb ui` serves the human outliner UI;
+media referenced as `![](assets/…)` lives in `.kb/assets/` (Mackup-owned
+backup, never committed; see `docs/backup-strategy.md`). Running kb as a
+service on a host is [docs/kb-service.md](docs/kb-service.md). `sys.*` nodes
+are write-guarded (CLI `--force` to override).
 
 ```bash
-kb add "Fix drift audit" --tag todo --prop status=doing   # alias for bun tools/kb/packages/app/cli/src/main.ts
-kb add --outline plan.md --parent <id>   # a whole outline (Tana Paste) in one tx; tools/kb/DESIGN.md → Outline paste
+kb add "Fix drift audit" --tag todo --prop status=doing
+kb add --outline plan.md --parent <id>   # a whole outline (Tana Paste) in one tx; kb DESIGN.md → Outline paste
 kb search "drift" --json
 kb query '[:find ?id ?text :where [?n :f/sys.f.type ?t] [?t :node/text "todo"] [?n :node/id ?id] [?n :node/text ?text]]'
 kb query '[:find ?from ?text :where [?e :node/mentions ?m] [?m :node/id "n.root-a"] [?e :node/id ?from] [?e :node/text ?text]]'
-kb query '[:find ?id :where [?r :node/id "n.root-a"] (reach ?r :node/mentions ?n) [?n :node/id ?id]]'   # transitive; tools/kb/DESIGN.md → Query layer
 kb run <saved-query>            # .kb/queries/<name>.edn
 kb field type <field> <text|number|date|url|checkbox|ref|secret>
-kb field target <field> <tag>            # ref constraint sugar (union)
-kb field target-query <field> '<edn>'    # general form; wins over targetTag
-kb action-invoke '{"id":"docs.materialize","input":{}}'   # regenerate docs/kb/*
+kb docs materialize             # regenerate docs/kb/*
 kb ext list                     # loaded extensions + their actions
 ```
 
@@ -235,19 +112,23 @@ Rules for agents:
   `reason`, `droppedOn`, `lastDeclared`, `cleanup`), never a doc: `kb run archived`
   lists them. Removing a declaration does not uninstall it, so `cleanup` says what
   each machine keeps.
-- `[[id|label]]` in node text and any `{t:"ref"}` prop value are both the ref form; load extracts `:node/mentions` datoms from either (see `tools/kb/DESIGN.md`). Use `kb backlinks <id>` or the datalog example above.
-- `docs/kb/*.md` is generated (header marks it); edit data, then materialize.
-  Pre-commit runs `docs.check` and blocks stale generated docs.
+- `[[id|label]]` in node text and any `{t:"ref"}` prop value are both the ref
+  form. Use `kb backlinks <id>` or the datalog example above.
+- `docs/kb/*.md` is generated (header marks it); edit data, then
+  `kb docs materialize`. The commit gate runs `kb docs check` and blocks stale
+  generated docs.
 - Rules and gaps are nodes like everything else: `#rule` (fields `home`,
   `scope`, `principle`, `enforcement`, `gate`) and `#gap` (fields `expected`,
   `current`, `impact`, `closes`, `rule`), rendered to `docs/kb/rules.md` by the
-  `rules` view. Add a gap with the `kb add` line under
-  [Drift markers and gaps](#drift-markers-and-gaps); never hand-edit
-  `docs/kb/rules.md`.
-- Developing kb itself (workspace layout, tooling, boundaries, extensions,
-  Effect) is governed by [`tools/kb/AGENTS.md`](tools/kb/AGENTS.md), loaded
-  by every harness when it works under that directory. Repo-wide rules above
-  still apply there.
+  `rules` view; never hand-edit it. A closed gap keeps its node with
+  `status=done`. Add a gap with:
+
+  ```bash
+  kb add "GAP: <one line>" --tag gap --create \
+    --prop expected="…" --prop current="…" --prop impact="…" --prop closes="…"
+  ```
+- Changing kb itself happens in popemkt/kb under its own `AGENTS.md`; this repo
+  picks the change up with the next release pin.
 
 ## Where To Edit
 
@@ -273,6 +154,8 @@ Rules for agents:
 | Add host-only config | `hosts/<hostname>/default.nix` |
 | Add a work/personal split | `lib.mkIf (config.my.role == "work") { ... }` in the owning system module |
 | Add a direct GitHub release package | `nvfetcher.toml` and `pkgs/`; see `docs/github-release-packages.md` |
+| Change kb, or the kb version this repo runs | kb's code in [popemkt/kb](https://github.com/popemkt/kb); the version is its release pin, moved with `nix run .#github-sources -- update kb` |
+| Add a durable repo todo, note, rule or gap | a node in `.kb/nodes.jsonl` through `kb` (see [kb](#kb--repo-knowledge-base)) |
 | Expose a private app on the tailnet | `my.stacks.vpn.services` in `hosts/<hostname>/default.nix`; see `configs/specs/app-service-contract.md` |
 | Review local voice-tool choices | `docs/local-voice-tools.md` |
 

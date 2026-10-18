@@ -165,8 +165,9 @@ Verification and drift:
 - `scripts/check-kb-assets-backup.sh check` proves the directory is covered
   (the Mackup declaration, `.gitignore`, and this doc are all in place) and
   that every `assets/…` reference in committed `.kb/nodes.jsonl` resolves
-  under `.kb/assets/`. `.githooks/pre-commit` runs it on any commit whose
-  staged paths touch its inputs (`assets_inputs` in that hook).
+  under `.kb/assets/`. The commit gate (`intent/gate.sh record`) runs it on
+  any commit whose staged paths touch its inputs, and CI's `kb-data` job runs
+  it on every push.
 - `scripts/check-kb-assets-backup.sh status` reports local vs iCloud state; it
   is part of `scripts/audit-system-discrepancies.sh`. It warns when local media
   is missing from storage (run `mackup backup`) or storage is not restored
@@ -186,7 +187,7 @@ Boundary:
 ## kb Code Trust (`.kb/trust.json`)
 
 A kb code view runs model-written code in a sandbox: QuickJS until a person
-trusts it, a Worker after (`tools/kb/DESIGN.md` → Sandbox → Trust). Trust is
+trusts it, a Worker after ([kb's DESIGN.md](https://github.com/popemkt/kb/blob/main/DESIGN.md) → Sandbox → Trust). Trust is
 the person's gesture over the digest of exactly what runs, recorded in
 `~/.dotfiles/.kb/trust.json`, one record per digest and machine.
 
@@ -229,7 +230,7 @@ committed nor backed up — it is *derived-shaped*: gitignored the way
 ## kb Home Store
 
 kb remembers the roots a person has opened, their **locations**, as nodes in
-a kb root of its own, the home store (`tools/kb/DESIGN.md` → Locations): at
+a kb root of its own, the home store ([kb's DESIGN.md](https://github.com/popemkt/kb/blob/main/DESIGN.md) → Locations): at
 `$KB_HOME` when set, else `~/Library/Application Support/kb/home` on macOS and
 `${XDG_DATA_HOME:-~/.local/share}/kb/home` on Linux. `kb ui` and `kb init`
 register the root they open there.
