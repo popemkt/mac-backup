@@ -19,8 +19,8 @@ REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 MODE="${1:-session}"
 SURFACE="${2:-unspecified}"
 
-HARD_TOOLS=(git jq nix nixfmt statix deadnix)
-SOFT_TOOLS=(shellcheck actionlint nvfetcher bun)
+HARD_TOOLS=(git jq nix nixfmt statix deadnix kb)
+SOFT_TOOLS=(shellcheck actionlint nvfetcher)
 ADMISSION_CHECKS_DIR=""
 
 check_env() {
@@ -44,16 +44,33 @@ record_admission() {
 
   # Validate the exact Git index snapshot, never unstaged working-tree content.
   staged_files=$(git diff --cached --name-only --diff-filter=ACMR)
+  # Every staged path, deletions included: what decides which checks run.
+  staged_paths=$(git diff --cached --name-only --diff-filter=ACMRD)
   source_files_staged=$(
-    git diff --cached --name-only --diff-filter=ACMRD \
+    printf '%s\n' "$staged_paths" \
       | grep -E '^(nvfetcher\.toml|_sources/|pkgs/)' \
-      | grep -vE '^pkgs/(kb|system-setup)/' \
+      | grep -vE '^pkgs/system-setup/' \
       || true
   )
 
   staged_tree=$(mktemp -d)
   trap 'rm -rf "$staged_tree"' EXIT
   git checkout-index --all --prefix="$staged_tree/"
+
+  # The kb data checks, each run only when one of its inputs is staged: the
+  # snapshot hides unstaged edits, so a check whose inputs are all unchanged
+  # can only repeat its last answer.
+  #   docs    kb data and the generated docs it is compared against
+  #   assets  committed node text, plus the files that declare who owns
+  #           .kb/assets and the script that reads them
+  if grep -qE '^(\.kb/|docs/kb/)' <<<"$staged_paths"; then
+    echo "==> kb generated docs (staged snapshot)"
+    (cd "$staged_tree" && kb docs check)
+  fi
+  if grep -qE '^(\.kb/|\.gitignore$|docs/backup-strategy\.md$|modules/darwin/home-manager/mackup\.nix$|scripts/check-kb-assets-backup\.sh$)' <<<"$staged_paths"; then
+    echo "==> kb media backup ownership (staged snapshot)"
+    KB_ASSETS_ROOT="$staged_tree" "$staged_tree/scripts/check-kb-assets-backup.sh" check
+  fi
 
   # Admission asks whether the staged sources are consistent, never whether
   # upstream has published something newer (docs/github-release-packages.md).
@@ -76,7 +93,7 @@ record_admission() {
 
   staged_nix=$(printf '%s\n' "$staged_files" | grep '\.nix$' || true)
   nix_changes_staged=$(
-    git diff --cached --name-only --diff-filter=ACMRD \
+    printf '%s\n' "$staged_paths" \
       | grep '\.nix$' \
       || true
   )

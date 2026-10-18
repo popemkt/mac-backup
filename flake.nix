@@ -312,12 +312,12 @@
         in
         {
           default = pkgs.mkShell {
-            # `bun` is the one kb runs on everywhere: this shell (so the
-            # pre-commit hook), CI's kb job, and `pkgs/kb`'s build. The gate's
-            # hard tools (intent/gate.sh) all come from here.
+            # The gate's hard tools (intent/gate.sh) all come from here, kb
+            # among them: the same release `pkgs/kb` installs, so the hook and
+            # CI check kb data with the kb every host runs.
             packages = with pkgs; [
+              (pkgs.extend self.overlays.default).kb
               actionlint
-              bun
               deadnix
               jq
               nixfmt
