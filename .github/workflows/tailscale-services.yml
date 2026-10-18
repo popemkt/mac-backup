@@ -29,13 +29,20 @@ jobs:
             -d "client_id=$TS_OAUTH_ID" -d "jwt=$jwt" | jq -r .access_token)
           echo "::add-mask::$token"
 
+          # Controls: the policy endpoint this credential is known to reach,
+          # and the default-tailnet alias, so a failure names its cause.
+          for path in "tailnet/$TS_TAILNET/acl" "tailnet/-/vip-services" "tailnet/$TS_TAILNET/vip-services"; do
+            status=$(curl -sS -o out.json -w '%{http_code}' \
+              -H "Authorization: Bearer $token" "https://api.tailscale.com/api/v2/$path")
+            echo "${path/$TS_TAILNET/<tailnet>}: HTTP $status"
+            [ "$status" = 200 ] || jq -c . out.json
+          done
+
           status=$(curl -sS -o services.json -w '%{http_code}' \
             -H "Authorization: Bearer $token" \
-            "https://api.tailscale.com/api/v2/tailnet/$TS_TAILNET/vip-services")
-          echo "vip-services: HTTP $status"
+            "https://api.tailscale.com/api/v2/tailnet/-/vip-services")
           if [ "$status" = 200 ]; then
             jq -r '.vipServices[] | "\(.name) ports=\(.ports | join(",")) tags=\(.tags // [] | join(","))"' services.json
           else
-            cat services.json
             exit 1
           fi
