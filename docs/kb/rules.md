@@ -72,6 +72,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — One contract, every implementation
 - **node** — `01M3E9V4VV52HJPW181Y74AR0J`
 
+### GAP: release pins are checked by hash only, never by provenance
+
+- **expected** — github-sources verify also proves where each pinned artifact was built, for every source whose upstream publishes provenance (kb: gh attestation verify --repo popemkt/kb, signer release.yml at the pinned tag), declared beside the source in nvfetcher.toml
+- **current** — verify proves the hash matches what nvfetcher generates from the release URL; kb's v0.2.2 attestation was checked by hand when it was pinned (gh attestation verify exits 0, workflow .github/workflows/release.yml at refs/tags/v0.2.2)
+- **impact** — A release asset replaced upstream before it is pinned would be pinned on its own hash; nothing ties the pin to kb's release workflow
+- **closes** — A per-source provenance declaration in nvfetcher.toml (passthru, so nvfetcher carries it into generated.json), and verify running gh attestation verify on each declared artifact, with gh and an auth token in the flake app and the CI step
+- **node** — `01M56X1F1XG657D70A8804PEQY`
+
 ### GAP: retire Homebrew Bun after switching to Nix
 
 - **expected** — The flake-pinned Nix Bun is the only installed Bun runtime.

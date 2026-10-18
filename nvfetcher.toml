@@ -40,6 +40,7 @@ src.to_pattern = "\\1"
 fetch.url = "https://github.com/voidzero-dev/vite-plus/releases/download/v$ver/vp-aarch64-apple-darwin.tar.gz"
 
 # kb's platform-independent release bundle; pkgs/kb wraps it with nixpkgs bun.
+# GAP [[01M56X1F1XG657D70A8804PEQY]]: its build provenance is checked by hand, not by verify.
 [kb]
 src.github = "popemkt/kb"
 src.from_pattern = "^v(.+)$"
