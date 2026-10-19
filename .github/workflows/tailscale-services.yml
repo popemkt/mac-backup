@@ -4,10 +4,23 @@ name: Tailscale Services
 # tailscaleServices), so a Service needs no admin-console step. The probe
 # shows whether the GitOps credential reaches the Services API (vip-services)
 # at all; sync creates or updates each declared Service and reports, without
-# deleting, the ones nothing declares.
-# GAP [[01M578YK5E3AJARNEY196G2DGM]] dispatch-only: the credential gets 404 on vip-services.
+# deleting, the ones nothing declares. It runs on every push to main that can
+# change a declaration.
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - flake.nix
+      - flake.lock
+      - hosts/**
+      - modules/**
+      - .github/workflows/tailscale-services.yml
   workflow_dispatch:
+
+concurrency:
+  group: tailscale-services
+  cancel-in-progress: false
 
 permissions:
   contents: read
