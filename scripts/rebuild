@@ -23,6 +23,36 @@ case "$(uname -s)" in
     ;;
 esac
 
+# On a host several people apply from (/etc/dotfiles/shared-host, declared by
+# modules/nixos/system), switch only from a clean checkout at origin/main.
+# Anything else rolls back what someone else applied, or applies work nobody
+# else can see. REBUILD_LOCAL=1 overrides, for emergencies only.
+shared_marker=/etc/dotfiles/shared-host
+if [[ -e "$shared_marker" && -z "${REBUILD_LOCAL:-}" ]]; then
+  refuse() {
+    {
+      echo "rebuild: $(hostname) is shared ($(paste -sd, "$shared_marker")); $1"
+      echo "rebuild: refusing to switch. Fix that and rerun; REBUILD_LOCAL=1 overrides, for emergencies only."
+    } >&2
+    exit 1
+  }
+  git -C "$ROOT_DIR" fetch --quiet origin main ||
+    refuse "could not fetch origin/main to compare against."
+  [[ -z "$(git -C "$ROOT_DIR" status --porcelain --untracked-files=no)" ]] ||
+    refuse "the checkout has uncommitted changes. Commit and push them, or stash them."
+  head="$(git -C "$ROOT_DIR" rev-parse HEAD)"
+  upstream="$(git -C "$ROOT_DIR" rev-parse FETCH_HEAD)"
+  if [[ "$head" != "$upstream" ]]; then
+    if git -C "$ROOT_DIR" merge-base --is-ancestor "$head" "$upstream"; then
+      refuse "the checkout is behind origin/main. Pull first: git -C $ROOT_DIR pull --rebase"
+    elif git -C "$ROOT_DIR" merge-base --is-ancestor "$upstream" "$head"; then
+      refuse "the checkout has commits origin/main lacks. Push them first, so the next person's rebuild keeps them."
+    else
+      refuse "the checkout and origin/main have diverged. Pull --rebase, then push."
+    fi
+  fi
+fi
+
 if [[ -n "${REBUILD_DRY_RUN:-}" ]]; then
   printf '%q ' "${switch_cmd[@]}" "$@"
   printf '\n'

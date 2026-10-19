@@ -45,6 +45,13 @@
       git
     ];
 
+    # A host several people apply from: scripts/rebuild reads this marker and
+    # switches only from a clean checkout at origin/main, so no one's stale
+    # or uncommitted tree rolls back what the others applied.
+    environment.etc."dotfiles/shared-host" = lib.mkIf (lib.length config.my.people > 1) {
+      text = lib.concatStringsSep "\n" config.my.people + "\n";
+    };
+
     users.users = lib.genAttrs config.my.people (_: {
       isNormalUser = true;
       shell = pkgs.zsh;

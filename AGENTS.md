@@ -74,6 +74,12 @@ then runs the drift audit and `system-setup status`; neither is wired for NixOS 
 The GitHub-sources commands check, verify, or refresh direct GitHub release
 pins.
 
+On a host several people apply from (shared-server; `/etc/dotfiles/shared-host`
+exists), always apply with `rebuild`, never a bare `nixos-rebuild`: it switches
+only from a clean checkout at `origin/main` and otherwise refuses, telling you
+to pull, push, or commit first. A stale or uncommitted tree would roll back
+what someone else applied. `REBUILD_LOCAL=1` overrides, for emergencies only.
+
 ## kb — repo knowledge base
 
 <!-- GAP [[01M56SQJF52DWN2T00D510BRQ3]]: kb links name the pinned release by hand. -->
