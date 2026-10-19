@@ -128,14 +128,12 @@ The remaining manual control-plane steps are:
 
 1. Sign the machine into Tailscale from the menu bar. Device identity and node
    keys must never be committed.
-2. For a new tailnet, open **Services** in the Tailscale console and create
-   `svc:cognee`, `svc:kb`, and `svc:adhoc` once. The `sync` job of
-   `.github/workflows/tailscale-services.yml` is meant to replace this step:
-   dispatched, it creates or updates every Service in `tailscaleServices`
-   (keeping each one's existing addresses) and warns about Services nothing
-   declares, deleting none. It cannot run yet: the trust credential is scoped
-   to the policy file, so the Services API answers 404 until a Services scope
-   is added to it.
+2. Nothing to create by hand for Services: on every push that can change a
+   declaration, the `sync` job of `.github/workflows/tailscale-services.yml`
+   creates or updates every Service in the flake's `tailscaleServices` (keeping
+   each one's existing addresses) and warns about Services nothing declares,
+   deleting none. When it creates one, it reapplies the policy (step 3) itself.
+   It needs the trust credential's `all` scope.
 3. Apply the tracked policy through the GitHub workflow so that
    `tag:home-server`, its owner, grants, and the Service auto-approver exist.
    Service auto-approvers are resolved against existing Service identities, so
@@ -247,9 +245,8 @@ new configuration path:
 | Tailnet account and membership | Tailscale | Admin console **Users** |
 | `tag:home-server` assignment | Tailscale machine record | **Machines > Edit tags** |
 | `tag:orca-host` assignment | Tailscale machine record | **Machines > Edit tags** |
-| `svc:kb` identity | Tailscale | Admin console **Services** |
-| `svc:adhoc` identity | Tailscale | Admin console **Services** |
-| GitHub OIDC trust credential | Tailscale | **Settings > Trust credentials** |
+| Service identities (`svc:*`) | Tailscale, created from this repository | `.github/workflows/tailscale-services.yml` on push, from the flake's `tailscaleServices`; verify in Admin console **Services** |
+| GitHub OIDC trust credential (scope `all`: the Services API needs more than Policy File) | Tailscale | **Settings > Trust credentials** |
 | Enrollment values | GitHub Actions secrets | `gh secret list --repo popemkt/mac-backup` |
 | Policy, tag owner, grants, SSH, auto-approver | This repository | `configs/tailscale/policy.hujson` |
 | Known device IPv4 addresses | This repository | `flake.nix` → `my.stacks.vpn.knownDevices` |

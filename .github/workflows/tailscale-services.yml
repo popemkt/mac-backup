@@ -67,6 +67,10 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     needs: probe
+    permissions:
+      actions: write
+      contents: read
+      id-token: write
     env:
       TS_OAUTH_ID: ${{ secrets.TS_OAUTH_ID }}
       TS_AUDIENCE: ${{ secrets.TS_AUDIENCE }}
@@ -114,7 +118,10 @@ jobs:
               -H "Authorization: Bearer $token" "$api/$name")
             case "$status" in
               200) current=$(command cat current.json) ;;
-              404) current='{}' ;;
+              404)
+                current='{}'
+                touch created
+                ;;
               *)
                 echo "::error::reading $name returned HTTP $status"
                 jq -c . current.json || true
@@ -144,3 +151,11 @@ jobs:
             existing.json | while IFS= read -r name; do
             echo "::warning::$name exists in the tailnet but no host declares it"
           done
+
+      # The policy's Service auto-approvers resolve against existing Service
+      # identities, so a Service created here needs the policy applied again.
+      - name: Reapply the policy after creating a Service
+        if: hashFiles('created') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run tailscale-policy.yml --repo "$GITHUB_REPOSITORY" --ref main
