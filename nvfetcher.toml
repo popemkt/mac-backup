@@ -41,8 +41,17 @@ fetch.url = "https://github.com/voidzero-dev/vite-plus/releases/download/v$ver/v
 
 # kb's platform-independent release bundle; pkgs/kb wraps it with nixpkgs bun.
 # GAP [[01M56X1F1XG657D70A8804PEQY]]: its build provenance is checked by hand, not by verify.
+# Nightlies too: kb publishes v<next patch>-nightly.<UTC date> prereleases,
+# which GitHub's latest release (src.github) skips, so this tracks tags.
+# awesomeversion sorts a nightly above the stable release it follows and below
+# the next one; nvchecker's default key puts every prerelease below every
+# stable release, so the pin would never leave stable.
+# kb prunes nightlies after 14 days, so a pin older than that no longer
+# downloads.
 [kb]
-src.github = "popemkt/kb"
+src.github_tag = "popemkt/kb"
+src.include_regex = '^v[0-9]+\.[0-9]+\.[0-9]+(-nightly\.[0-9.]+)?$'
+src.sort_version_key = "awesomeversion"
 src.from_pattern = "^v(.+)$"
 src.to_pattern = "\\1"
 fetch.url = "https://github.com/popemkt/kb/releases/download/v$ver/kb-$ver.tar.gz"

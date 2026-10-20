@@ -3,7 +3,12 @@
 The `kb` stack owns the packaged CLI and the optional supervised browser UI.
 The package is kb's release bundle from
 [popemkt/kb](https://github.com/popemkt/kb) (`pkgs/kb`, pinned like every
-[direct release package](github-release-packages.md)).
+[direct release package](github-release-packages.md)). The pin follows kb's
+newest release, stable or nightly (`v<next patch>-nightly.<UTC date>`, published
+daily when main changed); `nvfetcher.toml` explains the ordering. kb deletes
+nightlies after 14 days, so a nightly pin left that long stops downloading;
+merge the updater's PR before then. Links into kb's docs name stable tags only,
+since a nightly tag disappears with its release.
 Both hosts enable the stack; only `popemkt-personal` enables `server.enable`.
 
 ## Personal instance
