@@ -68,6 +68,20 @@
       "ip": ["tcp:443"],
     },
 
+    // The people on the shared server reach its Tailscale SSH server; the
+    // `ssh` block below decides which account each one may log in as.
+    // popemkt's Macs are tagged, so they connect as their tags, not as him.
+    {
+      "src": [
+        "hoangng71299@gmail.com",
+        "bytetum@github",
+        "tag:home-server",
+        "tag:orca-host",
+      ],
+      "dst": ["tag:shared-server"],
+      "ip": ["tcp:22"],
+    },
+
     // Preserve the pre-existing default policy until every remaining flow is
     // inventoried and covered by a narrower grant.
     {
@@ -98,6 +112,38 @@
       "src": ["autogroup:member"],
       "dst": ["autogroup:self"],
       "users": ["autogroup:nonroot", "root"],
+    },
+
+    // Each person logs in to the shared server as their own account, from
+    // their own devices and, for popemkt, from his tagged Macs (their agents
+    // included). "accept", not "check": check mode needs a browser sign-in
+    // that an agent cannot do. Root stays behind sudo.
+    {
+      "action": "accept",
+      "src": ["hoangng71299@gmail.com", "tag:home-server", "tag:orca-host"],
+      "dst": ["tag:shared-server"],
+      "users": ["popemkt"],
+    },
+    {
+      "action": "accept",
+      "src": ["bytetum@github"],
+      "dst": ["tag:shared-server"],
+      "users": ["bytetum"],
+    },
+  ],
+
+  "sshTests": [
+    {
+      "src": "tag:orca-host",
+      "dst": ["tag:shared-server"],
+      "accept": ["popemkt"],
+      "deny": ["bytetum", "root"],
+    },
+    {
+      "src": "bytetum@github",
+      "dst": ["tag:shared-server"],
+      "accept": ["bytetum"],
+      "deny": ["popemkt", "root"],
     },
   ],
 }

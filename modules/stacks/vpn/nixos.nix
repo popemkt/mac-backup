@@ -5,7 +5,8 @@
   ...
 }:
 
-# NixOS side of the vpn stack: tailscaled, and the systemd job that
+# NixOS side of the vpn stack: tailscaled (with its SSH server when
+# `ssh` is set), and the systemd job that
 # reconciles the declared Tailscale Services.
 let
   cfg = config.my.stacks.vpn;
@@ -22,6 +23,8 @@ in
         enable = true;
         # The UDP port for direct peer connections.
         openFirewall = true;
+        # Applied with `tailscale set` once tailscaled is up.
+        extraSetFlags = lib.optional cfg.ssh "--ssh";
       };
     })
 
