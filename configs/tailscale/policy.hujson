@@ -60,6 +60,14 @@
       "ip": ["tcp:443"],
     },
 
+    // Tailnet members can reach popemkt's bb server on the shared server.
+    // bb's API is unauthenticated, so this grant is its only access control.
+    {
+      "src": ["autogroup:member"],
+      "dst": ["svc:bb-popemkt"],
+      "ip": ["tcp:443"],
+    },
+
     // Preserve the pre-existing default policy until every remaining flow is
     // inventoried and covered by a narrower grant.
     {
@@ -79,6 +87,7 @@
       "svc:t3-bytetum": ["tag:shared-server"],
       "svc:kb-popemkt": ["tag:shared-server"],
       "svc:adhoc-popemkt": ["tag:shared-server"],
+      "svc:bb-popemkt": ["tag:shared-server"],
     },
   },
 

@@ -73,6 +73,7 @@
   });
 
   my.stacks = {
+    bb.enable = true;
     # The kb CLI for everyone: agents working in ~/.dotfiles keep its graph.
     kb.enable = true;
     t3-code = {
@@ -115,6 +116,18 @@
       "--public-origin"
       config.my.stacks.vpn.services.kb-popemkt.publicOrigin
     ];
+  };
+
+  # popemkt's bb server, as svc:bb-popemkt. Its API is unauthenticated and
+  # runs commands as popemkt, so the tailnet grant is its access boundary;
+  # everyone in my.people here is already root through sudo. BB_APP_URL is
+  # the browser origin bb allows and links to; its co-located host daemon
+  # stays on loopback 38887.
+  my.services.bb = {
+    owner = "popemkt";
+    port = 38886;
+    command = "bb-app --server-port 38886 --host-daemon-port 38887 --no-in-app-updates";
+    environment.BB_APP_URL = config.my.stacks.vpn.services.bb-popemkt.publicOrigin;
   };
 
   # The work Mac's T3 Code, relayed to loopback so agents here can sign in to

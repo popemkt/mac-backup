@@ -5,6 +5,7 @@ _:
 {
   imports = [
     ./default.nix
+    ./bb/nixos.nix
     ./kb/nixos.nix
     ./t3-code/nixos.nix
     ./vpn/nixos.nix

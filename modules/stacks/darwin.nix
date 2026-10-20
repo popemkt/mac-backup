@@ -6,6 +6,7 @@ _:
   imports = [
     ./default.nix
     ./ai-agents
+    ./bb/darwin.nix
     ./browsers
     ./kb/darwin.nix
     ./office-docs.nix

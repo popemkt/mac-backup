@@ -13,6 +13,7 @@
       enable = true;
       cognee.server.enable = true;
     };
+    bb.enable = true;
     browsers.enable = true;
     kb = {
       enable = true;

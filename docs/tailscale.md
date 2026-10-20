@@ -119,6 +119,7 @@ endpoint for popemkt's temporary HTTP apps, like the personal host's.
 | `svc:t3-bytetum` | `https://t3-bytetum.<tailnet-domain>` | `127.0.0.1:3774` | bytetum's T3 Code server |
 | `svc:kb-popemkt` | `https://kb-popemkt.<tailnet-domain>` | `127.0.0.1:4321` | popemkt's kb graph (`my.services.kb`) |
 | `svc:adhoc-popemkt` | `https://adhoc-popemkt.<tailnet-domain>` | `127.0.0.1:9001` | popemkt's temporary HTTP apps |
+| `svc:bb-popemkt` | `https://bb-popemkt.<tailnet-domain>` | `127.0.0.1:38886` | popemkt's bb server (`my.services.bb`; its API is unauthenticated) |
 
 A native app placed with `my.services.<app>` on a NixOS host is exposed the
 same way, as `svc:<app>-<owner>` targeting its loopback port, unless it sets

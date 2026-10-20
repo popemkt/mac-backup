@@ -21,6 +21,7 @@
         dataset = "work";
       };
     };
+    bb.enable = true;
     browsers.enable = true;
     kb.enable = true;
     office-docs.enable = true;
