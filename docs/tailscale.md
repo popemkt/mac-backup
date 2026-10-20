@@ -109,12 +109,16 @@ tailnet members. It has no backend while that port is unused.
 
 The shared server (`shared-server`, tagged `tag:shared-server`) publishes one
 T3 Code server per person. Each target is derived from that instance's port in
-`hosts/shared-server/default.nix`; both people may reach both.
+`hosts/shared-server/default.nix`; both people may reach both. It also
+publishes popemkt's kb graph (a `my.services` app, below) and an ad hoc
+endpoint for popemkt's temporary HTTP apps, like the personal host's.
 
 | Service | Tailnet URL | Loopback target | Purpose |
 |---|---|---|---|
 | `svc:t3-popemkt` | `https://t3-popemkt.<tailnet-domain>` | `127.0.0.1:3773` | popemkt's T3 Code server |
 | `svc:t3-bytetum` | `https://t3-bytetum.<tailnet-domain>` | `127.0.0.1:3774` | bytetum's T3 Code server |
+| `svc:kb-popemkt` | `https://kb-popemkt.<tailnet-domain>` | `127.0.0.1:4321` | popemkt's kb graph (`my.services.kb`) |
+| `svc:adhoc-popemkt` | `https://adhoc-popemkt.<tailnet-domain>` | `127.0.0.1:9001` | popemkt's temporary HTTP apps |
 
 A native app placed with `my.services.<app>` on a NixOS host is exposed the
 same way, as `svc:<app>-<owner>` targeting its loopback port, unless it sets

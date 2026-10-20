@@ -53,6 +53,13 @@
       "ip": ["tcp:443"],
     },
 
+    // Tailnet members can reach popemkt's temporary app on the shared server.
+    {
+      "src": ["autogroup:member"],
+      "dst": ["svc:adhoc-popemkt"],
+      "ip": ["tcp:443"],
+    },
+
     // Preserve the pre-existing default policy until every remaining flow is
     // inventoried and covered by a narrower grant.
     {
@@ -71,6 +78,7 @@
       "svc:t3-popemkt": ["tag:shared-server"],
       "svc:t3-bytetum": ["tag:shared-server"],
       "svc:kb-popemkt": ["tag:shared-server"],
+      "svc:adhoc-popemkt": ["tag:shared-server"],
     },
   },
 

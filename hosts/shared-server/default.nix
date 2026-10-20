@@ -86,9 +86,15 @@
       enable = true;
       tags = [ "tag:shared-server" ];
       # Each T3 Code server gets its own HTTPS name on the tailnet.
-      services = lib.mapAttrs' (
-        name: instance: lib.nameValuePair "t3-${name}" { target = instance.listenOrigin; }
-      ) config.my.stacks.t3-code.instances;
+      services =
+        lib.mapAttrs' (
+          name: instance: lib.nameValuePair "t3-${name}" { target = instance.listenOrigin; }
+        ) config.my.stacks.t3-code.instances
+        // {
+          # popemkt's endpoint for temporary HTTP apps: whatever listens on
+          # 127.0.0.1:9001 is reachable at https://adhoc-popemkt.<tailnet>.
+          adhoc-popemkt.target = "http://127.0.0.1:9001";
+        };
     };
   };
 
