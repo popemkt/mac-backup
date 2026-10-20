@@ -92,6 +92,25 @@
     };
   };
 
+  # popemkt's kb graph (the .kb store in their dotfiles checkout) in the
+  # browser, as svc:kb-popemkt. The UI's request guard needs the browser
+  # origin, which is that Service's.
+  my.services.kb = {
+    owner = "popemkt";
+    port = 4321;
+    command = lib.escapeShellArgs [
+      "kb"
+      "--root"
+      "/home/popemkt/.dotfiles"
+      "ui"
+      "--port"
+      "4321"
+      "--no-open"
+      "--public-origin"
+      config.my.stacks.vpn.services.kb-popemkt.publicOrigin
+    ];
+  };
+
   # The work Mac's T3 Code, relayed to loopback so agents here can sign in to
   # its MCP: OAuth refuses plain HTTP off loopback, and T3 names its endpoints
   # after the host it is reached on.
