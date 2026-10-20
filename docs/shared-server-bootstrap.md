@@ -113,7 +113,7 @@ or a password. The agent cannot do these, so do them in order on a new machine.
 | Identity | Host name `shared-server`, `x86_64-linux`, `system.stateVersion = "26.05"` from the installer, never changed |
 | Accounts | `popemkt` and `bytetum` (`my.people`), both in `wheel` and `networkmanager`, zsh. No passwords in the repo |
 | Root | Passwordless `sudo` for `wheel`, so agents driven through T3 Code can run it. Anything an agent runs can become root |
-| Access | No `services.openssh`. The local screen (Plasma, or a text console with Ctrl+Alt+F3) is the recovery path |
+| Access | Tailscale SSH (`my.stacks.vpn.ssh`), no `services.openssh`: `ssh popemkt@shared-server` from popemkt's devices, `bytetum@` from bytetum's (docs/tailscale.md, SSH). The local screen (Plasma, or a text console with Ctrl+Alt+F3) is the recovery path |
 | Desktop | The installer's desktop, kept in `hosts/shared-server/default.nix`: Plasma 6 on SDDM, PipeWire sound, CUPS printing, Firefox |
 | Laptop as server | `services.logind.settings.Login.HandleLidSwitch*` = `ignore`, so closing the lid never suspends |
 | Binaries | `programs.nix-ld.enable = true`, plus `programs.nix-ld.libraries` if a binary reports a missing library |

@@ -193,6 +193,27 @@ Before handing off a code, verify the listener without revealing credentials:
 nc -vz popemkt-personal.<tailnet-domain> 6768
 ```
 
+## SSH
+
+Tailscale SSH needs no keys or sshd: tailscaled answers port 22 on the
+tailnet address and logs the caller in by Tailscale identity, as the account
+the policy's `ssh` rules allow.
+
+| Host | How | Who, as whom |
+|---|---|---|
+| `shared-server` | `my.stacks.vpn.ssh = true` (`tailscale set --ssh`) | popemkt's account and his tagged Macs as `popemkt`; `bytetum@github` as `bytetum`; nobody as root |
+| `popemkt-personal`, `popemkt-work` | not reachable | the Tailscale app cannot host Tailscale SSH on macOS; the stack asserts against it |
+
+The Macs have two ways in, neither taken yet: replace the app with the open
+source `tailscaled` (then `vpn.ssh` works there too, at the cost of the menu
+bar app), or turn on Remote Login with keys in `authorized_keys`.
+
+Tagged devices connect as their tags, not as their former owner, so popemkt's
+Macs appear in the shared-server rule as `tag:home-server` and
+`tag:orca-host`. Rules use `accept`: `check` asks for a browser sign-in every
+12 hours, which agents cannot do. `sshTests` in the policy pin both people's
+access, and the policy workflow runs them before applying.
+
 ## Current Compatibility Grant
 
 The live tailnet started from Tailscale's unrestricted default policy. The
@@ -225,6 +246,7 @@ already covers them:
 | Any member to `svc:kb`, `tcp:443` | yes |
 | Any member to `svc:adhoc`, `tcp:443` | yes |
 | Member to own node, SSH | yes, `ssh` block |
+| popemkt, bytetum, popemkt's Macs to `shared-server`, `tcp:22` (Tailscale SSH) | yes |
 | `ControlCe` on `*:5000` and `*:7000` (AirPlay) | no — LAN feature, expected to be denied |
 | `rapportd` on `*:57212` (Continuity) | no — LAN feature, expected to be denied |
 | Mac-to-Mac file/screen sharing, exit node, subnet routes | unknown, needs a decision |

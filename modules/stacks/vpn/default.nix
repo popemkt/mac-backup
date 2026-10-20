@@ -44,6 +44,15 @@ in
           that advertise each Service.
         '';
       };
+      ssh = mkOption {
+        type = types.bool;
+        default = false;
+        description = ''
+          Run the Tailscale SSH server: whoever the policy's `ssh` rules
+          admit logs in with their Tailscale identity, with no keys or sshd.
+          Linux only; neither macOS app variant can host it.
+        '';
+      };
       services = mkOption {
         default = { };
         description = ''

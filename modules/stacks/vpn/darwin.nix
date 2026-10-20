@@ -19,6 +19,12 @@ in
   config = lib.mkMerge [
     (lib.mkIf cfg.enable {
       my.pkgs.casks = [ "tailscale-app" ];
+      assertions = [
+        {
+          assertion = !cfg.ssh;
+          message = "my.stacks.vpn.ssh: the Tailscale app cannot host Tailscale SSH on macOS; only the open source tailscaled can.";
+        }
+      ];
     })
 
     (lib.mkIf reconcile.enable {

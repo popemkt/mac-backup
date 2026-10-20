@@ -86,6 +86,9 @@
     vpn = {
       enable = true;
       tags = [ "tag:shared-server" ];
+      # Each person logs in as themselves over Tailscale SSH
+      # (configs/tailscale/policy.hujson); there is no sshd.
+      ssh = true;
       # Each T3 Code server gets its own HTTPS name on the tailnet.
       services =
         lib.mapAttrs' (
