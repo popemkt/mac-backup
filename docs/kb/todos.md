@@ -20,6 +20,10 @@
 
 ## (other)
 
+### todo
+
+- Decide how the policy reapply after a new Tailscale Service should work (today: tailscale-services.yml dispatches tailscale-policy.yml when a GET 404s and it creates the Service; untested, and the user wants to rethink it)
+
 ### done
 
 - Review reconcile_claude_direct_routing.py: retire or simplify once Headroom stops mutating global ~/.claude/settings.json
