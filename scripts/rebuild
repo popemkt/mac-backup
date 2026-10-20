@@ -62,6 +62,17 @@ fi
 # A failed switch aborts here (set -e) with its own status, before any check.
 "${switch_cmd[@]}" "$@"
 
+# Rerun the Tailscale Services reconcile, which re-advertises every declared
+# Service, even when the switch left the job alone. A host advertising a new
+# Service is approved only if, at that moment, the Service exists and the
+# policy auto-approves it, and both come from CI after the push
+# (tailscale-services.yml, then tailscale-policy.yml). A host that advertised
+# before CI finished is never approved later, so it stays unreachable; rerunning
+# rebuild once CI is done fixes it.
+if [[ "$(uname -s)" == Linux ]] && systemctl cat tailscale-services.service >/dev/null 2>&1; then
+  sudo systemctl restart tailscale-services.service
+fi
+
 if [[ "$skip_checks" == true ]]; then
   exit 0
 fi
