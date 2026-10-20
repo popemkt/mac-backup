@@ -161,6 +161,7 @@ Rules for agents:
 | Give a prebuilt NixOS binary a shared library | the owning stack's `my.pkgs.nixLdLibraries` (nixpkgs attribute names) |
 | Add a stack's package on one host only | `my.stacks.<stack>.extra.<channel>` in `hosts/<hostname>/default.nix` |
 | Add a Claude Code or Codex plugin | the owning stack's `my.pkgs.{claude,codex}{Marketplaces,Plugins}` lists |
+| Add a bb plugin | its source in `assets/bb-plugins/<name>` (not `assets/plugins`, whose skills are linked into every agent) and its path in the owning stack's `my.pkgs.bbPlugins`; `modules/common/home-manager/bb-plugins.nix` installs it in place |
 | Add host-only config | `hosts/<hostname>/default.nix` |
 | Add a work/personal split | `lib.mkIf (config.my.role == "work") { ... }` in the owning system module |
 | Add a direct GitHub release package | `nvfetcher.toml` and `pkgs/`; see `docs/github-release-packages.md` |
