@@ -127,7 +127,13 @@
     owner = "popemkt";
     port = 38886;
     command = "bb-app --server-port 38886 --host-daemon-port 38887 --no-in-app-updates";
-    environment.BB_APP_URL = config.my.stacks.vpn.services.bb-popemkt.publicOrigin;
+    environment = {
+      BB_APP_URL = config.my.stacks.vpn.services.bb-popemkt.publicOrigin;
+      # The address bb gives the machines it enrolls (Settings → Machines →
+      # Server URL overrides it when set): the same Service, since bb itself
+      # listens only on loopback.
+      BB_EXTERNAL_URL = config.my.stacks.vpn.services.bb-popemkt.publicOrigin;
+    };
   };
 
   # The work Mac's T3 Code, relayed to loopback so agents here can sign in to
