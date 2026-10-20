@@ -188,7 +188,7 @@ Boundary:
 
 <!-- GAP [[01M56SQJF52DWN2T00D510BRQ3]]: kb links name the pinned release by hand. -->
 A kb code view runs model-written code in a sandbox: QuickJS until a person
-trusts it, a Worker after ([kb's DESIGN.md](https://github.com/popemkt/kb/blob/v0.2.2/DESIGN.md) → Sandbox → Trust). Trust is
+trusts it, a Worker after ([kb's DESIGN.md](https://github.com/popemkt/kb/blob/v0.3.0/DESIGN.md) → Sandbox → Trust). Trust is
 the person's gesture over the digest of exactly what runs, recorded in
 `~/.dotfiles/.kb/trust.json`, one record per digest and machine.
 
@@ -232,7 +232,7 @@ committed nor backed up — it is *derived-shaped*: gitignored the way
 
 <!-- GAP [[01M56SQJF52DWN2T00D510BRQ3]]: kb links name the pinned release by hand. -->
 kb remembers the roots a person has opened, their **locations**, as nodes in
-a kb root of its own, the home store ([kb's DESIGN.md](https://github.com/popemkt/kb/blob/v0.2.2/DESIGN.md) → Locations): at
+a kb root of its own, the home store ([kb's DESIGN.md](https://github.com/popemkt/kb/blob/v0.3.0/DESIGN.md) → Locations): at
 `$KB_HOME` when set, else `~/Library/Application Support/kb/home` on macOS and
 `${XDG_DATA_HOME:-~/.local/share}/kb/home` on Linux. `kb ui` and `kb init`
 register the root they open there.
