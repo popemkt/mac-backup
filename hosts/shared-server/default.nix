@@ -121,24 +121,6 @@
     ];
   };
 
-  # The URL that opens that kb as popemkt's page: the Service's origin with
-  # the page token this run of kb ui minted and kept in his home store. A tab
-  # opened without it is a local program's page to kb, which refuses its
-  # gestures (a switch, an approval); his Macs are tagged, so Tailscale names
-  # no person kb could trust instead. The token changes on each restart.
-  # From a Mac: open "$(ssh shared-server kb-page)".
-  environment.systemPackages = [
-    (pkgs.writeShellApplication {
-      name = "kb-page";
-      runtimeInputs = [ pkgs.jq ];
-      text = ''
-        pages="''${XDG_DATA_HOME:-$HOME/.local/share}/kb/home/.kb/pages"
-        token=$(jq -r .token "$pages/127.0.0.1-4321.json")
-        echo "${config.my.stacks.vpn.services.kb-popemkt.publicOrigin}/#token=$token"
-      '';
-    })
-  ];
-
   # popemkt's bb server, as svc:bb-popemkt. Its API is unauthenticated and
   # runs commands as popemkt, so the tailnet grant is its access boundary;
   # everyone in my.people here is already root through sudo. BB_APP_URL is
