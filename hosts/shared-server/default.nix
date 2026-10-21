@@ -21,6 +21,12 @@
       efi.canTouchEfiVariables = true;
     };
     kernelPackages = pkgs.linuxPackages_latest;
+    # From 2026-10-21 this G14 (GA402RK: a 680M plus an RX 6800S) reset every
+    # few minutes, each time an "uncorrected error caused a data fabric sync
+    # flood event" (the reset reason the kernel logs at boot). The dGPU's
+    # runtime power management is this model's usual trigger, so it stays
+    # powered. Next to try, if resets continue: pcie_aspm=off.
+    kernelParams = [ "amdgpu.runpm=0" ];
   };
   networking.networkmanager.enable = true;
   time.timeZone = "Asia/Ho_Chi_Minh";
