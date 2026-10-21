@@ -1,0 +1,77 @@
+name: Update kb
+
+# kb publishes a nightly on every merge to its main, and the two-day refresh
+# (update-github-sources.yml) would leave the pin up to two days behind. This
+# follows kb alone, hourly: bump the pin when a newer release exists, build
+# the package, and merge. Machines still pick it up on their next rebuild.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 * * * *"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: update-github-sources
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v22
+
+      - name: Update the kb pin
+        run: nix run .#github-sources -- update kb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check for a change
+        id: changed
+        run: |
+          if git diff --quiet -- _sources; then
+            echo "kb=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "kb=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify and build kb
+        if: steps.changed.outputs.kb == 'true'
+        run: |
+          nix run .#github-sources -- verify
+          nix build .#nixosConfigurations.shared-server.pkgs.kb --print-build-logs
+
+      - name: Open update pull request
+        id: create-pull-request
+        if: steps.changed.outputs.kb == 'true'
+        uses: peter-evans/create-pull-request@v8.1.1
+        with:
+          token: ${{ secrets.UPDATE_GITHUB_SOURCES_TOKEN || github.token }}
+          branch: chore/update-kb
+          delete-branch: true
+          add-paths: |
+            _sources/generated.json
+            _sources/generated.nix
+          commit-message: "chore: update kb"
+          title: "chore: update kb"
+          body: |
+            Automated hourly kb pin refresh: the newest kb release, stable or
+            nightly. Validation: generated-source consistency and a Linux
+            build of the kb package.
+
+      - name: Merge validated update pull request
+        if: steps.create-pull-request.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ secrets.UPDATE_GITHUB_SOURCES_TOKEN || github.token }}
+        run: |
+          gh pr merge --squash --delete-branch \
+            "${{ steps.create-pull-request.outputs.pull-request-number }}"
