@@ -157,14 +157,7 @@
     port = 38886;
     # bb-app tracks npm's latest release; update-npm-globals restarts it.
     updatedBy.npmGlobal = "bb-app";
-    executable = "bb-app";
-    args = [
-      "--server-port"
-      "38886"
-      "--host-daemon-port"
-      "38887"
-      "--no-in-app-updates"
-    ];
+    command = "bb-app --server-port 38886 --host-daemon-port 38887 --no-in-app-updates";
     environment = {
       BB_APP_URL = config.my.stacks.vpn.services.bb-popemkt.publicOrigin;
       # The address bb gives the machines it enrolls (Settings → Machines →

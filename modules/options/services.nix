@@ -16,8 +16,9 @@
 # An app always says what upgrades it, so an upgrade restarts it:
 #   - `package`: a Nix package. The unit names the program by store path, so
 #     a switch that changes the package changes the unit and restarts it.
-#   - `updatedBy`: a tool a non-Nix installer owns, with `executable` the
-#     program on the owner's PATH, e.g. `updatedBy.npmGlobal = "bb-app"`.
+#   - `updatedBy`: a tool a non-Nix installer owns, with `command` the shell
+#     command that runs it from the owner's PATH, e.g.
+#     `updatedBy.npmGlobal = "bb-app"`.
 #     That installer, after it upgrades the tool, runs the shared hook
 #     `restart-apps-updated-by <installer> <tool>...` (my.restartAppsUpdatedBy),
 #     which restarts the caller's apps that declared it. An installer passes
@@ -96,25 +97,27 @@ in
               description = ''
                 For an app installed outside Nix: the installer and the tool it
                 upgrades. After upgrading that tool, the installer restarts the
-                app through `restart-apps-updated-by`. Set `executable` with it.
+                app through `restart-apps-updated-by`. Set `command` with it.
               '';
             };
-            executable = mkOption {
+            command = mkOption {
               type = types.nullOr types.str;
               default = null;
-              example = "bb-app";
+              example = "bb-app --server-port 38886";
               description = ''
-                Program an `updatedBy` app runs: a name on the owner's PATH or
-                an absolute path. A `package` app runs its package's instead.
+                Shell command that starts an `updatedBy` app in the foreground,
+                finding its program on the owner's PATH. A `package` app sets
+                `args` instead.
               '';
             };
             args = mkOption {
               type = types.listOf types.str;
               default = [ ];
               description = ''
-                Arguments to the program, which runs in the foreground with the
-                owner's installed packages on PATH (so it can start the tools
-                they have), not their interactive shell configuration.
+                Arguments to a `package` app's main program. Either way the app
+                runs in the foreground under bash with the owner's installed
+                packages on PATH (so it can start the tools they have), not
+                their interactive shell configuration.
               '';
             };
             environment = mkOption {
@@ -131,12 +134,6 @@ in
               type = types.bool;
               default = true;
               description = "Publish the app on the tailnet as the Tailscale Service `<app>-<owner>`.";
-            };
-            program = mkOption {
-              type = types.nullOr types.str;
-              readOnly = true;
-              default = if config.package != null then lib.getExe config.package else config.executable;
-              description = "What the unit runs, derived from `package` or `executable`.";
             };
             listenOrigin = mkOption {
               type = types.str;

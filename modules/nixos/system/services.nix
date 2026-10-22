@@ -125,12 +125,12 @@ in
           message = "my.services.${name}: set exactly one of package (a Nix package) and updatedBy (the installer that upgrades it), so an upgrade restarts it.";
         }
         {
-          assertion = app.package == null || app.executable == null;
-          message = "my.services.${name}: a package app runs its package's main program; drop executable.";
+          assertion = app.package == null || app.command == null;
+          message = "my.services.${name}: a package app runs its package's main program with args; drop command.";
         }
         {
-          assertion = app.updatedBy == null || app.executable != null;
-          message = "my.services.${name}: an updatedBy app needs executable, the program it runs.";
+          assertion = app.updatedBy == null || (app.command != null && app.args == [ ]);
+          message = "my.services.${name}: an updatedBy app needs command, the shell command it runs (args are for package apps).";
         }
         {
           assertion =
@@ -179,7 +179,12 @@ in
         # The owner's installed packages, as their login shell would find them.
         script = ''
           export PATH="${home}/.local/bin:/etc/profiles/per-user/${app.owner}/bin:/run/wrappers/bin:/run/current-system/sw/bin:$PATH"
-          exec ${lib.escapeShellArgs ([ app.program ] ++ app.args)}
+          ${
+            if app.package != null then
+              "exec ${lib.escapeShellArgs ([ (lib.getExe app.package) ] ++ app.args)}"
+            else
+              app.command
+          }
         '';
         serviceConfig = {
           User = app.owner;

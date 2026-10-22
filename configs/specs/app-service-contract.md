@@ -97,8 +97,9 @@ module refuses an app that says neither:
 
 - **`package`**: a Nix package. The unit runs its main program by store path,
   so a switch to a new version changes the unit and restarts the app.
-- **`updatedBy`**: a tool a non-Nix installer owns, with `executable` the
-  program on the owner's PATH, e.g. `updatedBy.npmGlobal = "bb-app"`. After
+- **`updatedBy`**: a tool a non-Nix installer owns, with `command` the shell
+  command that runs it from the owner's PATH, e.g.
+  `updatedBy.npmGlobal = "bb-app"`. After
   that installer upgrades the tool, it runs the one shared hook,
   `restart-apps-updated-by <installer> <tool>...`, which restarts the
   caller's apps that declared it (polkit lets each owner restart their own
