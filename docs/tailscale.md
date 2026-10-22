@@ -110,14 +110,14 @@ tailnet members. It has no backend while that port is unused.
 The shared server (`shared-server`, tagged `tag:shared-server`) publishes one
 T3 Code server per person. Each target is derived from that instance's port in
 `hosts/shared-server/default.nix`; both people may reach both. It also
-publishes popemkt's kb graph (a `my.services` app, below) and an ad hoc
+publishes popemkt's personal kb (its home store) (a `my.services` app, below) and an ad hoc
 endpoint for popemkt's temporary HTTP apps, like the personal host's.
 
 | Service | Tailnet URL | Local target | Purpose |
 |---|---|---|---|
 | `svc:t3-popemkt` | `https://t3-popemkt.<tailnet-domain>` | `127.0.0.1:3773` | popemkt's T3 Code server |
 | `svc:t3-bytetum` | `https://t3-bytetum.<tailnet-domain>` | `127.0.0.1:3774` | bytetum's T3 Code server |
-| `svc:kb-popemkt` | `https://kb-popemkt.<tailnet-domain>` | `unix:/run/kb-popemkt/kb.sock` | popemkt's kb graph (`my.services.kb`; a socket only popemkt and root can reach) |
+| `svc:kb-popemkt` | `https://kb-popemkt.<tailnet-domain>` | `unix:/run/kb-popemkt/kb.sock` | popemkt's kb home store (`my.services.kb`; a socket only popemkt and root can reach) |
 | `svc:adhoc-popemkt` | `https://adhoc-popemkt.<tailnet-domain>` | `127.0.0.1:9001` | popemkt's temporary HTTP apps |
 | `svc:bb-popemkt` | `https://bb-popemkt.<tailnet-domain>` | `127.0.0.1:38886` | popemkt's bb server (`my.services.bb`; its API is unauthenticated) |
 

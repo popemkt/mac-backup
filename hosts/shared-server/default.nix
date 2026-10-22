@@ -119,8 +119,12 @@
   # device_select layer reads it; `!` hides every other device.
   environment.sessionVariables.MESA_VK_DEVICE_SELECT = "1002:1681!";
 
-  # popemkt's kb graph (the .kb store in their dotfiles checkout) in the
-  # browser, as svc:kb-popemkt. The UI's request guard needs the browser
+  # popemkt's personal kb in the browser, as svc:kb-popemkt: their kb home
+  # store (kb DESIGN.md → Locations), a root outside any repository that
+  # kb ui creates on first start. Not the dotfiles' .kb, which changes only
+  # through commits: a live UI there dirtied the checkout with every edit
+  # and every kb upgrade's seed nodes, and rebuild refuses a dirty tree.
+  # The UI's request guard needs the browser
   # origin, which is that Service's. A request with that Origin acts as
   # popemkt, so the UI listens on a Unix socket only popemkt and root
   # (tailscaled) can reach, not on a loopback port every account can.
@@ -133,7 +137,7 @@
     package = pkgs.kb;
     args = [
       "--root"
-      "/home/popemkt/.dotfiles"
+      "${config.users.users.popemkt.home}/.local/share/kb/home"
       "ui"
       "--socket"
       config.my.services.kb.socket

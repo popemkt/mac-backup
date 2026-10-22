@@ -11,11 +11,49 @@ merge the updater's PR before then. Links into kb's docs name stable tags only,
 since a nightly tag disappears with its release.
 Both hosts enable the stack; only `popemkt-personal` enables `server.enable`.
 
+## What a hosted UI serves
+
+<!-- GAP [[01M56SQJF52DWN2T00D510BRQ3]]: kb links name the pinned release by hand. -->
+A hosted UI serves a personal root, never a repository's `.kb`. A committed
+store such as this repository's `.kb/nodes.jsonl` belongs to the Git
+lifecycle: it changes through deliberate edits committed with the work they
+describe. A live UI on it writes every page edit, and every kb upgrade's seed
+nodes, into the checkout, and `rebuild` refuses to apply a dirty checkout.
+
+The default root is the person's kb **home store**, kb's own personal root
+([kb's DESIGN.md](https://github.com/popemkt/kb/blob/v0.3.0/DESIGN.md) →
+Locations): `~/Library/Application Support/kb/home` on macOS and
+`~/.local/share/kb/home` on Linux (`$KB_HOME` when set). It already holds the
+person's location list, so the hosted page, `kb open` with no argument and
+`kb locations` all name the same store. It is state, backed up and never
+committed ([backup-strategy.md](backup-strategy.md) → kb Home Store). `kb ui`
+creates it on first start and opens an existing one as it is, so nothing
+initializes it ahead of time and nothing can clobber it.
+
+Opening another location from the page (the Locations section, ⌘K "Open
+location…", `location.open`) starts a separate `kb ui --port 0` on that
+root, on a loopback port, and goes to its `http://127.0.0.1:<port>` URL. On a
+server reached over the tailnet, that URL is the browser's own loopback, so
+the page cannot follow it, and the started server is a plain loopback port
+any local account can reach, the exposure the socket deployment below
+removes. Opening the dotfiles' location also writes into its checkout again.
+Work on a repository's `.kb` with the CLI or a local `kb ui` instead, and
+commit the result.
+
+## shared-server
+
+`hosts/shared-server/default.nix` places popemkt's home store as the
+`my.services.kb` app, published as `svc:kb-popemkt`. It listens on the
+owner-only socket `/run/kb-popemkt/kb.sock` rather than a port, because a
+request carrying the UI's Origin acts as popemkt. The app's `package` is
+`pkgs.kb`, run by store path, so a rebuild that moves the kb pin restarts it
+(`configs/specs/app-service-contract.md`).
+
 ## Personal instance
 
 <!-- GAP [[01M56SQJF52DWN2T00D510BRQ3]]: kb links name the pinned release by hand. -->
-`hosts/popemkt-personal/default.nix` selects `/Volumes/Data/workspace/repos/_brain`
-as the graph checkout. The server listens on loopback port 9000. Its
+`hosts/popemkt-personal/default.nix` overrides the default root with
+`/Volumes/Data/workspace/repos/_brain`, its own graph. The server listens on loopback port 9000. Its
 `listenOrigin` supplies the target for `vpn.services.kb`; that service's
 computed `publicOrigin` supplies the UI's `--public-origin` argument. The
 route, request guard, and health check therefore derive their addresses from
@@ -47,8 +85,8 @@ already runs this readiness check alongside the system drift audit.
 
 Use the canonical graph path (resolve symlinks) so it matches kb API identity.
 
-Set `my.stacks.kb.enable`, `server.enable`, and `server.root` on the intended
-host. Set `server.port` when changing the loopback listener. For a reverse
+Set `my.stacks.kb.enable` and `server.enable` on the intended host, and
+`server.root` only to serve a root other than the home store. Set `server.port` when changing the loopback listener. For a reverse
 proxy, set `server.publicOrigin` to the browser origin; for a Tailscale
 service, derive it from that service's `publicOrigin` and derive the target
 from `server.listenOrigin`, as personal does. Link any routing prerequisite
@@ -62,6 +100,7 @@ when required, then restart the job. A new Nix package path may need approval
 again. The process uses the user's home as its working directory; the graph
 path belongs solely to `--root`.
 
-The graph checkout and its `.kb` content remain user data. The service never
-initializes a replacement graph; restore the existing checkout before starting
-it. Backup ownership follows [backup-strategy.md](backup-strategy.md).
+The served root's `.kb` content remains user data. `kb ui` creates a missing
+root as an empty store, so restore a root from backup before starting the
+service on a new machine, or it starts empty beside the backup. Backup
+ownership follows [backup-strategy.md](backup-strategy.md).

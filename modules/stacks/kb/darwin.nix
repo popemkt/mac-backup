@@ -11,5 +11,7 @@ in
     ./system-setup.nix
   ];
 
-  my.stacks.kb.server.root = lib.mkDefault "${home}/.dotfiles";
+  # kb's home store on macOS (kb DESIGN.md → Locations): personal state,
+  # backed up, never committed. kb ui creates it on first start.
+  my.stacks.kb.server.root = lib.mkDefault "${home}/Library/Application Support/kb/home";
 }

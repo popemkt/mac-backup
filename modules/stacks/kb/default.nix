@@ -25,7 +25,12 @@ in
             enable = lib.mkEnableOption "the kb browser UI service";
             root = lib.mkOption {
               type = lib.types.str;
-              description = "Absolute graph checkout path (containing .kb/). The platform side defaults it.";
+              description = ''
+                Absolute path of the root the UI serves (the directory holding
+                .kb/). The platform side defaults it to the person's kb home
+                store, a root outside any repository; a repository's committed
+                .kb changes through commits, not a live UI.
+              '';
             };
             port = lib.mkOption {
               type = lib.types.port;

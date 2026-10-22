@@ -84,7 +84,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 - **expected** — kb ui --socket on shared-server records its presence, so kb CLI and kb mcp ui.screen/navigate/select/capture reach the page's tabs
 - **current** — A socket server writes no .kb/ui.json (popemkt/kb GAP 01M5CMVS78WRBD760MNSS3BMJJ); ui.screen returns {tabs:[]}, ui.navigate/select/capture answer no-tab. Graph reads/writes and the page's live tx view are unaffected.
-- **impact** — Agents in ~/.dotfiles on shared-server cannot see or drive popemkt's open kb page
+- **impact** — Agents on shared-server (kb CLI or kb mcp --root ~/.local/share/kb/home) cannot see or drive popemkt's open kb page
 - **closes** — A kb release that writes presence for socket servers, pinned here (nix run .#github-sources -- update kb)
 - **node** — `01M5HXHNERZR77Z0HX0SZCQZPP`
 
