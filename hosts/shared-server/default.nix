@@ -115,17 +115,22 @@
 
   # popemkt's kb graph (the .kb store in their dotfiles checkout) in the
   # browser, as svc:kb-popemkt. The UI's request guard needs the browser
-  # origin, which is that Service's.
+  # origin, which is that Service's. A request with that Origin acts as
+  # popemkt, so the UI listens on a Unix socket only popemkt and root
+  # (tailscaled) can reach, not on a loopback port every account can.
+  # GAP [[01M5HXHNERZR77Z0HX0SZCQZPP]]: a socket server writes no
+  # .kb/ui.json, so the CLI's and MCP's ui.* calls see no tabs; their graph
+  # reads and writes, and the page's live view of them, are unaffected.
   my.services.kb = {
     owner = "popemkt";
-    port = 4321;
+    socket = "/run/kb-popemkt/kb.sock";
     command = lib.escapeShellArgs [
       "kb"
       "--root"
       "/home/popemkt/.dotfiles"
       "ui"
-      "--port"
-      "4321"
+      "--socket"
+      config.my.services.kb.socket
       "--no-open"
       "--public-origin"
       config.my.stacks.vpn.services.kb-popemkt.publicOrigin

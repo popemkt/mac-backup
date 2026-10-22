@@ -40,8 +40,12 @@ let
   );
 
   validName = name: builtins.match "[a-z0-9][a-z0-9-]*" name != null;
-  loopbackTarget =
-    target: builtins.match "(http|https|tcp)://(127\\.0\\.0\\.1|localhost):[0-9]+(/.*)?" target != null;
+  # A target stays on this host: a loopback http, https, or tcp address, or a
+  # Unix socket (`unix:/abs/path`), which tailscaled, as root, proxies HTTP to.
+  localTarget =
+    target:
+    builtins.match "(http|https|tcp)://(127\\.0\\.0\\.1|localhost):[0-9]+(/.*)?" target != null
+    || builtins.match "unix:/[^[:space:]]+" target != null;
 in
 {
   # Only reconcile when the stack is on AND services are declared; enabling
@@ -54,10 +58,8 @@ in
       message = "Tailscale Service names may contain only lowercase letters, digits, and hyphens.";
     }
     {
-      assertion = builtins.all (service: loopbackTarget service.target) (
-        builtins.attrValues cfg.services
-      );
-      message = "Tailscale Service targets must use http, https, or tcp and a loopback address.";
+      assertion = builtins.all (service: localTarget service.target) (builtins.attrValues cfg.services);
+      message = "Tailscale Service targets must be a loopback http, https, or tcp address, or unix:/absolute/socket/path.";
     }
   ];
 

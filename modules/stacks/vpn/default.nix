@@ -68,7 +68,10 @@ in
                 target = mkOption {
                   type = types.str;
                   example = "http://127.0.0.1:3000";
-                  description = "Loopback URL to which Tailscale forwards service traffic.";
+                  description = ''
+                    Where Tailscale forwards service traffic: a loopback URL, or
+                    `unix:/abs/path` for an HTTP server on a Unix socket.
+                  '';
                 };
 
                 port = mkOption {

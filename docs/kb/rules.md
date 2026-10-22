@@ -80,6 +80,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — One contract, every implementation
 - **node** — `01M3E9V4VV52HJPW181Y74AR0J`
 
+### GAP: popemkt's socket-served kb UI has no .kb/ui.json, so CLI/MCP ui.* calls see no tabs
+
+- **expected** — kb ui --socket on shared-server records its presence, so kb CLI and kb mcp ui.screen/navigate/select/capture reach the page's tabs
+- **current** — A socket server writes no .kb/ui.json (popemkt/kb GAP 01M5CMVS78WRBD760MNSS3BMJJ); ui.screen returns {tabs:[]}, ui.navigate/select/capture answer no-tab. Graph reads/writes and the page's live tx view are unaffected.
+- **impact** — Agents in ~/.dotfiles on shared-server cannot see or drive popemkt's open kb page
+- **closes** — A kb release that writes presence for socket servers, pinned here (nix run .#github-sources -- update kb)
+- **node** — `01M5HXHNERZR77Z0HX0SZCQZPP`
+
 ### GAP: release pins are checked by hash only, never by provenance
 
 - **expected** — github-sources verify also proves where each pinned artifact was built, for every source whose upstream publishes provenance (kb: gh attestation verify --repo popemkt/kb, signer release.yml at the pinned tag), declared beside the source in nvfetcher.toml

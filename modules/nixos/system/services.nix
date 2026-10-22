@@ -7,7 +7,9 @@
 
 # NixOS side of my.services (modules/options/services.nix): one systemd unit,
 # `app-<app>`, per declared app, run as its owner, and a Tailscale Service
-# `<app>-<owner>` for each exposed one.
+# `<app>-<owner>` for each exposed one. A socket app's unit owns the socket's
+# directory as its RuntimeDirectory: created (owner-only) when it starts and
+# removed when it stops, so a crash leaves nothing that blocks the restart.
 let
   cfg = config.my.services;
   exposed = lib.filterAttrs (_: app: app.expose) cfg;
@@ -32,7 +34,18 @@ let
       ) config.my.stacks.vpn.services
     );
 
-  appPorts = lib.mapAttrsToList (_: app: app.port) cfg;
+  appPorts = lib.concatLists (
+    lib.mapAttrsToList (_: app: lib.optionals (app.port != null) [ app.port ]) cfg
+  );
+  # `/run/<dir>/<file>` → <dir>, the RuntimeDirectory; null for any other path.
+  runtimeDirectory =
+    socket:
+    let
+      parts = builtins.match "/run/([a-z0-9][a-z0-9_.-]*)/[^/]+" socket;
+    in
+    if parts == null then null else builtins.head parts;
+  listensOn =
+    app: if app.socket != null then "socket ${app.socket}" else "127.0.0.1:${toString app.port}";
 in
 {
   config = lib.mkIf (cfg != { }) {
@@ -57,7 +70,15 @@ in
           message = "my.services.${name}.owner is ${app.owner}, who is not one of this host's my.people.";
         }
         {
-          assertion = !builtins.elem app.port reservedPorts;
+          assertion = (app.port == null) != (app.socket == null);
+          message = "my.services.${name}: set exactly one of port and socket.";
+        }
+        {
+          assertion = app.socket == null || runtimeDirectory app.socket != null;
+          message = "my.services.${name}.socket must be /run/<dir>/<file>; the unit owns /run/<dir>.";
+        }
+        {
+          assertion = app.port == null || !builtins.elem app.port reservedPorts;
           message = "my.services.${name}.port ${toString app.port} is already used by a T3 Code server or a Tailscale Service target on this host.";
         }
       ]) cfg
@@ -67,9 +88,10 @@ in
       name: app:
       let
         inherit (config.users.users.${app.owner}) home;
+        socketDirectory = runtimeDirectory app.socket;
       in
       lib.nameValuePair "app-${name}" {
-        description = "${name}, run as ${app.owner} on 127.0.0.1:${toString app.port}";
+        description = "${name}, run as ${app.owner} on ${listensOn app}";
         wantedBy = [ "multi-user.target" ];
         wants = [ "network-online.target" ];
         # The owner's Home Manager activation installs what the app runs.
@@ -77,11 +99,12 @@ in
           "network-online.target"
           "home-manager-${app.owner}.service"
         ];
-        environment = {
-          HOST = "127.0.0.1";
-          PORT = toString app.port;
-        }
-        // app.environment;
+        environment =
+          lib.optionalAttrs (app.port != null) {
+            HOST = "127.0.0.1";
+            PORT = toString app.port;
+          }
+          // app.environment;
         path = with pkgs; [
           bash
           coreutils
@@ -96,6 +119,10 @@ in
           WorkingDirectory = if app.workingDirectory == null then home else app.workingDirectory;
           Restart = "on-failure";
           RestartSec = 10;
+        }
+        // lib.optionalAttrs (app.socket != null) {
+          RuntimeDirectory = socketDirectory;
+          RuntimeDirectoryMode = "0700";
         };
       }
     ) cfg;

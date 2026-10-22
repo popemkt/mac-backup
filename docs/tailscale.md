@@ -113,17 +113,20 @@ T3 Code server per person. Each target is derived from that instance's port in
 publishes popemkt's kb graph (a `my.services` app, below) and an ad hoc
 endpoint for popemkt's temporary HTTP apps, like the personal host's.
 
-| Service | Tailnet URL | Loopback target | Purpose |
+| Service | Tailnet URL | Local target | Purpose |
 |---|---|---|---|
 | `svc:t3-popemkt` | `https://t3-popemkt.<tailnet-domain>` | `127.0.0.1:3773` | popemkt's T3 Code server |
 | `svc:t3-bytetum` | `https://t3-bytetum.<tailnet-domain>` | `127.0.0.1:3774` | bytetum's T3 Code server |
-| `svc:kb-popemkt` | `https://kb-popemkt.<tailnet-domain>` | `127.0.0.1:4321` | popemkt's kb graph (`my.services.kb`) |
+| `svc:kb-popemkt` | `https://kb-popemkt.<tailnet-domain>` | `unix:/run/kb-popemkt/kb.sock` | popemkt's kb graph (`my.services.kb`; a socket only popemkt and root can reach) |
 | `svc:adhoc-popemkt` | `https://adhoc-popemkt.<tailnet-domain>` | `127.0.0.1:9001` | popemkt's temporary HTTP apps |
 | `svc:bb-popemkt` | `https://bb-popemkt.<tailnet-domain>` | `127.0.0.1:38886` | popemkt's bb server (`my.services.bb`; its API is unauthenticated) |
 
 A native app placed with `my.services.<app>` on a NixOS host is exposed the
-same way, as `svc:<app>-<owner>` targeting its loopback port, unless it sets
-`expose = false`. Like any Service it needs a grant and an
+same way, as `svc:<app>-<owner>` targeting its loopback port, or its Unix
+socket when it sets `socket`, unless it sets `expose = false`. Prefer a socket
+for an app that trusts whoever reaches it: any account on the host can connect
+to a loopback port, but only the owner and root (tailscaled) can reach the
+owner-only socket directory. Like any Service it needs a grant and an
 `autoApprovers.services` entry for the host's tag; the gate and CI fail until
 both exist.
 

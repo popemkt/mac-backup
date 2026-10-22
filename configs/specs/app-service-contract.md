@@ -92,6 +92,14 @@ my.services.my-api = {
 };                            # exposed as svc:my-api-popemkt
 ```
 
+An app that can listen on a Unix socket sets `socket = "/run/<dir>/<file>"`
+instead of `port`. It gets no HOST or PORT; its command names the socket. The
+unit creates `/run/<dir>` owned by the app's owner with mode 0700 and removes
+it when the app stops. The Service then targets `unix:<socket>`. Use it when
+the app treats every connection as its owner: any account on the host can
+connect to a loopback port, but only the owner and root (tailscaled) can reach
+that directory.
+
 The attribute name becomes the Tailscale identity `svc:my-api`. Tailscale gives
 it a separate TailVIP and MagicDNS name, so other services can also use port
 443. Access is controlled by grants targeting `svc:my-api`.
