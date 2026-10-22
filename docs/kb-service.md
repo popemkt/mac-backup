@@ -36,9 +36,11 @@ root, on a loopback port, and goes to its `http://127.0.0.1:<port>` URL. On a
 server reached over the tailnet, that URL is the browser's own loopback, so
 the page cannot follow it, and the started server is a plain loopback port
 any local account can reach, the exposure the socket deployment below
-removes. Opening the dotfiles' location also writes into its checkout again.
-Work on a repository's `.kb` with the CLI or a local `kb ui` instead, and
-commit the result.
+removes. Opening the dotfiles' location does not itself dirty the checkout,
+but every edit made on that page is written into it again. Work on a
+repository's `.kb` with the CLI or a local `kb ui` instead, and commit the
+result. Stop a server opened this way with `kill` on the pid its
+`.kb/ui.json` names.
 
 ## shared-server
 
