@@ -87,13 +87,27 @@ instead, which generates both the systemd unit and the Service:
 my.services.my-api = {
   owner = "popemkt";          # one of the host's my.people
   port = 3000;                # the app must listen on 127.0.0.1:3000
-  command = "bun run start";  # started with HOST and PORT set
-  workingDirectory = "/home/popemkt/src/my-api";
+  package = pkgs.my-api;      # its main program, started with HOST and PORT set
+  args = [ "serve" ];
 };                            # exposed as svc:my-api-popemkt
 ```
 
+Every app says what upgrades it, so that an upgrade restarts it, and the
+module refuses an app that says neither:
+
+- **`package`**: a Nix package. The unit runs its main program by store path,
+  so a switch to a new version changes the unit and restarts the app.
+- **`updatedBy`**: a tool a non-Nix installer owns, with `executable` the
+  program on the owner's PATH, e.g. `updatedBy.npmGlobal = "bb-app"`. After
+  that installer upgrades the tool, it runs the one shared hook,
+  `restart-apps-updated-by <installer> <tool>...`, which restarts the
+  caller's apps that declared it (polkit lets each owner restart their own
+  `app-*` units). `update-npm-globals` is the installer today. A new one adds
+  its name to `updatedBy`'s tags and to the module's channel table, then
+  calls the hook with what it changed; it never names an app.
+
 An app that can listen on a Unix socket sets `socket = "/run/<dir>/<file>"`
-instead of `port`. It gets no HOST or PORT; its command names the socket. The
+instead of `port`. It gets no HOST or PORT; its arguments name the socket. The
 unit creates `/run/<dir>` owned by the app's owner with mode 0700 and removes
 it when the app stops. The Service then targets `unix:<socket>`. Use it when
 the app treats every connection as its owner: any account on the host can

@@ -17,18 +17,34 @@ let
     ++ osConfig.my.pkgs.npmGlobals
   );
 
-  updateNpmGlobals = pkgs.writeShellScriptBin "update-npm-globals" ''
-    set -euo pipefail
+  updateNpmGlobals = pkgs.writeShellScriptBin "update-npm-globals" (
+    ''
+      set -euo pipefail
 
-    export PATH="${pkgs.nodejs}/bin:${npmPrefix}/bin:$PATH"
-    export npm_config_prefix="${npmPrefix}"
-    mkdir -p "${npmPrefix}/bin" "${npmPrefix}/lib/node_modules"
+      export PATH="${pkgs.nodejs}/bin:${npmPrefix}/bin:$PATH"
+      export npm_config_prefix="${npmPrefix}"
+      mkdir -p "${npmPrefix}/bin" "${npmPrefix}/lib/node_modules"
 
-    for pkg in ${lib.concatStringsSep " " (map lib.escapeShellArg npmGlobalPackages)}; do
-      echo "Upgrading tracked npm global: $pkg"
-      ${pkgs.nodejs}/bin/npm install -g "$pkg@latest"
-    done
-  '';
+      version() {
+        ${pkgs.nodejs}/bin/node -p "require('${npmPrefix}/lib/node_modules/$1/package.json').version" 2>/dev/null || true
+      }
+
+      changed=()
+      for pkg in ${lib.concatStringsSep " " (map lib.escapeShellArg npmGlobalPackages)}; do
+        echo "Upgrading tracked npm global: $pkg"
+        before="$(version "$pkg")"
+        ${pkgs.nodejs}/bin/npm install -g "$pkg@latest"
+        [ "$(version "$pkg")" = "$before" ] || changed+=("$pkg")
+      done
+    ''
+    # Apps this host runs from an npm global (my.services.<app>.updatedBy)
+    # restart onto the new version.
+    + lib.optionalString (osConfig.my.restartAppsUpdatedBy != null) ''
+      if [ "''${#changed[@]}" -gt 0 ]; then
+        ${lib.getExe osConfig.my.restartAppsUpdatedBy} npmGlobal "''${changed[@]}"
+      fi
+    ''
+  );
 in
 {
   # Read-only view of what this executor will install, so drift audits can
