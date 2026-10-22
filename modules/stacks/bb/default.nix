@@ -20,5 +20,25 @@ in
       # workspace: the `Agent artifacts` panel tab and `bb artifacts`.
       "assets/bb-plugins/agent-artifacts"
     ];
+
+    # No anonymous usage telemetry (PostHog) from any bb server or host
+    # daemon: the desktop app's and a bb-app's alike. bb reads its managed
+    # env, ~/.bb/env.json (`bb-app env`), over the process environment, so
+    # the key is merged there; `bb-app env set` keeps working for the rest.
+    my.everyone =
+      { lib, pkgs, ... }:
+      {
+        home.activation.bbTelemetryOff = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          env_file="$HOME/.bb/env.json"
+          $DRY_RUN_CMD mkdir -p "$HOME/.bb"
+          [ -s "$env_file" ] || $DRY_RUN_CMD sh -c 'umask 077; echo "{}" > "$1"' _ "$env_file"
+          if [ -z "''${DRY_RUN_CMD:-}" ]; then
+            tmp="$(mktemp)"
+            ${lib.getExe pkgs.jq} '.env = ((.env // {}) + {BB_TELEMETRY: "false"})' "$env_file" > "$tmp"
+            command cat "$tmp" > "$env_file"
+            rm -f "$tmp"
+          fi
+        '';
+      };
   };
 }
