@@ -25,8 +25,13 @@
     # few minutes, each time an "uncorrected error caused a data fabric sync
     # flood event" (the reset reason the kernel logs at boot). The dGPU's
     # runtime power management is this model's usual trigger, so it stays
-    # powered. Next to try, if resets continue: pcie_aspm=off.
-    kernelParams = [ "amdgpu.runpm=0" ];
+    # powered: with it, resets dropped from every few minutes to one in about
+    # seven hours. PCIe link power saving (ASPM), the other common AMD
+    # trigger, is off too.
+    kernelParams = [
+      "amdgpu.runpm=0"
+      "pcie_aspm=off"
+    ];
   };
   networking.networkmanager.enable = true;
   time.timeZone = "Asia/Ho_Chi_Minh";
