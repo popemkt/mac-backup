@@ -32,6 +32,16 @@
       libraries = map (name: pkgs.${name}) (lib.unique config.my.pkgs.nixLdLibraries);
     };
 
+    # Vulkan loaders bundled with prebuilt binaries (Chromium's among them)
+    # search /etc/vulkan, not /run/opengl-driver where NixOS puts the drivers
+    # and their implicit layers; link them there so every loader finds them.
+    environment.etc."vulkan/icd.d" = lib.mkIf config.hardware.graphics.enable {
+      source = "/run/opengl-driver/share/vulkan/icd.d";
+    };
+    environment.etc."vulkan/implicit_layer.d" = lib.mkIf config.hardware.graphics.enable {
+      source = "/run/opengl-driver/share/vulkan/implicit_layer.d";
+    };
+
     # The login shell Home Manager configures for everyone.
     programs.zsh.enable = true;
 

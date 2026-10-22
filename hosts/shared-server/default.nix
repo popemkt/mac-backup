@@ -113,6 +113,12 @@
     };
   };
 
+  # Vulkan sees only the 680M iGPU (1002:1681), so Chromium's WebGPU and
+  # WebGL render there: ANGLE otherwise picks the RX 6800S dGPU, which was
+  # implicated in this machine's data fabric sync flood resets. Mesa's
+  # device_select layer reads it; `!` hides every other device.
+  environment.sessionVariables.MESA_VK_DEVICE_SELECT = "1002:1681!";
+
   # popemkt's kb graph (the .kb store in their dotfiles checkout) in the
   # browser, as svc:kb-popemkt. The UI's request guard needs the browser
   # origin, which is that Service's. A request with that Origin acts as
