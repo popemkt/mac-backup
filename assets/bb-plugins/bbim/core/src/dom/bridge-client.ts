@@ -132,12 +132,15 @@ function untilAnswered<A>(
 /**
  * Ask every opaque frame for its targets and wait up to `timeoutMs` for the
  * replies. A frame without the bridge never answers and contributes nothing.
+ * `onReply` sees every target so far each time a frame answers, so a caller
+ * can show them before the slowest frame is in.
  */
 export const collectRemote = Effect.fn("collectRemote")(function* (
   frames: ReadonlyArray<OpaqueFrame>,
   requestId: string,
   timeoutMs: number,
   budget: FrameBudget = frameBudget(),
+  onReply: (sofar: ReadonlyArray<RemoteTarget>) => void = NOTHING,
 ) {
   if (frames.length === 0) return [] as ReadonlyArray<RemoteTarget>;
   const replies = new Map<OpaqueFrame, ReadonlyArray<RemoteTarget>>();
@@ -151,6 +154,7 @@ export const collectRemote = Effect.fn("collectRemote")(function* (
       if (message.type !== "targets" || message.requestId !== requestId) return;
       replies.set(frame, placed(frame, message));
       if (replies.size === frames.length) done(undefined);
+      else onReply(frames.flatMap((each) => replies.get(each) ?? []));
     },
     () => {
       for (const frame of frames) post(frame, { bbim: BRIDGE_PROTOCOL, type: "collect", requestId });

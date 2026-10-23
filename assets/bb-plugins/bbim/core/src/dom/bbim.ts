@@ -46,7 +46,7 @@ import {
   type RemoteTarget,
   setRemoteMode,
 } from "./bridge-client.ts";
-import { collectTargets, DEFAULT_SELECTORS, viewportOf } from "./collect.ts";
+import { collectTargets, DEFAULT_SELECTORS, isRendered, isUncovered, viewportOf, visibleBox } from "./collect.ts";
 import { deepActiveElement, editableGuard, type FocusGuard, focusState, isEditable } from "./focus.ts";
 import { frameTree, liveFrame, liveRect, type OpaqueFrame, placementCache } from "./frames.ts";
 import { type HelpModel, type HelpSection, mountOverlay, type Overlay, type Theme } from "./overlay.ts";
@@ -76,7 +76,10 @@ export interface CreateBbimOptions {
   readonly inputSelector?: string;
   /** Aborting it disposes bbim. */
   readonly signal?: AbortSignal;
-  /** How long to wait for frames speaking the hint bridge. */
+  /**
+   * How long frames speaking the hint bridge have to answer. The page's own
+   * labels show at once; a frame's join when it answers, until a key is typed.
+   */
   readonly bridgeTimeoutMs?: number;
 }
 
@@ -105,8 +108,10 @@ interface HintSession {
   /** How many more messages each bridge frame may send this session, for targets and for keys. */
   readonly collectBudget: FrameBudget;
   readonly keyBudget: FrameBudget;
-  /** Labels and their targets once collected; undefined while frames answer. */
+  /** Labels and their targets once any are shown; undefined while only frames may answer. */
   assigned: ReadonlyArray<{ readonly label: string; readonly target: Target }> | undefined;
+  /** Where each assigned label was last drawn (top-level px), by label index. */
+  drawn: ReadonlyArray<Rect | undefined>;
   keymap: Keymap<number> | undefined;
   /** Only the focused bridge frame's labels: what keys it forwards may match. */
   frameKeymap: Keymap<number> | undefined;
@@ -116,6 +121,8 @@ interface HintSession {
 }
 
 const HINT_KEYS_LIMIT = 16;
+/** How far a target may drift from its label before activating it re-labels instead. */
+const MOVED_PX = 4;
 /** How long a bridge frame has to answer a new-tab activation with its URL. */
 const OPEN_REPLY_MS = 1000;
 
@@ -181,7 +188,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
   const guards: ReadonlyArray<FocusGuard> = [editableGuard, ...(hooks.guards ?? [])];
   const selectors = options.selectors ?? DEFAULT_SELECTORS;
   const inputSelector = options.inputSelector ?? TEXT_INPUT_SELECTOR;
-  const bridgeTimeoutMs = options.bridgeTimeoutMs ?? 150;
+  const bridgeTimeoutMs = options.bridgeTimeoutMs ?? 1000;
   const root = openScope();
 
   let settings: Settings = DEFAULT_SETTINGS;
@@ -233,7 +240,25 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     ending.scope.close();
   };
 
-  const activate = (target: Target, newTab: boolean, requestId: string) => {
+  /**
+   * Whether a local target is still where its label showed it: connected,
+   * rendered, on screen, not painted over, and not moved. The page has no
+   * observer on it while hints are up, so this is checked at activation.
+   */
+  const stillThere = (element: Element, drawn: Rect | undefined): boolean => {
+    if (drawn === undefined || !element.isConnected || !isRendered(element)) return false;
+    const shown = visibleBox(element, viewportOf(element.ownerDocument));
+    if (shown === undefined || !isUncovered(element.ownerDocument, element, shown)) return false;
+    const live = liveRect(placementCache(doc), element);
+    return live !== undefined && Math.abs(live.left - drawn.left) <= MOVED_PX && Math.abs(live.top - drawn.top) <= MOVED_PX;
+  };
+
+  const activate = (target: Target, drawn: Rect | undefined, newTab: boolean, requestId: string) => {
+    if (target.source === "local" && !stillThere(target.element, drawn)) {
+      // The page changed under the labels (moved, covered, gone): label it again.
+      startHints(newTab);
+      return;
+    }
     overlay.flash(target.rect);
     if (target.source === "remote") {
       const { frame } = target.remote;
@@ -249,11 +274,6 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
           }),
         );
       }
-      return;
-    }
-    if (!target.element.isConnected) {
-      // The page changed under the labels (no observer watches it): label it again.
-      startHints(newTab);
       return;
     }
     lastPointer = target.element;
@@ -291,10 +311,11 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     active.state = next;
     if (step.kind === "pending") overlay.narrow(typed(active.keymap, next));
     if (step.kind !== "match") return;
-    const chosen = active.assigned[step.binding.action];
+    const index = step.binding.action;
+    const chosen = active.assigned[index];
     const newTab = active.newTab || event.shiftKey;
     endHints();
-    if (chosen !== undefined) activate(chosen.target, newTab, active.requestId);
+    if (chosen !== undefined) activate(chosen.target, active.drawn[index], newTab, active.requestId);
   };
 
   const showLabels = (active: HintSession, targets: ReadonlyArray<Target>) => {
@@ -313,6 +334,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       return target === undefined ? [] : [{ label, target }];
     });
     active.assigned = assigned;
+    active.drawn = assigned.map(({ target }) => target.rect);
     const labelKeymap = (keep: (target: Target) => boolean) =>
       compileKeymap(
         assigned.flatMap(({ label, target }, index) =>
@@ -335,21 +357,20 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     // frame), not once per label; a document scrolled away hides all its labels.
     const place = placementCache(doc);
     const frames = new Map<OpaqueFrame, OpaqueFrame | undefined>();
-    overlay.reposition(
-      active.assigned.map(({ target }) => {
-        if (target.source === "local") return liveRect(place, target.element);
-        const before = target.remote.frame;
-        if (!frames.has(before)) frames.set(before, liveFrame(place, before));
-        const after = frames.get(before);
-        if (after === undefined) return undefined;
-        return {
-          left: target.rect.left + after.offsetX - before.offsetX,
-          top: target.rect.top + after.offsetY - before.offsetY,
-          width: target.rect.width,
-          height: target.rect.height,
-        };
-      }),
-    );
+    active.drawn = active.assigned.map(({ target }) => {
+      if (target.source === "local") return liveRect(place, target.element);
+      const before = target.remote.frame;
+      if (!frames.has(before)) frames.set(before, liveFrame(place, before));
+      const after = frames.get(before);
+      if (after === undefined) return undefined;
+      return {
+        left: target.rect.left + after.offsetX - before.offsetX,
+        top: target.rect.top + after.offsetY - before.offsetY,
+        width: target.rect.width,
+        height: target.rect.height,
+      };
+    });
+    overlay.reposition(active.drawn);
   };
 
   const startHints = (newTab: boolean) => {
@@ -376,6 +397,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       collectBudget: frameBudget(),
       keyBudget: frameBudget(),
       assigned: undefined,
+      drawn: [],
       keymap: undefined,
       frameKeymap: undefined,
       state: EMPTY_STATE,
@@ -430,12 +452,25 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       showLabels(active, local);
       return;
     }
+    // The page's labels show at once and each frame's join as it answers, but
+    // only until a key is typed: labels never change under a half-typed one.
+    const withRemote = (remote: ReadonlyArray<RemoteTarget>) => [
+      ...local,
+      ...remote.map((target): Target => ({ source: "remote", remote: target, kind: target.kind, rect: target.rect })),
+    ];
+    const relabel = (targets: ReadonlyArray<Target>) => {
+      if (targets.length > 0 && active.state.prefix.length === 0) showLabels(active, targets);
+    };
+    relabel(local);
     active.scope.fork(
-      Effect.map(collectRemote(active.frames, active.requestId, bridgeTimeoutMs, active.collectBudget), (remote) =>
-        showLabels(active, [
-          ...local,
-          ...remote.map((target): Target => ({ source: "remote", remote: target, kind: target.kind, rect: target.rect })),
-        ]),
+      Effect.map(
+        collectRemote(active.frames, active.requestId, bridgeTimeoutMs, active.collectBudget, (sofar) =>
+          relabel(withRemote(sofar)),
+        ),
+        (remote) => {
+          if (active.assigned === undefined) showLabels(active, withRemote(remote));
+          else relabel(withRemote(remote));
+        },
       ),
     );
   };

@@ -44,7 +44,8 @@ them at your own tokens with `var(...)` and they follow theme switches),
 (what `gi` may focus, default `TEXT_INPUT_SELECTOR`; it picks the last one
 used, else the biggest in the pane around the last click or focus, else the
 biggest on screen), `signal`,
-`bridgeTimeoutMs` (default 150).
+`bridgeTimeoutMs` (default 1000: how long bridge frames have to answer; the
+page's own labels do not wait for them).
 
 To make bbim stand aside (a game, a recording), add a guard that answers
 `blocked`; there is no separate disable switch.
@@ -53,7 +54,7 @@ To make bbim stand aside (a game, a recording), add a guard that answers
 
 | Hook | Use |
 |---|---|
-| `guards: FocusGuard[]` | `(focused) => "free" \| "typing" \| "blocked" \| undefined`. Editable focus is built in as `typing`. `typing` turns bare keys off (chords still work); `blocked` turns bbim off. Helpers: `withinGuard(selector)` (focus inside, e.g. a terminal), `presenceGuard(doc, selector, state)` (e.g. an open modal). Both see through open shadow roots; inside a closed one, focus is seen on its host, so match the host. |
+| `guards: FocusGuard[]` | `(focused) => "free" \| "typing" \| "blocked" \| undefined`. Editable focus is built in as `typing`. `typing` turns bare keys off (chords still work); `blocked` turns bbim off. Helpers: `withinGuard(selector)` (focus inside, e.g. a terminal), `presenceGuard(doc, selector, state)` (e.g. an open modal). Both see through open shadow roots; inside a closed one, focus is seen on its host, so match the host. Guards run only for keys a binding takes, in order, stopping once the answer is settled: list `presenceGuard`s (which search the document) last. |
 | `openUrl(url, { newTab })` | open new-tab URLs your way (new-tab hints, bridge `open` requests); `false` falls back to a cmd/ctrl-click on the link, or `window.open` for a bridge request |
 | `help()` | extra help-overlay sections, e.g. the host's own chords |
 
@@ -90,7 +91,9 @@ show, so nothing leaks into the page; held keys and IME composition never
 type a label. Links follow, buttons click, text fields focus with the caret
 at the end, selects open their picker. Labels are a snapshot: nothing
 watches the page while they show, and picking a target that has since left
-the page labels it afresh.
+the page, moved or been covered labels it afresh. Bridge frames' labels join
+the page's as each frame answers, until the first letter is typed; with no
+target on the page, hints wait for the frames.
 
 Letters read their case from Shift alone, so Caps Lock does not turn `f`
 into `F`. A sequence of plain keys (`gg`, `gi`) is dropped when focus moves
@@ -163,12 +166,16 @@ The bridge fails closed:
   forwarding or activate anything.
 - Key forwarding is renewed by the parent every second while hint mode is up,
   and the frame drops it after 3 s without a renewal, so a parent that dies
-  mid-session cannot leave the frame swallowing keys.
+  mid-session cannot leave the frame swallowing keys. When it drops it, or
+  someone clicks inside the frame, it tells the parent (`leave`), which ends
+  hints too; so does a renewal that comes later than 3 s.
+- Held keys and IME composition are swallowed but never forwarded.
 - One bridge per window: a second install is refused (and warned about).
   `window.bbimBridge.uninstall()` removes it and forgets its targets.
 
 On the parent side, bbim reads each frame's messages only from that frame's
-own window and at most 256 per hint session; asks only the frame that has
+own window and at most 256 of each kind it reads (target replies, keys) per
+hint session, counted before decoding; asks only the frame that has
 focus to forward keys, and lets those keys pick only that frame's targets;
 and opens a URL for a frame only as the one answer to an activation it sent.
 
@@ -196,12 +203,13 @@ Parent → frame (the bridge only accepts messages whose `source` is its own
 
 Frame → parent (the parent only accepts messages whose `source` is the
 frame's own `contentWindow`, at most `FRAME_MESSAGE_BUDGET` (256) per frame per
-session):
+session for each listener: target replies and keys are counted apart):
 
 | `type` | Fields | Parent does |
 |---|---|---|
-| `targets` | `requestId`, `targets: {id, kind, left, top, width, height}[]` (≤ 2000, frame-viewport px) | places them inside the frame's box; frames that miss `bridgeTimeoutMs` are skipped |
-| `key` | `key`, `code` (≤ 64 chars), `ctrlKey`, `altKey`, `metaKey`, `shiftKey` | from the focused frame only: feeds the key to the hint session, where it can pick only that frame's targets |
+| `targets` | `requestId`, `targets: {id, kind, left, top, width, height}[]` (≤ 2000, frame-viewport px) | places them inside the frame's box and labels them as they arrive (until a letter is typed); frames that miss `bridgeTimeoutMs` are skipped |
+| `key` | `key`, `code` (≤ 64 chars), `ctrlKey`, `altKey`, `metaKey`, `shiftKey`, `repeat`, `isComposing` | from the focused frame only: feeds the key to the hint session, where it can pick, narrow or take back only that frame's labels; held and IME keys are ignored |
+| `leave` | `reason`: `pointer` (a click in the frame) or `lapsed` (forwarding timed out) | ends hint mode |
 | `open` | `requestId`, `url` (≤ 8192 chars) | only as the answer to its `activate` with `newTab` (same `requestId`, within 1 s): opens it in a new tab, http(s) only |
 
 `kind` is `link`, `button`, `text`, `select`, `toggle` or `weak`. Replies go
