@@ -39,6 +39,13 @@ const STYLE = `
   color: var(--bbim-hint-fg); background: var(--bbim-hint-bg);
   box-shadow: 0 0 0 1px var(--bbim-hint-ring), 0 1px 3px var(--bbim-hint-shadow);
 }
+/* Faded: the control shows only on hover. Same pill, dimmed, with a dashed ring. */
+.hint.faded {
+  color: color-mix(in srgb, var(--bbim-hint-fg) 72%, transparent);
+  background: color-mix(in srgb, var(--bbim-hint-bg) 62%, transparent);
+  box-shadow: 0 1px 3px var(--bbim-hint-shadow);
+  outline: 1px dashed var(--bbim-hint-ring); outline-offset: 0;
+}
 .hint[hidden] { display: none; }
 .hint .typed { color: var(--bbim-hint-typed); }
 .flash {
@@ -76,6 +83,8 @@ const STYLE = `
 export interface HintView {
   readonly label: string;
   readonly rect: Rect;
+  /** The target is drawn only on hover: its label is de-emphasized. */
+  readonly faded?: boolean;
 }
 
 export interface HelpSection {
@@ -175,8 +184,8 @@ export const mountOverlay = Effect.fn("mountOverlay")(function* (doc: Document, 
     setTheme,
     showHints: (views) => {
       for (const { node } of labels) node.remove();
-      labels = views.map(({ label, rect }) => {
-        const node = element(doc, "div", "hint");
+      labels = views.map(({ label, rect, faded = false }) => {
+        const node = element(doc, "div", faded ? "hint faded" : "hint");
         node.append(element(doc, "span", "typed"), element(doc, "span", undefined, label));
         if (win !== null) {
           const { x, y } = labelPosition(rect, label, win);

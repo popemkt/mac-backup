@@ -30,6 +30,8 @@ export interface RemoteTarget {
   readonly kind: TargetKind;
   /** In top-level coordinates, clipped to the frame's box. */
   readonly rect: Rect;
+  /** The frame reports it transparent until hovered. */
+  readonly faded: boolean;
 }
 
 function post(frame: OpaqueFrame, message: ParentMessage): void {
@@ -84,7 +86,7 @@ function placed(frame: OpaqueFrame, message: Extract<FrameMessage, { type: "targ
       { left: target.left + frame.offsetX, top: target.top + frame.offsetY, width: target.width, height: target.height },
       frame.box,
     );
-    return rect === undefined ? [] : [{ frame, id: target.id, kind: target.kind, rect }];
+    return rect === undefined ? [] : [{ frame, id: target.id, kind: target.kind, rect, faded: target.faded === true }];
   });
 }
 

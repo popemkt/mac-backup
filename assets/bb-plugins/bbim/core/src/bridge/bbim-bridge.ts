@@ -150,7 +150,13 @@ export function installBbimBridge(options: BridgeOptions): () => void {
             bbim: BRIDGE_PROTOCOL,
             type: "targets",
             requestId: message.requestId,
-            targets: found.map((target, id) => ({ id, kind: target.kind, ...target.rect })),
+            // `faded` is optional in the protocol: sent only when true.
+            targets: found.map((target, id) => ({
+              id,
+              kind: target.kind,
+              ...target.rect,
+              ...(target.faded ? { faded: true } : {}),
+            })),
           },
           event.origin,
         );

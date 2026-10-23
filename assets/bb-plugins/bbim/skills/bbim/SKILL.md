@@ -43,6 +43,7 @@ is swallowed while hints show, so Esc never reaches bb's back navigation.
 |---|---|---|
 | `bareKeys` | `true` | off leaves only the chords |
 | `hintAlphabet` | `sadfjklewcmpgh` | ≥ 2 distinct letters, strongest first; the first become single-key labels |
+| `fadedTargets` | `show` | hover-only controls (a tab's ×) get dimmed, dashed labels after the visible ones; `hide` leaves them out |
 | `key-hints`, `key-hintsNewTab`, `key-scrollDown`, `key-scrollUp`, `key-halfPageDown`, `key-halfPageUp`, `key-scrollTop`, `key-scrollBottom`, `key-focusInput`, `key-help` | `f F j k d u gg G gi ?` | vim notation (`gg`, `<A-f>`, `<C-d>`, `<Space>`); empty unbinds; may not start with `<Esc>` or a digit (bb uses digits to answer agent questions) |
 | `scrollStep` | `70` | px, 10–2000 |
 | `sequenceTimeoutMs` | `1000` | ms, 200–5000; how long `gg` waits for its second key |
@@ -70,7 +71,7 @@ Protocol `bbim-bridge/1`: `postMessage` objects with `bbim: "bbim-bridge/1"`, bo
 decoded by exact checks, anything else dropped. Parent → frame: `collect {requestId}`,
 `activate {requestId, targetId, newTab}`, `mode {active}` (only to the focused frame,
 renewed every 1 s; the frame stops forwarding after 3 s without renewal). Frame → parent:
-`targets {requestId, targets[{id, kind, left, top, width, height}]}` (frame-viewport px,
+`targets {requestId, targets[{id, kind, left, top, width, height, faded?}]}` (frame-viewport px,
 ≤ 2000), `key {key, code, ctrlKey, altKey, metaKey, shiftKey, repeat, isComposing}` (from the
 focused frame only; picks, narrows or takes back only that frame's labels; held and IME keys
 ignored), `leave {reason: pointer | lapsed}` (a click in the frame or lapsed forwarding ends
@@ -85,4 +86,5 @@ bridge frames only from origins you trust. Full tables: `core/README.md`.
 - No hints inside bb's browser tabs yet (kb gap `01M5KBVSMZ39HBDVBG4CA5TEH0`): bbim stands aside
   there.
 - Hints cover what is on screen and not covered by something else; scroll to reach the rest.
+  Controls shown only on hover are included, with dimmed dashed labels after the visible ones.
 - Digit keys are never bbim's.

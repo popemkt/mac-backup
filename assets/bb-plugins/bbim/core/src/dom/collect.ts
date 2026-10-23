@@ -1,6 +1,12 @@
 // Finding hint targets in one document: candidates by selector, kept only when
-// they are on screen, visible, and not covered by something else.
+// they are on screen, rendered, and not covered by something else.
+//
+// Visibility has two parts. Rendered (display, visibility, content-visibility)
+// decides whether something is a target at all. Faded (opacity near zero,
+// its own or an ancestor's) does not: a control drawn only on hover is still
+// there to click, so it is a target flagged `faded`, labeled after the rest.
 import { type Candidate, classify, dedupe, intersect, type Rect, type TargetKind } from "../domain/targets.ts";
+import { parentAcrossShadow } from "./tree.ts";
 
 /** What counts as interactive, before visibility filtering. */
 export const DEFAULT_SELECTORS: ReadonlyArray<string> = [
@@ -42,6 +48,8 @@ export interface LocalTarget {
   readonly element: Element;
   readonly kind: TargetKind;
   readonly rect: Rect;
+  /** Transparent until hovered or focused (`opacity-0 group-hover:opacity-100`). */
+  readonly faded: boolean;
 }
 
 /** Where a document sits in the top-level viewport. */
@@ -78,12 +86,35 @@ export function visibleBox(element: Element, viewport: Rect): Rect | undefined {
   return undefined;
 }
 
+/** Whether `element` is laid out and painted at all: display, visibility and content-visibility, not opacity. */
 export function isRendered(element: Element): boolean {
   if (typeof element.checkVisibility === "function") {
-    return element.checkVisibility({ opacityProperty: true, visibilityProperty: true });
+    return element.checkVisibility({ visibilityProperty: true });
   }
   const style = element.ownerDocument.defaultView?.getComputedStyle(element);
-  return style === undefined || (style.visibility !== "hidden" && style.display !== "none" && style.opacity !== "0");
+  return style === undefined || (style.visibility !== "hidden" && style.display !== "none");
+}
+
+/** Below this effective opacity a control reads as absent until hovered. */
+const FADED_OPACITY = 0.05;
+
+/**
+ * The opacity `element` is painted with: its own times every ancestor's,
+ * across shadow hosts. `cache` shares the ancestors' answers within one pass.
+ */
+function effectiveOpacity(element: Element, cache: Map<Element, number>): number {
+  const known = cache.get(element);
+  if (known !== undefined) return known;
+  const own = Number.parseFloat(element.ownerDocument.defaultView?.getComputedStyle(element).opacity ?? "");
+  const parent = parentAcrossShadow(element);
+  const opacity = (Number.isFinite(own) ? own : 1) * (parent === null ? 1 : effectiveOpacity(parent, cache));
+  cache.set(element, opacity);
+  return opacity;
+}
+
+/** Whether `element` is rendered but transparent: there to click, drawn only on hover or focus. */
+export function isFaded(element: Element, cache: Map<Element, number> = new Map()): boolean {
+  return effectiveOpacity(element, cache) < FADED_OPACITY;
 }
 
 function isDisabled(element: Element): boolean {
@@ -134,6 +165,7 @@ export function collectTargets(placement: DocumentPlacement, options: CollectOpt
   const viewport = viewportOf(doc);
   const found: Array<LocalTarget & Candidate> = [];
   const seen = new Set<Element>();
+  const opacities = new Map<Element, number>();
   for (const element of doc.querySelectorAll(options.selectors.join(","))) {
     if (seen.has(element)) continue;
     seen.add(element);
@@ -149,7 +181,7 @@ export function collectTargets(placement: DocumentPlacement, options: CollectOpt
       placement.clip,
     );
     if (placed === undefined) continue;
-    found.push({ element, kind, rect: placed });
+    found.push({ element, kind, rect: placed, faded: isFaded(element, opacities) });
   }
   const indexOf = new Map(found.map((target, index) => [target.element, index]));
   const ancestors = function* (inner: number): Generator<number> {
@@ -161,6 +193,6 @@ export function collectTargets(placement: DocumentPlacement, options: CollectOpt
   const kept = dedupe(found, ancestors, placement.clip);
   return kept.flatMap((index) => {
     const target = found[index];
-    return target === undefined ? [] : [{ element: target.element, kind: target.kind, rect: target.rect }];
+    return target === undefined ? [] : [{ element: target.element, kind: target.kind, rect: target.rect, faded: target.faded }];
   });
 }

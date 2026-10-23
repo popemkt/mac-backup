@@ -67,6 +67,7 @@ a bad field falls back to its default and is reported, the rest still apply.
 |---|---|---|
 | `bareKeys` | `true` | single keys without ctrl/alt/meta are active only while focus is `free` |
 | `hintAlphabet` | `sadfjklewcmpgh` | ≥ 2 distinct letters, strongest first: the first ones become single-key labels |
+| `fadedTargets` | `show` | `show` labels controls drawn only on hover (opacity ≈ 0, e.g. a tab's close button) after every visible one, dimmed with a dashed ring; `hide` leaves them out |
 | `scrollStep` | `70` | integer px, 10–2000 |
 | `sequenceTimeoutMs` | `1000` | integer ms, 200–5000; how long `gg` waits |
 | `keys.<action>` | see below | vim notation; empty unbinds; may not start with `<Esc>` |
@@ -89,7 +90,12 @@ a frame, a resize or a hidden tab leaves. Shift on the last letter, or
 `hintsNewTab`, opens links in a new tab. Every key is swallowed while hints
 show, so nothing leaks into the page; held keys and IME composition never
 type a label. Links follow, buttons click, text fields focus with the caret
-at the end, selects open their picker. Labels are a snapshot: nothing
+at the end, selects open their picker. A target must be rendered (not
+`display: none`, `visibility: hidden` or `content-visibility: hidden`) and
+hit-testable; opacity does not exclude it. A control at opacity ≈ 0 (its own
+or an ancestor's: `opacity-0 group-hover:opacity-100`) is *faded*: labeled
+after every visible target, so it never takes a short label, and drawn
+dimmed with a dashed ring. Labels are a snapshot: nothing
 watches the page while they show, and picking a target that has since left
 the page, moved or been covered labels it afresh. Bridge frames' labels join
 the page's as each frame answers, until the first letter is typed; with no
@@ -209,7 +215,7 @@ session for each listener: target replies and keys are counted apart):
 
 | `type` | Fields | Parent does |
 |---|---|---|
-| `targets` | `requestId`, `targets: {id, kind, left, top, width, height}[]` (≤ 2000, frame-viewport px) | places them inside the frame's box and labels them as they arrive (until a letter is typed); frames that miss `bridgeTimeoutMs` are skipped |
+| `targets` | `requestId`, `targets: {id, kind, left, top, width, height, faded?}[]` (≤ 2000, frame-viewport px; `faded: true` for a hover-only control) | places them inside the frame's box and labels them as they arrive (until a letter is typed); frames that miss `bridgeTimeoutMs` are skipped |
 | `key` | `key`, `code` (≤ 64 chars), `ctrlKey`, `altKey`, `metaKey`, `shiftKey`, `repeat`, `isComposing` | from the focused frame only: feeds the key to the hint session, where it can pick, narrow or take back only that frame's labels; held and IME keys are ignored |
 | `leave` | `reason`: `pointer` (a click in the frame) or `lapsed` (forwarding timed out) | ends hint mode |
 | `open` | `requestId`, `url` (≤ 8192 chars) | only as the answer to its `activate` with `newTab` (same `requestId`, within 1 s): opens it in a new tab, http(s) only |

@@ -75,6 +75,16 @@ export const SETTINGS = {
     default: DEFAULT_SETTINGS.hintAlphabet,
     experimental_schema: standard(Schema.toStandardSchemaV1(SETTING_SCHEMAS.hintAlphabet)),
   },
+  fadedTargets: {
+    type: "select",
+    label: "Hover-only controls",
+    description:
+      "Controls that appear only on hover (a tab's close button) get dimmed, dashed labels after every visible one. Hide leaves them out.",
+    options: ["show", "hide"],
+    experimental_optionLabels: { show: "Label them", hide: "Leave them out" },
+    default: DEFAULT_SETTINGS.fadedTargets,
+    experimental_schema: standard(Schema.toStandardSchemaV1(SETTING_SCHEMAS.fadedTargets)),
+  },
   ...keyDescriptors,
   scrollStep: {
     type: "number",
@@ -103,6 +113,7 @@ export function settingsInput(values: Readonly<Record<string, unknown>>): Settin
   return {
     bareKeys: values["bareKeys"],
     hintAlphabet: values["hintAlphabet"],
+    fadedTargets: values["fadedTargets"],
     scrollStep: values["scrollStep"],
     sequenceTimeoutMs: values["sequenceTimeoutMs"],
     keys,

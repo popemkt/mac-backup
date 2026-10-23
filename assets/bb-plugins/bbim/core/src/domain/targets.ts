@@ -151,19 +151,24 @@ export function dedupe(
 }
 
 /**
- * The order labels are handed out in: shortest labels go first. Targets inside
- * the focus region (the pane the person is working in) come before the rest;
- * within each group, nearest to the region's top-left corner first, rows
- * weighing more than columns so a line reads left to right.
+ * The order labels are handed out in: shortest labels go first. Faded targets
+ * (drawn only on hover) come after every visible one, so they never take a
+ * short label from a control on screen. Then targets inside the focus region
+ * (the pane the person is working in) come before the rest; within each
+ * group, nearest to the region's top-left corner first, rows weighing more
+ * than columns so a line reads left to right.
  */
-export function order(rects: ReadonlyArray<Rect>, focus: Rect | undefined): ReadonlyArray<number> {
+export function order(
+  targets: ReadonlyArray<{ readonly rect: Rect; readonly faded?: boolean }>,
+  focus: Rect | undefined,
+): ReadonlyArray<number> {
   const anchor = focus ?? { left: 0, top: 0, width: 0, height: 0 };
-  const scored = rects.map((rect, index) => {
+  const scored = targets.map(({ rect, faded = false }, index) => {
     const inside = focus !== undefined && intersect(rect, focus) !== undefined;
     const dx = Math.abs(rect.left - anchor.left);
     const dy = Math.abs(rect.top - anchor.top);
-    return { index, group: inside || focus === undefined ? 0 : 1, distance: dy * 2 + dx };
+    return { index, faded: faded ? 1 : 0, group: inside || focus === undefined ? 0 : 1, distance: dy * 2 + dx };
   });
-  scored.sort((a, b) => a.group - b.group || a.distance - b.distance || a.index - b.index);
+  scored.sort((a, b) => a.faded - b.faded || a.group - b.group || a.distance - b.distance || a.index - b.index);
   return scored.map((entry) => entry.index);
 }
