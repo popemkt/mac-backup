@@ -144,6 +144,11 @@
       "--no-open"
       "--public-origin"
       config.my.stacks.vpn.services.kb-popemkt.publicOrigin
+      # bb frames the page beside a thread (assets/bb-plugins/kb), and the
+      # framed page tells bb its tab session (kb DESIGN.md → Surfaces →
+      # Embedding the page). No other page may frame it.
+      "--embed-origin"
+      config.my.stacks.vpn.services.bb-popemkt.publicOrigin
     ];
   };
 
@@ -164,6 +169,11 @@
       # Server URL overrides it when set): the same Service, since bb itself
       # listens only on loopback.
       BB_EXTERNAL_URL = config.my.stacks.vpn.services.bb-popemkt.publicOrigin;
+      # The kb plugin's defaults (assets/bb-plugins/kb): the kb page its
+      # thread panel frames, and kb's owner-only socket, which its agent
+      # tools call as popemkt, who owns both servers.
+      KB_URL = config.my.stacks.vpn.services.kb-popemkt.publicOrigin;
+      KB_SOCKET = config.my.services.kb.socket;
     };
   };
 
