@@ -357,6 +357,96 @@ function withFocusedFrame(options: Omit<CreateBbimOptions, "window"> = {}) {
   };
 }
 
+const later = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+test("hints: a target that moved or got covered relabels instead of being clicked", () => {
+  const { p, bbim } = start();
+  let clicked = 0;
+  const save = p.doc.getElementById("save");
+  save?.addEventListener("click", () => {
+    clicked += 1;
+  });
+  p.key("f");
+  const moved = p.labels()[1] ?? "";
+  save?.setAttribute("data-rect", "10,300,80,30");
+  for (const char of moved) p.key(char);
+  assert.equal(clicked, 0, "a moved target is not clicked where it no longer is");
+  assert.equal(bbim.mode(), "hint", "hints come back, collected afresh");
+  p.key("Escape");
+  const cover = p.doc.createElement("div");
+  cover.setAttribute("data-rect", "0,290,200,60");
+  p.doc.body.append(cover);
+  p.key("f");
+  const labels = p.labels();
+  // Covered now: it gets no label at all; uncover it to see it labeled again.
+  cover.remove();
+  p.key("Escape");
+  p.key("f");
+  assert.equal(p.labels().length, labels.length + 1);
+  const label = p.labels()[1] ?? "";
+  p.doc.body.append(cover);
+  for (const char of label) p.key(char);
+  assert.equal(clicked, 0, "a target covered since its label showed is not clicked");
+  assert.equal(bbim.mode(), "hint");
+});
+
+test("bridge frames: the page's labels show at once and a slow frame's join when it answers", async () => {
+  const { p, bbim } = start();
+  const slow = opaqueFrame(p, "600,100,200,200");
+  bbim.run("hints");
+  const local = p.labels().length;
+  assert.equal(local, 4, "the page's own targets do not wait for frames");
+  await later(300);
+  const requestId = slow.sent.find((message) => message.type === "collect")?.requestId ?? "";
+  fromFrame(p, slow.child, {
+    bbim: BRIDGE_PROTOCOL,
+    type: "targets",
+    requestId,
+    targets: [{ id: 3, kind: "button", left: 10, top: 10, width: 40, height: 20 }],
+  });
+  await later(10);
+  assert.equal(p.labels().length, local + 1, "a frame answering after 300 ms still gets its label");
+});
+
+test("bridge frames: labels never change under a half-typed one", async () => {
+  const { p, bbim } = start({ settings: { hintAlphabet: "ab" } });
+  const slow = opaqueFrame(p, "600,100,200,200");
+  bbim.run("hints");
+  const first = p.labels()[0]?.[0] ?? "a";
+  p.key(first);
+  const narrowed = p.labels();
+  const requestId = slow.sent.find((message) => message.type === "collect")?.requestId ?? "";
+  fromFrame(p, slow.child, {
+    bbim: BRIDGE_PROTOCOL,
+    type: "targets",
+    requestId,
+    targets: [{ id: 3, kind: "button", left: 10, top: 10, width: 40, height: 20 }],
+  });
+  await later(10);
+  assert.deepEqual(p.labels(), narrowed);
+  assert.equal(bbim.mode(), "hint");
+});
+
+test("bridge frames: with nothing on the page, hints wait for the frames", async () => {
+  const { p, bbim } = start({ selectors: ["#nothing-here"], bridgeTimeoutMs: 200 });
+  const slow = opaqueFrame(p, "600,100,200,200");
+  bbim.run("hints");
+  assert.equal(bbim.mode(), "hint", "frames may still answer");
+  const requestId = slow.sent.find((message) => message.type === "collect")?.requestId ?? "";
+  fromFrame(p, slow.child, {
+    bbim: BRIDGE_PROTOCOL,
+    type: "targets",
+    requestId,
+    targets: [{ id: 3, kind: "button", left: 10, top: 10, width: 40, height: 20 }],
+  });
+  await later(10);
+  assert.equal(p.labels().length, 1);
+  p.key("Escape");
+  bbim.run("hints");
+  await later(250);
+  assert.equal(bbim.mode(), "normal", "no target anywhere once the frames had their time");
+});
+
 test("bridge frames: only the focused frame forwards keys, and its keys pick only its own targets", async () => {
   const { p, bbim } = start({ settings: { hintAlphabet: "ab" }, bridgeTimeoutMs: 200 });
   const focused = opaqueFrame(p, "600,100,200,200");

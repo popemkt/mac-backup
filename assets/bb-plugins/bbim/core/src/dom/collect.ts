@@ -101,7 +101,7 @@ function owns(element: Element, hit: Element): boolean {
  * Whether some of `shown` is really visible: a point of it hit-tests to the
  * element, so no other element (a dialog, a sticky header) is painted over it.
  */
-function isUncovered(doc: Document, element: Element, shown: Rect): boolean {
+export function isUncovered(doc: Document, element: Element, shown: Rect): boolean {
   const points: ReadonlyArray<readonly [number, number]> = [
     [0.5, 0.5],
     [0.15, 0.5],
