@@ -22,6 +22,10 @@ in
       # Vim-style keyboard navigation of bb: link hints (alt+f, f),
       # j/k/gg/G scrolling, gi to the composer.
       "assets/bb-plugins/bbim"
+      # The `Canvases` panel tab: tldraw canvases linked to a thread, its
+      # project, or everything, read through each machine's `canvas-link`
+      # (modules/stacks/ai-agents/canvas-links).
+      "assets/bb-plugins/canvas-links"
     ];
 
     # No anonymous usage telemetry (PostHog) from any bb server or host
