@@ -31,6 +31,8 @@ type Check<A> = (value: unknown) => value is A;
 type Checked<C> = C extends Check<infer A> ? A : never;
 type Shape = Readonly<Record<string, Check<unknown>>>;
 type Of<S extends Shape> = { readonly [K in keyof S]: Checked<S[K]> };
+type Maybe<O extends Shape> = { readonly [K in keyof O]?: Checked<O[K]> };
+const NONE: Readonly<Record<never, Check<unknown>>> = {};
 
 const text =
   (max: number): Check<string> =>
@@ -59,15 +61,20 @@ const listOf =
   (value): value is ReadonlyArray<A> =>
     Array.isArray(value) && value.length <= max && value.every(item);
 
-/** Exactly the keys of `shape`, each passing its check: no missing and no extra keys. */
+/**
+ * Every key of `shape` and any of `optional`, each passing its check: no
+ * missing required key and no key outside the two.
+ */
 const struct =
-  <S extends Shape>(shape: S): Check<Of<S>> =>
-  (value): value is Of<S> => {
+  <S extends Shape, O extends Shape = typeof NONE>(shape: S, optional: O = NONE as O): Check<Of<S> & Maybe<O>> =>
+  (value): value is Of<S> & Maybe<O> => {
     if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-    const keys = Object.keys(value);
-    if (keys.length !== Object.keys(shape).length) return false;
     const record = value as Readonly<Record<string, unknown>>;
-    return keys.every((key) => Object.hasOwn(shape, key) && shape[key]?.(record[key]) === true);
+    if (!Object.keys(shape).every((key) => Object.hasOwn(record, key))) return false;
+    return Object.keys(record).every((key) => {
+      const check = Object.hasOwn(shape, key) ? shape[key] : Object.hasOwn(optional, key) ? optional[key] : undefined;
+      return check?.(record[key]) === true;
+    });
   };
 
 /** A bridge message: the marker, its `type`, and its own fields. */
@@ -96,8 +103,11 @@ const parentMessages = {
 
 // ---- frame -> parent -------------------------------------------------------
 
-/** A target box in the frame's own viewport coordinates. */
-const frameTarget = struct({ id, kind: oneOf(TARGET_KINDS), left: coordinate, top: coordinate, width: size, height: size });
+/** A target box in the frame's own viewport coordinates; `faded` when it shows only on hover. */
+const frameTarget = struct(
+  { id, kind: oneOf(TARGET_KINDS), left: coordinate, top: coordinate, width: size, height: size },
+  { faded: flag },
+);
 export type FrameTarget = Checked<typeof frameTarget>;
 
 const frameMessages = {

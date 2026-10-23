@@ -23,6 +23,8 @@ export interface Settings {
   /** Single keys with no ctrl/alt/meta (`j`, `gg`) are active. Chords always are. */
   readonly bareKeys: boolean;
   readonly hintAlphabet: string;
+  /** Label controls drawn only on hover (after every visible one), or leave them out. */
+  readonly fadedTargets: "show" | "hide";
   /** Pixels per `scrollDown` / `scrollUp`. */
   readonly scrollStep: number;
   /** How long a multi-key sequence (`gg`) waits for its next key. */
@@ -33,6 +35,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   bareKeys: true,
   hintAlphabet: DEFAULT_ALPHABET,
+  fadedTargets: "show",
   scrollStep: 70,
   sequenceTimeoutMs: 1000,
   keys: Object.fromEntries(ACTIONS.map((action) => [action, ACTION_INFO[action].key])) as Record<Action, string>,
@@ -42,6 +45,7 @@ export const DEFAULT_SETTINGS: Settings = {
 export const SETTING_SCHEMAS = {
   bareKeys: Schema.Boolean,
   hintAlphabet: HintAlphabet,
+  fadedTargets: Schema.Literals(["show", "hide"]),
   scrollStep: Schema.Int.check(Schema.isBetween({ minimum: 10, maximum: 2000 })),
   sequenceTimeoutMs: Schema.Int.check(Schema.isBetween({ minimum: 200, maximum: 5000 })),
 } as const;
@@ -50,6 +54,7 @@ export const SETTING_SCHEMAS = {
 export interface SettingsInput {
   readonly bareKeys?: unknown;
   readonly hintAlphabet?: unknown;
+  readonly fadedTargets?: unknown;
   readonly scrollStep?: unknown;
   readonly sequenceTimeoutMs?: unknown;
   readonly keys?: Readonly<Partial<Record<string, unknown>>>;
@@ -93,6 +98,7 @@ export function decodeSettings(
   const settings: Settings = {
     bareKeys: decodeField(SETTING_SCHEMAS.bareKeys, "bareKeys", input.bareKeys, base.bareKeys, problems),
     hintAlphabet: decodeField(SETTING_SCHEMAS.hintAlphabet, "hintAlphabet", input.hintAlphabet, base.hintAlphabet, problems),
+    fadedTargets: decodeField(SETTING_SCHEMAS.fadedTargets, "fadedTargets", input.fadedTargets, base.fadedTargets, problems),
     scrollStep: decodeField(SETTING_SCHEMAS.scrollStep, "scrollStep", input.scrollStep, base.scrollStep, problems),
     sequenceTimeoutMs: decodeField(
       SETTING_SCHEMAS.sequenceTimeoutMs,

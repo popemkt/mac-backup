@@ -2,7 +2,7 @@
 // it with a selector (bb: its composers) instead of writing its own.
 import { area } from "../domain/targets.ts";
 import { focusForTyping } from "./activate.ts";
-import { isRendered, viewportOf, visibleBox } from "./collect.ts";
+import { isFaded, isRendered, viewportOf, visibleBox } from "./collect.ts";
 import { isEditable } from "./focus.ts";
 import { closestAcrossShadow, containsAcrossShadow, parentAcrossShadow, querySelectorAllDeep } from "./tree.ts";
 
@@ -33,7 +33,8 @@ export function pickInput(doc: Document, choice: InputChoice): Element | undefin
   const view = viewportOf(doc);
   const fields: Array<{ readonly element: Element; readonly size: number }> = [];
   for (const element of querySelectorAllDeep(doc, choice.selector)) {
-    if (!isEditable(element) || element.matches(":disabled") || !isRendered(element)) continue;
+    // A transparent field (an editor's hidden IME textarea) is not where anyone means to type.
+    if (!isEditable(element) || element.matches(":disabled") || !isRendered(element) || isFaded(element)) continue;
     // Inside a contenteditable region only the region itself is an input.
     const parent = parentAcrossShadow(element);
     if (parent !== null && closestAcrossShadow(parent, '[contenteditable]:not([contenteditable="false"])') !== null) continue;

@@ -65,6 +65,8 @@ const keyMessage = {
 
 test("protocol: well-formed messages decode", () => {
   assert.deepEqual(decodeFrameMessage(targets), targets);
+  const faded = { ...targets, targets: [{ id: 0, kind: "button", left: 0, top: 0, width: 9, height: 9, faded: true }] };
+  assert.deepEqual(decodeFrameMessage(faded), faded, "a target may say it shows only on hover");
   assert.ok(decodeParentMessage({ bbim: BRIDGE_PROTOCOL, type: "collect", requestId: "x" }) !== undefined);
   assert.ok(
     decodeParentMessage({ bbim: BRIDGE_PROTOCOL, type: "activate", requestId: "x", targetId: 3, newTab: true }) !== undefined,
@@ -94,6 +96,7 @@ test("protocol: untrusted frame data is refused, not repaired", () => {
     { ...targets, targets: [{ id: 0.5, kind: "link", left: 0, top: 0, width: 1, height: 1 }] },
     { ...targets, targets: [{ id: 0, kind: "link", left: 0, top: 0, width: -5, height: 1 }] },
     { ...targets, targets: [{ id: 0, kind: "link", left: 0, top: 0, width: 1, height: 1, onclick: "x" }] },
+    { ...targets, targets: [{ id: 0, kind: "link", left: 0, top: 0, width: 1, height: 1, faded: "yes" }] },
     { ...targets, targets: Array.from({ length: 2001 }, (_, id) => ({ id, kind: "link", left: 0, top: 0, width: 1, height: 1 })) },
     { ...targets, targets: { length: 0 } },
     { ...targets, requestId: "x".repeat(65) },
@@ -121,7 +124,8 @@ const frameMessageArb = fc.oneof(
         top: fc.double({ min: -100_000, max: 100_000, noNaN: true }),
         width: fc.double({ min: 0, max: 100_000, noNaN: true }),
         height: fc.double({ min: 0, max: 100_000, noNaN: true }),
-      }),
+        faded: fc.boolean(),
+      }, { requiredKeys: ["id", "kind", "left", "top", "width", "height"] }),
       { maxLength: 20 },
     ),
   }),
@@ -271,10 +275,22 @@ test("targets: dedupe visits each candidate's ancestors once, not every pair", (
 });
 
 test("targets: order starts in the focus region, nearest its corner first", () => {
-  const rects = [box(600, 500, 10, 10), box(10, 10, 10, 10), box(520, 120, 10, 10), box(700, 110, 10, 10)];
+  const rects = [box(600, 500, 10, 10), box(10, 10, 10, 10), box(520, 120, 10, 10), box(700, 110, 10, 10)].map((rect) => ({
+    rect,
+  }));
   const focus = box(500, 100, 400, 500);
   assert.deepEqual(order(rects, focus), [2, 3, 0, 1]);
   assert.deepEqual(order(rects, undefined), [1, 2, 3, 0]);
+});
+
+test("targets: faded targets come after every visible one, wherever they are", () => {
+  const mixed = [
+    { rect: box(520, 120, 10, 10), faded: true },
+    { rect: box(600, 500, 10, 10) },
+    { rect: box(10, 10, 10, 10), faded: false },
+  ];
+  const focus = box(500, 100, 400, 500);
+  assert.deepEqual(order(mixed, focus), [1, 2, 0], "the faded one is nearest the focus corner, yet last");
 });
 
 test("modes: a stack over normal; leaving a mode drops what is above it", () => {

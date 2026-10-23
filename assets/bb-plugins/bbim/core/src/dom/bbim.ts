@@ -93,8 +93,20 @@ export interface Bbim {
 }
 
 type Target =
-  | { readonly source: "local"; readonly element: Element; readonly kind: TargetKind; readonly rect: Rect }
-  | { readonly source: "remote"; readonly remote: RemoteTarget; readonly kind: TargetKind; readonly rect: Rect };
+  | {
+      readonly source: "local";
+      readonly element: Element;
+      readonly kind: TargetKind;
+      readonly rect: Rect;
+      readonly faded: boolean;
+    }
+  | {
+      readonly source: "remote";
+      readonly remote: RemoteTarget;
+      readonly kind: TargetKind;
+      readonly rect: Rect;
+      readonly faded: boolean;
+    };
 
 interface HintSession {
   readonly scope: ScopeHandle;
@@ -222,6 +234,9 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     return decoded.problems;
   };
 
+  /** Whether a target gets a label: hover-only ones unless the settings hide them. */
+  const shows = (target: { readonly faded: boolean }) => !target.faded || settings.fadedTargets === "show";
+
   const regionRect = (): Rect | undefined => {
     const element = regionOf(doc, lastPointer ?? deepActiveElement(doc));
     if (element === null) return undefined;
@@ -324,10 +339,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       endHints();
       return;
     }
-    const ordered = order(
-      targets.map((target) => target.rect),
-      regionRect(),
-    );
+    const ordered = order(targets, regionRect());
     const labels = generateLabels(ordered.length, settings.hintAlphabet);
     const assigned = labels.flatMap((label, rank) => {
       const target = targets[ordered[rank] ?? -1];
@@ -346,7 +358,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     const focused = active.focusedFrame;
     active.frameKeymap =
       focused === undefined ? undefined : labelKeymap((target) => target.source === "remote" && target.remote.frame === focused);
-    overlay.showHints(assigned.map(({ label, target }) => ({ label, rect: target.rect })));
+    overlay.showHints(assigned.map(({ label, target }) => ({ label, rect: target.rect, faded: target.faded })));
     for (const queued of active.queued.splice(0)) hintKey(queued.event, queued.from);
   };
 
@@ -382,8 +394,8 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     overlay.hideHelp();
     const tree = frameTree(doc);
     const local: Array<Target> = tree.documents.flatMap((placement) =>
-      collectTargets(placement, { selectors, exclude: (element) => element === overlay.host }).map(
-        (target): Target => ({ source: "local", ...target }),
+      collectTargets(placement, { selectors, exclude: (element) => element === overlay.host }).flatMap(
+        (target): Array<Target> => (shows(target) ? [{ source: "local", ...target }] : []),
       ),
     );
     requests += 1;
@@ -456,7 +468,9 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     // only until a key is typed: labels never change under a half-typed one.
     const withRemote = (remote: ReadonlyArray<RemoteTarget>) => [
       ...local,
-      ...remote.map((target): Target => ({ source: "remote", remote: target, kind: target.kind, rect: target.rect })),
+      ...remote.flatMap((target): Array<Target> =>
+        shows(target) ? [{ source: "remote", remote: target, kind: target.kind, rect: target.rect, faded: target.faded }] : [],
+      ),
     ];
     const relabel = (targets: ReadonlyArray<Target>) => {
       if (targets.length > 0 && active.state.prefix.length === 0) showLabels(active, targets);

@@ -42,6 +42,52 @@ test("hints: only visible, uncovered, on-screen targets get labels", () => {
   assert.equal(p.labels().length, 4);
 });
 
+/** A thread-panel tab (role=tab) holding a close button that shows only on hover. */
+const TABS = `
+  <main data-rect="0,0,1000,800">
+    <div role="tab" id="tab" data-rect="10,10,160,28">Thread one
+      <button id="close" aria-label="Close" style="opacity:0" data-rect="150,16,16,16">×</button>
+    </div>
+    <div class="row" style="opacity:0.02"><button id="row-menu" data-rect="10,60,20,20">…</button></div>
+    <button id="hidden" style="visibility:hidden" data-rect="10,100,40,20">Hidden</button>
+    <button id="save" data-rect="400,400,80,30">Save</button>
+  </main>`;
+
+test("hints: a tab containing a faded × button: both labelled, × after the visible ones", () => {
+  const p = page(TABS);
+  const bbim = createBbim({ window: p.win });
+  current = { page: p, bbim };
+  let closed = 0;
+  p.doc.getElementById("close")?.addEventListener("click", () => {
+    closed += 1;
+  });
+  p.key("f");
+  const views = [...(p.doc.querySelector("[data-bbim-overlay]")?.shadowRoot?.querySelectorAll(".hint") ?? [])];
+  // tab, save; then the faded close button and the faded row menu (an ancestor's opacity counts).
+  assert.equal(views.length, 4, "visibility:hidden stays out; faded controls stay in");
+  const faded = views.filter((view) => view.classList.contains("faded"));
+  assert.equal(faded.length, 2);
+  assert.ok(views.indexOf(faded[0] as Element) >= 2, "faded labels come after every visible one");
+  const labels = p.labels();
+  const visibleLongest = Math.max(...labels.slice(0, 2).map((label) => label.length));
+  assert.ok(labels.slice(2).every((label) => label.length >= visibleLongest), "no faded target takes a shorter label");
+  // Pick the faded labels until the close button fires: it is clicked as is, no hover needed.
+  for (const label of labels.slice(2)) {
+    if (closed > 0) break;
+    if (bbim.mode() !== "hint") p.key("f");
+    for (const char of label) p.key(char);
+  }
+  assert.equal(closed, 1);
+});
+
+test("settings: fadedTargets hide leaves hover-only controls out", () => {
+  const p = page(TABS);
+  const bbim = createBbim({ window: p.win, settings: { fadedTargets: "hide" } });
+  current = { page: p, bbim };
+  p.key("f");
+  assert.equal(p.labels().length, 2);
+});
+
 test("hints: typing a label activates its target; labels are case-insensitive", () => {
   const { p, bbim } = start();
   let clicked = "";
