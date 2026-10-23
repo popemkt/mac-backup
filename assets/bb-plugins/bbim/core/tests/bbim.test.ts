@@ -102,6 +102,24 @@ test("guards: bare keys type into a text field, chords still work", () => {
   assert.equal(bbim.mode(), "hint");
 });
 
+test("guards: ordinary typing never runs the host guards", () => {
+  let asked = 0;
+  const counting = () => {
+    asked += 1;
+    return undefined;
+  };
+  const { p } = start({ hooks: { guards: [counting] } });
+  for (const key of ["1", "9", "x", "Enter"]) p.key(key);
+  assert.equal(asked, 0, "unbound keys cost no guard");
+  (p.doc.getElementById("composer") as HTMLTextAreaElement).focus();
+  for (const key of ["f", "j", "g", "a"]) assert.equal(p.key(key).defaultPrevented, false);
+  assert.equal(asked, 0, "bound keys in a text field stop at the editable check");
+  p.doc.body.focus();
+  (p.doc.activeElement as HTMLElement | null)?.blur();
+  p.key("j");
+  assert.equal(asked, 1, "a bound key outside a field asks each guard once");
+});
+
 test("guards: a host guard blocks everything inside it", () => {
   const { p, bbim } = start({ hooks: { guards: [withinGuard("[data-app-terminal]")] } });
   (p.doc.getElementById("terminal") as HTMLElement).focus();

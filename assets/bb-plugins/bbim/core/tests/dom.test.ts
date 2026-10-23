@@ -5,7 +5,7 @@ import { afterEach, test } from "node:test";
 import { editableGuard, focusState, MODAL_SELECTOR, presenceGuard, withinGuard } from "../src/dom/focus.ts";
 import { placementCache } from "../src/dom/frames.ts";
 import { pickInput, TEXT_INPUT_SELECTOR } from "../src/dom/inputs.ts";
-import { closestAcrossShadow } from "../src/dom/tree.ts";
+import { closestAcrossShadow, querySelectorAllDeep } from "../src/dom/tree.ts";
 import { layOutFrame, page, type Page } from "./harness.ts";
 
 let open: Array<Page> = [];
@@ -68,6 +68,34 @@ test("gi picker: the input in the pane you are in beats a bigger one elsewhere",
   const near = p.doc.getElementById("here");
   assert.equal(pickInput(p.doc, { selector: TEXT_INPUT_SELECTOR, lastEditable: null, near })?.id, "mine");
   assert.equal(pickInput(p.doc, { selector: TEXT_INPUT_SELECTOR, lastEditable: null, near: null })?.id, "theirs");
+});
+
+test("gi picker: a composer inside a shadow root counts, and its pane holds it", () => {
+  const p = load(`
+    <section id="left" data-rect="0,0,400,800"><p id="here" data-rect="0,0,400,100">x</p></section>
+    <textarea id="plain" data-rect="400,600,600,150"></textarea>`);
+  const host = p.doc.createElement("div");
+  host.setAttribute("data-rect", "0,600,300,50");
+  p.doc.getElementById("left")?.append(host);
+  host.attachShadow({ mode: "open" }).innerHTML = `<textarea id="shadowed" data-rect="0,600,300,50"></textarea>`;
+  const near = p.doc.getElementById("here");
+  assert.equal(pickInput(p.doc, { selector: TEXT_INPUT_SELECTOR, lastEditable: null, near })?.id, "shadowed");
+  const all = querySelectorAllDeep(p.doc, "textarea").map((element) => element.id);
+  assert.deepEqual(all, ["plain", "shadowed"]);
+});
+
+test("guards: focusState stops at the first guard that settles it", () => {
+  let asked = 0;
+  const counting = () => {
+    asked += 1;
+    return undefined;
+  };
+  const p = load(`<textarea id="t"></textarea>`);
+  const field = p.doc.getElementById("t");
+  assert.equal(focusState([editableGuard, counting], field, "typing"), "typing");
+  assert.equal(asked, 0, "a bare key in a text field needs no further guard");
+  assert.equal(focusState([editableGuard, counting], field), "typing");
+  assert.equal(asked, 1, "a chord asks every guard: one may block");
 });
 
 test("frames: a placement cache walks each document's frame chain once", () => {

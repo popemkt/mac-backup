@@ -4,7 +4,7 @@ import { area } from "../domain/targets.ts";
 import { focusForTyping } from "./activate.ts";
 import { isRendered, viewportOf, visibleBox } from "./collect.ts";
 import { isEditable } from "./focus.ts";
-import { closestAcrossShadow, parentAcrossShadow } from "./tree.ts";
+import { closestAcrossShadow, containsAcrossShadow, parentAcrossShadow, querySelectorAllDeep } from "./tree.ts";
 
 /** Every plain text input. */
 export const TEXT_INPUT_SELECTOR =
@@ -32,7 +32,7 @@ function biggest(fields: ReadonlyArray<{ readonly element: Element; readonly siz
 export function pickInput(doc: Document, choice: InputChoice): Element | undefined {
   const view = viewportOf(doc);
   const fields: Array<{ readonly element: Element; readonly size: number }> = [];
-  for (const element of doc.querySelectorAll(choice.selector)) {
+  for (const element of querySelectorAllDeep(doc, choice.selector)) {
     if (!isEditable(element) || element.matches(":disabled") || !isRendered(element)) continue;
     // Inside a contenteditable region only the region itself is an input.
     const parent = parentAcrossShadow(element);
@@ -46,7 +46,7 @@ export function pickInput(doc: Document, choice: InputChoice): Element | undefin
   }
   for (let scope = choice.near; scope !== null; scope = parentAcrossShadow(scope)) {
     const within = scope;
-    const inside = fields.filter((field) => within.contains(field.element));
+    const inside = fields.filter((field) => containsAcrossShadow(within, field.element));
     if (inside.length > 0) return biggest(inside);
   }
   return biggest(fields);

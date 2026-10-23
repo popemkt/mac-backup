@@ -19,15 +19,34 @@ export function closestAcrossShadow(element: Element | null, selector: string): 
   return null;
 }
 
+/** Whether `element` is `scope` or inside it, counting shadow hosts as containers. */
+export function containsAcrossShadow(scope: Element, element: Element): boolean {
+  for (let at: Element | null = element; at !== null; at = parentAcrossShadow(at)) {
+    if (at === scope) return true;
+  }
+  return false;
+}
+
+/** `root`, then every open shadow root below it, lazily. */
+function* deepRoots(root: Document | ShadowRoot): Generator<Document | ShadowRoot> {
+  yield root;
+  for (const element of root.querySelectorAll("*")) {
+    if (element.shadowRoot !== null) yield* deepRoots(element.shadowRoot);
+  }
+}
+
 /** The first element matching `selector` in `root` or any open shadow root below it. */
 export function querySelectorDeep(root: Document | ShadowRoot, selector: string): Element | null {
-  const direct = root.querySelector(selector);
-  if (direct !== null) return direct;
-  for (const element of root.querySelectorAll("*")) {
-    const shadow = element.shadowRoot;
-    if (shadow === null) continue;
-    const found = querySelectorDeep(shadow, selector);
+  for (const at of deepRoots(root)) {
+    const found = at.querySelector(selector);
     if (found !== null) return found;
   }
   return null;
+}
+
+/** Every element matching `selector` in `root` and the open shadow roots below it. */
+export function querySelectorAllDeep(root: Document | ShadowRoot, selector: string): ReadonlyArray<Element> {
+  const found: Array<Element> = [];
+  for (const at of deepRoots(root)) found.push(...at.querySelectorAll(selector));
+  return found;
 }

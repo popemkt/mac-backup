@@ -487,18 +487,26 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     if (pressed === undefined) return;
     // Expire first: a `g` from long ago must not make the next key part of a sequence.
     keyState = expire(keymap, keyState, now());
-    const focus = focusState(guards, composedTarget(event) ?? deepActiveElement(doc));
     // A sequence a chord started may end on a plain key wherever focus is; a
     // plain-key sequence (gg, gi) is bare all the way, so it never eats typing.
     const first = keyState.prefix[0];
     const bare = !isChord(pressed) && (first === undefined || !isChord(first));
-    if (focus === "blocked" || (bare && (focus === "typing" || !settings.bareKeys))) {
+    const [next, step] = feed(keymap, keyState, pressed, now());
+    // Only a key some binding takes asks where focus is: ordinary typing
+    // never runs the guards, and a bare key stops at the first "typing".
+    if (step.kind === "miss") {
+      keyState = next;
+      return;
+    }
+    const focus =
+      bare && !settings.bareKeys
+        ? "blocked"
+        : focusState(guards, composedTarget(event) ?? deepActiveElement(doc), bare ? "typing" : "blocked");
+    if (focus === "blocked" || (bare && focus === "typing")) {
       keyState = EMPTY_STATE;
       return;
     }
-    const [next, step] = feed(keymap, keyState, pressed, now());
     keyState = next;
-    if (step.kind === "miss") return;
     swallow(event);
     if (step.kind !== "match") return;
     const action = step.binding.action;
