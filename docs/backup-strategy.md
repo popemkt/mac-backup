@@ -249,6 +249,17 @@ they are opened.
 - Losing it costs the list only. The next `kb ui` over a root registers it
   again; labels and pins set by hand are what is lost.
 
+## Canvas Links Log
+
+`canvas-link` (`modules/stacks/ai-agents/canvas-links/`) records which tldraw
+canvases each agent session touched in
+`${XDG_STATE_HOME:-~/.local/state}/canvas-links/links.jsonl`, and pushes the
+rows to shared-server (`~/.local/state/canvas-links/hosts/<host>.jsonl`).
+
+Decision: **state, and a regular backup concern.** The rows are produced by
+use; shared-server's copy is the union of every Mac's, so a lost Mac log is
+recoverable from it, and its own backup is the server's.
+
 ## App Onboarding Checklist
 
 When adding a new app or agent, classify it using this checklist:

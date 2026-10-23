@@ -37,6 +37,13 @@ styling effort. This is where detail goes so the `Agents` page stays one line pe
 
 Create both pages on first touch of a board that lacks them. Update both before reporting done.
 
+## Every board: link it to the session
+
+After creating or editing a board, run `canvas-link add <file>` (the `.tldraw` path, or the doc's
+`documentId` when you only have that). It records the board against your session so the owner can
+find it from the thread later (bb's `Canvases` panel, `canvas-link ls`). Run it once per board per
+session; repeating is harmless. If `canvas-link` is not on PATH, say so in your report and go on.
+
 ## Styling
 
 - Colour groups and boxes **by concept family**, with a legend. Legends are visual: small swatch

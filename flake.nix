@@ -168,6 +168,18 @@
             touch "$out"
           '';
 
+      # Unit tests of canvas-link's rules (modules/stacks/ai-agents/canvas-links).
+      canvasLinksCheck =
+        pkgs.runCommand "canvas-links-check"
+          {
+            nativeBuildInputs = [ pkgs.nodejs ];
+          }
+          ''
+            cd ${./modules/stacks/ai-agents/canvas-links/cli}
+            node --test tests/*.test.mjs
+            touch "$out"
+          '';
+
       # Offline tests of the drift audit's sourced libraries: the probe
       # mechanism and the /Applications report.
       auditLibCheck =
@@ -283,6 +295,7 @@
         inherit systemSetupCheck;
         reconcile-scripts-check = reconcileScriptsCheck;
         audit-lib-check = auditLibCheck;
+        canvas-links-check = canvasLinksCheck;
         github-sources-check = githubSourcesCheck;
         system-setup-manifest-personal = systemSetupManifestCheck "popemkt-personal";
         system-setup-manifest-work = systemSetupManifestCheck "popemkt-work";

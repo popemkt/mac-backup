@@ -22,6 +22,7 @@ let
 in
 {
   imports = [
+    ./canvas-links # which tldraw canvases each agent session linked (CLI + bb panel)
     ./claude-mods.nix # Claude Code UI mods (function-hook plugins)
     ./cli-proxy-api.nix # local OAuth provider proxy (loopback :8317)
     # Alternative/companion: OmniRoute (https://github.com/diegosouzapw/OmniRoute)
