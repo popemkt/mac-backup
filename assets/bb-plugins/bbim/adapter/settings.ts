@@ -28,8 +28,20 @@ export const BbKeySequence = KeySequence.check(
   }),
 );
 
-/** The bb setting id of each action's key, e.g. `key.scrollDown`. */
-export const keySettingId = (action: Action): `key.${Action}` => `key.${action}`;
+/**
+ * The bb setting id of each action's key, e.g. `key-scrollDown`. bb allows only
+ * letters, digits, `-` and `_` in setting ids.
+ */
+export const keySettingId = (action: Action): `key-${Action}` => `key-${action}`;
+
+/**
+ * An Effect schema as the plain Standard Schema object bb's settings accept.
+ * bb checks `typeof value === "object"`, and an Effect schema is a function,
+ * so its `~standard` property is lifted onto an object of its own.
+ */
+const standard = <S extends { readonly "~standard": unknown }>(schema: S): Pick<S, "~standard"> => ({
+  "~standard": schema["~standard"],
+});
 
 const keyDescriptors: Record<string, PluginSettingDescriptor> = Object.fromEntries(
   ACTIONS.map((action) => [
@@ -42,7 +54,7 @@ const keyDescriptors: Record<string, PluginSettingDescriptor> = Object.fromEntri
           ? "Vim notation: `f`, `gg`, `<A-f>` (alt+f), `<C-d>`, `<Space>`. Empty unbinds. The alt+f chord itself is a bb command: rebind it in Settings → Keyboard."
           : undefined,
       default: DEFAULT_SETTINGS.keys[action],
-      experimental_schema: Schema.toStandardSchemaV1(BbKeySequence),
+      experimental_schema: standard(Schema.toStandardSchemaV1(BbKeySequence)),
     } satisfies PluginSettingDescriptor,
   ]),
 );
@@ -54,28 +66,28 @@ export const SETTINGS = {
     description:
       "f, j, k, d, u, gg, G, gi and ? work while nothing you can type into, no terminal and no browser tab has focus, and no dialog is open. Off leaves only the bb commands (alt+f, alt+shift+f).",
     default: DEFAULT_SETTINGS.bareKeys,
-    experimental_schema: Schema.toStandardSchemaV1(SETTING_SCHEMAS.bareKeys),
+    experimental_schema: standard(Schema.toStandardSchemaV1(SETTING_SCHEMAS.bareKeys)),
   },
   hintAlphabet: {
     type: "string",
     label: "Hint letters",
     description: "The letters hint labels are spelled in, strongest keys first: the first ones become single-key labels.",
     default: DEFAULT_SETTINGS.hintAlphabet,
-    experimental_schema: Schema.toStandardSchemaV1(SETTING_SCHEMAS.hintAlphabet),
+    experimental_schema: standard(Schema.toStandardSchemaV1(SETTING_SCHEMAS.hintAlphabet)),
   },
   ...keyDescriptors,
   scrollStep: {
     type: "number",
     label: "Scroll step (pixels)",
     default: DEFAULT_SETTINGS.scrollStep,
-    experimental_schema: Schema.toStandardSchemaV1(SETTING_SCHEMAS.scrollStep),
+    experimental_schema: standard(Schema.toStandardSchemaV1(SETTING_SCHEMAS.scrollStep)),
   },
   sequenceTimeoutMs: {
     type: "number",
     label: "Key sequence timeout (ms)",
     description: "How long gg or gi waits for its second key.",
     default: DEFAULT_SETTINGS.sequenceTimeoutMs,
-    experimental_schema: Schema.toStandardSchemaV1(SETTING_SCHEMAS.sequenceTimeoutMs),
+    experimental_schema: standard(Schema.toStandardSchemaV1(SETTING_SCHEMAS.sequenceTimeoutMs)),
   },
 } satisfies Record<string, PluginSettingDescriptor>;
 

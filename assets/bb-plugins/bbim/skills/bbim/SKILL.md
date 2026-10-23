@@ -43,7 +43,7 @@ is swallowed while hints show, so Esc never reaches bb's back navigation.
 |---|---|---|
 | `bareKeys` | `true` | off leaves only the chords |
 | `hintAlphabet` | `sadfjklewcmpgh` | ≥ 2 distinct letters, strongest first; the first become single-key labels |
-| `key.hints`, `key.hintsNewTab`, `key.scrollDown`, `key.scrollUp`, `key.halfPageDown`, `key.halfPageUp`, `key.scrollTop`, `key.scrollBottom`, `key.focusInput`, `key.help` | `f F j k d u gg G gi ?` | vim notation (`gg`, `<A-f>`, `<C-d>`, `<Space>`); empty unbinds; may not start with `<Esc>` or a digit (bb uses digits to answer agent questions) |
+| `key-hints`, `key-hintsNewTab`, `key-scrollDown`, `key-scrollUp`, `key-halfPageDown`, `key-halfPageUp`, `key-scrollTop`, `key-scrollBottom`, `key-focusInput`, `key-help` | `f F j k d u gg G gi ?` | vim notation (`gg`, `<A-f>`, `<C-d>`, `<Space>`); empty unbinds; may not start with `<Esc>` or a digit (bb uses digits to answer agent questions) |
 | `scrollStep` | `70` | px, 10–2000 |
 | `sequenceTimeoutMs` | `1000` | ms, 200–5000; how long `gg` waits for its second key |
 
