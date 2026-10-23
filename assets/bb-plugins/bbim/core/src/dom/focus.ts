@@ -68,12 +68,22 @@ export function deepActiveElement(doc: Document): Element | null {
   return active;
 }
 
-/** The strictest state any guard reports for `element`. */
-export function focusState(guards: ReadonlyArray<FocusGuard>, element: Element | null): FocusState {
+/**
+ * The strictest state any guard reports for `element`. Guards run in order
+ * and stop once the state reaches `enough` (a caller that only needs to know
+ * "not free" passes `"typing"`), so list cheap guards before ones that search
+ * the document.
+ */
+export function focusState(
+  guards: ReadonlyArray<FocusGuard>,
+  element: Element | null,
+  enough: FocusState = "blocked",
+): FocusState {
   let state: FocusState = "free";
   for (const guard of guards) {
     const opinion = guard(element);
     if (opinion !== undefined && RANK[opinion] > RANK[state]) state = opinion;
+    if (RANK[state] >= RANK[enough]) return state;
   }
   return state;
 }
@@ -94,7 +104,8 @@ export const MENU_SELECTOR = [
  * A guard that reports `state` while something matching `selector` is in the
  * document or any open shadow root in it, whatever has focus. A modal takes the keyboard (`blocked`); an
  * open menu takes letters for its typeahead but chords still reach bbim
- * (`typing`), so hints can still pick a menu item.
+ * (`typing`), so hints can still pick a menu item. It searches the document,
+ * so list it after the guards that only look at the focused element.
  */
 export function presenceGuard(doc: Document, selector: string, state: FocusState): FocusGuard {
   return () => (querySelectorDeep(doc, selector) !== null ? state : undefined);
