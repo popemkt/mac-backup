@@ -59,6 +59,27 @@ if [[ -n "${REBUILD_DRY_RUN:-}" ]]; then
   exit 0
 fi
 
+# A rebuild started from inside a my.services app (an agent working in a bb
+# thread runs under app-bb.service) dies when the switch restarts that app:
+# the stop kills the caller, the pipe to switch-to-configuration closes, and
+# switch-to-configuration panics (exit 101) after stopping the changed units and
+# before starting them, leaving them down. Rerun detached in a transient unit
+# outside the app's cgroup, logging to the journal, which survives that.
+if [[ "$(uname -s)" == Linux && -z "${REBUILD_DETACHED:-}" ]] &&
+  grep -Eq '/app-[a-z0-9-]+\.service' /proc/self/cgroup; then
+  unit="rebuild-detached-$(date +%s)"
+  detached_args=("$@")
+  [[ "$skip_checks" == true ]] && detached_args=(--no-checks "${detached_args[@]}")
+  sudo systemd-run --unit="$unit" --collect --no-block --uid="$(id -u)" \
+    --working-directory="$PWD" \
+    --setenv=REBUILD_DETACHED=1 --setenv=HOME="$HOME" --setenv=PATH="$PATH" \
+    --setenv=REBUILD_LOCAL="${REBUILD_LOCAL:-}" \
+    "$ROOT_DIR/scripts/rebuild" "${detached_args[@]}"
+  echo "rebuild: running from inside an app's cgroup, so detached as $unit."
+  echo "rebuild: follow it with: journalctl -fu $unit"
+  exit 0
+fi
+
 # A failed switch aborts here (set -e) with its own status, before any check.
 "${switch_cmd[@]}" "$@"
 
