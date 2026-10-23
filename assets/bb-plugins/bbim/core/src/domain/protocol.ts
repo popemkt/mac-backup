@@ -12,6 +12,14 @@ export const BRIDGE_PROTOCOL = "bbim-bridge/1";
 /** The most targets one frame may report; the rest are ignored. */
 export const MAX_FRAME_TARGETS = 2000;
 
+/** While hint mode is up the parent repeats `mode {active: true}` this often... */
+export const MODE_HEARTBEAT_MS = 1000;
+/** ...and a frame that hears none for this long stops forwarding keys on its own. */
+export const MODE_TTL_MS = 3000;
+
+/** The most messages a parent reads from one frame per hint session; the rest are dropped unread. */
+export const FRAME_MESSAGE_BUDGET = 256;
+
 const Marker = Schema.Literal(BRIDGE_PROTOCOL);
 const RequestId = Schema.String.check(Schema.isMaxLength(64));
 /** A coordinate in CSS pixels: finite and inside any plausible viewport. */
@@ -35,7 +43,11 @@ export const ActivateRequest = Schema.Struct({
   newTab: Schema.Boolean,
 });
 
-/** While `active`, the frame forwards every keydown to the parent and swallows it. */
+/**
+ * While `active`, the frame forwards every keydown to the parent and swallows
+ * it. The parent sends it only to the frame that has focus, and repeats it
+ * every MODE_HEARTBEAT_MS; the frame gives up after MODE_TTL_MS of silence.
+ */
 export const ModeRequest = Schema.Struct({
   bbim: Marker,
   type: Schema.Literal("mode"),
@@ -79,11 +91,13 @@ export const KeyForward = Schema.Struct({
 
 /**
  * The frame asks the parent to open a link in a new tab (a sandboxed frame
- * usually cannot). The parent opens only http(s) URLs.
+ * usually cannot). Only as the answer to the parent's `activate` with
+ * `newTab`, carrying its requestId; the parent opens only http(s) URLs.
  */
 export const OpenRequest = Schema.Struct({
   bbim: Marker,
   type: Schema.Literal("open"),
+  requestId: RequestId,
   url: Schema.String.check(Schema.isMaxLength(8192)),
 });
 

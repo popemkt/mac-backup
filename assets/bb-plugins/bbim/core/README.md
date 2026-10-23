@@ -151,9 +151,34 @@ over `postMessage`. A frame takes part by loading the bridge:
 
 (`bridge/bbim-bridge.js` is a self-contained classic script; or call
 `installBbimBridge({ parentOrigins })` from `@popemkt/bbim-core/bridge`.)
-`data-parent-origins` is a space-separated allowlist; without it the bridge
-answers any parent. `window.bbimBridge.uninstall()` removes it. Frames
-without the bridge simply get no hints.
+Frames without the bridge simply get no hints.
+
+The bridge fails closed:
+
+- `data-parent-origins` (space-separated) is required. Without it, or with
+  only `*`, the bridge does not install. It answers only `window.parent`, and
+  only from a listed origin.
+- An opaque `"null"` origin, which a sandboxed parent has and anyone could
+  be, may only be listed to allow `collect`: it can never turn on key
+  forwarding or activate anything.
+- Key forwarding is renewed by the parent every second while hint mode is up,
+  and the frame drops it after 3 s without a renewal, so a parent that dies
+  mid-session cannot leave the frame swallowing keys.
+- One bridge per window: a second install is refused (and warned about).
+  `window.bbimBridge.uninstall()` removes it and forgets its targets.
+
+On the parent side, bbim reads each frame's messages only from that frame's
+own window and at most 256 per hint session; asks only the frame that has
+focus to forward keys, and lets those keys pick only that frame's targets;
+and opens a URL for a frame only as the one answer to an activation it sent.
+
+Inherent limit: a frame reports its own target boxes, and the parent can only
+clip them to the frame's box, so a bridge frame can place labels anywhere
+inside itself. Embed bridge frames from origins you trust; the frame's list of
+parent origins is the other half of that agreement.
+
+The in-frame side is plain DOM plus the protocol schemas (no Effect runtime or
+scopes), so it can be rewritten without the rest of the core.
 
 ### Protocol `bbim-bridge/1`
 
@@ -161,22 +186,23 @@ Every message is a plain object with `bbim: "bbim-bridge/1"`. Both sides
 decode with the schemas in `src/domain/protocol.ts` and drop anything else.
 
 Parent → frame (the bridge only accepts messages whose `source` is its own
-`window.parent`, from an allowed origin):
+`window.parent`, from a listed origin; `activate` and `mode` never from `"null"`):
 
 | `type` | Fields | Frame does |
 |---|---|---|
 | `collect` | `requestId` (≤ 64 chars) | replies `targets` |
-| `activate` | `requestId`, `targetId` (int ≥ 0), `newTab` | activates that target from the last `collect`; a new-tab link becomes an `open` request |
-| `mode` | `active` | while active, forwards every keydown as `key` and swallows it |
+| `activate` | `requestId`, `targetId` (int ≥ 0), `newTab` | activates that target from the last `collect`; a new-tab link becomes an `open` request carrying this `requestId` |
+| `mode` | `active` | while active, forwards every keydown as `key` and swallows it; sent only to the focused frame, renewed every `MODE_HEARTBEAT_MS` (1 s), dropped by the frame after `MODE_TTL_MS` (3 s) of silence |
 
 Frame → parent (the parent only accepts messages whose `source` is the
-frame's own `contentWindow`):
+frame's own `contentWindow`, at most `FRAME_MESSAGE_BUDGET` (256) per frame per
+session):
 
 | `type` | Fields | Parent does |
 |---|---|---|
 | `targets` | `requestId`, `targets: {id, kind, left, top, width, height}[]` (≤ 2000, frame-viewport px) | places them inside the frame's box; frames that miss `bridgeTimeoutMs` are skipped |
-| `key` | `key`, `code` (≤ 64 chars), `ctrlKey`, `altKey`, `metaKey`, `shiftKey` | feeds the key to the hint session |
-| `open` | `url` (≤ 8192 chars) | opens it in a new tab, http(s) only |
+| `key` | `key`, `code` (≤ 64 chars), `ctrlKey`, `altKey`, `metaKey`, `shiftKey` | from the focused frame only: feeds the key to the hint session, where it can pick only that frame's targets |
+| `open` | `requestId`, `url` (≤ 8192 chars) | only as the answer to its `activate` with `newTab` (same `requestId`, within 1 s): opens it in a new tab, http(s) only |
 
 `kind` is `link`, `button`, `text`, `select`, `toggle` or `weak`. Replies go
 to the requester's origin (`"*"` only when that origin is opaque, as with a

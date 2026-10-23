@@ -2,7 +2,7 @@
 // over one window. Everything it acquires lives in one scope; `dispose`
 // closes it. Keydown handling is plain synchronous code (the hot path); only
 // acquiring and releasing go through Effect.
-import { Effect, Result } from "effect";
+import { Effect, Option, Result } from "effect";
 import { ACTION_INFO, ACTIONS, type Action } from "../domain/actions.ts";
 import {
   formatSequence,
@@ -34,9 +34,13 @@ import {
 } from "../domain/settings.ts";
 import { area, order, type Rect, type TargetKind } from "../domain/targets.ts";
 import { type ActivateContext, activateElement } from "./activate.ts";
+import { MODE_HEARTBEAT_MS } from "../domain/protocol.ts";
 import {
   activateRemote,
+  awaitOpen,
   collectRemote,
+  type FrameBudget,
+  frameBudget,
   listenForwarded,
   type RemoteTarget,
   setRemoteMode,
@@ -95,15 +99,21 @@ interface HintSession {
   readonly frames: ReadonlyArray<OpaqueFrame>;
   /** The frame element that had focus when hints started, if any. */
   readonly startFrame: Element | null;
+  /** The bridge frame that had focus: the only one asked to forward keys. */
+  readonly focusedFrame: OpaqueFrame | undefined;
+  /** How many more messages each bridge frame may send this session. */
+  readonly budget: FrameBudget;
   /** Labels and their targets once collected; undefined while frames answer. */
   assigned: ReadonlyArray<{ readonly label: string; readonly target: Target }> | undefined;
   keymap: Keymap<number> | undefined;
   state: MatchState;
   /** Keys typed before the labels showed up, replayed when they do. */
-  readonly queued: Array<KeyEventLike>;
+  readonly queued: Array<{ readonly event: KeyEventLike; readonly from: OpaqueFrame | undefined }>;
 }
 
 const HINT_KEYS_LIMIT = 16;
+/** How long a bridge frame has to answer a new-tab activation with its URL. */
+const OPEN_REPLY_MS = 1000;
 
 function swallow(event: Event): void {
   event.preventDefault();
@@ -222,7 +232,19 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
   const activate = (target: Target, newTab: boolean, requestId: string) => {
     overlay.flash(target.rect);
     if (target.source === "remote") {
+      const { frame } = target.remote;
       activateRemote(target.remote, requestId, newTab);
+      // A sandboxed frame may not open tabs itself: its one answer to this
+      // activation may ask us to. Nothing else a frame sends opens anything.
+      if (newTab) {
+        root.fork(
+          Effect.map(awaitOpen(frame, requestId, OPEN_REPLY_MS), (url) => {
+            if (Option.isSome(url) && hooks.openUrl?.(url.value, { newTab: true }) !== true) {
+              win.open(url.value, "_blank", "noopener,noreferrer");
+            }
+          }),
+        );
+      }
       return;
     }
     if (!target.element.isConnected) {
@@ -235,7 +257,8 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     activateElement(target.element, target.kind, context);
   };
 
-  const hintKey = (event: KeyEventLike) => {
+  /** A key typed in hint mode; `from` is the bridge frame it was typed in, if any. */
+  const hintKey = (event: KeyEventLike, from?: OpaqueFrame) => {
     const active = session;
     if (active === undefined) return;
     if (event.key === "Escape") {
@@ -243,7 +266,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       return;
     }
     if (active.keymap === undefined || active.assigned === undefined) {
-      if (active.queued.length < HINT_KEYS_LIMIT) active.queued.push(event);
+      if (active.queued.length < HINT_KEYS_LIMIT) active.queued.push({ event, from });
       return;
     }
     if (event.key === "Backspace") {
@@ -258,6 +281,12 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     if (step.kind === "pending") overlay.narrow(typed(active.keymap, next));
     if (step.kind !== "match") return;
     const chosen = active.assigned[step.binding.action];
+    // Keys a frame forwards may only pick that frame's own targets.
+    if (from !== undefined && (chosen?.target.source !== "remote" || chosen.target.remote.frame !== from)) {
+      active.state = EMPTY_STATE;
+      overlay.narrow("");
+      return;
+    }
     const newTab = active.newTab || event.shiftKey;
     endHints();
     if (chosen !== undefined) activate(chosen.target, newTab, active.requestId);
@@ -284,7 +313,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       { foldCase: true, restartOnMiss: false, timeoutMs: Number.POSITIVE_INFINITY },
     );
     overlay.showHints(assigned.map(({ label, target }) => ({ label, rect: target.rect })));
-    for (const queued of active.queued.splice(0)) hintKey(queued);
+    for (const queued of active.queued.splice(0)) hintKey(queued.event, queued.from);
   };
 
   const reposition = () => {
@@ -331,6 +360,8 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       requestId: `bbim-${requests}`,
       frames: tree.opaque,
       startFrame: frameElement(doc.activeElement),
+      focusedFrame: tree.opaque.find((frame) => deepActiveElement(doc) === frame.element),
+      budget: frameBudget(),
       assigned: undefined,
       keymap: undefined,
       state: EMPTY_STATE,
@@ -357,16 +388,19 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
         }
         yield* listen(win, "resize", endHints);
         yield* listen(doc, "visibilitychange", endHints);
-        if (active.frames.length > 0) {
-          setRemoteMode(active.frames, true);
-          yield* Effect.addFinalizer(() => Effect.sync(() => setRemoteMode(active.frames, false)));
-          yield* listenForwarded(active.frames, {
-            onKey: hintKey,
-            onOpen: (url) => {
-              // The frame could not open it itself (sandboxed); without a host opener, a plain new tab.
-              if (hooks.openUrl?.(url, { newTab: true }) !== true) win.open(url, "_blank", "noopener,noreferrer");
-            },
-          });
+        const focused = active.focusedFrame;
+        if (focused !== undefined) {
+          // Keys typed in the focused bridge frame stay there unless it forwards
+          // them; it does only while we keep renewing, so a parent that dies
+          // cannot leave it swallowing keys.
+          const beat = yield* timers(win);
+          const renew = () => {
+            setRemoteMode(focused, true);
+            beat(MODE_HEARTBEAT_MS, renew);
+          };
+          renew();
+          yield* Effect.addFinalizer(() => Effect.sync(() => setRemoteMode(focused, false)));
+          yield* listenForwarded(focused, (event) => hintKey(event, focused), active.budget);
         }
       }),
     );
@@ -375,7 +409,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       return;
     }
     active.scope.fork(
-      Effect.map(collectRemote(active.frames, active.requestId, bridgeTimeoutMs), (remote) =>
+      Effect.map(collectRemote(active.frames, active.requestId, bridgeTimeoutMs, active.budget), (remote) =>
         showLabels(active, [
           ...local,
           ...remote.map((target): Target => ({ source: "remote", remote: target, kind: target.kind, rect: target.rect })),

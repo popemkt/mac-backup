@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { type Bbim, createBbim, type CreateBbimOptions } from "../src/dom/bbim.ts";
+import { BRIDGE_PROTOCOL } from "../src/domain/protocol.ts";
 import { presenceGuard, withinGuard } from "../src/dom/focus.ts";
 import { layOutFrame, page, type Page } from "./harness.ts";
 
@@ -277,6 +278,71 @@ test("hints: a target that left the page relabels instead of doing nothing", () 
   for (const char of save) p.key(char);
   assert.equal(bbim.mode(), "hint", "hints come back, collected afresh");
   assert.equal(p.labels().length, before - 1);
+});
+
+/** A cross-origin frame: its document throws, its window records what it is sent. */
+function opaqueFrame(p: Page, rect: string) {
+  const frame = p.doc.createElement("iframe");
+  frame.setAttribute("data-rect", rect);
+  p.doc.body.append(frame);
+  const box = frame.getBoundingClientRect();
+  Object.defineProperty(frame, "clientWidth", { value: box.width });
+  Object.defineProperty(frame, "clientHeight", { value: box.height });
+  Object.defineProperty(frame, "contentDocument", {
+    get: () => {
+      throw new Error("cross-origin");
+    },
+  });
+  const sent: Array<{ type: string; requestId?: string; active?: boolean }> = [];
+  const child = { postMessage: (message: { type: string }) => sent.push(message) };
+  Object.defineProperty(frame, "contentWindow", { value: child });
+  return { frame, child, sent };
+}
+
+function fromFrame(p: Page, source: unknown, data: unknown) {
+  p.win.dispatchEvent(new p.win.MessageEvent("message", { data, origin: "https://frame.test", source: source as Window }));
+}
+
+test("bridge frames: only the focused frame forwards keys, and its keys pick only its own targets", async () => {
+  const { p, bbim } = start({ settings: { hintAlphabet: "ab" }, bridgeTimeoutMs: 200 });
+  const focused = opaqueFrame(p, "600,100,200,200");
+  const other = opaqueFrame(p, "600,400,200,150");
+  let saved = false;
+  p.doc.getElementById("save")?.addEventListener("click", () => {
+    saved = true;
+  });
+  Object.defineProperty(p.doc, "activeElement", { value: focused.frame, configurable: true });
+  bbim.run("hints");
+  assert.deepEqual(
+    focused.sent.map((message) => message.type).toSorted(),
+    ["collect", "mode"],
+  );
+  assert.deepEqual(
+    other.sent.map((message) => message.type),
+    ["collect"],
+    "the unfocused frame is never told to forward keys",
+  );
+  const requestId = focused.sent.find((message) => message.type === "collect")?.requestId ?? "";
+  const reply = { bbim: BRIDGE_PROTOCOL, type: "targets", requestId, targets: [{ id: 7, kind: "button", left: 10, top: 10, width: 40, height: 20 }] };
+  fromFrame(p, focused.child, reply);
+  fromFrame(p, other.child, { ...reply, targets: [{ id: 9, kind: "button", left: 10, top: 10, width: 40, height: 20 }] });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  const labels = p.labels();
+  assert.ok(labels.length >= 2);
+  const key = (char: string) => ({ bbim: BRIDGE_PROTOCOL, type: "key", key: char, code: "", ctrlKey: false, altKey: false, metaKey: false, shiftKey: false });
+  fromFrame(p, other.child, key(labels[0]?.[0] ?? "a"));
+  assert.deepEqual(p.labels(), labels, "keys from the unfocused frame are not heard");
+  for (const label of labels) {
+    for (const char of label) fromFrame(p, focused.child, key(char));
+    if (bbim.mode() === "normal") break;
+  }
+  assert.equal(saved, false, "a frame's keys cannot click the page's own controls");
+  assert.deepEqual(
+    focused.sent.filter((message) => message.type === "activate").map((message) => (message as { targetId?: number }).targetId),
+    [7],
+  );
+  assert.equal(other.sent.filter((message) => message.type === "activate").length, 0);
+  assert.ok(focused.sent.some((message) => message.type === "mode" && message.active === false), "leaving hint mode turns forwarding off");
 });
 
 test("dispose: aborting the signal disposes", () => {
