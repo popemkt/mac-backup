@@ -1,7 +1,11 @@
-// createBbim: the key engine, hints, overlay, frames and scrolling composed
-// over one window. Everything it acquires lives in one scope; `dispose`
-// closes it. Keydown handling is plain synchronous code (the hot path); only
-// acquiring and releasing go through Effect.
+// createBbim: the key engine, pick sessions, overlay, frames and scrolling
+// composed over one window. Everything it acquires lives in one scope;
+// `dispose` closes it. Keydown handling is plain synchronous code (the hot
+// path); only acquiring and releasing go through Effect.
+//
+// Every labeled choice is one mechanism, a pick session: a Picker says which
+// targets get labels and what picking one does; the session owns labels,
+// the overlay, narrowing, frames and the bridge. Link hints are one picker.
 import { Effect, Option, Result } from "effect";
 import { ACTION_INFO, ACTIONS, type Action } from "../domain/actions.ts";
 import {
@@ -46,7 +50,15 @@ import {
   type RemoteTarget,
   setRemoteMode,
 } from "./bridge-client.ts";
-import { collectTargets, DEFAULT_SELECTORS, isRendered, isUncovered, viewportOf, visibleBox } from "./collect.ts";
+import {
+  collectTargets,
+  DEFAULT_SELECTORS,
+  type DocumentPlacement,
+  isRendered,
+  isUncovered,
+  viewportOf,
+  visibleBox,
+} from "./collect.ts";
 import { deepActiveElement, editableGuard, type FocusGuard, focusState, isEditable } from "./focus.ts";
 import { frameTree, liveFrame, liveRect, type OpaqueFrame, placementCache } from "./frames.ts";
 import { type HelpModel, type HelpSection, mountOverlay, type Overlay, type Theme } from "./overlay.ts";
@@ -92,11 +104,13 @@ export interface Bbim {
   dispose(): void;
 }
 
+/** A labeled choice: an element of this page (or a same-origin frame), or one a bridge frame reported. */
 type Target =
   | {
       readonly source: "local";
       readonly element: Element;
-      readonly kind: TargetKind;
+      /** How activating it behaves; undefined for targets a picker does not activate (a scroll surface). */
+      readonly kind: TargetKind | undefined;
       readonly rect: Rect;
       readonly faded: boolean;
     }
@@ -108,7 +122,24 @@ type Target =
       readonly faded: boolean;
     };
 
-interface HintSession {
+type LocalTarget = Extract<Target, { readonly source: "local" }>;
+
+/**
+ * One kind of pick session: which targets get labels and what picking one
+ * does. Labels, narrowing, the overlay, frames and the bridge belong to the
+ * session, so a picker is only these decisions.
+ */
+interface Picker {
+  /** The page candidates in one document; same-origin frames are documents too. */
+  readonly collect: (placement: DocumentPlacement) => ReadonlyArray<LocalTarget>;
+  /** Whether bridge frames are asked for their targets as well. */
+  readonly remote: boolean;
+  /** Act on the picked target; `newTab` when Shift was on the last letter or the session asked for it. */
+  readonly pick: (target: Target, how: { readonly newTab: boolean; readonly requestId: string }) => void;
+}
+
+interface PickSession {
+  readonly picker: Picker;
   readonly scope: ScopeHandle;
   readonly newTab: boolean;
   readonly requestId: string;
@@ -208,7 +239,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
   let keymap: Keymap<Action> = compileKeymap(keyBindings(settings));
   let keyState: MatchState = EMPTY_STATE;
   let stack: ModeStack = INITIAL_STACK;
-  let session: HintSession | undefined;
+  let session: PickSession | undefined;
   let lastPointer: Element | null = null;
   let lastEditable: Element | null = null;
   let requests = 0;
@@ -268,12 +299,8 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     return live !== undefined && Math.abs(live.left - drawn.left) <= MOVED_PX && Math.abs(live.top - drawn.top) <= MOVED_PX;
   };
 
-  const activate = (target: Target, drawn: Rect | undefined, newTab: boolean, requestId: string) => {
-    if (target.source === "local" && !stillThere(target.element, drawn)) {
-      // The page changed under the labels (moved, covered, gone): label it again.
-      startHints(newTab);
-      return;
-    }
+  /** What picking a link hint does: follow, click, focus or open, here or in the bridge frame that reported it. */
+  const activate = (target: Target, { newTab, requestId }: { readonly newTab: boolean; readonly requestId: string }) => {
     overlay.flash(target.rect);
     if (target.source === "remote") {
       const { frame } = target.remote;
@@ -292,8 +319,18 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       return;
     }
     lastPointer = target.element;
+    if (target.kind === undefined) return;
     const context: ActivateContext = { newTab, ...(hooks.openUrl === undefined ? {} : { openUrl: hooks.openUrl }) };
     activateElement(target.element, target.kind, context);
+  };
+
+  const linkHints: Picker = {
+    collect: (placement) =>
+      collectTargets(placement, { selectors, exclude: (element) => element === overlay.host }).map(
+        (target): LocalTarget => ({ source: "local", ...target }),
+      ),
+    remote: true,
+    pick: activate,
   };
 
   /** A key typed in hint mode; `from` is the bridge frame it was typed in, if any. */
@@ -330,10 +367,16 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     const chosen = active.assigned[index];
     const newTab = active.newTab || event.shiftKey;
     endHints();
-    if (chosen !== undefined) activate(chosen.target, active.drawn[index], newTab, active.requestId);
+    if (chosen === undefined) return;
+    if (chosen.target.source === "local" && !stillThere(chosen.target.element, active.drawn[index])) {
+      // The page changed under the labels (moved, covered, gone): label it again.
+      startPick(active.picker, newTab);
+      return;
+    }
+    active.picker.pick(chosen.target, { newTab, requestId: active.requestId });
   };
 
-  const showLabels = (active: HintSession, targets: ReadonlyArray<Target>) => {
+  const showLabels = (active: PickSession, targets: ReadonlyArray<Target>) => {
     if (session !== active) return;
     if (targets.length === 0) {
       endHints();
@@ -385,7 +428,8 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     overlay.reposition(active.drawn);
   };
 
-  const startHints = (newTab: boolean) => {
+  /** Start a pick session for `picker`; the same key again while one is up ends it. */
+  const startPick = (picker: Picker, newTab: boolean) => {
     if (session !== undefined) {
       endHints();
       return;
@@ -393,17 +437,14 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     stack = leave(stack, "help");
     overlay.hideHelp();
     const tree = frameTree(doc);
-    const local: Array<Target> = tree.documents.flatMap((placement) =>
-      collectTargets(placement, { selectors, exclude: (element) => element === overlay.host }).flatMap(
-        (target): Array<Target> => (shows(target) ? [{ source: "local", ...target }] : []),
-      ),
-    );
+    const local: Array<Target> = tree.documents.flatMap((placement) => picker.collect(placement).filter(shows));
     requests += 1;
-    const active: HintSession = {
+    const active: PickSession = {
+      picker,
       scope: root.child(),
       newTab,
       requestId: `bbim-${requests}`,
-      frames: tree.opaque,
+      frames: picker.remote ? tree.opaque : [],
       startFrame: frameElement(doc.activeElement),
       focusedFrame: tree.opaque.find((frame) => deepActiveElement(doc) === frame.element),
       collectBudget: frameBudget(),
@@ -517,7 +558,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       }
       case "hints":
       case "hintsNewTab":
-        startHints(action === "hintsNewTab");
+        startPick(linkHints, action === "hintsNewTab");
         return;
       case "focusInput":
         focusInput(doc, { selector: inputSelector, lastEditable, near: lastPointer ?? deepActiveElement(doc) });

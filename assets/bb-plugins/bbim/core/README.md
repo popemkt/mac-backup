@@ -83,6 +83,11 @@ match by physical key, so `<A-f>` fires although the event's `key` is `ƒ`.
 
 ### Hint mode
 
+Every labeled choice is one mechanism, a *pick session* (`dom/bbim.ts`): a
+picker names which targets get labels and what picking one does, and the
+session owns the rest (labels, narrowing, the overlay, same-origin frames,
+the bridge, re-labeling when the page moved). Link hints are one picker.
+
 Labels are prefix-free words over the alphabet, shortest nearest the focus
 region's top-left. Typing narrows (case-insensitive); a unique match fires;
 Backspace undoes a letter; Esc, a click (in a frame too), focus moving into
