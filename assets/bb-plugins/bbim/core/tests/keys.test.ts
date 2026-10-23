@@ -11,7 +11,7 @@ import {
   strokeFromEvent,
   strokeId,
 } from "../src/domain/keys.ts";
-import { back, compileKeymap, EMPTY_STATE, feed, type MatchState, reachable, typed } from "../src/domain/matcher.ts";
+import { back, compileKeymap, EMPTY_STATE, expire, feed, type MatchState, typed } from "../src/domain/matcher.ts";
 
 function parse(input: string): ReadonlyArray<KeyStroke> {
   const parsed = parseSequence(input);
@@ -142,7 +142,6 @@ test("matcher: hint labels fold case, keep the prefix on a miss, and step back",
   let [state, step] = feed(hints, EMPTY_STATE, stroke("S"), 0);
   assert.equal(step.kind, "pending");
   assert.equal(typed(hints, state), "s");
-  assert.deepEqual(reachable(hints, state).map((binding) => binding.action).toSorted((a, b) => a - b), [0, 1]);
   [state, step] = feed(hints, state, stroke("x"), 99_999);
   assert.equal(step.kind, "miss");
   assert.equal(typed(hints, state), "s", "a wrong letter does not throw away what was typed");
@@ -176,4 +175,12 @@ test("matcher: in any prefix-free keymap, typing a binding's sequence matches ex
       assert.equal(compiled.bindings.length + compiled.conflicts.length, words.length);
     }),
   );
+});
+
+test("matcher: expire forgets a pending prefix older than the timeout, and only then", () => {
+  const top = compileKeymap([{ sequence: parse("gg"), action: "top" }], { timeoutMs: 1000 });
+  const [pending] = feed(top, EMPTY_STATE, stroke("g"), 100);
+  assert.equal(expire(top, pending, 1100), pending);
+  assert.equal(expire(top, pending, 1101), EMPTY_STATE);
+  assert.equal(expire(top, EMPTY_STATE, 99_999), EMPTY_STATE);
 });

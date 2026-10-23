@@ -1,11 +1,11 @@
 // The mode machine. `normal` is the floor of the stack: its keymap runs only
 // on keys it binds and lets every other key through. `hint` and `help` sit on
 // top of it and own the keyboard while they are up, swallowing every key.
-// `disabled` sits on top too and lets everything through: the host pushes it
-// when bbim should stand aside (a modal of its own, a game, a recording).
+// (A host that wants bbim to stand aside adds a focus guard that answers
+// `blocked`; there is no separate disabled mode.)
 import { Schema } from "effect";
 
-export const Mode = Schema.Literals(["normal", "hint", "help", "disabled"]);
+export const Mode = Schema.Literals(["normal", "hint", "help"]);
 export type Mode = typeof Mode.Type;
 
 export type ModeStack = readonly [Mode, ...Array<Mode>];

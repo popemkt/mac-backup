@@ -22,7 +22,7 @@ import {
   type MatchState,
   typed,
 } from "../domain/matcher.ts";
-import { current, INITIAL_STACK, leave, type Mode, type ModeStack, push } from "../domain/modes.ts";
+import { current, INITIAL_STACK, leave, type Mode, type ModeStack, ownsKeyboard, push } from "../domain/modes.ts";
 import {
   decodeSettings,
   DEFAULT_SETTINGS,
@@ -32,7 +32,7 @@ import {
   type SettingsProblem,
 } from "../domain/settings.ts";
 import { area, order, type Rect, type TargetKind } from "../domain/targets.ts";
-import { type ActivateContext, activateElement, focusForTyping } from "./activate.ts";
+import { type ActivateContext, activateElement } from "./activate.ts";
 import {
   activateRemote,
   collectRemote,
@@ -40,10 +40,11 @@ import {
   type RemoteTarget,
   setRemoteMode,
 } from "./bridge-client.ts";
-import { collectTargets, DEFAULT_SELECTORS, isRendered, visibleBox, viewportOf } from "./collect.ts";
+import { collectTargets, DEFAULT_SELECTORS, viewportOf } from "./collect.ts";
 import { deepActiveElement, editableGuard, type FocusGuard, focusState, isEditable } from "./focus.ts";
 import { frameTree, liveFrame, liveRect, type OpaqueFrame } from "./frames.ts";
 import { type HelpModel, type HelpSection, mountOverlay, type Overlay, type Theme } from "./overlay.ts";
+import { focusInput, TEXT_INPUT_SELECTOR } from "./inputs.ts";
 import { frameThrottle, listen, timers } from "./resources.ts";
 import { openScope, type ScopeHandle } from "./runtime.ts";
 import { scroll, scrollTarget } from "./scroll.ts";
@@ -51,14 +52,8 @@ import { scroll, scrollTarget } from "./scroll.ts";
 export interface BbimHooks {
   /** Extra focus guards (a terminal, a webview, a modal). Editable focus is built in. */
   readonly guards?: ReadonlyArray<FocusGuard>;
-  /** Activate a chosen hint your way; return false to use the DOM default. */
-  readonly activate?: (element: Element, kind: TargetKind, context: ActivateContext) => boolean;
   /** Open a URL your way (new-tab hints, bridge open requests); false falls back. */
   readonly openUrl?: (url: string, options: { readonly newTab: boolean }) => boolean;
-  /** Focus the app's main text input for `focusInput`; false falls back to the default. */
-  readonly focusInput?: () => boolean;
-  /** The element the person works in (a focused pane); hints start there. */
-  readonly focusRegion?: () => Element | null;
   /** Extra sections for the help overlay, such as host-owned chords. */
   readonly help?: () => ReadonlyArray<HelpSection>;
 }
@@ -71,6 +66,8 @@ export interface CreateBbimOptions {
   readonly theme?: Theme;
   /** Candidate selectors for hints; defaults to DEFAULT_SELECTORS. */
   readonly selectors?: ReadonlyArray<string>;
+  /** The inputs `focusInput` (gi) picks among; defaults to every text input. */
+  readonly inputSelector?: string;
   /** Aborting it disposes bbim. */
   readonly signal?: AbortSignal;
   /** How long to wait for frames speaking the hint bridge. */
@@ -80,14 +77,8 @@ export interface CreateBbimOptions {
 export interface Bbim {
   /** Run an action as if its key was pressed. */
   run(action: Action): void;
-  /** Replace settings; returns what was invalid (and fell back). */
+  /** Replace settings, keys included; returns what was invalid (and fell back). */
   setSettings(input: SettingsInput): ReadonlyArray<SettingsProblem>;
-  /** Rebind keys; shorthand for setSettings({ keys }). */
-  setKeymap(keys: Readonly<Partial<Record<Action, string>>>): ReadonlyArray<SettingsProblem>;
-  setTheme(theme: Theme): void;
-  /** Stand aside until `enable`: every key passes through. */
-  disable(): void;
-  enable(): void;
   mode(): Mode;
   dispose(): void;
 }
@@ -133,34 +124,6 @@ function regionOf(doc: Document, start: Element | null): Element | null {
   return null;
 }
 
-/** The default `focusInput`: the last text field used if still on screen, else the biggest. */
-function defaultFocusInput(doc: Document, lastEditable: Element | null): boolean {
-  const view = viewportOf(doc);
-  const usable = (element: Element) =>
-    element.isConnected && isRendered(element) && visibleBox(element, view) !== undefined && !element.matches(":disabled");
-  if (lastEditable !== null && usable(lastEditable)) {
-    focusForTyping(lastEditable);
-    return true;
-  }
-  let best: Element | undefined;
-  let bestArea = 0;
-  const fields = doc.querySelectorAll(
-    'textarea, input:not([type]), input[type=text], input[type=search], input[type=email], input[type=url], [contenteditable]:not([contenteditable="false"])',
-  );
-  for (const field of fields) {
-    if (!isEditable(field) || field.parentElement?.closest('[contenteditable]:not([contenteditable="false"])') != null) continue;
-    const box = visibleBox(field, view);
-    if (box === undefined || !usable(field)) continue;
-    if (area(box) > bestArea) {
-      best = field;
-      bestArea = area(box);
-    }
-  }
-  if (best === undefined) return false;
-  focusForTyping(best);
-  return true;
-}
-
 function helpModel(settings: Settings, problems: ReadonlyArray<string>, extra: ReadonlyArray<HelpSection>): HelpModel {
   const rows = ACTIONS.flatMap((action) => {
     const key = settings.keys[action];
@@ -195,6 +158,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
   const hooks = options.hooks ?? {};
   const guards: ReadonlyArray<FocusGuard> = [editableGuard, ...(hooks.guards ?? [])];
   const selectors = options.selectors ?? DEFAULT_SELECTORS;
+  const inputSelector = options.inputSelector ?? TEXT_INPUT_SELECTOR;
   const bridgeTimeoutMs = options.bridgeTimeoutMs ?? 150;
   const root = openScope();
 
@@ -230,8 +194,8 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
   };
 
   const regionRect = (): Rect | undefined => {
-    const element = hooks.focusRegion?.() ?? regionOf(doc, lastPointer ?? deepActiveElement(doc));
-    if (element == null) return undefined;
+    const element = regionOf(doc, lastPointer ?? deepActiveElement(doc));
+    if (element === null) return undefined;
     const box = element.getBoundingClientRect();
     return { left: box.left, top: box.top, width: box.width, height: box.height };
   };
@@ -256,7 +220,6 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     if (!target.element.isConnected) return;
     lastPointer = target.element;
     const context: ActivateContext = { newTab, ...(hooks.openUrl === undefined ? {} : { openUrl: hooks.openUrl }) };
-    if (hooks.activate?.(target.element, target.kind, context) === true) return;
     activateElement(target.element, target.kind, context);
   };
 
@@ -418,7 +381,6 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
   // ---- actions -----------------------------------------------------------
 
   const run = (action: Action, repeat = false) => {
-    if (current(stack) === "disabled") return;
     switch (action) {
       case "scrollDown":
       case "scrollUp":
@@ -435,7 +397,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
         startHints(action === "hintsNewTab");
         return;
       case "focusInput":
-        if (hooks.focusInput?.() !== true) defaultFocusInput(doc, lastEditable);
+        focusInput(doc, { selector: inputSelector, lastEditable, near: lastPointer ?? deepActiveElement(doc) });
         return;
       case "help":
         toggleHelp();
@@ -466,31 +428,28 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     run(action, event.repeat);
   };
 
+  const helpKey = (event: KeyboardEvent) => {
+    const pressed = strokeFromEvent(event);
+    const bound = parseSequence(settings.keys.help);
+    const isHelpKey =
+      pressed !== undefined &&
+      Result.isSuccess(bound) &&
+      bound.success.length === 1 &&
+      formatSequence(bound.success) === formatSequence([pressed]);
+    if (event.key === "Escape" || event.key === "q" || isHelpKey) toggleHelp();
+  };
+
   const onKeyDown = (event: KeyboardEvent) => {
-    if (event.isComposing) return;
-    switch (current(stack)) {
-      case "hint":
-        swallow(event);
-        hintKey(event);
-        return;
-      case "help": {
-        swallow(event);
-        const pressed = strokeFromEvent(event);
-        const helpKey = parseSequence(settings.keys.help);
-        const isHelpKey =
-          pressed !== undefined &&
-          Result.isSuccess(helpKey) &&
-          helpKey.success.length === 1 &&
-          formatSequence(helpKey.success) === formatSequence([pressed]);
-        if (event.key === "Escape" || event.key === "q" || isHelpKey) toggleHelp();
-        return;
-      }
-      case "disabled":
-        return;
-      case "normal":
-        normalKey(event);
-        return;
+    const mode = current(stack);
+    if (!ownsKeyboard(mode)) {
+      if (!event.isComposing) normalKey(event);
+      return;
     }
+    // Hint and help own the keyboard: nothing reaches the page while they are up.
+    swallow(event);
+    if (event.isComposing) return;
+    if (mode === "hint") hintKey(event);
+    else helpKey(event);
   };
 
   root.run(
@@ -529,20 +488,12 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
   const bbim: Bbim = {
     run: (action) => run(action),
     setSettings: applySettings,
-    setKeymap: (keys) => applySettings({ keys }),
-    setTheme: (theme) => overlay.setTheme(theme),
-    disable: () => {
-      endHints();
-      stack = leave(stack, "help");
-      overlay.hideHelp();
-      stack = push(stack, "disabled");
-    },
-    enable: () => {
-      stack = leave(stack, "disabled");
-    },
     mode: () => current(stack),
     dispose: () => {
       session = undefined;
+      // Let go of the page's elements: a disposed engine may outlive its page.
+      lastPointer = null;
+      lastEditable = null;
       root.close();
     },
   };
