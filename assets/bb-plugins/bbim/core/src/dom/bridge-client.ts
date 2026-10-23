@@ -15,6 +15,7 @@ import {
   decodeFrameMessage,
   FRAME_MESSAGE_BUDGET,
   type FrameMessage,
+  isBridgeMessage,
   isOpenableUrl,
   type ParentMessage,
 } from "../domain/protocol.ts";
@@ -42,8 +43,9 @@ function frameOf(frames: ReadonlyArray<OpaqueFrame>, source: MessageEventSource 
 }
 
 /**
- * How many more messages each frame may send before the rest are dropped
- * unread. One per hint session, shared by everything that reads frames.
+ * How many more bridge messages a frame may send before the rest are dropped
+ * unread. A hint session keeps one for collection and one for keys, so a
+ * frame typing many keys never starves its own target reply, or the reverse.
  */
 export type FrameBudget = (frame: OpaqueFrame) => boolean;
 
@@ -57,14 +59,20 @@ export function frameBudget(limit = FRAME_MESSAGE_BUDGET): FrameBudget {
   };
 }
 
-/** Decode a message from one of `frames`, if it comes from one and its budget allows. */
+/**
+ * Decode a message of one of `types` from one of `frames`. Only bridge
+ * messages of those types are charged to this listener's budget (other
+ * traffic, and messages another listener reads, are not), and only within
+ * budget are they decoded at all.
+ */
 function receive(
   frames: ReadonlyArray<OpaqueFrame>,
   budget: FrameBudget,
   event: MessageEvent,
+  types: ReadonlyArray<FrameMessage["type"]>,
 ): { readonly frame: OpaqueFrame; readonly message: FrameMessage } | undefined {
   const frame = frameOf(frames, event.source);
-  if (frame === undefined || !budget(frame)) return undefined;
+  if (frame === undefined || !isBridgeMessage(event.data, types) || !budget(frame)) return undefined;
   const message = decodeFrameMessage(event.data);
   return Option.isNone(message) ? undefined : { frame, message: message.value };
 }
@@ -88,9 +96,37 @@ function hostsOf(frames: ReadonlyArray<OpaqueFrame>): ReadonlyArray<Window> {
 function onHostMessages(frames: ReadonlyArray<OpaqueFrame>, handler: (event: MessageEvent) => void): () => void {
   const hosts = hostsOf(frames);
   for (const host of hosts) host.addEventListener("message", handler);
+  let stopped = false;
   return () => {
+    if (stopped) return;
+    stopped = true;
     for (const host of hosts) host.removeEventListener("message", handler);
   };
+}
+
+const NOTHING = () => {};
+
+/**
+ * Listen to `frames`' messages until `onMessage` calls `done` or `timeoutMs`
+ * passes, then stop listening, whichever way it ends: `Effect.callback`'s own
+ * cleanup runs only on interruption, so the success path stops explicitly.
+ * `start` runs once the listener is in place (to send the request).
+ */
+function untilAnswered<A>(
+  frames: ReadonlyArray<OpaqueFrame>,
+  timeoutMs: number,
+  onMessage: (event: MessageEvent, done: (value: A) => void) => void,
+  start: () => void = NOTHING,
+): Effect.Effect<Option.Option<A>> {
+  return Effect.suspend(() => {
+    let stop = NOTHING;
+    const answered = Effect.callback<A>((resume) => {
+      stop = onHostMessages(frames, (event) => onMessage(event, (value) => resume(Effect.succeed(value))));
+      start();
+      return Effect.sync(() => stop());
+    });
+    return Effect.ensuring(Effect.timeoutOption(answered, timeoutMs), Effect.sync(() => stop()));
+  });
 }
 
 /**
@@ -105,19 +141,21 @@ export const collectRemote = Effect.fn("collectRemote")(function* (
 ) {
   if (frames.length === 0) return [] as ReadonlyArray<RemoteTarget>;
   const replies = new Map<OpaqueFrame, ReadonlyArray<RemoteTarget>>();
-  const gathered = Effect.callback<void>((resume) => {
-    const stop = onHostMessages(frames, (event) => {
-      const received = receive(frames, budget, event);
+  yield* untilAnswered<void>(
+    frames,
+    timeoutMs,
+    (event, done) => {
+      const received = receive(frames, budget, event, ["targets"]);
       if (received === undefined || replies.has(received.frame)) return;
       const { frame, message } = received;
       if (message.type !== "targets" || message.requestId !== requestId) return;
       replies.set(frame, placed(frame, message));
-      if (replies.size === frames.length) resume(Effect.void);
-    });
-    for (const frame of frames) post(frame, { bbim: BRIDGE_PROTOCOL, type: "collect", requestId });
-    return Effect.sync(stop);
-  });
-  yield* Effect.timeoutOption(gathered, timeoutMs);
+      if (replies.size === frames.length) done(undefined);
+    },
+    () => {
+      for (const frame of frames) post(frame, { bbim: BRIDGE_PROTOCOL, type: "collect", requestId });
+    },
+  );
   return frames.flatMap((frame) => replies.get(frame) ?? []);
 });
 
@@ -132,17 +170,13 @@ export function activateRemote(target: RemoteTarget, requestId: string, newTab: 
  */
 export const awaitOpen = Effect.fn("awaitOpen")(function* (frame: OpaqueFrame, requestId: string, timeoutMs: number) {
   const budget = frameBudget();
-  const opened = Effect.callback<string>((resume) => {
-    const stop = onHostMessages([frame], (event) => {
-      const received = receive([frame], budget, event);
-      if (received === undefined) return;
-      const { message } = received;
-      if (message.type !== "open" || message.requestId !== requestId || !isOpenableUrl(message.url)) return;
-      resume(Effect.succeed(message.url));
-    });
-    return Effect.sync(stop);
+  return yield* untilAnswered<string>([frame], timeoutMs, (event, done) => {
+    const received = receive([frame], budget, event, ["open"]);
+    if (received === undefined) return;
+    const { message } = received;
+    if (message.type !== "open" || message.requestId !== requestId || !isOpenableUrl(message.url)) return;
+    done(message.url);
   });
-  return yield* Effect.timeoutOption(opened, timeoutMs);
 });
 
 /** Turn key forwarding on or off in the one frame that has focus. */
@@ -150,17 +184,25 @@ export function setRemoteMode(frame: OpaqueFrame, active: boolean): void {
   post(frame, { bbim: BRIDGE_PROTOCOL, type: "mode", active });
 }
 
+export interface ForwardHandlers {
+  /** A keydown typed in the frame (never a held-key repeat or IME composition). */
+  readonly onKey: (event: KeyEventLike) => void;
+  /** The frame stopped forwarding on its own (a click in it, or lapsed renewals). */
+  readonly onLeave: () => void;
+}
+
 /**
- * Keys the focused frame forwards while hint mode is up, for as long as the
- * scope lives. Only that frame is heard, within the session's budget.
+ * What the focused frame sends while hint mode is up, for as long as the
+ * scope lives. Only that frame is heard, within its own budget.
  */
 export const listenForwarded = Effect.fn("listenForwarded")(function* (
   frame: OpaqueFrame,
-  onKey: (event: KeyEventLike) => void,
+  handlers: ForwardHandlers,
   budget: FrameBudget = frameBudget(),
 ): Effect.fn.Return<void, never, Scope.Scope> {
   yield* listen<MessageEvent>(frame.host, "message", (event) => {
-    const received = receive([frame], budget, event);
-    if (received?.message.type === "key") onKey(received.message);
+    const message = receive([frame], budget, event, ["key", "leave"])?.message;
+    if (message?.type === "key" && !message.repeat && !message.isComposing) handlers.onKey(message);
+    else if (message?.type === "leave") handlers.onLeave();
   });
 });

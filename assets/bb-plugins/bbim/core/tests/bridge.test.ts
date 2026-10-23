@@ -160,6 +160,46 @@ test("bridge (frame): one bridge per window; uninstall forgets targets and allow
   again();
 });
 
+test("bridge (frame): held keys and IME keys are swallowed but not forwarded", () => {
+  const { frame, parent, posted } = framed();
+  const uninstall = installBbimBridge({ window: frame.win, parentOrigins: [BB] });
+  deliver(frame, mode(true), parent);
+  assert.ok(frame.key("s", { repeat: true }).defaultPrevented);
+  assert.ok(frame.key("s", { isComposing: true }).defaultPrevented);
+  assert.ok(frame.key("Process").defaultPrevented);
+  assert.equal(posted.length, 0, "nothing forwarded");
+  frame.key("s");
+  assert.deepEqual(posted.at(-1)?.message, {
+    bbim: BRIDGE_PROTOCOL,
+    type: "key",
+    key: "s",
+    code: "",
+    ctrlKey: false,
+    altKey: false,
+    metaKey: false,
+    shiftKey: false,
+    repeat: false,
+    isComposing: false,
+  });
+  uninstall();
+});
+
+test("bridge (frame): a click in the frame or a lapse stops forwarding and tells the parent", async () => {
+  const { frame, parent, posted } = framed();
+  const uninstall = installBbimBridge({ window: frame.win, parentOrigins: [BB], modeTtlMs: 30 });
+  deliver(frame, mode(true), parent);
+  frame.doc.body.dispatchEvent(new frame.win.PointerEvent("pointerdown", { bubbles: true }));
+  assert.deepEqual(posted.at(-1)?.message, { bbim: BRIDGE_PROTOCOL, type: "leave", reason: "pointer" });
+  assert.equal(frame.key("s").defaultPrevented, false);
+  deliver(frame, mode(true), parent);
+  await sleep(60);
+  assert.deepEqual(posted.at(-1)?.message, { bbim: BRIDGE_PROTOCOL, type: "leave", reason: "lapsed" });
+  deliver(frame, mode(true), parent);
+  deliver(frame, mode(false), parent);
+  assert.equal(posted.length, 2, "the parent turning it off needs no notice");
+  uninstall();
+});
+
 /** A parent page with one fake opaque frame whose window records what it is sent. */
 function parentWithFrame() {
   const parentPage = page("");
@@ -209,30 +249,85 @@ test("bridge (parent): a frame without the bridge costs only the timeout", async
   scope.close();
 });
 
-test("bridge (parent): a frame that floods spends its budget and is then not read at all", async () => {
+/** Count the message listeners a window holds. */
+function countListeners(win: Window): { readonly live: () => number } {
+  let live = 0;
+  const add = win.addEventListener.bind(win);
+  const remove = win.removeEventListener.bind(win);
+  win.addEventListener = ((type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) => {
+    if (type === "message") live += 1;
+    add(type, listener, options);
+  }) as typeof win.addEventListener;
+  win.removeEventListener = ((type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) => {
+    if (type === "message") live -= 1;
+    remove(type, listener, options);
+  }) as typeof win.removeEventListener;
+  return { live: () => live };
+}
+
+test("bridge (parent): an answered collect or open leaves no listener behind", async () => {
   const { parentPage, child, frame } = parentWithFrame();
+  const listeners = countListeners(parentPage.win);
   const scope = openScope();
-  const budget = frameBudget();
-  const fiber = scope.fork(collectRemote([frame], "r1", 50, budget));
-  for (let index = 0; index < FRAME_MESSAGE_BUDGET; index += 1) deliver(parentPage, { junk: index }, child);
+  const collecting = scope.fork(collectRemote([frame], "r1", 1000));
+  assert.equal(listeners.live(), 1);
   deliver(parentPage, targets("r1", 5), child);
-  assert.deepEqual(await Effect.runPromise(Fiber.join(fiber)), [], "the real reply came after the budget");
+  assert.equal((await Effect.runPromise(Fiber.join(collecting))).length, 1);
+  assert.equal(listeners.live(), 0, "collect stops listening once every frame answered");
+  const opening = scope.fork(awaitOpen(frame, "r1", 1000));
+  deliver(parentPage, { bbim: BRIDGE_PROTOCOL, type: "open", requestId: "r1", url: "https://example.com/" }, child);
+  assert.ok(Option.isSome(await Effect.runPromise(Fiber.join(opening))));
+  assert.equal(listeners.live(), 0, "awaitOpen stops listening once answered");
+  await Effect.runPromise(Fiber.join(scope.fork(collectRemote([frame], "r2", 10))));
+  assert.equal(listeners.live(), 0, "and after a timeout");
   scope.close();
 });
 
-test("bridge (parent): forwarded keys are heard from the given frame only", () => {
+test("bridge (parent): a frame that floods bridge messages spends its budget; other traffic costs nothing", async () => {
+  const { parentPage, child, frame } = parentWithFrame();
+  const scope = openScope();
+  const quiet = scope.fork(collectRemote([frame], "r1", 50, frameBudget()));
+  for (let index = 0; index < FRAME_MESSAGE_BUDGET * 2; index += 1) deliver(parentPage, { notOurs: index }, child);
+  deliver(parentPage, targets("r1", 5), child);
+  assert.equal((await Effect.runPromise(Fiber.join(quiet))).length, 1, "non-bridge messages are not charged");
+  const flooded = scope.fork(collectRemote([frame], "r2", 50, frameBudget()));
+  for (let index = 0; index < FRAME_MESSAGE_BUDGET; index += 1) deliver(parentPage, targets("stale", 1), child);
+  deliver(parentPage, targets("r2", 5), child);
+  assert.deepEqual(await Effect.runPromise(Fiber.join(flooded)), [], "the real reply came after the budget");
+  scope.close();
+});
+
+const keyMessage = (key: string, extra: Record<string, unknown> = {}) => ({
+  bbim: BRIDGE_PROTOCOL,
+  type: "key",
+  key,
+  code: "",
+  ctrlKey: false,
+  altKey: false,
+  metaKey: false,
+  shiftKey: false,
+  repeat: false,
+  isComposing: false,
+  ...extra,
+});
+
+test("bridge (parent): forwarded keys are heard from the given frame only, never repeats or IME keys", () => {
   const { parentPage, child, frame } = parentWithFrame();
   const other = parentWithFrame();
   const keys: Array<string> = [];
+  let left = 0;
   const scope = openScope();
-  scope.run(listenForwarded(frame, (event) => keys.push(event.key)));
-  const key = { bbim: BRIDGE_PROTOCOL, type: "key", key: "a", code: "KeyA", ctrlKey: false, altKey: false, metaKey: false, shiftKey: false };
-  deliver(parentPage, key, child);
-  deliver(parentPage, key, other.child);
-  deliver(parentPage, key, {});
+  scope.run(listenForwarded(frame, { onKey: (event) => keys.push(event.key), onLeave: () => (left += 1) }));
+  deliver(parentPage, keyMessage("a"), child);
+  deliver(parentPage, keyMessage("a"), other.child);
+  deliver(parentPage, keyMessage("a"), {});
+  deliver(parentPage, keyMessage("b", { repeat: true }), child);
+  deliver(parentPage, keyMessage("c", { isComposing: true }), child);
   assert.deepEqual(keys, ["a"]);
+  deliver(parentPage, { bbim: BRIDGE_PROTOCOL, type: "leave", reason: "pointer" }, child);
+  assert.equal(left, 1);
   scope.close();
-  deliver(parentPage, key, child);
+  deliver(parentPage, keyMessage("a"), child);
   assert.deepEqual(keys, ["a"], "closing the scope removes the listener");
 });
 

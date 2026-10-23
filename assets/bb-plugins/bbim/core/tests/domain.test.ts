@@ -68,9 +68,13 @@ test("protocol: well-formed messages decode", () => {
         altKey: false,
         metaKey: false,
         shiftKey: false,
+        repeat: false,
+        isComposing: false,
       }),
     ),
   );
+  assert.ok(Option.isSome(decodeFrameMessage({ bbim: BRIDGE_PROTOCOL, type: "leave", reason: "lapsed" })));
+  assert.ok(Option.isNone(decodeFrameMessage({ bbim: BRIDGE_PROTOCOL, type: "leave", reason: "bored" })));
 });
 
 test("protocol: untrusted frame data is refused, not repaired", () => {

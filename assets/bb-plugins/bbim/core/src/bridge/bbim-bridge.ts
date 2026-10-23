@@ -67,36 +67,70 @@ export function installBbimBridge(options: BridgeOptions): () => void {
   let installed = true;
   const ttl = options.modeTtlMs ?? MODE_TTL_MS;
   const targets = new Map<number, { readonly element: Element; readonly kind: TargetKind }>();
-  let forwarding: { readonly listener: (event: KeyboardEvent) => void; timer: number } | undefined;
+  let forwarding:
+    | {
+        readonly onKey: (event: KeyboardEvent) => void;
+        readonly onPointer: () => void;
+        readonly origin: string;
+        timer: number;
+      }
+    | undefined;
 
   const reply = (message: FrameMessage, origin: string) => {
     parent.postMessage(message, origin === "null" ? "*" : origin);
   };
 
-  const stopForwarding = () => {
+  /** Stop forwarding; `told` names why when the parent should hear of it. */
+  const stopForwarding = (told?: "pointer" | "lapsed") => {
     if (forwarding === undefined) return;
-    win.removeEventListener("keydown", forwarding.listener, { capture: true });
-    win.clearTimeout(forwarding.timer);
+    const { onKey, onPointer, origin, timer } = forwarding;
     forwarding = undefined;
+    win.removeEventListener("keydown", onKey, { capture: true });
+    win.removeEventListener("pointerdown", onPointer, { capture: true });
+    win.clearTimeout(timer);
+    if (told !== undefined) reply({ bbim: BRIDGE_PROTOCOL, type: "leave", reason: told }, origin);
   };
+
+  const lapse = () => stopForwarding("lapsed");
 
   const startForwarding = (origin: string) => {
     if (forwarding !== undefined) {
       // A renewal: forwarding goes on for another `ttl`.
       win.clearTimeout(forwarding.timer);
-      forwarding.timer = win.setTimeout(stopForwarding, ttl);
+      forwarding.timer = win.setTimeout(lapse, ttl);
       return;
     }
-    const listener = (event: KeyboardEvent) => {
+    const onKey = (event: KeyboardEvent) => {
       event.preventDefault();
       event.stopImmediatePropagation();
+      // Held keys and IME composition are swallowed but never typed into a label.
+      // oxlint-disable-next-line typescript/no-deprecated -- keyCode 229 is how Safari marks IME keys.
+      const composing = event.isComposing || event.key === "Process" || event.keyCode === 229;
+      if (event.repeat || composing) return;
       const { key, code, ctrlKey, altKey, metaKey, shiftKey } = event;
-      reply({ bbim: BRIDGE_PROTOCOL, type: "key", key: key.slice(0, 64), code: code.slice(0, 64), ctrlKey, altKey, metaKey, shiftKey }, origin);
+      reply(
+        {
+          bbim: BRIDGE_PROTOCOL,
+          type: "key",
+          key: key.slice(0, 64),
+          code: code.slice(0, 64),
+          ctrlKey,
+          altKey,
+          metaKey,
+          shiftKey,
+          repeat: false,
+          isComposing: false,
+        },
+        origin,
+      );
       // Escape ends the parent's hint mode, which ends forwarding; do not wait for it.
       if (key === "Escape") stopForwarding();
     };
-    forwarding = { listener, timer: win.setTimeout(stopForwarding, ttl) };
-    win.addEventListener("keydown", listener, { capture: true });
+    // A click inside the frame ends hints, as a click on the page does.
+    const onPointer = () => stopForwarding("pointer");
+    forwarding = { onKey, onPointer, origin, timer: win.setTimeout(lapse, ttl) };
+    win.addEventListener("keydown", onKey, { capture: true });
+    win.addEventListener("pointerdown", onPointer, { capture: true });
   };
 
   const onMessage = (event: MessageEvent) => {
