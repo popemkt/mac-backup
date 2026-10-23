@@ -74,7 +74,14 @@ a bad field falls back to its default and is reported, the rest still apply.
 
 Actions and default keys: `hints` `f`, `hintsNewTab` `F`, `scrollDown` `j`,
 `scrollUp` `k`, `halfPageDown` `d`, `halfPageUp` `u`, `scrollTop` `gg`,
-`scrollBottom` `G`, `focusInput` `gi`, `help` `?`.
+`scrollBottom` `G`, `pickScroll` `gs`, `focusInput` `gi`, `help` `?`.
+
+`pickScroll` is the scroll-surface picker: every visible surface that
+scrolls vertically (at least 40 px each way, open shadow roots and
+same-origin frames included) gets an outline and a label in its top-left
+corner. The picked one flashes and becomes what `j`/`k`/`d`/`u`/`gg`/`G`
+scroll, until a click lands outside it or another is picked. With one
+surface it is picked at once, without labels.
 
 Notation: characters are themselves (`G` is shift+g); `<...>` names a special
 key or chord: `<Esc>`, `<Space>`, `<CR>`, `<Tab>`, `<F5>`, `<lt>`, `<A-f>`

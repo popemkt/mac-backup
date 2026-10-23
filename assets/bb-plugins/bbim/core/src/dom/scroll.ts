@@ -1,11 +1,13 @@
 // Scrolling from the keyboard: which element scrolls, and by how much.
 //
-// The scroll target is the nearest vertically scrollable ancestor of where
-// the person last was (last click, else focus). When that is nothing, it is
-// the scrollable element under the middle of the focus region (or viewport):
-// apps like bb keep the page itself fixed and scroll panes inside it.
-import type { Rect } from "../domain/targets.ts";
-import { parentAcrossShadow } from "./tree.ts";
+// The scroll target is the surface the person picked (`gs`), while it lasts;
+// else the nearest vertically scrollable ancestor of where they last were
+// (last click, else focus); else the scrollable element under the middle of
+// the focus region (or viewport): apps like bb keep the page itself fixed and
+// scroll panes inside it.
+import { intersect, type Rect } from "../domain/targets.ts";
+import { type DocumentPlacement, isRendered, isUncovered, viewportOf, visibleBox } from "./collect.ts";
+import { parentAcrossShadow, querySelectorAllDeep } from "./tree.ts";
 
 export type ScrollAction = "scrollDown" | "scrollUp" | "halfPageDown" | "halfPageUp" | "scrollTop" | "scrollBottom";
 
@@ -23,6 +25,37 @@ function scrollableAncestor(start: Element | null): Element | undefined {
     if (isScrollable(element)) return element;
   }
   return undefined;
+}
+
+/** Smallest visible box, in CSS pixels, worth a scroll-surface label. */
+const MIN_SURFACE = 40;
+
+/**
+ * Every surface in the placement document, open shadow roots included, that
+ * scrolls vertically and shows on screen, with its visible box in top-level
+ * coordinates. Nested surfaces (a code block in a transcript) both count.
+ */
+export function scrollSurfaces(
+  placement: DocumentPlacement,
+  exclude: (element: Element) => boolean,
+): ReadonlyArray<{ readonly element: Element; readonly rect: Rect }> {
+  const { doc } = placement;
+  const viewport = viewportOf(doc);
+  const page = doc.scrollingElement;
+  const found: Array<{ readonly element: Element; readonly rect: Rect }> = [];
+  for (const element of querySelectorAllDeep(doc, "*")) {
+    // The cheap layout read first: most elements have nothing to scroll.
+    if (element.scrollHeight <= element.clientHeight + 1 || exclude(element) || !isScrollable(element)) continue;
+    const shown = element === page ? viewport : visibleBox(element, viewport);
+    if (shown === undefined || shown.width < MIN_SURFACE || shown.height < MIN_SURFACE) continue;
+    if (element !== page && (!isRendered(element) || !isUncovered(doc, element, shown))) continue;
+    const rect = intersect(
+      { left: shown.left + placement.offsetX, top: shown.top + placement.offsetY, width: shown.width, height: shown.height },
+      placement.clip,
+    );
+    if (rect !== undefined) found.push({ element, rect });
+  }
+  return found;
 }
 
 /** Resolve the element to scroll. */

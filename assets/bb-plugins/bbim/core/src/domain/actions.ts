@@ -12,6 +12,7 @@ export const ACTIONS = [
   "halfPageUp",
   "scrollTop",
   "scrollBottom",
+  "pickScroll",
   "focusInput",
   "help",
 ] as const;
@@ -36,6 +37,7 @@ export const ACTION_INFO: Readonly<Record<Action, ActionInfo>> = {
   halfPageUp: { key: "u", label: "Scroll up half a page", repeats: true },
   scrollTop: { key: "gg", label: "Scroll to the top", repeats: false },
   scrollBottom: { key: "G", label: "Scroll to the bottom", repeats: false },
+  pickScroll: { key: "gs", label: "Pick the pane j/k/d/u scroll", repeats: false },
   focusInput: { key: "gi", label: "Focus the main text input", repeats: false },
   help: { key: "?", label: "Show this help", repeats: false },
 };

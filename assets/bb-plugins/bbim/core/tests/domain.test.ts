@@ -11,7 +11,7 @@ test("settings: defaults when nothing is given", () => {
   const { settings, problems } = decodeSettings({});
   assert.deepEqual(settings, DEFAULT_SETTINGS);
   assert.deepEqual(problems, []);
-  assert.equal(keyBindings(settings).length, 10);
+  assert.equal(keyBindings(settings).length, 11);
 });
 
 test("settings: a bad field falls back alone and is reported", () => {

@@ -40,6 +40,13 @@ export default definePluginApp((app) => {
     run: () => runAction("hintsNewTab"),
   });
   app.commands.register({
+    id: "pick-scroll",
+    title: "bbim: pick the pane j/k scroll",
+    defaultShortcut: { key: "s", alt: true },
+    isAvailable: commandAvailable,
+    run: () => runAction("pickScroll"),
+  });
+  app.commands.register({
     id: "help",
     title: "bbim: show keyboard help",
     isAvailable: commandAvailable,

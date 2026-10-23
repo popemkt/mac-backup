@@ -1,6 +1,6 @@
 ---
 name: bbim
-description: bbim, the bb plugin for vim-style keyboard navigation of bb itself — link hints (alt+f / f), j/k/d/u/gg/G scrolling, gi to the composer, ? for help. Use when asked how to drive bb from the keyboard, to change or explain bbim's keys and settings, why a bbim key does nothing somewhere, or how to make a page shown in a frame inside bb hintable (the bbim-bridge script and its postMessage protocol).
+description: bbim, the bb plugin for vim-style keyboard navigation of bb itself — link hints (alt+f / f), j/k/d/u/gg/G scrolling, picking the pane to scroll (alt+s / gs), gi to the composer, ? for help. Use when asked how to drive bb from the keyboard, to change or explain bbim's keys and settings, why a bbim key does nothing somewhere, or how to make a page shown in a frame inside bb hintable (the bbim-bridge script and its postMessage protocol).
 ---
 
 # bbim
@@ -14,6 +14,7 @@ press its keys, but can explain and configure them.
 |---|---|---|
 | `plugin:bbim/hints` | `alt+f` | hint mode: type a label to click, follow or focus |
 | `plugin:bbim/hints-new-tab` | `alt+shift+f` | hint mode; links open in a new tab |
+| `plugin:bbim/pick-scroll` | `alt+s` | label every scrollable pane; the picked one is what j/k/d/u/gg/G scroll |
 | `plugin:bbim/help` | none | the help overlay |
 
 The chords work while typing in the composer. They are unavailable in a terminal (so `alt+f`
@@ -30,6 +31,7 @@ focus, and the `bareKeys` setting is on (default).
 | `j` / `k` | scroll a line down / up (holding repeats) |
 | `d` / `u` | half a page down / up |
 | `gg` / `G` | top / bottom |
+| `gs` | pick the pane to scroll: outlined, labeled at its top-left; it scrolls until you click elsewhere (one pane: picked at once) |
 | `gi` | focus the composer of the current pane |
 | `?` | help: every key as bound now, plus settings that did not take |
 
@@ -44,7 +46,7 @@ is swallowed while hints show, so Esc never reaches bb's back navigation.
 | `bareKeys` | `true` | off leaves only the chords |
 | `hintAlphabet` | `sadfjklewcmpgh` | ≥ 2 distinct letters, strongest first; the first become single-key labels |
 | `fadedTargets` | `show` | hover-only controls (a tab's ×) get dimmed, dashed labels after the visible ones; `hide` leaves them out |
-| `key-hints`, `key-hintsNewTab`, `key-scrollDown`, `key-scrollUp`, `key-halfPageDown`, `key-halfPageUp`, `key-scrollTop`, `key-scrollBottom`, `key-focusInput`, `key-help` | `f F j k d u gg G gi ?` | vim notation (`gg`, `<A-f>`, `<C-d>`, `<Space>`); empty unbinds; may not start with `<Esc>` or a digit (bb uses digits to answer agent questions) |
+| `key-hints`, `key-hintsNewTab`, `key-scrollDown`, `key-scrollUp`, `key-halfPageDown`, `key-halfPageUp`, `key-scrollTop`, `key-scrollBottom`, `key-pickScroll`, `key-focusInput`, `key-help` | `f F j k d u gg G gs gi ?` | vim notation (`gg`, `<A-f>`, `<C-d>`, `<Space>`); empty unbinds; may not start with `<Esc>` or a digit (bb uses digits to answer agent questions) |
 | `scrollStep` | `70` | px, 10–2000 |
 | `sequenceTimeoutMs` | `1000` | ms, 200–5000; how long `gg` waits for its second key |
 

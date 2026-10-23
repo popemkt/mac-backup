@@ -65,7 +65,8 @@ import { type HelpModel, type HelpSection, mountOverlay, type Overlay, type Them
 import { focusInput, TEXT_INPUT_SELECTOR } from "./inputs.ts";
 import { frameThrottle, listen, timers } from "./resources.ts";
 import { openScope, type ScopeHandle } from "./runtime.ts";
-import { scroll, scrollTarget } from "./scroll.ts";
+import { isScrollable, scroll, scrollSurfaces, scrollTarget } from "./scroll.ts";
+import { containsAcrossShadow } from "./tree.ts";
 
 export interface BbimHooks {
   /** Extra focus guards (a terminal, a webview, a modal). Editable focus is built in. */
@@ -134,6 +135,10 @@ interface Picker {
   readonly collect: (placement: DocumentPlacement) => ReadonlyArray<LocalTarget>;
   /** Whether bridge frames are asked for their targets as well. */
   readonly remote: boolean;
+  /** Outline each target and put its label inside the top-left corner (a pane, not a control). */
+  readonly outline: boolean;
+  /** With exactly one target and no frames to ask, pick it without showing labels. */
+  readonly pickSingle: boolean;
   /** Act on the picked target; `newTab` when Shift was on the last letter or the session asked for it. */
   readonly pick: (target: Target, how: { readonly newTab: boolean; readonly requestId: string }) => void;
 }
@@ -242,6 +247,8 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
   let session: PickSession | undefined;
   let lastPointer: Element | null = null;
   let lastEditable: Element | null = null;
+  /** The surface `gs` picked: j/k/d/u/gg/G scroll it until a click lands outside it. */
+  let scrollFocus: Element | undefined;
   let requests = 0;
 
   const overlay: Overlay = root.run(mountOverlay(doc, options.theme ?? {}));
@@ -330,7 +337,27 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
         (target): LocalTarget => ({ source: "local", ...target }),
       ),
     remote: true,
+    outline: false,
+    pickSingle: false,
     pick: activate,
+  };
+
+  const isOverlay = (element: Element) => element === overlay.host || element.getRootNode() === overlay.host.shadowRoot;
+
+  /** Scroll surfaces: picking one makes it what the scroll keys move. */
+  const scrollPicker: Picker = {
+    collect: (placement) =>
+      scrollSurfaces(placement, isOverlay).map(
+        ({ element, rect }): LocalTarget => ({ source: "local", element, kind: undefined, rect, faded: false }),
+      ),
+    remote: false,
+    outline: true,
+    pickSingle: true,
+    pick: (target) => {
+      if (target.source !== "local") return;
+      scrollFocus = target.element;
+      overlay.flash(target.rect);
+    },
   };
 
   /** A key typed in hint mode; `from` is the bridge frame it was typed in, if any. */
@@ -401,7 +428,8 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     const focused = active.focusedFrame;
     active.frameKeymap =
       focused === undefined ? undefined : labelKeymap((target) => target.source === "remote" && target.remote.frame === focused);
-    overlay.showHints(assigned.map(({ label, target }) => ({ label, rect: target.rect, faded: target.faded })));
+    const { outline } = active.picker;
+    overlay.showHints(assigned.map(({ label, target }) => ({ label, rect: target.rect, faded: target.faded, outline })));
     for (const queued of active.queued.splice(0)) hintKey(queued.event, queued.from);
   };
 
@@ -439,6 +467,11 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     const tree = frameTree(doc);
     const local: Array<Target> = tree.documents.flatMap((placement) => picker.collect(placement).filter(shows));
     requests += 1;
+    const only = local[0];
+    if (picker.pickSingle && !picker.remote && local.length === 1 && only !== undefined) {
+      picker.pick(only, { newTab, requestId: `bbim-${requests}` });
+      return;
+    }
     const active: PickSession = {
       picker,
       scope: root.child(),
@@ -552,13 +585,17 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       case "halfPageUp":
       case "scrollTop":
       case "scrollBottom": {
-        const target = scrollTarget(doc, [lastPointer, deepActiveElement(doc)], regionRect());
+        const picked = scrollFocus?.isConnected === true && isScrollable(scrollFocus) ? scrollFocus : undefined;
+        const target = picked ?? scrollTarget(doc, [lastPointer, deepActiveElement(doc)], regionRect());
         if (target !== undefined) scroll(target, action, settings.scrollStep, repeat);
         return;
       }
       case "hints":
       case "hintsNewTab":
         startPick(linkHints, action === "hintsNewTab");
+        return;
+      case "pickScroll":
+        startPick(scrollPicker, false);
         return;
       case "focusInput":
         focusInput(doc, { selector: inputSelector, lastEditable, near: lastPointer ?? deepActiveElement(doc) });
@@ -639,6 +676,10 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
         "pointerdown",
         (event) => {
           lastPointer = composedTarget(event);
+          // A click outside the picked surface hands scrolling back to where the click was.
+          if (scrollFocus !== undefined && (lastPointer === null || !containsAcrossShadow(scrollFocus, lastPointer))) {
+            scrollFocus = undefined;
+          }
           keyState = EMPTY_STATE;
           if (session !== undefined) endHints();
           if (current(stack) === "help") toggleHelp();
@@ -678,6 +719,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       // Let go of the page's elements: a disposed engine may outlive its page.
       lastPointer = null;
       lastEditable = null;
+      scrollFocus = undefined;
       root.close();
     },
   };

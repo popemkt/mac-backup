@@ -47,6 +47,13 @@ const STYLE = `
   outline: 1px dashed var(--bbim-hint-ring); outline-offset: 0;
 }
 .hint[hidden] { display: none; }
+/* A pane a picker offers: a subtle outline around it, its label inside the corner. */
+.surface {
+  position: absolute; left: 0; top: 0; box-sizing: border-box; border-radius: 6px;
+  border: 2px solid color-mix(in srgb, var(--bbim-accent) 60%, transparent);
+  background: color-mix(in srgb, var(--bbim-accent) 5%, transparent);
+}
+.surface[hidden] { display: none; }
 .hint .typed { color: var(--bbim-hint-typed); }
 .flash {
   position: absolute; border-radius: 4px;
@@ -85,6 +92,8 @@ export interface HintView {
   readonly rect: Rect;
   /** The target is drawn only on hover: its label is de-emphasized. */
   readonly faded?: boolean;
+  /** The target is a surface (a pane): outline it and put the label inside its top-left corner. */
+  readonly outline?: boolean;
 }
 
 export interface HelpSection {
@@ -118,11 +127,17 @@ export interface Overlay {
 const LABEL_HEIGHT = 15;
 const CHAR_WIDTH = 8;
 
-function labelPosition(rect: Rect, label: string, win: Window): { x: number; y: number } {
+/** Where a label goes: over the top-left corner of a control, inside the corner of a surface. */
+function labelPosition(rect: Rect, label: string, win: Window, inside: boolean): { x: number; y: number } {
   const width = label.length * CHAR_WIDTH + 9;
-  const x = Math.min(Math.max(0, rect.left - 2), Math.max(0, win.innerWidth - width));
-  const y = Math.min(Math.max(0, rect.top - 2), Math.max(0, win.innerHeight - LABEL_HEIGHT));
+  const inset = inside ? 6 : -2;
+  const x = Math.min(Math.max(0, rect.left + inset), Math.max(0, win.innerWidth - width));
+  const y = Math.min(Math.max(0, rect.top + inset), Math.max(0, win.innerHeight - LABEL_HEIGHT));
   return { x: Math.round(x), y: Math.round(y) };
+}
+
+function placeBox(node: HTMLElement, rect: Rect): void {
+  node.style.cssText = `left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;`;
 }
 
 function element<K extends keyof HTMLElementTagNameMap>(doc: Document, tag: K, className?: string, text?: string) {
@@ -170,7 +185,7 @@ export const mountOverlay = Effect.fn("mountOverlay")(function* (doc: Document, 
   yield* attach((doc.body as HTMLElement | null) ?? doc.documentElement, host);
   const schedule = win === null ? undefined : yield* timers(win);
 
-  let labels: Array<{ node: HTMLElement; label: string }> = [];
+  let labels: Array<{ node: HTMLElement; label: string; surface: HTMLElement | undefined }> = [];
 
   const setTheme = (next: Theme) => {
     for (const [property, fallback] of Object.entries(THEME_PROPERTIES)) {
@@ -183,22 +198,31 @@ export const mountOverlay = Effect.fn("mountOverlay")(function* (doc: Document, 
     host,
     setTheme,
     showHints: (views) => {
-      for (const { node } of labels) node.remove();
-      labels = views.map(({ label, rect, faded = false }) => {
+      for (const { node, surface } of labels) {
+        node.remove();
+        surface?.remove();
+      }
+      labels = views.map(({ label, rect, faded = false, outline = false }) => {
+        const surface = outline ? element(doc, "div", "surface") : undefined;
+        if (surface !== undefined) {
+          placeBox(surface, rect);
+          layer.append(surface);
+        }
         const node = element(doc, "div", faded ? "hint faded" : "hint");
         node.append(element(doc, "span", "typed"), element(doc, "span", undefined, label));
         if (win !== null) {
-          const { x, y } = labelPosition(rect, label, win);
+          const { x, y } = labelPosition(rect, label, win, outline);
           node.style.transform = `translate(${x}px, ${y}px)`;
         }
         layer.append(node);
-        return { node, label };
+        return { node, label, surface };
       });
     },
     narrow: (typed) => {
-      for (const { node, label } of labels) {
+      for (const { node, label, surface } of labels) {
         const matches = label.startsWith(typed);
         node.hidden = !matches;
+        if (surface !== undefined) surface.hidden = !matches;
         if (!matches) continue;
         const [done, rest] = [node.firstChild, node.lastChild];
         if (done !== null) done.textContent = typed;
@@ -206,25 +230,30 @@ export const mountOverlay = Effect.fn("mountOverlay")(function* (doc: Document, 
       }
     },
     reposition: (rects) => {
-      labels.forEach(({ node, label }, index) => {
+      labels.forEach(({ node, label, surface }, index) => {
         const rect = rects[index];
         if (rect === undefined || win === null) {
           node.style.visibility = "hidden";
+          if (surface !== undefined) surface.style.visibility = "hidden";
           return;
         }
-        const { x, y } = labelPosition(rect, label, win);
+        const { x, y } = labelPosition(rect, label, win, surface !== undefined);
         node.style.visibility = "";
         node.style.transform = `translate(${x}px, ${y}px)`;
+        if (surface !== undefined) placeBox(surface, rect);
       });
     },
     hideHints: () => {
-      for (const { node } of labels) node.remove();
+      for (const { node, surface } of labels) {
+        node.remove();
+        surface?.remove();
+      }
       labels = [];
     },
     flash: (rect) => {
       if (schedule === undefined) return;
       const node = element(doc, "div", "flash");
-      node.style.cssText = `left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;`;
+      placeBox(node, rect);
       layer.append(node);
       schedule(420, () => node.remove());
     },

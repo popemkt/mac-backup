@@ -72,6 +72,7 @@ function hooks(doc: Document): BbimHooks {
         rows: [
           { label: "Show hints (works while typing)", keys: ["⌥F by default"] },
           { label: "Show hints, links in a new tab", keys: ["⌥⇧F by default"] },
+          { label: "Pick the pane j/k scroll", keys: ["⌥S by default"] },
         ],
       },
     ],

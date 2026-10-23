@@ -198,6 +198,62 @@ test("scrolling: j scrolls the pane under the last click; gg goes to its top", (
   assert.deepEqual(calls, ["by 70", "by 200", "to 0"]);
 });
 
+/** Make `element` a vertical scroll surface (happy-dom lays nothing out) and record its scroll calls. */
+function scrollable(element: HTMLElement, calls: Array<string>) {
+  element.style.overflowY = "auto";
+  Object.defineProperty(element, "scrollHeight", { value: 2000 });
+  Object.defineProperty(element, "clientHeight", { value: 300 });
+  element.scrollBy = ((options: ScrollToOptions) => calls.push(`${element.id} by ${options.top}`)) as typeof element.scrollBy;
+  element.scrollTo = ((options: ScrollToOptions) => calls.push(`${element.id} to ${options.top}`)) as typeof element.scrollTo;
+}
+
+const PANES = `
+  <main data-rect="0,0,1000,800">
+    <nav id="sidebar" data-rect="0,0,200,800"><a id="row" href="#r" data-rect="10,10,100,20">Row</a></nav>
+    <section id="transcript" data-rect="220,0,560,800"><p id="line" data-rect="220,10,500,20">hello</p></section>
+    <div id="tiny" data-rect="800,10,20,20"></div>
+  </main>`;
+
+test("scroll picker: gs outlines every scroll surface; the picked one is what j/k/d/u/gg/G move", () => {
+  const p = page(PANES);
+  const bbim = createBbim({ window: p.win });
+  current = { page: p, bbim };
+  const calls: Array<string> = [];
+  for (const id of ["sidebar", "transcript", "tiny"]) scrollable(p.doc.getElementById(id) as HTMLElement, calls);
+  p.doc.getElementById("line")?.dispatchEvent(new p.win.PointerEvent("pointerdown", { bubbles: true, composed: true }));
+  p.key("g");
+  p.key("s");
+  assert.equal(bbim.mode(), "hint");
+  const labels = p.labels();
+  assert.equal(labels.length, 2, "two panes; a 20 px box is no surface");
+  const surfaces = p.overlayHost()?.shadowRoot?.querySelectorAll(".surface") ?? [];
+  assert.equal(surfaces.length, 2, "each surface is outlined");
+  // Labels go to the region first: the transcript (last click) gets the first one.
+  const sidebarLabel = labels[1] ?? "";
+  for (const char of sidebarLabel) p.key(char);
+  assert.equal(bbim.mode(), "normal");
+  p.key("j");
+  p.key("G", { shiftKey: true });
+  assert.deepEqual(calls, ["sidebar by 70", "sidebar to 2000"], "the picked pane scrolls, not the one clicked");
+  p.doc.getElementById("line")?.dispatchEvent(new p.win.PointerEvent("pointerdown", { bubbles: true, composed: true }));
+  p.key("j");
+  assert.equal(calls.at(-1), "transcript by 70", "a click elsewhere hands scrolling back");
+});
+
+test("scroll picker: with one surface, gs selects it without labels", () => {
+  const p = page(PANES);
+  const bbim = createBbim({ window: p.win, settings: { keys: { pickScroll: "<A-s>" } } });
+  current = { page: p, bbim };
+  const calls: Array<string> = [];
+  scrollable(p.doc.getElementById("sidebar") as HTMLElement, calls);
+  p.key("ß", { altKey: true, code: "KeyS" });
+  assert.equal(bbim.mode(), "normal");
+  assert.deepEqual(p.labels(), []);
+  assert.equal(p.overlayHost()?.shadowRoot?.querySelectorAll(".flash").length, 1, "the pane flashes so you see which");
+  p.key("j");
+  assert.deepEqual(calls, ["sidebar by 70"]);
+});
+
 test("help: ? opens it, Esc closes it without reaching the app", () => {
   const { p, bbim } = start();
   const reached: Array<string> = [];

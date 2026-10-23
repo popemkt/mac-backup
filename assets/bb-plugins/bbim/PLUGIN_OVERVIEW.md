@@ -10,6 +10,9 @@ Drive bb from the keyboard, the way Vimium drives a browser.
   the last letter opens a link in a new tab.
 - **Scrolling.** `j` / `k` scroll a line, `d` / `u` half a page, `gg` / `G` to the top and
   bottom, in the pane under your last click or focus.
+- **Pick the pane to scroll.** `alt+s` or `gs` outlines every scrollable pane (sidebar,
+  transcript, a long code block) with a label in its corner. Pick one and the scroll keys
+  move it until you click elsewhere; it flashes so you see which.
 - **`gi`** jumps to the composer of the pane you are in.
 - **`?`** shows every key, including the ones you rebound, and any setting that did not take.
 
