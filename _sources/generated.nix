@@ -16,26 +16,26 @@
   };
   cli-proxy-api = {
     pname = "cli-proxy-api";
-    version = "8.0.37";
+    version = "8.0.40";
     src = fetchurl {
-      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.37/CLIProxyAPI_8.0.37_darwin_aarch64.tar.gz";
-      sha256 = "sha256-fyQyzzTlh7wOSejpYkfnl5KNxiGbX3a28rhYNb1kxC8=";
+      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.40/CLIProxyAPI_8.0.40_darwin_aarch64.tar.gz";
+      sha256 = "sha256-C0ty95oajW031sn+fuGwAR6/+aKU7YVuw+ewSzGK3BQ=";
     };
   };
   cursor-cli = {
     pname = "cursor-cli";
-    version = "2026.10.19-6bbf2c4";
+    version = "2026.10.22-27dcf5f";
     src = fetchurl {
-      url = "https://downloads.cursor.com/lab/2026.10.19-6bbf2c4/darwin/arm64/agent-cli-package.tar.gz";
-      sha256 = "sha256-CV3MuSNIjSgKrml7powTqSu9nOHcYQVAHhR+JYafKxM=";
+      url = "https://downloads.cursor.com/lab/2026.10.22-27dcf5f/darwin/arm64/agent-cli-package.tar.gz";
+      sha256 = "sha256-L1sKPdX7lRzs/6yBOGfYoI2BDlmDfVn9XxLWm5IjmNc=";
     };
   };
   genoffice = {
     pname = "genoffice";
-    version = "0.11.919";
+    version = "0.12.29";
     src = fetchurl {
-      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.11.919/GenOffice-0.11.919-arm64.dmg";
-      sha256 = "sha256-xbMpJ2Ff7/e/iJgsSVUZAdr1FFrdQpsLfbhqVYoK7PE=";
+      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.12.29/GenOffice-0.12.29-arm64.dmg";
+      sha256 = "sha256-yO3XoWAqKTC8cAlGxLAN8k4Fl5ZrZkp2s0tPoqCExAo=";
     };
   };
   kb = {
@@ -56,10 +56,10 @@
   };
   vite-plus = {
     pname = "vite-plus";
-    version = "1.3.0";
+    version = "1.4.0";
     src = fetchurl {
-      url = "https://github.com/voidzero-dev/vite-plus/releases/download/v1.3.0/vp-aarch64-apple-darwin.tar.gz";
-      sha256 = "sha256-TwIac9Z1/8eKx3NZ/9QNiaYvJirHViXl4P1WciES+Dg=";
+      url = "https://github.com/voidzero-dev/vite-plus/releases/download/v1.4.0/vp-aarch64-apple-darwin.tar.gz";
+      sha256 = "sha256-1U0ljOZ9Q8De/7CTKYJSQdsZfC8g5yhxEhIn8D+0AxI=";
     };
   };
 }
