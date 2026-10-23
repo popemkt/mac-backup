@@ -156,5 +156,5 @@ test("modes: a stack over normal; leaving a mode drops what is above it", () => 
   stack = leave(stack, "hint");
   assert.equal(current(stack), "normal");
   assert.equal(leave(stack, "normal"), stack);
-  assert.ok(ownsKeyboard("hint") && ownsKeyboard("help") && !ownsKeyboard("normal") && !ownsKeyboard("disabled"));
+  assert.ok(ownsKeyboard("hint") && ownsKeyboard("help") && !ownsKeyboard("normal"));
 });

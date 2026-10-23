@@ -5,14 +5,9 @@
 // the scrollable element under the middle of the focus region (or viewport):
 // apps like bb keep the page itself fixed and scroll panes inside it.
 import type { Rect } from "../domain/targets.ts";
+import { parentAcrossShadow } from "./tree.ts";
 
 export type ScrollAction = "scrollDown" | "scrollUp" | "halfPageDown" | "halfPageUp" | "scrollTop" | "scrollBottom";
-
-function parentAcrossShadow(element: Element): Element | null {
-  if (element.parentElement !== null) return element.parentElement;
-  const root = element.getRootNode();
-  return "host" in root && root.host instanceof Element ? root.host : null;
-}
 
 /** Whether the element scrolls vertically and has somewhere to go. */
 export function isScrollable(element: Element): boolean {

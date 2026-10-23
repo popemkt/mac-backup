@@ -144,10 +144,14 @@ function stepFrom<A>(keymap: Keymap<A>, prefix: ReadonlyArray<KeyStroke>, stroke
   return [{ prefix: extended, at: now }, { kind: "pending", prefix: extended }];
 }
 
+/** The state with a pending prefix older than the keymap's timeout forgotten. */
+export function expire(keymap: Keymap<unknown>, state: MatchState, now: number): MatchState {
+  return state.prefix.length > 0 && now - state.at > keymap.options.timeoutMs ? EMPTY_STATE : state;
+}
+
 /** Feed one stroke. Pure: returns the next state and what the stroke did. */
 export function feed<A>(keymap: Keymap<A>, state: MatchState, stroke: KeyStroke, now: number): [MatchState, Step<A>] {
-  const expired = state.prefix.length > 0 && now - state.at > keymap.options.timeoutMs;
-  const prefix = expired ? [] : state.prefix;
+  const { prefix } = expire(keymap, state, now);
   const [next, step] = stepFrom(keymap, prefix, stroke, now);
   if (step.kind !== "miss" || prefix.length === 0) return [next, step];
   if (!keymap.options.restartOnMiss) return [{ prefix, at: state.at }, step];
@@ -164,19 +168,4 @@ export function back(state: MatchState): MatchState {
 export function typed(keymap: Keymap<unknown>, state: MatchState): string {
   const strokes = keymap.options.foldCase ? state.prefix.map(foldCase) : state.prefix;
   return formatSequence(strokes);
-}
-
-/** Every binding still reachable from the pending prefix. */
-export function reachable<A>(keymap: Keymap<A>, state: MatchState): ReadonlyArray<Binding<A>> {
-  const start = walk(keymap, state.prefix);
-  if (start === undefined) return [];
-  const found: Array<Binding<A>> = [];
-  const stack = [start];
-  while (stack.length > 0) {
-    const current = stack.pop();
-    if (current === undefined) break;
-    if (current.binding !== undefined) found.push(current.binding);
-    stack.push(...current.children.values());
-  }
-  return found;
 }

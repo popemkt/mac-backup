@@ -34,24 +34,27 @@ window and returns a `Bbim`:
 | Member | Does |
 |---|---|
 | `run(action)` | run an action as if its key was pressed (wire your own shortcuts to it) |
-| `setSettings(input)` / `setKeymap(keys)` | replace settings; returns what was invalid and fell back |
-| `setTheme(theme)` | set overlay CSS custom properties |
-| `disable()` / `enable()` | stand aside: every key passes through |
-| `mode()` | `"normal" \| "hint" \| "help" \| "disabled"` |
+| `setSettings(input)` | replace settings, keys included; returns what was invalid and fell back |
+| `mode()` | `"normal" \| "hint" \| "help"` |
 | `dispose()` | remove everything; aborting `signal` does the same |
 
-Options: `window`, `settings`, `hooks`, `theme`, `selectors` (hint candidates,
-default `DEFAULT_SELECTORS`), `signal`, `bridgeTimeoutMs` (default 150).
+Options: `window`, `settings`, `hooks`, `theme` (CSS custom properties; point
+them at your own tokens with `var(...)` and they follow theme switches),
+`selectors` (hint candidates, default `DEFAULT_SELECTORS`), `inputSelector`
+(what `gi` may focus, default `TEXT_INPUT_SELECTOR`; it picks the last one
+used, else the biggest in the pane around the last click or focus, else the
+biggest on screen), `signal`,
+`bridgeTimeoutMs` (default 150).
+
+To make bbim stand aside (a game, a recording), add a guard that answers
+`blocked`; there is no separate disable switch.
 
 ### Hooks
 
 | Hook | Use |
 |---|---|
-| `guards: FocusGuard[]` | `(focused) => "free" \| "typing" \| "blocked" \| undefined`. Editable focus is built in as `typing`. `typing` turns bare keys off (chords still work); `blocked` turns bbim off. Helpers: `withinGuard(selector)` (focus inside, e.g. a terminal), `presenceGuard(doc, selector, state)` (e.g. an open modal). |
-| `activate(element, kind, context)` | activate a chosen hint your way; `false` uses the DOM default |
+| `guards: FocusGuard[]` | `(focused) => "free" \| "typing" \| "blocked" \| undefined`. Editable focus is built in as `typing`. `typing` turns bare keys off (chords still work); `blocked` turns bbim off. Helpers: `withinGuard(selector)` (focus inside, e.g. a terminal), `presenceGuard(doc, selector, state)` (e.g. an open modal). Both see through open shadow roots; inside a closed one, focus is seen on its host, so match the host. |
 | `openUrl(url, { newTab })` | open new-tab URLs your way (new-tab hints, bridge `open` requests); `false` falls back to a cmd/ctrl-click on the link, or `window.open` for a bridge request |
-| `focusInput()` | what `gi` focuses; `false` falls back to the last focused field, else the largest one |
-| `focusRegion()` | the pane the person works in: its targets get the shortest labels |
 | `help()` | extra help-overlay sections, e.g. the host's own chords |
 
 ### Settings
@@ -118,12 +121,8 @@ export function useVimKeys(options: { bareKeys: boolean; onOpen: (url: string) =
           options.onOpen(url); // your router
           return true;
         },
-        focusInput: () => {
-          const search = document.querySelector<HTMLInputElement>("#search");
-          search?.focus();
-          return search !== null;
-        },
       },
+      inputSelector: "#search, .editor textarea", // what gi may focus
     });
     return () => controller.abort();
   }, [options.bareKeys, options.onOpen]);

@@ -7,10 +7,8 @@ import {
   type BbimHooks,
   createBbim,
   deepActiveElement,
-  focusForTyping,
   type FocusGuard,
   focusState,
-  isRendered,
   MENU_SELECTOR,
   MODAL_SELECTOR,
   presenceGuard,
@@ -50,28 +48,6 @@ function guards(doc: Document): ReadonlyArray<FocusGuard> {
   ];
 }
 
-function isShown(element: Element): boolean {
-  return element.getClientRects().length > 0 && isRendered(element);
-}
-
-/** The composer of the pane the person is in: the nearest one to focus, else the first shown. */
-function focusComposer(doc: Document): boolean {
-  const composers = [...doc.querySelectorAll(COMPOSER)].filter(isShown);
-  if (composers.length === 0) return false;
-  let chosen = composers[0];
-  for (let scope = deepActiveElement(doc); scope !== null; scope = scope.parentElement) {
-    const within = scope;
-    const inside = composers.find((composer) => within.contains(composer));
-    if (inside !== undefined) {
-      chosen = inside;
-      break;
-    }
-  }
-  if (chosen === undefined) return false;
-  focusForTyping(chosen);
-  return true;
-}
-
 /** What React supplies (app.tsx): the latest settings and bb's URL opener. */
 const live: {
   settings: SettingsInput | undefined;
@@ -90,7 +66,6 @@ function hooks(doc: Document): BbimHooks {
       if (target.origin === doc.defaultView?.location.origin) return false;
       return live.openUrl?.(target.href) ?? false;
     },
-    focusInput: () => focusComposer(doc),
     help: () => [
       {
         title: "bb commands (Settings → Keyboard)",
@@ -103,16 +78,31 @@ function hooks(doc: Document): BbimHooks {
   };
 }
 
+let engineWindow: Window | undefined;
+
 /** Mount bbim in this bb window until `signal` aborts (the content script's lifetime). */
-export function mountBbim(signal: AbortSignal): void {
-  const doc = window.document;
+export function mountBbim(signal: AbortSignal, win: Window = window): void {
+  const doc = win.document;
   engineGuards = guards(doc);
-  const mounted = createBbim({ window, signal, theme: BB_THEME, settings: live.settings ?? {}, hooks: hooks(doc) });
+  // A remount (a content-script reload) must not leave the old engine's keys live.
+  engine?.dispose();
+  const mounted = createBbim({
+    window: win,
+    signal,
+    theme: BB_THEME,
+    settings: live.settings ?? {},
+    hooks: hooks(doc),
+    // gi goes to a composer: the last one used, else the one in the pane you are in.
+    inputSelector: COMPOSER,
+  });
   engine = mounted;
+  engineWindow = win;
   signal.addEventListener(
     "abort",
     () => {
-      if (engine === mounted) engine = undefined;
+      if (engine !== mounted) return;
+      engine = undefined;
+      engineWindow = undefined;
     },
     { once: true },
   );
@@ -137,5 +127,5 @@ export function runAction(action: Action): void {
  * declines and bb lets the key through.
  */
 export function commandAvailable(): boolean {
-  return engine !== undefined && focusState(engineGuards, deepActiveElement(window.document)) !== "blocked";
+  return engine !== undefined && engineWindow !== undefined && focusState(engineGuards, deepActiveElement(engineWindow.document)) !== "blocked";
 }

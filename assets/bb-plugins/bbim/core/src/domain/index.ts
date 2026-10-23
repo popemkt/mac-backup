@@ -19,12 +19,12 @@ export {
   type Binding,
   compileKeymap,
   EMPTY_STATE,
+  expire,
   feed,
   type Keymap,
   type KeymapConflict,
   type KeymapOptions,
   type MatchState,
-  reachable,
   type Step,
   typed,
 } from "./matcher.ts";

@@ -5,6 +5,8 @@
 // keys type), or `blocked` (bbim stands aside entirely: a modal, a terminal,
 // an embedded browser). The host adds its own guards; the strictest answer
 // among all guards wins.
+import { closestAcrossShadow, querySelectorDeep } from "./tree.ts";
+
 export type FocusState = "free" | "typing" | "blocked";
 
 /** A host's opinion about an element having focus; undefined when it has none. */
@@ -34,7 +36,7 @@ export function isEditable(element: Element | null): boolean {
     const type = (element.getAttribute("type") ?? "text").toLowerCase();
     return !NON_TEXT_INPUTS.has(type);
   }
-  return element.closest('[contenteditable]:not([contenteditable="false"])') !== null;
+  return closestAcrossShadow(element, '[contenteditable]:not([contenteditable="false"])') !== null;
 }
 
 /** The default guard: editable elements are `typing`. */
@@ -90,15 +92,19 @@ export const MENU_SELECTOR = [
 
 /**
  * A guard that reports `state` while something matching `selector` is in the
- * document, whatever has focus. A modal takes the keyboard (`blocked`); an
+ * document or any open shadow root in it, whatever has focus. A modal takes the keyboard (`blocked`); an
  * open menu takes letters for its typeahead but chords still reach bbim
  * (`typing`), so hints can still pick a menu item.
  */
 export function presenceGuard(doc: Document, selector: string, state: FocusState): FocusGuard {
-  return () => (doc.querySelector(selector) !== null ? state : undefined);
+  return () => (querySelectorDeep(doc, selector) !== null ? state : undefined);
 }
 
-/** A guard that blocks inside anything matching `selector` (a terminal, a webview). */
+/**
+ * A guard that blocks inside anything matching `selector` (a terminal, a
+ * webview), across open shadow roots. Inside a closed shadow root focus is
+ * seen on its host, so the selector must match the host or an ancestor.
+ */
 export function withinGuard(selector: string): FocusGuard {
-  return (element) => (element?.closest(selector) != null ? "blocked" : undefined);
+  return (element) => (closestAcrossShadow(element, selector) !== null ? "blocked" : undefined);
 }
