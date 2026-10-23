@@ -83,11 +83,18 @@ match by physical key, so `<A-f>` fires although the event's `key` is `ƒ`.
 
 Labels are prefix-free words over the alphabet, shortest nearest the focus
 region's top-left. Typing narrows (case-insensitive); a unique match fires;
-Backspace undoes a letter; Esc, a click, a resize or a hidden tab leaves.
-Shift on the last letter, or `hintsNewTab`, opens links in a new tab. Every
-key is swallowed while hints show, so nothing leaks into the page. Links
-follow, buttons click, text fields focus with the caret at the end, selects
-open their picker.
+Backspace undoes a letter; Esc, a click (in a frame too), focus moving into
+a frame, a resize or a hidden tab leaves. Shift on the last letter, or
+`hintsNewTab`, opens links in a new tab. Every key is swallowed while hints
+show, so nothing leaks into the page; held keys and IME composition never
+type a label. Links follow, buttons click, text fields focus with the caret
+at the end, selects open their picker. Labels are a snapshot: nothing
+watches the page while they show, and picking a target that has since left
+the page labels it afresh.
+
+Letters read their case from Shift alone, so Caps Lock does not turn `f`
+into `F`. A sequence of plain keys (`gg`, `gi`) is dropped when focus moves
+or typing starts, and after `sequenceTimeoutMs`.
 
 ### Theme
 

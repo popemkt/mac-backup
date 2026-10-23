@@ -17,6 +17,7 @@ import {
   back,
   compileKeymap,
   EMPTY_STATE,
+  expire,
   feed,
   type Keymap,
   type MatchState,
@@ -42,7 +43,7 @@ import {
 } from "./bridge-client.ts";
 import { collectTargets, DEFAULT_SELECTORS, viewportOf } from "./collect.ts";
 import { deepActiveElement, editableGuard, type FocusGuard, focusState, isEditable } from "./focus.ts";
-import { frameTree, liveFrame, liveRect, type OpaqueFrame } from "./frames.ts";
+import { frameTree, liveFrame, liveRect, type OpaqueFrame, placementCache } from "./frames.ts";
 import { type HelpModel, type HelpSection, mountOverlay, type Overlay, type Theme } from "./overlay.ts";
 import { focusInput, TEXT_INPUT_SELECTOR } from "./inputs.ts";
 import { frameThrottle, listen, timers } from "./resources.ts";
@@ -92,6 +93,8 @@ interface HintSession {
   readonly newTab: boolean;
   readonly requestId: string;
   readonly frames: ReadonlyArray<OpaqueFrame>;
+  /** The frame element that had focus when hints started, if any. */
+  readonly startFrame: Element | null;
   /** Labels and their targets once collected; undefined while frames answer. */
   assigned: ReadonlyArray<{ readonly label: string; readonly target: Target }> | undefined;
   keymap: Keymap<number> | undefined;
@@ -105,6 +108,11 @@ const HINT_KEYS_LIMIT = 16;
 function swallow(event: Event): void {
   event.preventDefault();
   event.stopImmediatePropagation();
+}
+
+/** `element` when it is a frame element (focus inside a frame shows there). */
+function frameElement(element: Element | null): Element | null {
+  return element?.tagName === "IFRAME" ? element : null;
 }
 
 function composedTarget(event: Event): Element | null {
@@ -217,7 +225,11 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       activateRemote(target.remote, requestId, newTab);
       return;
     }
-    if (!target.element.isConnected) return;
+    if (!target.element.isConnected) {
+      // The page changed under the labels (no observer watches it): label it again.
+      startHints(newTab);
+      return;
+    }
     lastPointer = target.element;
     const context: ActivateContext = { newTab, ...(hooks.openUrl === undefined ? {} : { openUrl: hooks.openUrl }) };
     activateElement(target.element, target.kind, context);
@@ -278,12 +290,15 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
   const reposition = () => {
     const active = session;
     if (active?.assigned === undefined) return;
+    // Each document's and frame's placement once per reposition (one per animation
+    // frame), not once per label; a document scrolled away hides all its labels.
+    const place = placementCache(doc);
     const frames = new Map<OpaqueFrame, OpaqueFrame | undefined>();
     overlay.reposition(
       active.assigned.map(({ target }) => {
-        if (target.source === "local") return liveRect(doc, target.element);
+        if (target.source === "local") return liveRect(place, target.element);
         const before = target.remote.frame;
-        if (!frames.has(before)) frames.set(before, liveFrame(doc, before));
+        if (!frames.has(before)) frames.set(before, liveFrame(place, before));
         const after = frames.get(before);
         if (after === undefined) return undefined;
         return {
@@ -315,6 +330,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       newTab,
       requestId: `bbim-${requests}`,
       frames: tree.opaque,
+      startFrame: frameElement(doc.activeElement),
       assigned: undefined,
       keymap: undefined,
       state: EMPTY_STATE,
@@ -329,11 +345,13 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
           const view = placement.doc.defaultView;
           if (view === null) continue;
           if (view !== win) {
-            // Keys pressed while focus is inside a same-origin frame land there.
+            // Keys pressed while focus is inside a same-origin frame land there,
+            // and so do clicks, which end hints as they do on the page itself.
             yield* listen<KeyboardEvent>(view, "keydown", (event) => {
               swallow(event);
-              hintKey(event);
+              if (!event.repeat) hintKey(event);
             }, { capture: true });
+            yield* listen(view, "pointerdown", endHints, { capture: true, passive: true });
           }
           yield* listen(view, "scroll", onScroll, { capture: true, passive: true });
         }
@@ -411,9 +429,13 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     if (event.defaultPrevented) return;
     const pressed = strokeFromEvent(event);
     if (pressed === undefined) return;
+    // Expire first: a `g` from long ago must not make the next key part of a sequence.
+    keyState = expire(keymap, keyState, now());
     const focus = focusState(guards, composedTarget(event) ?? deepActiveElement(doc));
-    const midSequence = keyState.prefix.length > 0;
-    const bare = !isChord(pressed) && !midSequence;
+    // A sequence a chord started may end on a plain key wherever focus is; a
+    // plain-key sequence (gg, gi) is bare all the way, so it never eats typing.
+    const first = keyState.prefix[0];
+    const bare = !isChord(pressed) && (first === undefined || !isChord(first));
     if (focus === "blocked" || (bare && (focus === "typing" || !settings.bareKeys))) {
       keyState = EMPTY_STATE;
       return;
@@ -441,13 +463,16 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
 
   const onKeyDown = (event: KeyboardEvent) => {
     const mode = current(stack);
+    // An input method is composing: the key is the IME's, not a command.
+    // oxlint-disable-next-line typescript/no-deprecated -- keyCode 229 is how Safari and older Chromium mark IME keys.
+    const composing = event.isComposing || event.key === "Process" || event.keyCode === 229;
     if (!ownsKeyboard(mode)) {
-      if (!event.isComposing) normalKey(event);
+      if (!composing) normalKey(event);
       return;
     }
     // Hint and help own the keyboard: nothing reaches the page while they are up.
     swallow(event);
-    if (event.isComposing) return;
+    if (composing || event.repeat) return;
     if (mode === "hint") hintKey(event);
     else helpKey(event);
   };
@@ -460,6 +485,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
         "pointerdown",
         (event) => {
           lastPointer = composedTarget(event);
+          keyState = EMPTY_STATE;
           if (session !== undefined) endHints();
           if (current(stack) === "help") toggleHelp();
         },
@@ -469,15 +495,19 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
         doc,
         "focusin",
         (event) => {
+          // Focus moved: a half-typed sequence belongs to where it was typed.
+          keyState = EMPTY_STATE;
           const target = composedTarget(event);
           if (target !== null && isEditable(target)) lastEditable = target;
         },
         { capture: true },
       );
       yield* listen(win, "blur", () => {
-        // Focus moving into a frame blurs the window too; only leaving the app ends hints.
+        // Leaving the app ends hints; so does a click into a frame (focus moves
+        // to its element), which the page itself never sees as a pointerdown.
         schedule(0, () => {
-          if (!doc.hasFocus()) endHints();
+          const frame = frameElement(doc.activeElement);
+          if (!doc.hasFocus() || (frame !== null && frame !== session?.startFrame)) endHints();
         });
       });
     }),

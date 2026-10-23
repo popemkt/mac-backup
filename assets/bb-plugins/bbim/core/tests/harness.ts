@@ -68,3 +68,18 @@ export function page(html: string): Page {
     },
   };
 }
+
+/**
+ * Make an iframe act as a laid-out same-origin frame, as a browser reports
+ * one: happy-dom gives it no client size and its window no frameElement.
+ */
+export function layOutFrame(frame: HTMLIFrameElement): Document {
+  const rect = frame.getBoundingClientRect();
+  Object.defineProperty(frame, "clientWidth", { value: rect.width, configurable: true });
+  Object.defineProperty(frame, "clientHeight", { value: rect.height, configurable: true });
+  const inner = frame.contentDocument;
+  const view = frame.contentWindow;
+  if (inner === null || view === null) throw new Error("the frame has no document");
+  Object.defineProperty(view, "frameElement", { value: frame, configurable: true });
+  return inner;
+}

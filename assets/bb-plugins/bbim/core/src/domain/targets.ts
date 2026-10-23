@@ -110,8 +110,9 @@ const STRENGTH: Readonly<Record<TargetKind, number>> = {
 };
 
 /**
- * Indexes of the candidates worth a hint. `contains(outer, inner)` answers
- * whether candidate `outer` is an ancestor of candidate `inner`.
+ * Indexes of the candidates worth a hint. `ancestors(inner)` lists the
+ * candidates that contain candidate `inner`, nearest first, so the work is
+ * candidates × nesting depth, not candidates².
  *
  * - A weak candidate covering a quarter of the viewport is a scroll region or
  *   a card, not a control: dropped.
@@ -124,7 +125,7 @@ const STRENGTH: Readonly<Record<TargetKind, number>> = {
  */
 export function dedupe(
   candidates: ReadonlyArray<Candidate>,
-  contains: (outer: number, inner: number) => boolean,
+  ancestors: (inner: number) => Iterable<number>,
   viewport: Rect,
 ): ReadonlyArray<number> {
   const dropped = new Set<number>();
@@ -132,9 +133,10 @@ export function dedupe(
   candidates.forEach((candidate, index) => {
     if (candidate.kind === "weak" && area(candidate.rect) / viewportArea > CONTAINER_SHARE) dropped.add(index);
   });
-  for (let outer = 0; outer < candidates.length; outer += 1) {
-    for (let inner = 0; inner < candidates.length; inner += 1) {
-      if (outer === inner || dropped.has(outer) || dropped.has(inner) || !contains(outer, inner)) continue;
+  for (let inner = 0; inner < candidates.length; inner += 1) {
+    for (const outer of ancestors(inner)) {
+      if (dropped.has(inner)) break;
+      if (outer === inner || dropped.has(outer)) continue;
       const a = candidates[outer];
       const b = candidates[inner];
       if (a === undefined || b === undefined) continue;

@@ -59,6 +59,15 @@ test("notation: format then parse is the identity on strokes", () => {
   );
 });
 
+test("events: a letter's case comes from shift, not Caps Lock", () => {
+  const id = (key: string, shiftKey: boolean) => strokeId(strokeFromEvent(event(key, { shiftKey })) ?? stroke(""));
+  assert.equal(id("F", false), "f", "Caps Lock on: f is still f");
+  assert.equal(id("f", true), "F", "Caps Lock on, shift held: F");
+  assert.equal(id("G", true), "G");
+  assert.equal(id("g", false), "g");
+  assert.equal(id("?", true), "?", "non-letters keep their key");
+});
+
 test("events: option-letters on macOS are read from the physical key", () => {
   assert.equal(strokeId(strokeFromEvent(event("ƒ", { code: "KeyF", altKey: true })) ?? stroke("")), "<A-f>");
   assert.equal(strokeId(strokeFromEvent(event("Ï", { code: "KeyF", altKey: true, shiftKey: true })) ?? stroke("")), "<A-F>");

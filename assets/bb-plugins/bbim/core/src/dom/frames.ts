@@ -126,9 +126,21 @@ export function placementOf(root: Document, doc: Document): DocumentPlacement | 
   return placement;
 }
 
-/** An element's visible box now, in `root`'s viewport; undefined when off screen. */
-export function liveRect(root: Document, element: Element): Rect | undefined {
-  const placement = placementOf(root, element.ownerDocument);
+/** Where a document sits in `root`'s viewport, each document's placement computed once. */
+export type Placements = (doc: Document) => DocumentPlacement | undefined;
+
+/** `placementOf` memoized per document: one frame-chain walk per document per use. */
+export function placementCache(root: Document): Placements {
+  const known = new Map<Document, DocumentPlacement | undefined>();
+  return (doc) => {
+    if (!known.has(doc)) known.set(doc, placementOf(root, doc));
+    return known.get(doc);
+  };
+}
+
+/** An element's visible box now, in the root viewport; undefined when off screen. */
+export function liveRect(place: Placements, element: Element): Rect | undefined {
+  const placement = place(element.ownerDocument);
   if (placement === undefined) return undefined;
   const shown = visibleBox(element, viewportOf(element.ownerDocument));
   if (shown === undefined) return undefined;
@@ -139,8 +151,8 @@ export function liveRect(root: Document, element: Element): Rect | undefined {
 }
 
 /** An opaque frame's placement now (its page may have scrolled since collection). */
-export function liveFrame(root: Document, frame: OpaqueFrame): OpaqueFrame | undefined {
-  const placement = placementOf(root, frame.element.ownerDocument);
+export function liveFrame(place: Placements, frame: OpaqueFrame): OpaqueFrame | undefined {
+  const placement = place(frame.element.ownerDocument);
   if (placement === undefined) return undefined;
   const { box, x, y } = contentBox(frame.element, placement.offsetX, placement.offsetY);
   const clip = intersect(box, placement.clip);

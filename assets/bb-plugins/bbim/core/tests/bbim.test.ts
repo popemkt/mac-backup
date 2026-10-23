@@ -2,8 +2,8 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { type Bbim, createBbim, type CreateBbimOptions } from "../src/dom/bbim.ts";
-import { withinGuard } from "../src/dom/focus.ts";
-import { page, type Page } from "./harness.ts";
+import { presenceGuard, withinGuard } from "../src/dom/focus.ts";
+import { layOutFrame, page, type Page } from "./harness.ts";
 
 const PAGE = `
   <main data-rect="0,0,1000,800">
@@ -177,6 +177,106 @@ test("dispose: the overlay and every listener go away", () => {
   p.key("f");
   p.key("Escape");
   assert.deepEqual(reached, ["f", "Escape"]);
+});
+
+test("sequences: a pending g never swallows a key typed after focus moves to a field", () => {
+  const { p, bbim } = start();
+  p.key("g");
+  (p.doc.getElementById("composer") as HTMLTextAreaElement).focus();
+  const typed = p.key("i");
+  assert.equal(typed.defaultPrevented, false, "gi must not fire from a stale g");
+  assert.equal(bbim.mode(), "normal");
+});
+
+test("sequences: a plain-key sequence stops when typing starts without a focus change", () => {
+  const { p, bbim: plain } = start();
+  plain.dispose();
+  const bbim = createBbim({ window: p.win, hooks: { guards: [presenceGuard(p.doc, '[role="menu"]', "typing")] } });
+  current = { page: p, bbim };
+  p.key("g");
+  // An open menu (typeahead) appears while `g` is pending; focus stays put.
+  const menu = p.doc.createElement("div");
+  menu.setAttribute("role", "menu");
+  p.doc.body.append(menu);
+  assert.equal(p.key("g").defaultPrevented, false, "gg must not complete into the menu's typeahead");
+});
+
+test("sequences: a pending prefix older than the timeout is forgotten before the next key", async () => {
+  const { p } = start({ settings: { sequenceTimeoutMs: 200 } });
+  const pane = p.doc.getElementById("pane") as HTMLElement;
+  Object.defineProperty(pane, "scrollHeight", { value: 2000 });
+  Object.defineProperty(pane, "clientHeight", { value: 400 });
+  const calls: Array<string> = [];
+  pane.scrollTo = ((options: ScrollToOptions) => calls.push(`to ${options.top}`)) as typeof pane.scrollTo;
+  pane.firstElementChild?.dispatchEvent(new p.win.PointerEvent("pointerdown", { bubbles: true, composed: true }));
+  p.key("g");
+  await new Promise((resolve) => setTimeout(resolve, 260));
+  p.key("g");
+  assert.deepEqual(calls, [], "two g's 260 ms apart are not gg");
+});
+
+test("hint mode: held keys and IME composition never type a label", () => {
+  const { p, bbim } = start({ settings: { hintAlphabet: "ab" } });
+  p.key("f");
+  assert.equal(p.key("b", { repeat: true }).defaultPrevented, true);
+  assert.deepEqual(p.labels(), ["aa", "ab", "ba", "bb"], "a repeat is swallowed, not typed");
+  assert.equal(p.key("b", { isComposing: true }).defaultPrevented, true);
+  assert.equal(p.key("Process").defaultPrevented, true);
+  // oxlint-disable-next-line typescript/no-deprecated -- Safari marks IME keys only by keyCode 229.
+  assert.equal(p.key("a", { keyCode: 229 }).defaultPrevented, true);
+  assert.deepEqual(p.labels(), ["aa", "ab", "ba", "bb"]);
+  assert.equal(bbim.mode(), "hint");
+});
+
+test("normal mode: IME keys pass through untouched", () => {
+  const { p, bbim } = start();
+  assert.equal(p.key("f", { isComposing: true }).defaultPrevented, false);
+  // oxlint-disable-next-line typescript/no-deprecated -- Safari marks IME keys only by keyCode 229.
+  assert.equal(p.key("f", { keyCode: 229 }).defaultPrevented, false);
+  assert.equal(bbim.mode(), "normal");
+});
+
+test("hint mode: Caps Lock does not turn f into the new-tab F", () => {
+  const { p, bbim } = start({ settings: { keys: { hintsNewTab: "" } } });
+  p.key("F");
+  assert.equal(bbim.mode(), "hint", "F without shift is f");
+});
+
+test("hints: focus moving into a frame ends hint mode", async () => {
+  const { p, bbim } = start();
+  const frame = p.doc.createElement("iframe");
+  frame.setAttribute("data-rect", "600,100,200,200");
+  p.doc.body.append(frame);
+  p.key("f");
+  assert.equal(bbim.mode(), "hint");
+  Object.defineProperty(p.doc, "activeElement", { value: frame, configurable: true });
+  p.win.dispatchEvent(new p.win.Event("blur"));
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(bbim.mode(), "normal");
+});
+
+test("hints: a click inside a same-origin frame ends hint mode", () => {
+  const { p, bbim } = start();
+  const frame = p.doc.createElement("iframe");
+  frame.setAttribute("data-rect", "600,100,200,200");
+  p.doc.body.append(frame);
+  const inner = layOutFrame(frame);
+  assert.ok(frame.contentWindow !== null);
+  p.key("f");
+  assert.equal(bbim.mode(), "hint");
+  inner.body.dispatchEvent(new (frame.contentWindow as typeof p.win).PointerEvent("pointerdown", { bubbles: true, composed: true }));
+  assert.equal(bbim.mode(), "normal");
+});
+
+test("hints: a target that left the page relabels instead of doing nothing", () => {
+  const { p, bbim } = start();
+  p.key("f");
+  const before = p.labels().length;
+  const save = p.labels()[1] ?? "";
+  p.doc.getElementById("save")?.remove();
+  for (const char of save) p.key(char);
+  assert.equal(bbim.mode(), "hint", "hints come back, collected afresh");
+  assert.equal(p.labels().length, before - 1);
 });
 
 test("dispose: aborting the signal disposes", () => {

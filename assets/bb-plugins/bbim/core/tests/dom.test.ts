@@ -3,9 +3,10 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { editableGuard, focusState, MODAL_SELECTOR, presenceGuard, withinGuard } from "../src/dom/focus.ts";
+import { placementCache } from "../src/dom/frames.ts";
 import { pickInput, TEXT_INPUT_SELECTOR } from "../src/dom/inputs.ts";
 import { closestAcrossShadow } from "../src/dom/tree.ts";
-import { page, type Page } from "./harness.ts";
+import { layOutFrame, page, type Page } from "./harness.ts";
 
 let open: Array<Page> = [];
 afterEach(() => {
@@ -67,6 +68,22 @@ test("gi picker: the input in the pane you are in beats a bigger one elsewhere",
   const near = p.doc.getElementById("here");
   assert.equal(pickInput(p.doc, { selector: TEXT_INPUT_SELECTOR, lastEditable: null, near })?.id, "mine");
   assert.equal(pickInput(p.doc, { selector: TEXT_INPUT_SELECTOR, lastEditable: null, near: null })?.id, "theirs");
+});
+
+test("frames: a placement cache walks each document's frame chain once", () => {
+  const p = load(`<iframe id="f" data-rect="100,100,300,200"></iframe>`);
+  const frame = p.doc.getElementById("f") as HTMLIFrameElement;
+  const inner = layOutFrame(frame);
+  let walks = 0;
+  const original = frame.getBoundingClientRect.bind(frame);
+  frame.getBoundingClientRect = () => {
+    walks += 1;
+    return original();
+  };
+  const place = placementCache(p.doc);
+  for (let index = 0; index < 50; index += 1) place(inner);
+  assert.equal(walks, 1, "fifty labels in one frame, one frame-chain walk");
+  assert.equal(place(inner)?.offsetX, 100);
 });
 
 test("gi picker: a host selector narrows the choice (bb: composers only)", () => {
