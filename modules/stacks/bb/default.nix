@@ -19,6 +19,9 @@ in
       # What shapes a thread's agent, and Claude Code's own view of its
       # workspace: the `Agent artifacts` panel tab and `bb artifacts`.
       "assets/bb-plugins/agent-artifacts"
+      # Vim-style keyboard navigation of bb: link hints (alt+f, f),
+      # j/k/gg/G scrolling, gi to the composer.
+      "assets/bb-plugins/bbim"
     ];
 
     # No anonymous usage telemetry (PostHog) from any bb server or host

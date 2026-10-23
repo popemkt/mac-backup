@@ -1,0 +1,9 @@
+{
+  // Tests run under node --test (happy-dom supplies the DOM), so they see
+  // Node's types on top of the browser preset.
+  "extends": "../tsconfig.browser.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": [".", "../src"]
+}

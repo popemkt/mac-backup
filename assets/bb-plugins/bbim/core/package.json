@@ -1,0 +1,35 @@
+{
+  "name": "@popemkt/bbim-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Vim-style keyboard navigation for any web app: link hints, key sequences, scrolling, and an iframe hint bridge. Framework-agnostic: DOM plus Effect.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./domain": "./src/domain/index.ts",
+    "./bridge": "./src/bridge/bbim-bridge.ts",
+    "./bridge.js": "./bridge/bbim-bridge.js"
+  },
+  "peerDependencies": {
+    "effect": "4.0.0-rc.112"
+  },
+  "devDependencies": {
+    "@effect/tsgo": "^0.40.0",
+    "@types/node": "^22.0.0",
+    "esbuild": "0.28.1",
+    "fast-check": "^4.9.0",
+    "happy-dom": "^20.11.2",
+    "oxlint": "1.83.0",
+    "oxlint-tsgolint": "^7.0.2002",
+    "typescript": "~7.0.2"
+  },
+  "scripts": {
+    "typecheck": "effect-tsgo patch >/dev/null && tsc -p tsconfig.domain.json && tsc -p tsconfig.dom.json && tsc -p tests/tsconfig.json",
+    "test": "node --test tests/*.test.ts",
+    "lint": "oxlint --config .oxlintrc.json --type-aware src tests scripts",
+    "build:bridge": "node scripts/build-bridge.mjs",
+    "check:bridge": "node scripts/build-bridge.mjs --check"
+  }
+}

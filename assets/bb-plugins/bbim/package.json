@@ -1,0 +1,38 @@
+{
+  "name": "bb-plugin-bbim",
+  "version": "0.1.0",
+  "private": true,
+  "description": "bb plugin: vim-style keyboard navigation for bb. Link hints over every clickable thing, j/k/gg/G scrolling, gi to the composer.",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.46",
+    "bbPluginSdk": ">=0.6.49"
+  },
+  "bb": {
+    "name": "bbim",
+    "description": "Vim-style keyboard navigation: link hints over every clickable thing (alt+f, or f), j/k/d/u/gg/G scrolling, gi to the composer, ? for help.",
+    "branding": {
+      "icon": "Keyboard"
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx"
+  },
+  "workspaces": [
+    "core"
+  ],
+  "dependencies": {
+    "@popemkt/bbim-core": "0.1.0",
+    "effect": "4.0.0-rc.112"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.49",
+    "@types/react": "^19.0.0"
+  },
+  "scripts": {
+    "typecheck": "npm run typecheck --workspace core && tsc -p .",
+    "test": "npm test --workspace core && node --test tests/*.test.ts",
+    "lint": "npm run lint --workspace core && oxlint --config core/.oxlintrc.json --type-aware app.tsx server.ts adapter tests",
+    "build:bridge": "npm run build:bridge --workspace core",
+    "verify": "npm run typecheck && npm run lint && npm test && npm run check:bridge --workspace core && bb plugin build"
+  }
+}
