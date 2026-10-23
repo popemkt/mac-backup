@@ -31,25 +31,18 @@ export {
 } from "./matcher.ts";
 export { current, INITIAL_STACK, leave, Mode, type ModeStack, ownsKeyboard, push } from "./modes.ts";
 export {
-  ActivateRequest,
   BRIDGE_PROTOCOL,
-  CollectRequest,
   decodeFrameMessage,
   decodeParentMessage,
-  FrameMessage,
-  FrameTarget,
+  type FrameMessage,
+  type FrameTarget,
   isBridgeMessage,
   isOpenableUrl,
-  KeyForward,
-  LeaveNotice,
   FRAME_MESSAGE_BUDGET,
   MAX_FRAME_TARGETS,
   MODE_HEARTBEAT_MS,
   MODE_TTL_MS,
-  ModeRequest,
-  OpenRequest,
-  ParentMessage,
-  TargetsReply,
+  type ParentMessage,
 } from "./protocol.ts";
 export {
   decodeSettings,
@@ -71,5 +64,6 @@ export {
   order,
   overlap,
   type Rect,
-  TargetKind,
+  TARGET_KINDS,
+  type TargetKind,
 } from "./targets.ts";

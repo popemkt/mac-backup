@@ -43,4 +43,5 @@ Installed by `modules/common/home-manager/bb-plugins.nix` (`npm ci --omit=option
 executor installs them too, and none needs an install script to build the plugin.
 
 Size: `dist/app.js` is ~320 KB minified, about 230 KB of it Effect (runtime ~90 KB, Schema
-~140 KB); bbim's own code is ~35 KB. The standalone bridge is ~285 KB for the same reason.
+~140 KB, kept for settings); bbim's own code is ~35 KB. The standalone bridge has no Effect
+and is ~11 KB.

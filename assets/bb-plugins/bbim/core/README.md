@@ -10,9 +10,9 @@ bridge for iframes it cannot reach into. The bb plugin next door
 
 | Layer | Path | Depends on | What it is |
 |---|---|---|---|
-| Domain | `src/domain/` | `effect` only (iso preset, no DOM types) | key notation and the one key matcher, label generation, target classification and ordering, modes, settings schema, the bridge protocol schemas |
+| Domain | `src/domain/` | `effect` only (iso preset, no DOM types); the bridge protocol and target rules import nothing | key notation and the one key matcher, label generation, target classification and ordering, modes, settings schema, the bridge protocol decoders |
 | DOM | `src/dom/` | domain + the DOM (browser preset) | `createBbim`, hint collection, frames, overlay, activation, scrolling, focus guards, the single Effect runtime adapter (`runtime.ts`) |
-| Bridge | `src/bridge/` | domain + DOM collection | `installBbimBridge` for the inside of a frame; `bridge/bbim-bridge.js` is its standalone build |
+| Bridge | `src/bridge/` | protocol + DOM collection, no `effect` | `installBbimBridge` for the inside of a frame; `bridge/bbim-bridge.js` is its standalone build (~11 KB; the build fails if it bundles any `effect` module or passes 20 KB) |
 
 One mechanism per concept: chords, bare keys, multi-key sequences (`gg`) and
 hint typing all run through the same trie matcher (`domain/matcher.ts`), so
@@ -184,13 +184,15 @@ clip them to the frame's box, so a bridge frame can place labels anywhere
 inside itself. Embed bridge frames from origins you trust; the frame's list of
 parent origins is the other half of that agreement.
 
-The in-frame side is plain DOM plus the protocol schemas (no Effect runtime or
-scopes), so it can be rewritten without the rest of the core.
+The in-frame side is plain DOM plus the protocol decoders, with no Effect at
+all, so a frame pays about 11 KB for it.
 
 ### Protocol `bbim-bridge/1`
 
 Every message is a plain object with `bbim: "bbim-bridge/1"`. Both sides
-decode with the schemas in `src/domain/protocol.ts` and drop anything else.
+decode with the decoders in `src/domain/protocol.ts` (exact keys, bounded
+strings and arrays, finite numbers; the message types are derived from the
+same specs) and drop anything else.
 
 Parent → frame (the bridge only accepts messages whose `source` is its own
 `window.parent`, from a listed origin; `activate` and `mode` never from `"null"`):

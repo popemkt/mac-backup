@@ -1,5 +1,5 @@
 // The parent side of the hint bridge (protocol: ../domain/protocol.ts). Every
-// message is decoded with the protocol's schemas and accepted only from the
+// message is decoded with the protocol's decoders and accepted only from the
 // window of the frame concerned, within a per-frame budget; anything else is
 // dropped unread.
 //
@@ -9,7 +9,7 @@
 // inherent to asking a frame the parent cannot read; it is why the bridge
 // script must name the parent origins it serves, and why a page should embed
 // only bridge frames it trusts.
-import { Effect, Option, type Scope } from "effect";
+import { Effect, type Option, type Scope } from "effect";
 import {
   BRIDGE_PROTOCOL,
   decodeFrameMessage,
@@ -74,7 +74,7 @@ function receive(
   const frame = frameOf(frames, event.source);
   if (frame === undefined || !isBridgeMessage(event.data, types) || !budget(frame)) return undefined;
   const message = decodeFrameMessage(event.data);
-  return Option.isNone(message) ? undefined : { frame, message: message.value };
+  return message === undefined ? undefined : { frame, message };
 }
 
 function placed(frame: OpaqueFrame, message: Extract<FrameMessage, { type: "targets" }>): Array<RemoteTarget> {
