@@ -62,15 +62,20 @@ Same-origin iframes get hints directly. A cross-origin frame (or one sandboxed w
 The file is `core/bridge/bbim-bridge.js` in the plugin folder
 (`~/.dotfiles/assets/bb-plugins/bbim/`), a self-contained classic script; ES-module code can
 call `installBbimBridge({ parentOrigins })` from `@popemkt/bbim-core/bridge` instead.
-`data-parent-origins` (space-separated) limits which parents it answers; without it, any.
+`data-parent-origins` (space-separated) is required: without it the bridge stays off. List
+bb's own origin. An opaque `"null"` parent may only ask for targets, never forward keys or
+click.
 
 Protocol `bbim-bridge/1`: `postMessage` objects with `bbim: "bbim-bridge/1"`, both sides
 schema-decoded, anything else dropped. Parent → frame: `collect {requestId}`,
-`activate {requestId, targetId, newTab}`, `mode {active}`. Frame → parent:
+`activate {requestId, targetId, newTab}`, `mode {active}` (only to the focused frame,
+renewed every 1 s; the frame stops forwarding after 3 s without renewal). Frame → parent:
 `targets {requestId, targets[{id, kind, left, top, width, height}]}` (frame-viewport px,
-≤ 2000), `key {key, code, ctrlKey, altKey, metaKey, shiftKey}` (forwarded while hint mode is
-up), `open {url}` (http(s) only). Frames that do not answer within 150 ms are skipped. Full
-tables: `core/README.md`.
+≤ 2000), `key {key, code, ctrlKey, altKey, metaKey, shiftKey}` (from the focused frame only;
+picks only that frame's targets), `open {requestId, url}` (only as the answer to that
+activation, http(s) only). At most 256 messages per frame per hint session are read; frames
+that do not answer within 150 ms are skipped. A frame reports its own target boxes, so embed
+bridge frames only from origins you trust. Full tables: `core/README.md`.
 
 ## Constraints
 
