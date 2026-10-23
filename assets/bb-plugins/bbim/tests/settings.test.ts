@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Result, Schema } from "effect";
 import { ACTIONS, DEFAULT_SETTINGS, decodeSettings } from "@popemkt/bbim-core/domain";
+import { registerSettingDescriptors } from "@get-bb/plugin-sdk/internal/host-policy";
 import { BbKeySequence, keySettingId, SETTINGS, settingsInput } from "../adapter/settings.ts";
 
 const accepts = (value: unknown) => Result.isSuccess(Schema.decodeUnknownResult(BbKeySequence)(value));
@@ -17,6 +18,13 @@ test("every action has a key setting, and every default passes its own schema", 
     })),
   );
   for (const { id, result } of results) assert.equal("issues" in result ? result.issues : undefined, undefined, id);
+});
+
+test("bb's own validator accepts the settings table (ids, descriptor shape, schemas)", () => {
+  // The check bb runs when the plugin calls bb.settings.define; a failure here
+  // is "bbim is not running: invalid descriptor for setting ..." in the app.
+  const registered = registerSettingDescriptors({}, SETTINGS);
+  assert.deepEqual(Object.keys(registered).toSorted(), Object.keys(SETTINGS).toSorted());
 });
 
 test("key settings: vim notation, but never a leading digit (bb's question answers)", () => {
