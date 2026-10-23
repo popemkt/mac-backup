@@ -22,4 +22,7 @@ let
 in
 lib.mkIf config.my.stacks.ai-agents.enable {
   my.everyone.home.packages = [ canvasLink ];
+
+  # The `Canvases` thread panel tab, reading the log through canvas-link.
+  my.pkgs.bbPlugins = [ "assets/bb-plugins/canvas-links" ];
 }

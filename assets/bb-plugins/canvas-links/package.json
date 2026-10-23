@@ -1,0 +1,42 @@
+{
+  "name": "bb-plugin-canvas-links",
+  "version": "0.1.0",
+  "private": true,
+  "description": "bb plugin: the tldraw canvases a thread, its project, or anyone linked, listed and opened from a thread side panel.",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.46",
+    "bbPluginSdk": ">=0.6.49"
+  },
+  "bb": {
+    "name": "Canvases",
+    "description": "The tldraw canvases this thread, its project, or anyone linked with canvas-link: search them, link the focused one, open one with a click.",
+    "branding": {
+      "icon": "Shapes"
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx",
+    "host": "./host.ts"
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "^1.3.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.49",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "hono": "^4.13.13",
+    "sonner": "^1.7.4",
+    "tailwind-merge": "^3.4.0",
+    "typescript": "^5.7.0"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.ts",
+    "typecheck": "tsc -p ."
+  }
+}

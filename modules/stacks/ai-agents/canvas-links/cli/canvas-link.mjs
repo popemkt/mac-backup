@@ -37,7 +37,9 @@ import {
 const HELP = `Usage: canvas-link <command>
 
   add <path|docId>     record that this session created or edited a canvas
-  rm <path|docId>      drop this session's link to a canvas
+  add --focused        the same for the canvas focused in tldraw offline
+  rm <path|docId|--focused>
+                       drop this session's link to a canvas
   ls [--session|--project|--all] [--json]
                        canvases this session (default), this project (same git
                        remote) or anyone linked; --project/--all include the
@@ -84,25 +86,30 @@ const readJson = path => {
 const localRows = () => (existsSync(LOG) ? parseRows(readFileSync(LOG, "utf8")) : []);
 const recent = () => recentFiles(readJson(join(TLDRAW, "recent-files.json")));
 
-/** The docs the running tldraw app has open, or [] when it is not running. */
-async function openDocs() {
+/** Runs `code` against the running tldraw app's agent API; null when it is not running. */
+async function tldraw(code) {
   const server = readJson(join(TLDRAW, "server.json"));
-  if (server === null || typeof server.port !== "number") return [];
+  if (server === null || typeof server.port !== "number") return null;
   try {
     const res = await fetch(`http://127.0.0.1:${server.port}/api/search`, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${server.token}` },
-      body: JSON.stringify({ code: "return await api.getDocs()" }),
+      body: JSON.stringify({ code }),
       signal: AbortSignal.timeout(1500),
     });
     const body = await res.json();
-    if (body?.success !== true || !Array.isArray(body.result)) return [];
-    return body.result
-      .filter(d => typeof d?.filePath === "string")
-      .map(d => ({ id: d.id, documentId: d.documentId ?? null, path: d.filePath }));
+    return body?.success === true ? body.result : null;
   } catch {
-    return [];
+    return null;
   }
+}
+
+const docOf = d => (typeof d?.filePath === "string" ? { id: d.id, documentId: d.documentId ?? null, path: d.filePath } : null);
+
+/** The docs the running tldraw app has open, or [] when it is not running. */
+async function openDocs() {
+  const docs = await tldraw("return await api.getDocs()");
+  return Array.isArray(docs) ? docs.map(docOf).filter(d => d !== null) : [];
 }
 
 function git(cwd, ...args) {
@@ -137,8 +144,13 @@ function flushInBackground() {
 }
 
 async function record(op, args) {
-  const [arg, ...rest] = args;
-  if (arg === undefined || rest.length > 0) throw new UsageError(`${op === "link" ? "add" : "rm"} takes one <path|docId>`);
+  let [arg, ...rest] = args;
+  if (arg === undefined || rest.length > 0) throw new UsageError(`${op === "link" ? "add" : "rm"} takes one <path|docId|--focused>`);
+  if (arg === "--focused") {
+    const focused = docOf(await tldraw("return await api.getFocusedDoc()"));
+    if (focused === null) throw new Error("no focused canvas: tldraw offline is not running, or no saved canvas has focus");
+    arg = focused.path;
+  }
   const isPath = arg.includes("/") || /\.tldr(aw)?$/i.test(arg);
   const path = isPath ? resolve(arg) : arg;
   if (isPath && !/\.tldr(aw)?$/i.test(path)) throw new UsageError(`not a tldraw file: ${path}`);
