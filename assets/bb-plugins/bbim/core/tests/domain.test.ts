@@ -2,11 +2,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import fc from "fast-check";
-import { Option } from "effect";
 import { current, INITIAL_STACK, leave, ownsKeyboard, push } from "../src/domain/modes.ts";
 import { BRIDGE_PROTOCOL, decodeFrameMessage, decodeParentMessage, isOpenableUrl } from "../src/domain/protocol.ts";
 import { decodeSettings, DEFAULT_SETTINGS, keyBindings } from "../src/domain/settings.ts";
-import { type Candidate, classify, dedupe, order, type Rect } from "../src/domain/targets.ts";
+import { type Candidate, classify, dedupe, order, type Rect, TARGET_KINDS } from "../src/domain/targets.ts";
 
 test("settings: defaults when nothing is given", () => {
   const { settings, problems } = decodeSettings({});
@@ -51,48 +50,157 @@ const targets = {
   targets: [{ id: 0, kind: "link", left: 10, top: 20, width: 30, height: 12 }],
 };
 
+const keyMessage = {
+  bbim: BRIDGE_PROTOCOL,
+  type: "key",
+  key: "a",
+  code: "KeyA",
+  ctrlKey: false,
+  altKey: false,
+  metaKey: false,
+  shiftKey: false,
+  repeat: false,
+  isComposing: false,
+};
+
 test("protocol: well-formed messages decode", () => {
-  assert.ok(Option.isSome(decodeFrameMessage(targets)));
-  assert.ok(Option.isSome(decodeParentMessage({ bbim: BRIDGE_PROTOCOL, type: "collect", requestId: "x" })));
+  assert.deepEqual(decodeFrameMessage(targets), targets);
+  assert.ok(decodeParentMessage({ bbim: BRIDGE_PROTOCOL, type: "collect", requestId: "x" }) !== undefined);
   assert.ok(
-    Option.isSome(decodeParentMessage({ bbim: BRIDGE_PROTOCOL, type: "activate", requestId: "x", targetId: 3, newTab: true })),
+    decodeParentMessage({ bbim: BRIDGE_PROTOCOL, type: "activate", requestId: "x", targetId: 3, newTab: true }) !== undefined,
   );
-  assert.ok(
-    Option.isSome(
-      decodeFrameMessage({
-        bbim: BRIDGE_PROTOCOL,
-        type: "key",
-        key: "a",
-        code: "KeyA",
-        ctrlKey: false,
-        altKey: false,
-        metaKey: false,
-        shiftKey: false,
-        repeat: false,
-        isComposing: false,
-      }),
-    ),
-  );
-  assert.ok(Option.isSome(decodeFrameMessage({ bbim: BRIDGE_PROTOCOL, type: "leave", reason: "lapsed" })));
-  assert.ok(Option.isNone(decodeFrameMessage({ bbim: BRIDGE_PROTOCOL, type: "leave", reason: "bored" })));
+  assert.ok(decodeParentMessage({ bbim: BRIDGE_PROTOCOL, type: "mode", active: false }) !== undefined);
+  assert.ok(decodeFrameMessage(keyMessage) !== undefined);
+  assert.ok(decodeFrameMessage({ bbim: BRIDGE_PROTOCOL, type: "open", requestId: "x", url: "https://a.test/" }) !== undefined);
+  assert.ok(decodeFrameMessage({ bbim: BRIDGE_PROTOCOL, type: "leave", reason: "lapsed" }) !== undefined);
+  assert.equal(decodeFrameMessage({ bbim: BRIDGE_PROTOCOL, type: "leave", reason: "bored" }), undefined);
 });
 
 test("protocol: untrusted frame data is refused, not repaired", () => {
+  const { repeat: _repeat, ...withoutRepeat } = keyMessage;
   const bad: ReadonlyArray<unknown> = [
     null,
     "targets",
+    [targets],
     { ...targets, bbim: "bbim-bridge/0" },
     { ...targets, type: "collect" },
+    { ...targets, type: "constructor" },
+    { ...targets, type: "__proto__" },
+    { ...targets, extra: 1 },
     { ...targets, targets: [{ id: 0, kind: "link", left: Number.NaN, top: 0, width: 1, height: 1 }] },
+    { ...targets, targets: [{ id: 0, kind: "link", left: Number.POSITIVE_INFINITY, top: 0, width: 1, height: 1 }] },
     { ...targets, targets: [{ id: 0, kind: "script", left: 0, top: 0, width: 1, height: 1 }] },
     { ...targets, targets: [{ id: -1, kind: "link", left: 0, top: 0, width: 1, height: 1 }] },
+    { ...targets, targets: [{ id: 0.5, kind: "link", left: 0, top: 0, width: 1, height: 1 }] },
     { ...targets, targets: [{ id: 0, kind: "link", left: 0, top: 0, width: -5, height: 1 }] },
+    { ...targets, targets: [{ id: 0, kind: "link", left: 0, top: 0, width: 1, height: 1, onclick: "x" }] },
     { ...targets, targets: Array.from({ length: 2001 }, (_, id) => ({ id, kind: "link", left: 0, top: 0, width: 1, height: 1 })) },
+    { ...targets, targets: { length: 0 } },
     { ...targets, requestId: "x".repeat(65) },
+    withoutRepeat,
+    { ...keyMessage, key: "k".repeat(65) },
+    { ...keyMessage, ctrlKey: "true" },
     { bbim: BRIDGE_PROTOCOL, type: "open", url: 42 },
   ];
-  for (const message of bad) assert.ok(Option.isNone(decodeFrameMessage(message)), JSON.stringify(message).slice(0, 80));
-  assert.ok(Option.isNone(decodeParentMessage({ bbim: BRIDGE_PROTOCOL, type: "activate", requestId: "x", targetId: 1.5, newTab: true })));
+  for (const message of bad) assert.equal(decodeFrameMessage(message), undefined, `${JSON.stringify(message) as string | undefined}`.slice(0, 80));
+  assert.equal(decodeParentMessage({ bbim: BRIDGE_PROTOCOL, type: "activate", requestId: "x", targetId: 1.5, newTab: true }), undefined);
+  assert.equal(decodeParentMessage(targets), undefined, "a frame message is not a parent message");
+});
+
+const requestIdArb = fc.string({ maxLength: 64 });
+const frameMessageArb = fc.oneof(
+  fc.record({
+    bbim: fc.constant(BRIDGE_PROTOCOL),
+    type: fc.constant("targets"),
+    requestId: requestIdArb,
+    targets: fc.array(
+      fc.record({
+        id: fc.nat(),
+        kind: fc.constantFrom(...TARGET_KINDS),
+        left: fc.double({ min: -100_000, max: 100_000, noNaN: true }),
+        top: fc.double({ min: -100_000, max: 100_000, noNaN: true }),
+        width: fc.double({ min: 0, max: 100_000, noNaN: true }),
+        height: fc.double({ min: 0, max: 100_000, noNaN: true }),
+      }),
+      { maxLength: 20 },
+    ),
+  }),
+  fc.record({
+    bbim: fc.constant(BRIDGE_PROTOCOL),
+    type: fc.constant("key"),
+    key: fc.string({ maxLength: 64 }),
+    code: fc.string({ maxLength: 64 }),
+    ctrlKey: fc.boolean(),
+    altKey: fc.boolean(),
+    metaKey: fc.boolean(),
+    shiftKey: fc.boolean(),
+    repeat: fc.boolean(),
+    isComposing: fc.boolean(),
+  }),
+  fc.record({ bbim: fc.constant(BRIDGE_PROTOCOL), type: fc.constant("open"), requestId: requestIdArb, url: fc.webUrl() }),
+  fc.record({ bbim: fc.constant(BRIDGE_PROTOCOL), type: fc.constant("leave"), reason: fc.constantFrom("pointer", "lapsed") }),
+);
+const parentMessageArb = fc.oneof(
+  fc.record({ bbim: fc.constant(BRIDGE_PROTOCOL), type: fc.constant("collect"), requestId: requestIdArb }),
+  fc.record({
+    bbim: fc.constant(BRIDGE_PROTOCOL),
+    type: fc.constant("activate"),
+    requestId: requestIdArb,
+    targetId: fc.nat(),
+    newTab: fc.boolean(),
+  }),
+  fc.record({ bbim: fc.constant(BRIDGE_PROTOCOL), type: fc.constant("mode"), active: fc.boolean() }),
+);
+
+test("protocol (property): valid messages survive postMessage's structured clone and decode unchanged", () => {
+  fc.assert(
+    fc.property(frameMessageArb, (message) => {
+      const copy: unknown = structuredClone(message);
+      assert.equal(JSON.stringify(decodeFrameMessage(copy)), JSON.stringify(message));
+    }),
+  );
+  fc.assert(
+    fc.property(parentMessageArb, (message) => {
+      const copy: unknown = structuredClone(message);
+      assert.equal(JSON.stringify(decodeParentMessage(copy)), JSON.stringify(message));
+    }),
+  );
+});
+
+test("protocol (property): random junk never decodes", () => {
+  fc.assert(
+    fc.property(fc.anything({ withNullPrototype: true, withObjectString: true }), (junk) => {
+      assert.equal(decodeFrameMessage(junk), undefined);
+      assert.equal(decodeParentMessage(junk), undefined);
+    }),
+  );
+  // Junk wearing the marker and a real type: still refused field by field.
+  fc.assert(
+    fc.property(
+      fc.constantFrom("targets", "key", "open", "leave", "collect", "activate", "mode"),
+      fc.dictionary(fc.string(), fc.anything()),
+      (type, fields) => {
+        const data = { ...fields, bbim: BRIDGE_PROTOCOL, type };
+        fc.pre(Object.keys(fields).length > 0);
+        assert.equal(decodeFrameMessage(data), undefined);
+        assert.equal(decodeParentMessage(data), undefined);
+      },
+    ),
+  );
+});
+
+test("protocol (property): a valid message with a field dropped, retyped or added is refused", () => {
+  fc.assert(
+    fc.property(frameMessageArb, fc.nat(), fc.constantFrom("drop", "retype", "add"), (message, pick, how) => {
+      const keys = Object.keys(message).filter((key) => key !== "bbim" && key !== "type");
+      const key = keys[pick % keys.length] ?? "extra";
+      const changed: Record<string, unknown> = { ...message };
+      if (how === "drop") delete changed[key];
+      else if (how === "retype") changed[key] = { not: "this" };
+      else changed["extra"] = 1;
+      assert.equal(decodeFrameMessage(changed), undefined);
+    }),
+  );
 });
 
 test("protocol: only http(s) URLs are openable", () => {

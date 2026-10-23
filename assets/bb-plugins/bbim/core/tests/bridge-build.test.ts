@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 // @ts-expect-error -- a plain .mjs build script without declarations
-import { bundleBridge } from "../scripts/build-bridge.mjs";
+import { BRIDGE_BUDGET_BYTES, bridgeProblems, bundleBridge } from "../scripts/build-bridge.mjs";
 import { BRIDGE_PROTOCOL } from "../src/domain/protocol.ts";
 import { page } from "./harness.ts";
 
@@ -46,4 +46,13 @@ test("bridge build: without data-parent-origins the script stays off", async () 
   const { frame, posted } = await loadBuilt(undefined);
   assert.deepEqual(posted, []);
   frame.close();
+});
+
+test("bridge build: the bundle carries no effect module and stays within its budget", async () => {
+  const committed = await readFile(built, "utf8");
+  assert.ok(Buffer.byteLength(committed) <= (BRIDGE_BUDGET_BYTES as number));
+  const problems = bridgeProblems as (text: string, metafile: { inputs: Record<string, unknown> }) => Array<string>;
+  assert.deepEqual(problems("x", { inputs: { "src/bridge/auto.ts": {} } }), []);
+  assert.equal(problems("x", { inputs: { "../../node_modules/effect/dist/Schema.js": {} } }).length, 1, "an effect module fails the build");
+  assert.equal(problems("x".repeat((BRIDGE_BUDGET_BYTES as number) + 1), { inputs: {} }).length, 1, "so does weight");
 });

@@ -67,7 +67,7 @@ bb's own origin. An opaque `"null"` parent may only ask for targets, never forwa
 click.
 
 Protocol `bbim-bridge/1`: `postMessage` objects with `bbim: "bbim-bridge/1"`, both sides
-schema-decoded, anything else dropped. Parent → frame: `collect {requestId}`,
+decoded by exact checks, anything else dropped. Parent → frame: `collect {requestId}`,
 `activate {requestId, targetId, newTab}`, `mode {active}` (only to the focused frame,
 renewed every 1 s; the frame stops forwarding after 3 s without renewal). Frame → parent:
 `targets {requestId, targets[{id, kind, left, top, width, height}]}` (frame-viewport px,

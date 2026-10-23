@@ -5,15 +5,15 @@
 //
 // It fails closed: it installs only with an explicit list of parent origins,
 // answers only `window.parent` from one of them, decodes every request with
-// the protocol's schemas, and never lets an opaque ("null") origin switch on
+// the protocol's decoders, and never lets an opaque ("null") origin switch on
 // key forwarding or activate anything. Key forwarding also ends on its own
 // when the parent stops renewing it, so a parent that dies mid-session
 // cannot leave the frame swallowing keys.
 //
 // Plain DOM on purpose: this file and what it imports (collect, frames,
-// activate, the protocol schemas) are all a frame bundles, so it stays free of
-// Effect's runtime and scopes. The built script is ../../bridge/bbim-bridge.js.
-import { Option } from "effect";
+// activate, the protocol decoders) are all a frame bundles, so none of it
+// imports Effect; scripts/build-bridge.mjs fails the build if any does. The
+// built script is ../../bridge/bbim-bridge.js.
 import {
   BRIDGE_PROTOCOL,
   decodeParentMessage,
@@ -135,9 +135,8 @@ export function installBbimBridge(options: BridgeOptions): () => void {
 
   const onMessage = (event: MessageEvent) => {
     if (event.source !== parent || !origins.has(event.origin)) return;
-    const decoded = decodeParentMessage(event.data);
-    if (Option.isNone(decoded)) return;
-    const message = decoded.value;
+    const message = decodeParentMessage(event.data);
+    if (message === undefined) return;
     if (message.type !== "collect" && event.origin === "null") return;
     switch (message.type) {
       case "collect": {

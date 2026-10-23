@@ -1,7 +1,5 @@
 // What a hint target is, independent of the DOM: its kind, its box, and the
 // rules for which nested targets to keep and in which order labels go out.
-import { Schema } from "effect";
-
 export interface Rect {
   readonly left: number;
   readonly top: number;
@@ -16,8 +14,8 @@ export interface Rect {
  * (a tabindex, a popup trigger attribute): it is clicked, but yields to any
  * stronger target it overlaps.
  */
-export const TargetKind = Schema.Literals(["link", "button", "text", "select", "toggle", "weak"]);
-export type TargetKind = typeof TargetKind.Type;
+export const TARGET_KINDS = ["link", "button", "text", "select", "toggle", "weak"] as const;
+export type TargetKind = (typeof TARGET_KINDS)[number];
 
 /** The element facts classification needs, read off a DOM element. */
 export interface ElementFacts {
