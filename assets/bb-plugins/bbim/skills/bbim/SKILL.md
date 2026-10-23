@@ -17,8 +17,11 @@ press its keys, but can explain and configure them.
 | `plugin:bbim/pick-scroll` | `alt+s` | label every scrollable pane; the picked one is what j/k/d/u/gg/G scroll |
 | `plugin:bbim/help` | none | the help overlay |
 
-The chords work while typing in the composer. They are unavailable in a terminal (so `alt+f`
-stays readline's forward-word), in a browser tab, and while a dialog is open.
+The chords work while typing in the composer and, with `chordsInTerminal` on (default), in a
+terminal: there `alt+f` shows hints instead of moving a word forward, and Esc leaves focus and
+the caret in the terminal. Turn it off to give the chords back to the shell. They are
+unavailable in a browser tab and while a dialog is open. Nothing in bb binds `ctrl+f`
+(`cmd+f` is find), so in a terminal it stays the shell's forward-char.
 
 ## Bare keys
 
@@ -44,6 +47,7 @@ is swallowed while hints show, so Esc never reaches bb's back navigation.
 | Id | Default | Notes |
 |---|---|---|
 | `bareKeys` | `true` | off leaves only the chords |
+| `chordsInTerminal` | `true` | the bb chords work in a terminal (alt+f shows hints instead of forward-word); off gives them to the shell. Bare keys never work there |
 | `hintAlphabet` | `sadfjklewcmpgh` | ≥ 2 distinct letters, strongest first; the first become single-key labels |
 | `fadedTargets` | `show` | hover-only controls (a tab's ×) get dimmed, dashed labels after the visible ones; `hide` leaves them out |
 | `key-hints`, `key-hintsNewTab`, `key-scrollDown`, `key-scrollUp`, `key-halfPageDown`, `key-halfPageUp`, `key-scrollTop`, `key-scrollBottom`, `key-pickScroll`, `key-focusInput`, `key-help` | `f F j k d u gg G gs gi ?` | vim notation (`gg`, `<A-f>`, `<C-d>`, `<Space>`); empty unbinds; may not start with `<Esc>` or a digit (bb uses digits to answer agent questions) |

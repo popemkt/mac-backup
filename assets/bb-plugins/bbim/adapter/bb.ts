@@ -16,6 +16,7 @@ import {
   type Theme,
   withinGuard,
 } from "@popemkt/bbim-core";
+import type { HostSettings } from "./settings.ts";
 
 /** bb's tokens (its Tailwind theme variables), so hints follow light, dark and custom palettes. */
 export const BB_THEME: Theme = {
@@ -38,7 +39,9 @@ const COMPOSER = '.chat-prompt-box [contenteditable]:not([contenteditable="false
 
 function guards(doc: Document): ReadonlyArray<FocusGuard> {
   return [
-    withinGuard(TERMINAL),
+    // A terminal is typing: the chords work there unless `chordsInTerminal`
+    // is off (then alt+f is the shell's again); bare keys never do.
+    withinGuard(TERMINAL, () => (live.chordsInTerminal ? "typing" : "blocked")),
     // GAP [[01M5KBVSMZ39HBDVBG4CA5TEH0]] a browser tab's page gets no hints:
     // bbim stands aside there until it injects into the tab (experimental_page).
     withinGuard(BROWSER),
@@ -51,8 +54,10 @@ function guards(doc: Document): ReadonlyArray<FocusGuard> {
 /** What React supplies (app.tsx): the latest settings and bb's URL opener. */
 const live: {
   settings: SettingsInput | undefined;
+  /** Whether the bb command chords work while a terminal has focus (adapter-only setting). */
+  chordsInTerminal: boolean;
   openUrl: ((url: string) => boolean) | undefined;
-} = { settings: undefined, openUrl: undefined };
+} = { settings: undefined, chordsInTerminal: true, openUrl: undefined };
 let engine: Bbim | undefined;
 let engineGuards: ReadonlyArray<FocusGuard> = [];
 
@@ -110,8 +115,9 @@ export function mountBbim(signal: AbortSignal, win: Window = window): void {
   );
 }
 
-export function syncSettings(input: SettingsInput): void {
+export function syncSettings(input: SettingsInput, host: HostSettings = { chordsInTerminal: true }): void {
   live.settings = input;
+  live.chordsInTerminal = host.chordsInTerminal;
   engine?.setSettings(input);
 }
 
@@ -124,9 +130,9 @@ export function runAction(action: Action): void {
 }
 
 /**
- * Whether a bb command may run now. Inside a terminal or a Browser tab the
- * chord stays theirs (alt+f is forward-word in a shell), so the command
- * declines and bb lets the key through.
+ * Whether a bb command may run now. Inside a Browser tab, or a terminal with
+ * `chordsInTerminal` off, the chord stays theirs (alt+f is forward-word in a
+ * shell), so the command declines and bb lets the key through.
  */
 export function commandAvailable(): boolean {
   return engine !== undefined && engineWindow !== undefined && focusState(engineGuards, deepActiveElement(engineWindow.document)) !== "blocked";

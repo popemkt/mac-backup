@@ -22,8 +22,11 @@ Vim-style keyboard navigation for bb: link hints, scrolling, `gi`, help. See
   commands only on `modalOpen`, so `alt+f` fires while the composer has focus; bb matches alt
   chords by `event.code` and calls `preventDefault`, so macOS does not type `ƒ`. `alt+f` and
   `alt+shift+f` were unbound in bb 0.46.1 (bb binds only alt+m/p/t).
-- The commands' `isAvailable` is false in a terminal or browser tab (`alt+f` stays readline's
-  forward-word) and while a dialog is open.
+- The commands' `isAvailable` is false in a browser tab and while a dialog is open. In a
+  terminal it follows the `chordsInTerminal` setting (default on: `alt+f` shows hints rather
+  than readline's forward-word; off hands the chord back). The terminal guard answers `typing`
+  then, so bare keys stay off there. bb binds nothing to `ctrl+f` (`mod+f` is find), so the
+  shell keeps it.
 - Bare keys run from the engine's capture-phase listener only when focus is `free`: no editable,
   no terminal, no browser tab, no dialog, no open menu. Hint and help modes swallow every key,
   so Esc never reaches bb's `app.back`. Digits are never bound (bb answers agent questions with

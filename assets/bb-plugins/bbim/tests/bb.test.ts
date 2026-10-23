@@ -1,7 +1,8 @@
 // The bb adapter over a happy-dom page shaped like bb: mounting, guards, gi.
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { commandAvailable, mountBbim, runAction } from "../adapter/bb.ts";
+import { commandAvailable, mountBbim, runAction, syncSettings } from "../adapter/bb.ts";
+import { hostSettings } from "../adapter/settings.ts";
 import { page, type Page } from "../core/tests/harness.ts";
 
 const BB = `
@@ -18,6 +19,7 @@ let cleanup: Array<() => void> = [];
 afterEach(() => {
   for (const step of cleanup) step();
   cleanup = [];
+  syncSettings({});
 });
 
 function mounted(): { p: Page; controller: AbortController } {
@@ -39,16 +41,55 @@ test("mountBbim: a second mount disposes the first, so one engine answers keys",
   assert.ok(p.labels().length > 0);
 });
 
-test("guards: a terminal built as a web component keeps alt+f (shadow root)", () => {
-  const { p } = mounted();
+function terminal(p: Page): HTMLTextAreaElement {
   const host = p.doc.createElement("div");
   host.setAttribute("data-app-terminal", "");
+  host.setAttribute("data-rect", "0,400,1000,300");
   p.doc.body.append(host);
   const root = host.attachShadow({ mode: "open" });
-  root.innerHTML = `<textarea id="xterm"></textarea>`;
+  root.innerHTML = `<textarea id="xterm" data-rect="0,400,10,10"></textarea>`;
+  return root.getElementById("xterm") as HTMLTextAreaElement;
+}
+
+test("terminal: the chords work there by default; chordsInTerminal off gives them back (shadow root)", () => {
+  const { p } = mounted();
+  const xterm = terminal(p);
+  xterm.focus();
+  assert.equal(commandAvailable(), true, "chordsInTerminal is on by default");
+  syncSettings({}, { chordsInTerminal: false });
+  assert.equal(commandAvailable(), false, "off: alt+f is the shell's forward-word again");
+  syncSettings({}, { chordsInTerminal: true });
   assert.equal(commandAvailable(), true);
-  root.getElementById("xterm")?.focus();
-  assert.equal(commandAvailable(), false);
+});
+
+test("terminal: bare keys stay off; hints from a terminal swallow keys and Esc leaves focus in it", () => {
+  const { p } = mounted();
+  const xterm = terminal(p);
+  const shell: Array<string> = [];
+  xterm.addEventListener("keydown", (event) => shell.push(event.key));
+  // Keys land on the terminal's own textarea, inside its shadow root.
+  const type = (key: string) => {
+    const event = new p.win.KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, composed: true });
+    xterm.dispatchEvent(event);
+    return event;
+  };
+  xterm.focus();
+  const bare = type("f");
+  assert.equal(bare.defaultPrevented, false, "f is typed into the shell");
+  assert.deepEqual(p.labels(), []);
+  runAction("hints");
+  assert.ok(p.labels().length > 0, "alt+f (the bb command) shows hints from the terminal");
+  type("z");
+  type("Escape");
+  assert.deepEqual(p.labels(), []);
+  assert.deepEqual(shell, ["f"], "nothing typed in hint mode reached the shell, Esc included");
+  assert.equal((xterm.getRootNode() as ShadowRoot).activeElement, xterm, "the terminal keeps focus and its caret");
+});
+
+test("settings: chordsInTerminal decodes, a bad stored value is its default", () => {
+  assert.deepEqual(hostSettings({}), { chordsInTerminal: true });
+  assert.deepEqual(hostSettings({ chordsInTerminal: false }), { chordsInTerminal: false });
+  assert.deepEqual(hostSettings({ chordsInTerminal: "no" }), { chordsInTerminal: true });
 });
 
 test("gi: labels every input; the composer of the pane you are in takes the first label and Enter", () => {

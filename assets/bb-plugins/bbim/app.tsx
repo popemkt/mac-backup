@@ -4,13 +4,13 @@
 import { useEffect } from "react";
 import { definePluginApp, useBbNavigate, useSettings } from "@get-bb/plugin-sdk/app";
 import { commandAvailable, mountBbim, runAction, syncOpenUrl, syncSettings } from "./adapter/bb.ts";
-import { settingsInput } from "./adapter/settings.ts";
+import { hostSettings, settingsInput } from "./adapter/settings.ts";
 
 function SettingsSync() {
   const { values } = useSettings();
   const navigate = useBbNavigate();
   useEffect(() => {
-    syncSettings(settingsInput(values ?? {}));
+    syncSettings(settingsInput(values ?? {}), hostSettings(values ?? {}));
   }, [values]);
   useEffect(() => {
     syncOpenUrl((url) => navigate.openUrl(url));

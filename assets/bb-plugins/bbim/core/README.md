@@ -53,7 +53,7 @@ To make bbim stand aside (a game, a recording), add a guard that answers
 
 | Hook | Use |
 |---|---|
-| `guards: FocusGuard[]` | `(focused) => "free" \| "typing" \| "blocked" \| undefined`. Editable focus is built in as `typing`. `typing` turns bare keys off (chords still work); `blocked` turns bbim off. Helpers: `withinGuard(selector)` (focus inside, e.g. a terminal), `presenceGuard(doc, selector, state)` (e.g. an open modal). Both see through open shadow roots; inside a closed one, focus is seen on its host, so match the host. Guards run only for keys a binding takes, in order, stopping once the answer is settled: list `presenceGuard`s (which search the document) last. |
+| `guards: FocusGuard[]` | `(focused) => "free" \| "typing" \| "blocked" \| undefined`. Editable focus is built in as `typing`. `typing` turns bare keys off (chords still work); `blocked` turns bbim off. Helpers: `withinGuard(selector, state = "blocked")` (focus inside, e.g. a terminal; `state` may be a function read on every check, so a setting can switch it live), `presenceGuard(doc, selector, state)` (e.g. an open modal). Both see through open shadow roots; inside a closed one, focus is seen on its host, so match the host. Guards run only for keys a binding takes, in order, stopping once the answer is settled: list `presenceGuard`s (which search the document) last. |
 | `openUrl(url, { newTab })` | open new-tab URLs your way (new-tab hints, bridge `open` requests); `false` falls back to a cmd/ctrl-click on the link, or `window.open` for a bridge request |
 | `help()` | extra help-overlay sections, e.g. the host's own chords |
 
