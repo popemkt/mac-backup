@@ -303,6 +303,42 @@ function fromFrame(p: Page, source: unknown, data: unknown) {
   p.win.dispatchEvent(new p.win.MessageEvent("message", { data, origin: "https://frame.test", source: source as Window }));
 }
 
+const key = (char: string) => ({
+  bbim: BRIDGE_PROTOCOL,
+  type: "key",
+  key: char,
+  code: "",
+  ctrlKey: false,
+  altKey: false,
+  metaKey: false,
+  shiftKey: false,
+  repeat: false,
+  isComposing: false,
+});
+
+/** Hints up with one focused bridge frame; `answer` makes it reply with one target. */
+function withFocusedFrame(options: Omit<CreateBbimOptions, "window"> = {}) {
+  const { p, bbim } = start({ settings: { hintAlphabet: "ab" }, bridgeTimeoutMs: 200, ...options });
+  const focused = opaqueFrame(p, "600,100,200,200");
+  Object.defineProperty(p.doc, "activeElement", { value: focused.frame, configurable: true });
+  bbim.run("hints");
+  const requestId = focused.sent.find((message) => message.type === "collect")?.requestId ?? "";
+  return {
+    p,
+    bbim,
+    focused,
+    answer: async () => {
+      fromFrame(p, focused.child, {
+        bbim: BRIDGE_PROTOCOL,
+        type: "targets",
+        requestId,
+        targets: [{ id: 7, kind: "button", left: 10, top: 10, width: 40, height: 20 }],
+      });
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    },
+  };
+}
+
 test("bridge frames: only the focused frame forwards keys, and its keys pick only its own targets", async () => {
   const { p, bbim } = start({ settings: { hintAlphabet: "ab" }, bridgeTimeoutMs: 200 });
   const focused = opaqueFrame(p, "600,100,200,200");
@@ -329,7 +365,6 @@ test("bridge frames: only the focused frame forwards keys, and its keys pick onl
   await new Promise((resolve) => setTimeout(resolve, 10));
   const labels = p.labels();
   assert.ok(labels.length >= 2);
-  const key = (char: string) => ({ bbim: BRIDGE_PROTOCOL, type: "key", key: char, code: "", ctrlKey: false, altKey: false, metaKey: false, shiftKey: false });
   fromFrame(p, other.child, key(labels[0]?.[0] ?? "a"));
   assert.deepEqual(p.labels(), labels, "keys from the unfocused frame are not heard");
   for (const label of labels) {
@@ -343,6 +378,47 @@ test("bridge frames: only the focused frame forwards keys, and its keys pick onl
   );
   assert.equal(other.sent.filter((message) => message.type === "activate").length, 0);
   assert.ok(focused.sent.some((message) => message.type === "mode" && message.active === false), "leaving hint mode turns forwarding off");
+});
+
+test("bridge frames: a frame's keys cannot narrow or take back the page's typed prefix", async () => {
+  const { p, focused, answer } = withFocusedFrame();
+  await answer();
+  const labels = p.labels();
+  const frameLabel = labels.at(-1) ?? "";
+  // The page types the first letter of a label that is not the frame's.
+  const pageLabel = labels.find((label) => label[0] !== frameLabel[0]) ?? "";
+  p.key(pageLabel[0] ?? "a");
+  const narrowed = p.labels();
+  assert.ok(narrowed.length < labels.length);
+  fromFrame(p, focused.child, key(frameLabel[1] ?? "b"));
+  fromFrame(p, focused.child, key("Backspace"));
+  assert.deepEqual(p.labels(), narrowed, "the frame's keys changed nothing");
+});
+
+test("bridge frames: keys and target replies have separate budgets", async () => {
+  const { p, focused, answer } = withFocusedFrame();
+  for (let index = 0; index < 300; index += 1) fromFrame(p, focused.child, key("x"));
+  await answer();
+  assert.ok(p.labels().length > 0, "a frame that typed a lot still gets its labels");
+});
+
+test("bridge frames: the frame leaving (a click in it, a lapse) ends hint mode", async () => {
+  const { p, bbim, focused, answer } = withFocusedFrame();
+  await answer();
+  assert.equal(bbim.mode(), "hint");
+  fromFrame(p, focused.child, { bbim: BRIDGE_PROTOCOL, type: "leave", reason: "pointer" });
+  assert.equal(bbim.mode(), "normal");
+});
+
+test("bridge frames: a heartbeat that comes too late ends hint mode with the frame", async () => {
+  const clock = { offset: 0 };
+  const { p, bbim, answer } = withFocusedFrame();
+  await answer();
+  const real = p.win.performance.now.bind(p.win.performance);
+  Object.defineProperty(p.win.performance, "now", { value: () => real() + clock.offset, configurable: true });
+  clock.offset = 10_000; // the tab slept through several renewals
+  await new Promise((resolve) => setTimeout(resolve, 1100));
+  assert.equal(bbim.mode(), "normal");
 });
 
 test("dispose: aborting the signal disposes", () => {

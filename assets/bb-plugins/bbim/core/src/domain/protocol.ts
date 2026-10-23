@@ -87,6 +87,20 @@ export const KeyForward = Schema.Struct({
   altKey: Schema.Boolean,
   metaKey: Schema.Boolean,
   shiftKey: Schema.Boolean,
+  /** Held-key repeats and IME composition: forwarded so the parent can drop them too. */
+  repeat: Schema.Boolean,
+  isComposing: Schema.Boolean,
+});
+
+/**
+ * The frame stopped forwarding on its own: a click landed inside it, or the
+ * parent's renewals lapsed. The parent ends its hint session, so labels on
+ * screen and where keys go never disagree.
+ */
+export const LeaveNotice = Schema.Struct({
+  bbim: Marker,
+  type: Schema.Literal("leave"),
+  reason: Schema.Literals(["pointer", "lapsed"]),
 });
 
 /**
@@ -101,13 +115,28 @@ export const OpenRequest = Schema.Struct({
   url: Schema.String.check(Schema.isMaxLength(8192)),
 });
 
-export const FrameMessage = Schema.Union([TargetsReply, KeyForward, OpenRequest]);
+export const FrameMessage = Schema.Union([TargetsReply, KeyForward, OpenRequest, LeaveNotice]);
 export type FrameMessage = typeof FrameMessage.Type;
 
 export const decodeParentMessage: (data: unknown) => Option.Option<ParentMessage> =
   Schema.decodeUnknownOption(ParentMessage);
 export const decodeFrameMessage: (data: unknown) => Option.Option<FrameMessage> =
   Schema.decodeUnknownOption(FrameMessage);
+
+/**
+ * Whether `data` claims to be a bridge message of one of `types`: the cheap
+ * look before a listener charges a frame's budget and decodes it.
+ */
+export function isBridgeMessage(data: unknown, types: ReadonlyArray<FrameMessage["type"]>): boolean {
+  return (
+    typeof data === "object" &&
+    data !== null &&
+    "bbim" in data &&
+    data.bbim === BRIDGE_PROTOCOL &&
+    "type" in data &&
+    types.some((type) => type === data.type)
+  );
+}
 
 /** Whether a URL a frame asked to open is one a parent may open: http(s) only. */
 export function isOpenableUrl(url: string): boolean {

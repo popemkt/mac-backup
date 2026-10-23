@@ -159,6 +159,11 @@ export function feed<A>(keymap: Keymap<A>, state: MatchState, stroke: KeyStroke,
   return retried.kind === "miss" ? [EMPTY_STATE, retried] : [restarted, retried];
 }
 
+/** Whether the pending prefix leads somewhere in this keymap. */
+export function within(keymap: Keymap<unknown>, state: MatchState): boolean {
+  return walk(keymap, state.prefix) !== undefined;
+}
+
 /** Undo the last stroke of the pending prefix (Backspace while typing a hint). */
 export function back(state: MatchState): MatchState {
   return state.prefix.length === 0 ? state : { prefix: state.prefix.slice(0, -1), at: state.at };

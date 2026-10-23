@@ -22,6 +22,7 @@ import {
   type Keymap,
   type MatchState,
   typed,
+  within,
 } from "../domain/matcher.ts";
 import { current, INITIAL_STACK, leave, type Mode, type ModeStack, ownsKeyboard, push } from "../domain/modes.ts";
 import {
@@ -34,7 +35,7 @@ import {
 } from "../domain/settings.ts";
 import { area, order, type Rect, type TargetKind } from "../domain/targets.ts";
 import { type ActivateContext, activateElement } from "./activate.ts";
-import { MODE_HEARTBEAT_MS } from "../domain/protocol.ts";
+import { MODE_HEARTBEAT_MS, MODE_TTL_MS } from "../domain/protocol.ts";
 import {
   activateRemote,
   awaitOpen,
@@ -101,11 +102,14 @@ interface HintSession {
   readonly startFrame: Element | null;
   /** The bridge frame that had focus: the only one asked to forward keys. */
   readonly focusedFrame: OpaqueFrame | undefined;
-  /** How many more messages each bridge frame may send this session. */
-  readonly budget: FrameBudget;
+  /** How many more messages each bridge frame may send this session, for targets and for keys. */
+  readonly collectBudget: FrameBudget;
+  readonly keyBudget: FrameBudget;
   /** Labels and their targets once collected; undefined while frames answer. */
   assigned: ReadonlyArray<{ readonly label: string; readonly target: Target }> | undefined;
   keymap: Keymap<number> | undefined;
+  /** Only the focused bridge frame's labels: what keys it forwards may match. */
+  frameKeymap: Keymap<number> | undefined;
   state: MatchState;
   /** Keys typed before the labels showed up, replayed when they do. */
   readonly queued: Array<{ readonly event: KeyEventLike; readonly from: OpaqueFrame | undefined }>;
@@ -270,23 +274,24 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       return;
     }
     if (event.key === "Backspace") {
+      // A frame may take back only letters of its own labels.
+      if (from !== undefined && (active.frameKeymap === undefined || !within(active.frameKeymap, active.state))) return;
       active.state = back(active.state);
       overlay.narrow(typed(active.keymap, active.state));
       return;
     }
     const pressed = strokeFromEvent(event);
     if (pressed === undefined || isChord(pressed)) return;
-    const [next, step] = feed(active.keymap, active.state, pressed, now());
+    // Keys a frame forwards are matched against that frame's own labels only,
+    // before anything changes: they cannot pick, narrow or reset the page's.
+    const map = from === undefined ? active.keymap : active.frameKeymap;
+    if (map === undefined) return;
+    const [next, step] = feed(map, active.state, pressed, now());
+    if (step.kind === "miss") return;
     active.state = next;
     if (step.kind === "pending") overlay.narrow(typed(active.keymap, next));
     if (step.kind !== "match") return;
     const chosen = active.assigned[step.binding.action];
-    // Keys a frame forwards may only pick that frame's own targets.
-    if (from !== undefined && (chosen?.target.source !== "remote" || chosen.target.remote.frame !== from)) {
-      active.state = EMPTY_STATE;
-      overlay.narrow("");
-      return;
-    }
     const newTab = active.newTab || event.shiftKey;
     endHints();
     if (chosen !== undefined) activate(chosen.target, newTab, active.requestId);
@@ -308,10 +313,17 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       return target === undefined ? [] : [{ label, target }];
     });
     active.assigned = assigned;
-    active.keymap = compileKeymap(
-      assigned.map(({ label }, index) => ({ sequence: [...label].map((char) => stroke(char)), action: index })),
-      { foldCase: true, restartOnMiss: false, timeoutMs: Number.POSITIVE_INFINITY },
-    );
+    const labelKeymap = (keep: (target: Target) => boolean) =>
+      compileKeymap(
+        assigned.flatMap(({ label, target }, index) =>
+          keep(target) ? [{ sequence: [...label].map((char) => stroke(char)), action: index }] : [],
+        ),
+        { foldCase: true, restartOnMiss: false, timeoutMs: Number.POSITIVE_INFINITY },
+      );
+    active.keymap = labelKeymap(() => true);
+    const focused = active.focusedFrame;
+    active.frameKeymap =
+      focused === undefined ? undefined : labelKeymap((target) => target.source === "remote" && target.remote.frame === focused);
     overlay.showHints(assigned.map(({ label, target }) => ({ label, rect: target.rect })));
     for (const queued of active.queued.splice(0)) hintKey(queued.event, queued.from);
   };
@@ -361,9 +373,11 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       frames: tree.opaque,
       startFrame: frameElement(doc.activeElement),
       focusedFrame: tree.opaque.find((frame) => deepActiveElement(doc) === frame.element),
-      budget: frameBudget(),
+      collectBudget: frameBudget(),
+      keyBudget: frameBudget(),
       assigned: undefined,
       keymap: undefined,
+      frameKeymap: undefined,
       state: EMPTY_STATE,
       queued: [],
     };
@@ -394,13 +408,21 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
           // them; it does only while we keep renewing, so a parent that dies
           // cannot leave it swallowing keys.
           const beat = yield* timers(win);
+          let renewed = now();
           const renew = () => {
+            // A renewal this late (timers throttled, the tab asleep) means the
+            // frame has already given up forwarding: end hints with it.
+            if (now() - renewed > MODE_TTL_MS) {
+              endHints();
+              return;
+            }
+            renewed = now();
             setRemoteMode(focused, true);
             beat(MODE_HEARTBEAT_MS, renew);
           };
           renew();
           yield* Effect.addFinalizer(() => Effect.sync(() => setRemoteMode(focused, false)));
-          yield* listenForwarded(focused, (event) => hintKey(event, focused), active.budget);
+          yield* listenForwarded(focused, { onKey: (event) => hintKey(event, focused), onLeave: endHints }, active.keyBudget);
         }
       }),
     );
@@ -409,7 +431,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       return;
     }
     active.scope.fork(
-      Effect.map(collectRemote(active.frames, active.requestId, bridgeTimeoutMs, active.budget), (remote) =>
+      Effect.map(collectRemote(active.frames, active.requestId, bridgeTimeoutMs, active.collectBudget), (remote) =>
         showLabels(active, [
           ...local,
           ...remote.map((target): Target => ({ source: "remote", remote: target, kind: target.kind, rect: target.rect })),
