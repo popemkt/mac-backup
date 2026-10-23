@@ -27,6 +27,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Decide the home for the checklist in this repo, port R1-R20, and wire the mechanical subset the way the reference repo does before adding more skills.
 - **node** — `01M1M08W6Z70XV3KCQB5CWH3ZR`
 
+### GAP: bbim gives no hints inside bb's browser tabs
+
+- **expected** — alt+f inside a bb browser tab shows hints over the page, through experimental_browserToolbarAction plus experimental_page.evaluate running the core's collection in an isolated world
+- **current** — bbim declines in a browser tab (its isAvailable is false there and bare keys stay off), so the tab's own keys work but nothing is hintable; the hint-bridge script covers only pages that load it
+- **impact** — keyboard-only navigation stops at the browser tab boundary
+- **closes** — assets/bb-plugins/bbim/adapter/bb.ts gains a browser-tab injector that runs the core's collect/activate in the page, and the GAP comment there goes
+- **node** — `01M5KBVSMZ39HBDVBG4CA5TEH0`
+
 ### GAP: kb.server has no NixOS side
 
 - **expected** — kb.server runs on NixOS as a supervised service for a named person, rendered from the same service declaration the macOS launchd agent comes from.

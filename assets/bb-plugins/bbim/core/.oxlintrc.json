@@ -1,0 +1,54 @@
+{
+  "$schema": "../node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "import", "unicorn", "oxc", "promise", "node"],
+  "env": {
+    "builtin": true,
+    "browser": true
+  },
+  "ignorePatterns": ["**/dist/**", "**/node_modules/**", "**/bridge/bbim-bridge.js"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "error"
+  },
+  "rules": {
+    "import/no-cycle": "error",
+    "import/no-duplicates": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/consistent-type-imports": "error",
+    "typescript/no-import-type-side-effects": "error",
+    "typescript/no-non-null-assertion": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/switch-exhaustiveness-check": "error",
+    "typescript/no-unnecessary-condition": "error",
+    "typescript/require-await": "error",
+    "typescript/no-deprecated": "error",
+    // DOM code narrows elements it has already checked (tagName, "x" in el)
+    // across realms, where instanceof lies; the casts are the narrowing.
+    "typescript/no-unsafe-type-assertion": "off",
+    // Hint alphabets and key names are ASCII by contract (labels.ts, keys.ts).
+    "typescript/no-misused-spread": "off",
+    "oxc/no-map-spread": "off",
+    "eslint/no-underscore-dangle": "off",
+    "import/no-named-as-default-member": "off",
+    "import/no-named-as-default": "off",
+    "eslint/no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
+      }
+    ]
+  },
+  "overrides": [
+    {
+      // node:test's test() returns a promise the runner itself awaits.
+      "files": ["**/tests/**"],
+      "rules": {
+        "typescript/no-floating-promises": "off",
+        // A test's helpers stay next to the test that reads them.
+        "unicorn/consistent-function-scoping": "off"
+      }
+    }
+  ]
+}

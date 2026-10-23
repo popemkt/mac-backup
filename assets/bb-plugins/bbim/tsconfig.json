@@ -1,0 +1,9 @@
+{
+  // The bb adapter on the core's browser preset. The core typechecks itself
+  // (core/tsconfig.*.json); this covers app.tsx, server.ts and adapter/.
+  "extends": "./core/tsconfig.browser.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["app.tsx", "server.ts", "adapter", "tests"]
+}

@@ -1,0 +1,95 @@
+{
+  // The isomorphic preset, after kb's (popemkt/kb tsconfig.iso.json): the pure
+  // domain (src/domain) compiles here.
+  //
+  // No `types` and no DOM lib, so `document`, `window`, `Buffer` and `process`
+  // in the domain are compile errors, which is the whole point. `lib` names
+  // what the domain may still reach for: the language plus the web-worker
+  // global surface (URL, TextEncoder) without a `document`.
+  //
+  // `tsconfig.browser.json` extends this file rather than repeating it, and
+  // the Effect language-service block is authored here, once, so both presets
+  // get the same diagnostics.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "Preserve",
+    "moduleResolution": "bundler",
+    "lib": [
+      "ESNext",
+      "WebWorker"
+    ],
+    "types": [],
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "includeSuggestionsInTsc": true,
+        "ignoreEffectSuggestionsInTscExitCode": true,
+        "diagnosticSeverity": {
+          "floatingEffect": "error",
+          "missingEffectError": "error",
+          "missingEffectContext": "error",
+          "missingLayerContext": "error",
+          "missingStarInYieldEffectGen": "error",
+          "missingReturnYieldStar": "error",
+          "outdatedApi": "error",
+          "classSelfMismatch": "error",
+          "duplicatePackage": "error",
+          "anyUnknownInErrorContext": "error",
+          "unsupportedServiceAccessors": "error",
+          "tryCatchInEffectGen": "suggestion",
+          "runEffectInsideEffect": "suggestion",
+          "leakingRequirements": "suggestion",
+          "unknownInEffectCatch": "error",
+          "globalErrorInEffectCatch": "suggestion",
+          "globalErrorInEffectFailure": "suggestion",
+          "multipleEffectProvide": "error",
+          "scopeInLayerEffect": "suggestion",
+          "preferTypedSchemaDecoder": "error",
+          "effectMapVoid": "error",
+          "catchToOrElseSucceed": "error",
+          "catchToIgnore": "error",
+          "lazyEffect": "suggestion",
+          "schemaNumber": "suggestion",
+          "unnecessaryFailYieldableError": "error",
+          "processEnv": "suggestion",
+          "globalDate": "suggestion",
+          "globalConsole": "suggestion",
+          "globalRandom": "suggestion",
+          "globalTimers": "suggestion",
+          "asyncFunction": "suggestion",
+          "missedPipeableOpportunity": "off",
+          "effectFnOpportunity": "off",
+          "importFromBarrel": "off"
+        },
+        "overrides": [
+          {
+            "include": [
+              "src/**/*"
+            ],
+            "options": {
+              "diagnosticSeverity": {
+                "asyncFunction": "error",
+                "globalConsole": "error",
+                "globalDate": "error",
+                "globalErrorInEffectCatch": "error",
+                "globalErrorInEffectFailure": "error",
+                "globalRandom": "error",
+                "globalTimers": "error",
+                "lazyEffect": "error",
+                "leakingRequirements": "error",
+                "processEnv": "error",
+                "runEffectInsideEffect": "error",
+                "schemaNumber": "error",
+                "scopeInLayerEffect": "error",
+                "tryCatchInEffectGen": "error"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

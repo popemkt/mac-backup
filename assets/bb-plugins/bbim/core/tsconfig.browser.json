@@ -1,0 +1,14 @@
+{
+  // The browser preset, after kb's (popemkt/kb tsconfig.browser.json): the DOM
+  // layer (src/dom, src/bridge) and hosts that embed bbim compile here. It
+  // extends the iso preset so the Effect language-service diagnostics are the
+  // same; only the global surface widens to the DOM.
+  "extends": "./tsconfig.iso.json",
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true
+  }
+}
