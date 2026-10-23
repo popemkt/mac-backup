@@ -26,6 +26,11 @@ in
       # project, or everything, read through each machine's `canvas-link`
       # (modules/stacks/ai-agents/canvas-links).
       "assets/bb-plugins/canvas-links"
+      # The person's kb beside a thread, and agent tools (kb_call,
+      # kb_screen, kb_manifest) that act in that kb tab. Its page URL and
+      # socket come from the bb server's KB_URL and KB_SOCKET, set where
+      # a host places both.
+      "assets/bb-plugins/kb"
     ];
 
     # No anonymous usage telemetry (PostHog) from any bb server or host
