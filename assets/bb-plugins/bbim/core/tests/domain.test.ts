@@ -134,11 +134,28 @@ test("targets: nested duplicates collapse to the stronger, distinct nested actio
     { kind: "button", rect: box(400, 400, 80, 30) }, // 5: a lone button
   ];
   const parentOf: Record<number, number | undefined> = { 0: 2, 1: 0, 3: 0, 2: 4, 5: 4 };
-  const contains = (outer: number, inner: number) => {
-    for (let at = parentOf[inner]; at !== undefined; at = parentOf[at]) if (at === outer) return true;
-    return false;
+  const ancestors = function* (inner: number) {
+    for (let at = parentOf[inner]; at !== undefined; at = parentOf[at]) yield at;
   };
-  assert.deepEqual(dedupe(candidates, contains, viewport), [0, 1, 5]);
+  assert.deepEqual(dedupe(candidates, ancestors, viewport), [0, 1, 5]);
+});
+
+test("targets: dedupe visits each candidate's ancestors once, not every pair", () => {
+  // 3000 buttons in one weak wrapper: pairs would be 9 million steps.
+  const count = 3000;
+  const candidates: Array<Candidate> = [
+    { kind: "weak", rect: box(0, 0, 100, 100) },
+    ...Array.from({ length: count }, (_, index) => ({ kind: "button" as const, rect: box(index % 50, Math.floor(index / 50), 1, 1) })),
+  ];
+  let steps = 0;
+  const ancestors = function* (inner: number) {
+    if (inner === 0) return;
+    steps += 1;
+    yield 0;
+  };
+  const kept = dedupe(candidates, ancestors, viewport);
+  assert.equal(kept.length, count, "the wrapper defers to its buttons");
+  assert.ok(steps <= count, `${steps} ancestor steps`);
 });
 
 test("targets: order starts in the focus region, nearest its corner first", () => {

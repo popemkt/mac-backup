@@ -198,6 +198,7 @@ export function isModifierOnly(event: KeyEventLike): boolean {
 }
 
 const PRINTABLE_ASCII = /^[\x21-\x7e]$/u;
+const ASCII_LETTER = /^[a-z]$/iu;
 
 /**
  * The key a layout-independent physical code stands for, when the typed
@@ -234,8 +235,10 @@ export function strokeFromEvent(event: KeyEventLike): KeyStroke | undefined {
   let key = event.key;
   if (event.altKey && !PRINTABLE_ASCII.test(key) && (isCharacterKey(key) || key === "Dead")) {
     key = keyFromCode(event.code, event.shiftKey) ?? key;
-  } else if ((event.ctrlKey || event.metaKey) && isCharacterKey(key) && key.length === 1) {
-    // With control or command held, browsers report the unshifted letter; shift picks the case.
+  } else if ((event.ctrlKey || event.metaKey || ASCII_LETTER.test(key)) && isCharacterKey(key) && key.length === 1) {
+    // A letter's case comes from shift alone: with control or command held
+    // browsers report the unshifted letter, and Caps Lock flips the case of a
+    // bare one (f would read as F, the new-tab binding).
     key = event.shiftKey ? key.toUpperCase() : key.toLowerCase();
   }
   return stroke(key, { ctrl: event.ctrlKey, alt: event.altKey, meta: event.metaKey, shift: event.shiftKey });

@@ -151,15 +151,14 @@ export function collectTargets(placement: DocumentPlacement, options: CollectOpt
     if (placed === undefined) continue;
     found.push({ element, kind, rect: placed });
   }
-  const kept = dedupe(
-    found,
-    (outer, inner) => {
-      const a = found[outer];
-      const b = found[inner];
-      return a !== undefined && b !== undefined && a.element.contains(b.element);
-    },
-    placement.clip,
-  );
+  const indexOf = new Map(found.map((target, index) => [target.element, index]));
+  const ancestors = function* (inner: number): Generator<number> {
+    for (let at = found[inner]?.element.parentElement ?? null; at !== null; at = at.parentElement) {
+      const outer = indexOf.get(at);
+      if (outer !== undefined) yield outer;
+    }
+  };
+  const kept = dedupe(found, ancestors, placement.clip);
   return kept.flatMap((index) => {
     const target = found[index];
     return target === undefined ? [] : [{ element: target.element, kind: target.kind, rect: target.rect }];
