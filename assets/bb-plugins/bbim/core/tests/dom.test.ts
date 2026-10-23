@@ -121,3 +121,20 @@ test("gi picker: a host selector narrows the choice (bb: composers only)", () =>
   const search = p.doc.getElementById("search");
   assert.equal(pickInput(p.doc, { selector: ".composer textarea", lastEditable: search, near: null })?.id, "compose");
 });
+
+test("gi picker: a preferred input wins over a bigger one, but never over the one used last", () => {
+  const p = load(`
+    <input id="search" data-rect="0,0,900,40">
+    <div class="composer"><textarea id="compose" data-rect="0,700,300,40"></textarea></div>`);
+  const prefer = ".composer textarea";
+  assert.equal(pickInput(p.doc, { selector: TEXT_INPUT_SELECTOR, lastEditable: null, near: null, prefer })?.id, "compose");
+  const search = p.doc.getElementById("search");
+  assert.equal(pickInput(p.doc, { selector: TEXT_INPUT_SELECTOR, lastEditable: search, near: null, prefer })?.id, "search");
+});
+
+test("gi picker: an input under a dialog is not a candidate", () => {
+  const p = load(`
+    <textarea id="under" data-rect="0,0,600,200"></textarea>
+    <div id="dialog" data-rect="0,0,800,400"><input id="name" data-rect="10,10,200,30"></div>`);
+  assert.equal(pickInput(p.doc, { selector: TEXT_INPUT_SELECTOR, lastEditable: null, near: null })?.id, "name");
+});

@@ -41,9 +41,8 @@ window and returns a `Bbim`:
 Options: `window`, `settings`, `hooks`, `theme` (CSS custom properties; point
 them at your own tokens with `var(...)` and they follow theme switches),
 `selectors` (hint candidates, default `DEFAULT_SELECTORS`), `inputSelector`
-(what `gi` may focus, default `TEXT_INPUT_SELECTOR`; it picks the last one
-used, else the biggest in the pane around the last click or focus, else the
-biggest on screen), `signal`,
+(what `gi` labels, default `TEXT_INPUT_SELECTOR`), `preferInput` (the inputs
+`gi` means by default when none was used last, e.g. a composer), `signal`,
 `bridgeTimeoutMs` (default 1000: how long bridge frames have to answer; the
 page's own labels do not wait for them).
 
@@ -83,6 +82,14 @@ corner. The picked one flashes and becomes what `j`/`k`/`d`/`u`/`gg`/`G`
 scroll, until a click lands outside it or another is picked. With one
 surface it is picked at once, without labels.
 
+`focusInput` (`gi`) is the input picker: with one visible text input it
+focuses it at once; with several (search boxes, setting fields, composers,
+inputs in same-origin frames) it labels the inputs only, uncovered and not
+hidden, and focuses the one picked. The input `gi` means by default (the
+last one used while it still shows, else a `preferInput` match nearest the
+last click or focus, else the biggest there) gets the first, shortest label,
+and Enter picks it, so `gi` then Enter is the old jump.
+
 Notation: characters are themselves (`G` is shift+g); `<...>` names a special
 key or chord: `<Esc>`, `<Space>`, `<CR>`, `<Tab>`, `<F5>`, `<lt>`, `<A-f>`
 (alt), `<C-d>` (ctrl), `<M-k>` (meta/cmd), `<S-Tab>`. On macOS, alt chords
@@ -93,7 +100,9 @@ match by physical key, so `<A-f>` fires although the event's `key` is `ƒ`.
 Every labeled choice is one mechanism, a *pick session* (`dom/bbim.ts`): a
 picker names which targets get labels and what picking one does, and the
 session owns the rest (labels, narrowing, the overlay, same-origin frames,
-the bridge, re-labeling when the page moved). Link hints are one picker.
+the bridge, re-labeling when the page moved). Link hints, the scroll-surface
+picker and the input picker are its pickers. A picker may name a default
+target: it gets the first label and Enter picks it.
 
 Labels are prefix-free words over the alphabet, shortest nearest the focus
 region's top-left. Typing narrows (case-insensitive); a unique match fires;
@@ -150,7 +159,7 @@ export function useVimKeys(options: { bareKeys: boolean; onOpen: (url: string) =
           return true;
         },
       },
-      inputSelector: "#search, .editor textarea", // what gi may focus
+      preferInput: ".editor textarea", // what gi + Enter focuses before anything was typed into
     });
     return () => controller.abort();
   }, [options.bareKeys, options.onOpen]);

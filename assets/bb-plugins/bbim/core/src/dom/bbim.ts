@@ -38,7 +38,7 @@ import {
   type SettingsProblem,
 } from "../domain/settings.ts";
 import { area, order, type Rect, type TargetKind } from "../domain/targets.ts";
-import { type ActivateContext, activateElement } from "./activate.ts";
+import { type ActivateContext, activateElement, focusForTyping } from "./activate.ts";
 import { MODE_HEARTBEAT_MS, MODE_TTL_MS } from "../domain/protocol.ts";
 import {
   activateRemote,
@@ -62,7 +62,7 @@ import {
 import { deepActiveElement, editableGuard, type FocusGuard, focusState, isEditable } from "./focus.ts";
 import { frameTree, liveFrame, liveRect, type OpaqueFrame, placementCache } from "./frames.ts";
 import { type HelpModel, type HelpSection, mountOverlay, type Overlay, type Theme } from "./overlay.ts";
-import { focusInput, TEXT_INPUT_SELECTOR } from "./inputs.ts";
+import { inputFields, preferredInput, TEXT_INPUT_SELECTOR } from "./inputs.ts";
 import { frameThrottle, listen, timers } from "./resources.ts";
 import { openScope, type ScopeHandle } from "./runtime.ts";
 import { isScrollable, scroll, scrollSurfaces, scrollTarget } from "./scroll.ts";
@@ -85,8 +85,10 @@ export interface CreateBbimOptions {
   readonly theme?: Theme;
   /** Candidate selectors for hints; defaults to DEFAULT_SELECTORS. */
   readonly selectors?: ReadonlyArray<string>;
-  /** The inputs `focusInput` (gi) picks among; defaults to every text input. */
+  /** The inputs `gi` labels; defaults to every text input. */
   readonly inputSelector?: string;
+  /** Inputs `gi` means by default (first label, Enter) when none was used last; bb: its composers. */
+  readonly preferInput?: string;
   /** Aborting it disposes bbim. */
   readonly signal?: AbortSignal;
   /**
@@ -139,6 +141,8 @@ interface Picker {
   readonly outline: boolean;
   /** With exactly one target and no frames to ask, pick it without showing labels. */
   readonly pickSingle: boolean;
+  /** Which target gets the first, shortest label and is what Enter picks; none when undefined. */
+  readonly first?: (targets: ReadonlyArray<Target>) => number | undefined;
   /** Act on the picked target; `newTab` when Shift was on the last letter or the session asked for it. */
   readonly pick: (target: Target, how: { readonly newTab: boolean; readonly requestId: string }) => void;
 }
@@ -164,6 +168,8 @@ interface PickSession {
   /** Only the focused bridge frame's labels: what keys it forwards may match. */
   frameKeymap: Keymap<number> | undefined;
   state: MatchState;
+  /** Whether Enter picks the first label (the picker named one). */
+  enterPicks: boolean;
   /** Keys typed before the labels showed up, replayed when they do. */
   readonly queued: Array<{ readonly event: KeyEventLike; readonly from: OpaqueFrame | undefined }>;
 }
@@ -220,6 +226,7 @@ function helpModel(settings: Settings, problems: ReadonlyArray<string>, extra: R
           { label: "Pick a target", keys: ["its letters"] },
           { label: "Open a link in a new tab", keys: ["Shift + last letter"] },
           { label: "Take back a letter", keys: ["Backspace"] },
+          { label: "gi: the input you used last", keys: ["Enter"] },
           { label: "Cancel", keys: ["Esc"] },
         ],
       },
@@ -360,6 +367,43 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     },
   };
 
+  /** Text inputs: the one `gi` means by default gets the first label, and Enter. */
+  const inputPicker: Picker = {
+    collect: (placement) =>
+      inputFields(placement, inputSelector).map(
+        ({ element, rect }): LocalTarget => ({ source: "local", element, kind: undefined, rect, faded: false }),
+      ),
+    remote: false,
+    outline: false,
+    pickSingle: true,
+    first: (targets) => {
+      const fields = targets.flatMap((target) => (target.source === "local" ? [target] : []));
+      const preferred = preferredInput(fields, {
+        lastEditable,
+        near: lastPointer ?? deepActiveElement(doc),
+        ...(options.preferInput === undefined ? {} : { prefer: options.preferInput }),
+      });
+      const index = targets.findIndex((target) => target.source === "local" && target.element === preferred);
+      return index < 0 ? undefined : index;
+    },
+    pick: (target) => {
+      if (target.source === "local") focusForTyping(target.element);
+    },
+  };
+
+  /** Pick the target labeled `index`, or label again when the page moved under it. */
+  const choose = (active: PickSession, index: number, newTab: boolean) => {
+    const chosen = active.assigned?.[index];
+    endHints();
+    if (chosen === undefined) return;
+    if (chosen.target.source === "local" && !stillThere(chosen.target.element, active.drawn[index])) {
+      // The page changed under the labels (moved, covered, gone): label it again.
+      startPick(active.picker, newTab);
+      return;
+    }
+    active.picker.pick(chosen.target, { newTab, requestId: active.requestId });
+  };
+
   /** A key typed in hint mode; `from` is the bridge frame it was typed in, if any. */
   const hintKey = (event: KeyEventLike, from?: OpaqueFrame) => {
     const active = session;
@@ -370,6 +414,11 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     }
     if (active.keymap === undefined || active.assigned === undefined) {
       if (active.queued.length < HINT_KEYS_LIMIT) active.queued.push({ event, from });
+      return;
+    }
+    if (event.key === "Enter") {
+      // Enter takes the first label, the picker's default (gi: the last input used).
+      if (from === undefined && active.enterPicks && active.state.prefix.length === 0) choose(active, 0, active.newTab);
       return;
     }
     if (event.key === "Backspace") {
@@ -390,17 +439,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     active.state = next;
     if (step.kind === "pending") overlay.narrow(typed(active.keymap, next));
     if (step.kind !== "match") return;
-    const index = step.binding.action;
-    const chosen = active.assigned[index];
-    const newTab = active.newTab || event.shiftKey;
-    endHints();
-    if (chosen === undefined) return;
-    if (chosen.target.source === "local" && !stillThere(chosen.target.element, active.drawn[index])) {
-      // The page changed under the labels (moved, covered, gone): label it again.
-      startPick(active.picker, newTab);
-      return;
-    }
-    active.picker.pick(chosen.target, { newTab, requestId: active.requestId });
+    choose(active, step.binding.action, active.newTab || event.shiftKey);
   };
 
   const showLabels = (active: PickSession, targets: ReadonlyArray<Target>) => {
@@ -409,7 +448,10 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       endHints();
       return;
     }
-    const ordered = order(targets, regionRect());
+    const first = active.picker.first?.(targets);
+    const byPlace = order(targets, regionRect());
+    const ordered = first === undefined ? byPlace : [first, ...byPlace.filter((index) => index !== first)];
+    active.enterPicks = first !== undefined;
     const labels = generateLabels(ordered.length, settings.hintAlphabet);
     const assigned = labels.flatMap((label, rank) => {
       const target = targets[ordered[rank] ?? -1];
@@ -487,6 +529,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       keymap: undefined,
       frameKeymap: undefined,
       state: EMPTY_STATE,
+      enterPicks: false,
       queued: [],
     };
     session = active;
@@ -598,7 +641,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
         startPick(scrollPicker, false);
         return;
       case "focusInput":
-        focusInput(doc, { selector: inputSelector, lastEditable, near: lastPointer ?? deepActiveElement(doc) });
+        startPick(inputPicker, false);
         return;
       case "help":
         toggleHelp();

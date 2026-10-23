@@ -6,7 +6,7 @@
 // its own or an ancestor's) does not: a control drawn only on hover is still
 // there to click, so it is a target flagged `faded`, labeled after the rest.
 import { type Candidate, classify, dedupe, intersect, type Rect, type TargetKind } from "../domain/targets.ts";
-import { parentAcrossShadow } from "./tree.ts";
+import { containsAcrossShadow, parentAcrossShadow } from "./tree.ts";
 
 /** What counts as interactive, before visibility filtering. */
 export const DEFAULT_SELECTORS: ReadonlyArray<string> = [
@@ -121,9 +121,13 @@ function isDisabled(element: Element): boolean {
   return element.matches(":disabled") || element.getAttribute("aria-disabled") === "true";
 }
 
-/** Whether a hit at a point belongs to `element`: itself, inside it, or its label. */
+/**
+ * Whether a hit at a point belongs to `element`: itself, inside it, or its
+ * label. A document hit-tests shadow content to its host, so ancestry crosses
+ * shadow roots.
+ */
 function owns(element: Element, hit: Element): boolean {
-  if (hit === element || element.contains(hit) || hit.contains(element)) return true;
+  if (hit === element || containsAcrossShadow(element, hit) || containsAcrossShadow(hit, element)) return true;
   const label = hit.closest("label");
   return label !== null && (label.control === element || label.contains(element));
 }

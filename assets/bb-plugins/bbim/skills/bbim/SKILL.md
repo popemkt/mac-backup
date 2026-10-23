@@ -1,6 +1,6 @@
 ---
 name: bbim
-description: bbim, the bb plugin for vim-style keyboard navigation of bb itself — link hints (alt+f / f), j/k/d/u/gg/G scrolling, picking the pane to scroll (alt+s / gs), gi to the composer, ? for help. Use when asked how to drive bb from the keyboard, to change or explain bbim's keys and settings, why a bbim key does nothing somewhere, or how to make a page shown in a frame inside bb hintable (the bbim-bridge script and its postMessage protocol).
+description: bbim, the bb plugin for vim-style keyboard navigation of bb itself — link hints (alt+f / f), j/k/d/u/gg/G scrolling, picking the pane to scroll (alt+s / gs), gi to pick a text input, ? for help. Use when asked how to drive bb from the keyboard, to change or explain bbim's keys and settings, why a bbim key does nothing somewhere, or how to make a page shown in a frame inside bb hintable (the bbim-bridge script and its postMessage protocol).
 ---
 
 # bbim
@@ -32,11 +32,11 @@ focus, and the `bareKeys` setting is on (default).
 | `d` / `u` | half a page down / up |
 | `gg` / `G` | top / bottom |
 | `gs` | pick the pane to scroll: outlined, labeled at its top-left; it scrolls until you click elsewhere (one pane: picked at once) |
-| `gi` | focus the composer of the current pane |
+| `gi` | pick a text input: one on screen is focused at once; several get labels, the last one used (else the current pane's composer) gets the first, and Enter picks it |
 | `?` | help: every key as bound now, plus settings that did not take |
 
 In hint mode: typing narrows (case-insensitive), a unique label fires, Shift on the last letter
-opens a link in a new tab, Backspace undoes a letter, Esc / a click / a resize leaves. Every key
+opens a link in a new tab, Enter picks the first label after `gi`, Backspace undoes a letter, Esc / a click / a resize leaves. Every key
 is swallowed while hints show, so Esc never reaches bb's back navigation.
 
 ## Settings (plugin settings page)

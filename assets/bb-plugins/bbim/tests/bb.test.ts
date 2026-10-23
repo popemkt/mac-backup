@@ -51,9 +51,11 @@ test("guards: a terminal built as a web component keeps alt+f (shadow root)", ()
   assert.equal(commandAvailable(), false);
 });
 
-test("gi: focuses the composer of the pane you are in, never another input", () => {
+test("gi: labels every input; the composer of the pane you are in takes the first label and Enter", () => {
   const { p } = mounted();
   p.doc.getElementById("left-text")?.dispatchEvent(new p.win.PointerEvent("pointerdown", { bubbles: true, composed: true }));
   runAction("focusInput");
-  assert.equal(p.doc.activeElement?.id, "left-composer");
+  assert.equal(p.labels().length, 3, "both composers and the search box");
+  p.key("Enter");
+  assert.equal(p.doc.activeElement?.id, "left-composer", "the bigger search box does not win the default");
 });

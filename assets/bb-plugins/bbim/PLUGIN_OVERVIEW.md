@@ -13,7 +13,9 @@ Drive bb from the keyboard, the way Vimium drives a browser.
 - **Pick the pane to scroll.** `alt+s` or `gs` outlines every scrollable pane (sidebar,
   transcript, a long code block) with a label in its corner. Pick one and the scroll keys
   move it until you click elsewhere; it flashes so you see which.
-- **`gi`** jumps to the composer of the pane you are in.
+- **`gi`** picks a text input. With one on screen it takes focus at once; with several
+  (composer, search box, a settings field) each gets a label, and the one you typed in last
+  gets the first label, so `gi` then Enter goes back to it.
 - **`?`** shows every key, including the ones you rebound, and any setting that did not take.
 
 Single keys only work while no text field, terminal, browser tab or dialog has focus, so

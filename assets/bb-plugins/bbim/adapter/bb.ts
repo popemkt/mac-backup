@@ -93,8 +93,9 @@ export function mountBbim(signal: AbortSignal, win: Window = window): void {
     theme: BB_THEME,
     settings: live.settings ?? {},
     hooks: hooks(doc),
-    // gi goes to a composer: the last one used, else the one in the pane you are in.
-    inputSelector: COMPOSER,
+    // gi labels every input; the first label (and Enter) is the last one used,
+    // else the composer in the pane you are in.
+    preferInput: COMPOSER,
   });
   engine = mounted;
   engineWindow = win;

@@ -10,7 +10,7 @@ Vim-style keyboard navigation for bb: link hints, scrolling, `gi`, help. See
 |---|---|
 | `core/` | `@popemkt/bbim-core`: the framework-agnostic engine (domain, DOM, iframe bridge) with its own tests. No bb imports. An npm workspace, so `bb plugin build` bundles it from `node_modules/@popemkt/bbim-core` (a symlink to `core/`). |
 | `adapter/settings.ts` | The settings table bb is told about (`server.ts`) and reads back (`app.tsx`): the core's schemas plus bb's no-leading-digit rule. |
-| `adapter/bb.ts` | What bbim knows about bb: focus guards (`[data-app-terminal]`, `[data-app-browser]`, bb's modal selector, open menus), the composer for `gi`, bb's URL opener, theme tokens, the help section for bb's chords. |
+| `adapter/bb.ts` | What bbim knows about bb: focus guards (`[data-app-terminal]`, `[data-app-browser]`, bb's modal selector, open menus), the composer `gi` prefers, bb's URL opener, theme tokens, the help section for bb's chords. |
 | `app.tsx` | The content script that mounts the engine, the `alt+f` / `alt+shift+f` / help commands, and a headless app overlay that feeds settings and `useBbNavigate` to it. |
 | `server.ts` | `bb.settings.define`. |
 | `skills/bbim/` | Tells agents what bbim does and how a page in a frame joins in. |

@@ -276,6 +276,75 @@ test("gi focuses the biggest text field", () => {
   assert.equal(p.doc.activeElement?.id, "composer");
 });
 
+const INPUTS = `
+  <main data-rect="0,0,1000,800">
+    <input id="search" type="search" data-rect="10,10,300,30">
+    <button id="go" data-rect="320,10,60,30">Go</button>
+    <input id="setting" data-rect="500,100,200,30">
+    <textarea id="gone" style="display:none" data-rect="10,300,300,60"></textarea>
+    <div class="composer"><textarea id="compose" data-rect="10,700,600,60"></textarea></div>
+  </main>`;
+
+function inputsPage(options: Omit<CreateBbimOptions, "window"> = {}) {
+  const p = page(INPUTS);
+  const bbim = createBbim({ window: p.win, ...options });
+  current = { page: p, bbim };
+  return { p, bbim };
+}
+
+test("gi with several inputs: labels the inputs only; the last one used gets the first label", () => {
+  const { p, bbim } = inputsPage();
+  const search = p.doc.getElementById("search") as HTMLInputElement;
+  search.focus();
+  search.blur();
+  p.key("g");
+  p.key("i");
+  assert.equal(bbim.mode(), "hint");
+  const labels = p.labels();
+  assert.equal(labels.length, 3, "search, setting and composer; not the button or the hidden field");
+  assert.ok(labels.every((label) => label.length === 1));
+  for (const char of labels[0] ?? "") p.key(char);
+  assert.equal(bbim.mode(), "normal");
+  assert.equal(p.doc.activeElement?.id, "search", "the first label is the input used last");
+});
+
+test("gi + Enter focuses the input used last, as gi alone did before", () => {
+  const { p, bbim } = inputsPage();
+  const setting = p.doc.getElementById("setting") as HTMLInputElement;
+  setting.focus();
+  setting.blur();
+  p.key("g");
+  p.key("i");
+  const enter = p.key("Enter");
+  assert.equal(enter.defaultPrevented, true, "Enter never reaches the page while labels are up");
+  assert.equal(bbim.mode(), "normal");
+  assert.equal(p.doc.activeElement?.id, "setting");
+});
+
+test("gi: with nothing used yet, the host's preferred input (bb: the composer) takes the first label", () => {
+  const { p } = inputsPage({ preferInput: ".composer textarea" });
+  p.key("g");
+  p.key("i");
+  p.key("Enter");
+  assert.equal(p.doc.activeElement?.id, "compose");
+});
+
+test("gi: a typed label picks any input, one in a same-origin frame too", () => {
+  const { p, bbim } = inputsPage();
+  const frame = p.doc.createElement("iframe");
+  frame.setAttribute("data-rect", "500,300,400,200");
+  p.doc.querySelector("main")?.append(frame);
+  const inner = layOutFrame(frame);
+  inner.body.innerHTML = `<input id="framed" data-rect="10,10,200,30">`;
+  p.key("g");
+  p.key("i");
+  assert.equal(p.labels().length, 4, "the frame's input joins the page's");
+  // The biggest page input (the composer) leads; the rest go by place, the framed one last.
+  for (const char of p.labels()[3] ?? "") p.key(char);
+  assert.equal(bbim.mode(), "normal");
+  assert.equal(inner.activeElement?.id, "framed");
+});
+
 test("settings: conflicts and bad values show in help and do not break the rest", () => {
   const { p, bbim } = start();
   const problems = bbim.setSettings({ keys: { scrollDown: "g" }, scrollStep: "lots" });
