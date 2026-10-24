@@ -17,7 +17,7 @@ import {
   type Theme,
   withinGuard,
 } from "@popemkt/bbim-core";
-import { pageRequest } from "@popemkt/bbim-core/page";
+import { type ScriptedPage, scriptedPage } from "@popemkt/bbim-core/page";
 import type { HostSettings } from "./settings.ts";
 
 /** bb's tokens (its Tailwind theme variables), so hints follow light, dark and custom palettes. */
@@ -135,16 +135,17 @@ const HOST_CHORDS: ReadonlyArray<{ readonly keys: string; readonly action: Actio
   { keys: "<A-s>", action: "pickScroll" },
 ];
 
-/** bb's `experimental_page`: script access to one Browser tab (desktop only). */
-export interface BrowserPage {
-  readonly evaluate: (expression: string, options?: { readonly world?: "isolated" | "main" }) => Promise<unknown>;
-  readonly onMessage: (listener: (data: unknown) => void) => () => void;
-}
-
 /** Every attached Browser tab, so a remounted engine picks them up. */
 const browserPages = new Map<PageView, { detach: () => void }>();
 
 const NOTHING = () => {};
+
+/** A failed evaluation in a Browser tab (a page that refuses scripts, a closed tab): worth seeing, not fatal. */
+const warnPage = (error: unknown) => {
+  // The adapter runs no Effect runtime of its own here: a plain warning for whoever debugs bb.
+  // @effect-diagnostics-next-line globalConsole:off
+  console.warn("bbim: Browser tab script failed", error);
+};
 
 /**
  * Hint the Browser tab whose toolbar holds `anchor`: its page joins every
@@ -153,17 +154,11 @@ const NOTHING = () => {};
  * child of `[data-app-browser]`, so that element is where the page is.
  * Returns the detach; a missing page (not desktop) or browser view is a no-op.
  */
-export function attachBrowserPage(anchor: Element, page: BrowserPage | null): () => void {
+export function attachBrowserPage(anchor: Element, page: ScriptedPage | null): () => void {
   const viewport = anchor.closest(BROWSER)?.lastElementChild ?? null;
   if (page === null || viewport === null) return NOTHING;
-  const view: PageView = {
-    element: viewport,
-    // The page bridge rides along with every request: a navigation drops whatever was installed.
-    send: (message) => {
-      page.evaluate(pageRequest(message), { world: "isolated" }).catch(NOTHING);
-    },
-    listen: (handler) => page.onMessage(handler),
-  };
+  // bb's `experimental_page` (desktop only) is script access to the tab.
+  const view = scriptedPage(viewport, page, warnPage);
   browserPages.set(view, { detach: engine?.attachPage(view) ?? NOTHING });
   return () => {
     browserPages.get(view)?.detach();

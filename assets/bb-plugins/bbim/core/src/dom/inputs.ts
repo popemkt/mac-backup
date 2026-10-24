@@ -11,8 +11,6 @@ export const TEXT_INPUT_SELECTOR =
   'textarea, input:not([type]), input[type=text], input[type=search], input[type=email], input[type=url], [contenteditable]:not([contenteditable="false"])';
 
 export interface InputChoice {
-  /** Which inputs count. */
-  readonly selector: string;
   /** The input last typed into: chosen again while it still counts and shows. */
   readonly lastEditable: Element | null;
   /** Where the person is (focus, last click): the nearest inputs around it win. */
@@ -70,14 +68,9 @@ function nearestBiggest(fields: ReadonlyArray<InputField>, near: Element | null)
  * shows, else a preferred one (the nearest pane's), else the biggest in the
  * nearest pane around `near`, else the biggest on screen.
  */
-export function preferredInput(fields: ReadonlyArray<InputField>, choice: Omit<InputChoice, "selector">): Element | undefined {
+export function preferredInput(fields: ReadonlyArray<InputField>, choice: InputChoice): Element | undefined {
   if (choice.lastEditable !== null && fields.some((field) => field.element === choice.lastEditable)) return choice.lastEditable;
   const { prefer } = choice;
   const preferred = prefer === undefined ? [] : fields.filter((field) => field.element.matches(prefer));
   return nearestBiggest(preferred.length > 0 ? preferred : fields, choice.near);
-}
-
-/** The input `gi` means in a top-level document (`preferredInput` over its fields). */
-export function pickInput(doc: Document, choice: InputChoice): Element | undefined {
-  return preferredInput(inputFields({ doc, offsetX: 0, offsetY: 0, clip: viewportOf(doc) }, choice.selector), choice);
 }

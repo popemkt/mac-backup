@@ -98,7 +98,15 @@ const parentMessages = {
    * repeats it every MODE_HEARTBEAT_MS; the frame gives up after MODE_TTL_MS
    * of silence.
    */
-  mode: message("mode", { active: flag }),
+  mode: struct(
+    { bbim: oneOf([BRIDGE_PROTOCOL]), type: oneOf(["mode"]), active: flag, requestId },
+    /**
+     * Native pages only: the document (its `ready` nonce) the session's keys
+     * came from. A page whose document differs (it navigated) refuses to
+     * forward, so a new document never swallows keys for a stale session.
+     */
+    { document: text(64) },
+  ),
   /**
    * Native pages only (a page a host shows in a native view over its own
    * window, which covers the parent's overlay): draw these labels on the
@@ -156,6 +164,14 @@ const frameMessages = {
    * screen and where keys go never disagree.
    */
   leave: message("leave", { reason: oneOf(["pointer", "lapsed"]) }),
+  /**
+   * Native pages only: the page bridge's document, named by a nonce fresh in
+   * each document. Sent when it installs and in answer to every `chords`. A
+   * document the parent has not seen ends a hint session the page was part
+   * of (its labels and targets went with the old document); `mode` names the
+   * document it is for.
+   */
+  ready: message("ready", { document: text(64) }),
 };
 
 type Messages<M extends Readonly<Record<string, Check<unknown>>>> = { [K in keyof M]: Checked<M[K]> }[keyof M];

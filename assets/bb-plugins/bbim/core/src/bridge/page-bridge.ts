@@ -6,12 +6,15 @@
 //
 // A native view covers the parent's overlay, so this side also draws the
 // labels the parent assigns (`labels`, `typed`), and, because it keeps every
-// key typed in it, passes the parent's own chords back (`chords`). Only keys
-// the browser marks as typed by a person count. Plain DOM: bundled into
-// bridge/bbim-page.ts with the rest of the bridge (scripts/build-bridge.mjs).
-import { decodeParentMessage, type FrameMessage, type ParentMessage } from "../domain/protocol.ts";
+// key typed in it, passes the parent's own chords back (`chords`). Only input
+// the browser marks as a person's counts. Each install names its document
+// with a fresh nonce (`ready`): `mode` for any other document is refused, so
+// a page that navigated mid-hint never swallows keys for a stale session.
+// Plain DOM: bundled into bridge/bbim-page.ts (scripts/build-bridge.mjs).
+import { BRIDGE_PROTOCOL, decodeParentMessage, type FrameMessage, type ParentMessage } from "../domain/protocol.ts";
 import { intersect } from "../domain/targets.ts";
 import { viewportOf } from "../dom/collect.ts";
+import { frameTree } from "../dom/frames.ts";
 import { applyTheme, LABEL_STYLE, type LabelLayer, labelLayer, layerHost } from "../dom/label-layer.ts";
 import { bridgeCore, keyMessage } from "./bbim-bridge.ts";
 
@@ -19,6 +22,8 @@ import { bridgeCore, keyMessage } from "./bbim-bridge.ts";
 export const PAGE_BRIDGE = Symbol.for("bbim.page");
 
 export interface PageBridge {
+  /** This document's nonce, as announced in `ready`. */
+  readonly document: string;
   /** One request from the host, untrusted until decoded. */
   readonly receive: (data: unknown) => void;
   readonly uninstall: () => void;
@@ -26,13 +31,20 @@ export interface PageBridge {
 
 type Chord = Extract<ParentMessage, { readonly type: "chords" }>["chords"][number];
 
+function nonce(win: Window): string {
+  const bytes = new Uint8Array(12);
+  win.crypto.getRandomValues(bytes);
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 export function installPageBridge(options: {
   readonly window: Window;
   readonly post: (message: FrameMessage) => void;
 }): PageBridge {
   const win = options.window;
   const doc = win.document;
-  const core = bridgeCore(win, { trustedKeysOnly: true }, (message) => options.post(message));
+  const document = nonce(win);
+  const core = bridgeCore(win, { trustedOnly: true }, (message) => options.post(message));
   let chords: ReadonlyArray<Chord> = [];
   let drawn: { readonly host: HTMLElement; readonly layer: LabelLayer } | undefined;
 
@@ -75,12 +87,27 @@ export function installPageBridge(options: {
     event.stopImmediatePropagation();
     options.post(keyMessage(event));
   };
-  // A click in the page leaves hint mode (the core tells the parent while it forwards); labels go with it.
-  const onPointer = () => hideLabels();
-  win.addEventListener("keydown", onKey, { capture: true });
-  win.addEventListener("pointerdown", onPointer, { capture: true });
+  // A person's click in the page leaves hint mode (the core tells the parent while it forwards); labels go with it.
+  const onPointer = (event: Event) => {
+    if (event.isTrusted) hideLabels();
+  };
+  /** The windows listened on: this one and every same-origin frame's (keys typed in a frame stay there). */
+  const listening = new Set<Window>();
+  const listenEverywhere = () => {
+    for (const placement of frameTree(doc).documents) {
+      const each = placement.doc.defaultView;
+      if (each === null || listening.has(each)) continue;
+      listening.add(each);
+      each.addEventListener("keydown", onKey, { capture: true });
+      each.addEventListener("pointerdown", onPointer, { capture: true });
+    }
+  };
+  const announce = () => options.post({ bbim: BRIDGE_PROTOCOL, type: "ready", document });
+  listenEverywhere();
+  announce();
 
   return {
+    document,
     receive: (data) => {
       const message = decodeParentMessage(data);
       if (message === undefined) return;
@@ -93,16 +120,27 @@ export function installPageBridge(options: {
           return;
         case "chords":
           chords = message.chords;
+          // The host repeats these: frames loaded since get listened on too, and
+          // a host that came up after this bridge learns its document.
+          listenEverywhere();
+          announce();
+          return;
+        case "mode":
+          // Forwarding is for the session the parent runs with this very document.
+          if (message.active && message.document !== document) return;
+          core.receive(message, "page");
           return;
         case "collect":
         case "activate":
-        case "mode":
           core.receive(message, "page");
       }
     },
     uninstall: () => {
-      win.removeEventListener("keydown", onKey, { capture: true });
-      win.removeEventListener("pointerdown", onPointer, { capture: true });
+      for (const each of listening) {
+        each.removeEventListener("keydown", onKey, { capture: true });
+        each.removeEventListener("pointerdown", onPointer, { capture: true });
+      }
+      listening.clear();
       hideLabels();
       core.dispose();
     },

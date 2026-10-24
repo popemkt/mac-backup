@@ -3,8 +3,9 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { editableGuard, focusState, MODAL_SELECTOR, presenceGuard, withinGuard } from "../src/dom/focus.ts";
+import { viewportOf } from "../src/dom/collect.ts";
 import { placementCache } from "../src/dom/frames.ts";
-import { pickInput, TEXT_INPUT_SELECTOR } from "../src/dom/inputs.ts";
+import { type InputChoice, inputFields, preferredInput, TEXT_INPUT_SELECTOR } from "../src/dom/inputs.ts";
 import { closestAcrossShadow, querySelectorAllDeep } from "../src/dom/tree.ts";
 import { layOutFrame, page, type Page } from "./harness.ts";
 
@@ -18,6 +19,11 @@ function load(html: string): Page {
   const p = page(html);
   open.push(p);
   return p;
+}
+
+/** The input gi means in a top-level document: its `selector` fields, then the preference. */
+function chosenInput(doc: Document, { selector, ...choice }: InputChoice & { readonly selector: string }): Element | undefined {
+  return preferredInput(inputFields({ doc, offsetX: 0, offsetY: 0, clip: viewportOf(doc) }, selector), choice);
 }
 
 /** A host element with an open shadow root holding `inner`. */
@@ -56,9 +62,9 @@ test("gi picker: the last input used wins while it still shows", () => {
     <input id="small" data-rect="0,300,100,20">`);
   const small = p.doc.getElementById("small");
   const choice = { selector: TEXT_INPUT_SELECTOR, lastEditable: small, near: null };
-  assert.equal(pickInput(p.doc, choice)?.id, "small");
+  assert.equal(chosenInput(p.doc, choice)?.id, "small");
   small?.setAttribute("data-rect", "0,0,0,0");
-  assert.equal(pickInput(p.doc, choice)?.id, "big", "a hidden last input falls back to the biggest");
+  assert.equal(chosenInput(p.doc, choice)?.id, "big", "a hidden last input falls back to the biggest");
 });
 
 test("gi picker: the input in the pane you are in beats a bigger one elsewhere", () => {
@@ -66,8 +72,8 @@ test("gi picker: the input in the pane you are in beats a bigger one elsewhere",
     <section id="left" data-rect="0,0,400,800"><p id="here" data-rect="0,0,400,100">x</p><textarea id="mine" data-rect="0,600,300,50"></textarea></section>
     <section id="right" data-rect="400,0,600,800"><textarea id="theirs" data-rect="400,600,600,150"></textarea></section>`);
   const near = p.doc.getElementById("here");
-  assert.equal(pickInput(p.doc, { selector: TEXT_INPUT_SELECTOR, lastEditable: null, near })?.id, "mine");
-  assert.equal(pickInput(p.doc, { selector: TEXT_INPUT_SELECTOR, lastEditable: null, near: null })?.id, "theirs");
+  assert.equal(chosenInput(p.doc, { selector: TEXT_INPUT_SELECTOR, lastEditable: null, near })?.id, "mine");
+  assert.equal(chosenInput(p.doc, { selector: TEXT_INPUT_SELECTOR, lastEditable: null, near: null })?.id, "theirs");
 });
 
 test("gi picker: a composer inside a shadow root counts, and its pane holds it", () => {
@@ -79,7 +85,7 @@ test("gi picker: a composer inside a shadow root counts, and its pane holds it",
   p.doc.getElementById("left")?.append(host);
   host.attachShadow({ mode: "open" }).innerHTML = `<textarea id="shadowed" data-rect="0,600,300,50"></textarea>`;
   const near = p.doc.getElementById("here");
-  assert.equal(pickInput(p.doc, { selector: TEXT_INPUT_SELECTOR, lastEditable: null, near })?.id, "shadowed");
+  assert.equal(chosenInput(p.doc, { selector: TEXT_INPUT_SELECTOR, lastEditable: null, near })?.id, "shadowed");
   const all = querySelectorAllDeep(p.doc, "textarea").map((element) => element.id);
   assert.deepEqual(all, ["plain", "shadowed"]);
 });
@@ -119,7 +125,7 @@ test("gi picker: a host selector narrows the choice (bb: composers only)", () =>
     <input id="search" data-rect="0,0,900,40">
     <div class="composer"><textarea id="compose" data-rect="0,700,300,40"></textarea></div>`);
   const search = p.doc.getElementById("search");
-  assert.equal(pickInput(p.doc, { selector: ".composer textarea", lastEditable: search, near: null })?.id, "compose");
+  assert.equal(chosenInput(p.doc, { selector: ".composer textarea", lastEditable: search, near: null })?.id, "compose");
 });
 
 test("gi picker: a preferred input wins over a bigger one, but never over the one used last", () => {
@@ -127,14 +133,14 @@ test("gi picker: a preferred input wins over a bigger one, but never over the on
     <input id="search" data-rect="0,0,900,40">
     <div class="composer"><textarea id="compose" data-rect="0,700,300,40"></textarea></div>`);
   const prefer = ".composer textarea";
-  assert.equal(pickInput(p.doc, { selector: TEXT_INPUT_SELECTOR, lastEditable: null, near: null, prefer })?.id, "compose");
+  assert.equal(chosenInput(p.doc, { selector: TEXT_INPUT_SELECTOR, lastEditable: null, near: null, prefer })?.id, "compose");
   const search = p.doc.getElementById("search");
-  assert.equal(pickInput(p.doc, { selector: TEXT_INPUT_SELECTOR, lastEditable: search, near: null, prefer })?.id, "search");
+  assert.equal(chosenInput(p.doc, { selector: TEXT_INPUT_SELECTOR, lastEditable: search, near: null, prefer })?.id, "search");
 });
 
 test("gi picker: an input under a dialog is not a candidate", () => {
   const p = load(`
     <textarea id="under" data-rect="0,0,600,200"></textarea>
     <div id="dialog" data-rect="0,0,800,400"><input id="name" data-rect="10,10,200,30"></div>`);
-  assert.equal(pickInput(p.doc, { selector: TEXT_INPUT_SELECTOR, lastEditable: null, near: null })?.id, "name");
+  assert.equal(chosenInput(p.doc, { selector: TEXT_INPUT_SELECTOR, lastEditable: null, near: null })?.id, "name");
 });

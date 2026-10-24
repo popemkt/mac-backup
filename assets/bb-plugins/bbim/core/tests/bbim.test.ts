@@ -240,6 +240,23 @@ test("scroll picker: gs outlines every scroll surface; the picked one is what j/
   assert.equal(calls.at(-1), "transcript by 70", "a click elsewhere hands scrolling back");
 });
 
+test("scroll picker: a surface nested where its scroller starts gets no label of its own", () => {
+  const p = page(`
+    <main data-rect="0,0,1000,800">
+      <nav id="sidebar" data-rect="0,0,200,800"></nav>
+      <section id="transcript" data-rect="220,0,560,800">
+        <div id="inner" data-rect="220,0,560,700"><pre id="code" data-rect="240,300,400,100">x</pre></div>
+      </section>
+    </main>`);
+  const bbim = createBbim({ window: p.win });
+  current = { page: p, bbim };
+  const calls: Array<string> = [];
+  for (const id of ["sidebar", "transcript", "inner", "code"]) scrollable(p.doc.getElementById(id) as HTMLElement, calls);
+  p.key("g");
+  p.key("s");
+  assert.equal(p.labels().length, 3, "sidebar, transcript and the code block; the inner scroller's label would sit on the transcript's");
+});
+
 test("scroll picker: with one surface, gs selects it without labels", () => {
   const p = page(PANES);
   const bbim = createBbim({ window: p.win, settings: { keys: { pickScroll: "<A-s>" } } });
@@ -676,9 +693,17 @@ test("bridge frames: a frame's keys cannot narrow or take back the page's typed 
 
 test("bridge frames: keys and target replies have separate budgets", async () => {
   const { p, focused, answer } = withFocusedFrame();
-  for (let index = 0; index < 300; index += 1) fromFrame(p, focused.child, key("x"));
+  for (let index = 0; index < 200; index += 1) fromFrame(p, focused.child, key("x"));
   await answer();
   assert.ok(p.labels().length > 0, "a frame that typed a lot still gets its labels");
+});
+
+test("bridge frames: a frame past its key budget ends the session, and turns its forwarding off", async () => {
+  const { p, bbim, focused, answer } = withFocusedFrame();
+  await answer();
+  for (let index = 0; index < 300; index += 1) fromFrame(p, focused.child, key("x"));
+  assert.equal(bbim.mode(), "normal", "no key is dropped while the frame keeps swallowing them");
+  assert.ok(focused.sent.some((message) => message.type === "mode" && message.active === false));
 });
 
 test("bridge frames: the frame leaving (a click in it, a lapse) ends hint mode", async () => {

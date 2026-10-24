@@ -26,7 +26,9 @@ function SettingsSync() {
 /**
  * Renders nothing beside a Browser tab's address bar; it is how bbim gets
  * the tab's page (`experimental_page`, desktop only: null elsewhere, and
- * then the tab simply gets no hints). Re-attached when the tab navigates.
+ * then the tab simply gets no hints). Re-attached when the URL changes, so
+ * chords work at once in the new page; a reload to the same URL keeps the
+ * URL, and the engine's keep-alive puts the page bridge back within seconds.
  */
 function BrowserPageHints({ url, experimental_page: page }: ExperimentalPluginBrowserToolbarActionProps) {
   const anchor = useRef<HTMLSpanElement>(null);

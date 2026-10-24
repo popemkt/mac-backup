@@ -88,8 +88,12 @@ export function bridgeCore(
   options: {
     readonly selectors?: ReadonlyArray<string>;
     readonly modeTtlMs?: number;
-    /** Forward only keys the browser marks as typed by a person (`isTrusted`). */
-    readonly trustedKeysOnly?: boolean;
+    /**
+     * Forward only keys the browser marks as a person's (`isTrusted`), so a
+     * page script cannot type into labels. For a native page, whose keys may
+     * pick any label. (Clicks count only when trusted in every bridge.)
+     */
+    readonly trustedOnly?: boolean;
   },
   reply: BridgeReply,
 ): BridgeCore {
@@ -98,35 +102,45 @@ export function bridgeCore(
   let forwarding:
     | {
         readonly onKey: (event: KeyboardEvent) => void;
-        readonly onPointer: () => void;
+        readonly onPointer: (event: Event) => void;
+        /** Every window listened on: this one and its same-origin frames' (keys typed there never reach this one). */
+        readonly windows: ReadonlyArray<Window>;
         readonly origin: string;
+        readonly requestId: string;
         timer: number;
       }
     | undefined;
+  /** The session whose forwarding the parent last turned off: a late `mode` on for it is stale. */
+  let ended: string | undefined;
+  const counts = (event: Event) => options.trustedOnly !== true || event.isTrusted;
 
   /** Stop forwarding; `told` names why when the parent should hear of it. */
   const stopForwarding = (told?: "pointer" | "lapsed") => {
     if (forwarding === undefined) return;
-    const { onKey, onPointer, origin, timer } = forwarding;
+    const { onKey, onPointer, windows, origin, timer } = forwarding;
     forwarding = undefined;
-    win.removeEventListener("keydown", onKey, { capture: true });
-    win.removeEventListener("pointerdown", onPointer, { capture: true });
+    for (const each of windows) {
+      each.removeEventListener("keydown", onKey, { capture: true });
+      each.removeEventListener("pointerdown", onPointer, { capture: true });
+    }
     win.clearTimeout(timer);
     if (told !== undefined) reply({ bbim: BRIDGE_PROTOCOL, type: "leave", reason: told }, origin);
   };
 
   const lapse = () => stopForwarding("lapsed");
 
-  const startForwarding = (origin: string) => {
-    if (forwarding !== undefined) {
+  const startForwarding = (origin: string, requestId: string) => {
+    if (requestId === ended) return;
+    if (forwarding?.requestId === requestId) {
       // A renewal: forwarding goes on for another `ttl`.
       win.clearTimeout(forwarding.timer);
       forwarding.timer = win.setTimeout(lapse, ttl);
       return;
     }
+    stopForwarding();
     const onKey = (event: KeyboardEvent) => {
-      // A native page's keys count as a person's: one its own scripts made up is not forwarded.
-      if (options.trustedKeysOnly === true && !event.isTrusted) return;
+      // A key a page script made up is neither swallowed nor forwarded.
+      if (!counts(event)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       // Held keys and IME composition are swallowed but never typed into a label.
@@ -137,11 +151,19 @@ export function bridgeCore(
       // Escape ends the parent's hint mode, which ends forwarding; do not wait for it.
       if (event.key === "Escape") stopForwarding();
     };
-    // A click inside the frame ends hints, as a click on the page does.
-    const onPointer = () => stopForwarding("pointer");
-    forwarding = { onKey, onPointer, origin, timer: win.setTimeout(lapse, ttl) };
-    win.addEventListener("keydown", onKey, { capture: true });
-    win.addEventListener("pointerdown", onPointer, { capture: true });
+    // A person's click inside the frame ends hints, as a click on the page
+    // does; one a page script made up does not (it could end every session).
+    const onPointer = (event: Event) => {
+      if (event.isTrusted) stopForwarding("pointer");
+    };
+    const windows = frameTree(win.document).documents.flatMap((placement) =>
+      placement.doc.defaultView === null ? [] : [placement.doc.defaultView],
+    );
+    forwarding = { onKey, onPointer, windows, origin, requestId, timer: win.setTimeout(lapse, ttl) };
+    for (const each of windows) {
+      each.addEventListener("keydown", onKey, { capture: true });
+      each.addEventListener("pointerdown", onPointer, { capture: true });
+    }
   };
 
   const receive = (message: ParentMessage, from: string) => {
@@ -183,8 +205,15 @@ export function bridgeCore(
         return;
       }
       case "mode":
-        if (message.active) startForwarding(from);
-        else stopForwarding();
+        if (message.active) {
+          startForwarding(from, message.requestId);
+          return;
+        }
+        // Requests may arrive out of order (a native page's are separate script runs).
+        ended = message.requestId;
+        if (forwarding === undefined || forwarding.requestId === message.requestId || message.requestId === "") {
+          stopForwarding();
+        }
         return;
       case "labels":
       case "typed":

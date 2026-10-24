@@ -84,19 +84,22 @@ click.
 
 Protocol `bbim-bridge/1`: `postMessage` objects with `bbim: "bbim-bridge/1"`, both sides
 decoded by exact checks, anything else dropped. Parent → frame: `collect {requestId}`,
-`activate {requestId, targetId, newTab}`, `mode {active}` (only to the focused frame,
-renewed every 1 s; the frame stops forwarding after 3 s without renewal). Frame → parent:
+`activate {requestId, targetId, newTab}`, `mode {active, requestId}` (only to the focused
+frame, renewed every 1 s; the frame stops forwarding after 3 s without renewal, and ignores a
+late `active` for a session already turned off). Frame → parent:
 `targets {requestId, targets[{id, kind, left, top, width, height, faded?}]}` (frame-viewport px,
 ≤ 2000), `key {key, code, ctrlKey, altKey, metaKey, shiftKey, repeat, isComposing}` (from the
 focused frame only; picks, narrows or takes back only that frame's labels; held and IME keys
 ignored), `leave {reason: pointer | lapsed}` (a click in the frame or lapsed forwarding ends
 hints), `open {requestId, url}` (only as the answer to that activation, http(s) only). At
 most 256 target replies and 256 keys per frame per hint session are read, counted before
-decoding. The page's labels show at once; each frame's join as it answers, until a letter is
+decoding; Esc and `leave` always get through, and a key past the budget ends the session.
+Only a person's click (`isTrusted`) in a frame ends hints. The page's labels show at once; each frame's join as it answers, until a letter is
 typed, and frames that do not answer within 1 s are skipped. A frame reports its own target boxes, so embed
 bridge frames only from origins you trust. A Browser tab's page speaks the same protocol over
 bb's script channel instead of `postMessage`, with three requests only it handles (`labels`,
-`typed`, `chords`): bbim injects that page bridge itself. Full tables: `core/README.md`.
+`typed`, `chords`) and one reply (`ready {document}`, a nonce per document, which `mode` then
+names): bbim injects that page bridge itself, again after a navigation or reload. Full tables: `core/README.md`.
 
 ## Constraints
 

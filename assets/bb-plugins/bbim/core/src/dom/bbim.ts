@@ -177,6 +177,10 @@ interface PickSession {
   readonly newTab: boolean;
   readonly requestId: string;
   readonly frames: ReadonlyArray<RemoteFrame>;
+  /** The native pages among `frames`: a new document in one ends the session. */
+  readonly pages: ReadonlyArray<PageView>;
+  /** The native page whose chord started the session: labeling again keeps it forwarding. */
+  readonly fromPage: PageView | undefined;
   /** The frame element that had focus when hints started, if any. */
   readonly startFrame: Element | null;
   /** The bridge frame that had focus: the only one asked to forward keys. */
@@ -203,6 +207,14 @@ const HINT_KEYS_LIMIT = 16;
 const MOVED_PX = 4;
 /** How long a bridge frame has to answer a new-tab activation with its URL. */
 const OPEN_REPLY_MS = 1000;
+/**
+ * How often attached native pages get the host's chords again. A reload or
+ * navigation drops the page bridge; the next delivery installs it again, so
+ * chords work in a new document within this long, whatever the host noticed.
+ */
+const PAGE_KEEPALIVE_MS = 2000;
+/** The most messages the chord listener reads from one page per keep-alive period. */
+const PAGE_MESSAGE_BUDGET = 64;
 
 function swallow(event: Event): void {
   event.preventDefault();
@@ -239,6 +251,13 @@ function regionOf(doc: Document, start: Element | null): Element | null {
     if (share >= 0.15 && share < 0.92) return element;
   }
   return null;
+}
+
+/** Leave nothing behind in a page let go of: no chords, no labels, no forwarding. */
+function releasePage(view: PageView): void {
+  view.send({ bbim: BRIDGE_PROTOCOL, type: "chords", chords: [] });
+  view.send({ bbim: BRIDGE_PROTOCOL, type: "labels", labels: [] });
+  view.send({ bbim: BRIDGE_PROTOCOL, type: "mode", active: false, requestId: "" });
 }
 
 type ChordCode = Extract<ParentMessage, { readonly type: "chords" }>["chords"][number];
@@ -312,7 +331,17 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
   let scrollFocus: Element | undefined;
   let requests = 0;
   /** Native pages the host attached (attachPage): remote frames over its own window. */
-  const pages = new Set<PageView>();
+  const pages = new Map<
+    PageView,
+    {
+      /** Stops hearing the page. */
+      readonly stop: () => void;
+      /** Its bridge's document, as last announced (`ready`). */
+      document: string | undefined;
+      /** Messages read from it this keep-alive period. */
+      spent: number;
+    }
+  >();
   const hostChords = (options.hostChords ?? []).flatMap(({ keys, action }) => {
     const chord = pageChord(keys);
     return chord === undefined ? [] : [{ ...chord, action }];
@@ -465,7 +494,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     if (chosen === undefined) return;
     if (chosen.target.source === "local" && !stillThere(chosen.target.element, active.drawn[index])) {
       // The page changed under the labels (moved, covered, gone): label it again.
-      startPick(active.picker, newTab);
+      startPick(active.picker, newTab, active.fromPage);
       return;
     }
     active.picker.pick(chosen.target, { newTab, requestId: active.requestId });
@@ -598,8 +627,8 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       return;
     }
     const remotes = tree.opaque.map(iframeRemote);
-    const shownPages = [...pages].flatMap((view) => {
-      const frame = pageRemote(view);
+    const shownPages = [...pages].flatMap(([view, page]) => {
+      const frame = pageRemote(view, () => page.document);
       return frame === undefined ? [] : [{ view, frame }];
     });
     const startPage = shownPages.find(({ view }) => view === fromPage)?.frame;
@@ -609,6 +638,8 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       newTab,
       requestId: `bbim-${requests}`,
       frames: picker.remote ? [...remotes, ...shownPages.map(({ frame }) => frame)] : [],
+      pages: shownPages.map(({ view }) => view),
+      fromPage,
       startFrame: frameElement(doc.activeElement),
       focusedFrame: startPage ?? remotes.find((frame) => deepActiveElement(doc) === frame.element),
       collectBudget: frameBudget(),
@@ -657,12 +688,17 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
               return;
             }
             renewed = now();
-            setRemoteMode(focused, true);
+            setRemoteMode(focused, true, active.requestId);
             beat(MODE_HEARTBEAT_MS, renew);
           };
           renew();
-          yield* Effect.addFinalizer(() => Effect.sync(() => setRemoteMode(focused, false)));
-          yield* listenForwarded(focused, { onKey: (event) => hintKey(event, focused), onLeave: endHints }, active.keyBudget);
+          yield* Effect.addFinalizer(() => Effect.sync(() => setRemoteMode(focused, false, active.requestId)));
+          const onLeave = () => {
+            // A click in a native page is a click outside the picked surface.
+            if (focused.native) scrollFocus = undefined;
+            endHints();
+          };
+          yield* listenForwarded(focused, { onKey: (event) => hintKey(event, focused), onLeave }, active.keyBudget);
         }
       }),
     );
@@ -844,28 +880,60 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
 
   // ---- native pages --------------------------------------------------------
 
-  /** Where each attached page's chord listener stops. */
-  const pageListeners = new Map<PageView, () => void>();
+  const sendChords = (view: PageView) =>
+    view.send({ bbim: BRIDGE_PROTOCOL, type: "chords", chords: hostChords.map(({ code }) => code) });
+
+  let keepingAlive = false;
+  const keepAlive = () => {
+    if (pages.size === 0) {
+      keepingAlive = false;
+      return;
+    }
+    for (const [view, page] of pages) {
+      page.spent = 0;
+      if (view.element.isConnected) sendChords(view);
+    }
+    schedule(PAGE_KEEPALIVE_MS, keepAlive);
+  };
+
+  /** What a page sends outside a session's own listeners: its new documents, and the host's chords typed in it. */
+  const pageMessage = (view: PageView, data: unknown) => {
+    const page = pages.get(view);
+    if (page === undefined || !isBridgeMessage(data, ["key", "ready"])) return;
+    if (page.spent >= PAGE_MESSAGE_BUDGET) return;
+    page.spent += 1;
+    const message = decodeFrameMessage(data);
+    if (message?.type === "ready") {
+      // A new document: a session it was part of lost its targets and labels with the old one.
+      // (The first one announced is the page's first: nothing was labeled in another.)
+      const replaced = page.document !== undefined && message.document !== page.document;
+      if (replaced && session?.pages.includes(view) === true) endHints();
+      page.document = message.document;
+      return;
+    }
+    if (message?.type !== "key" || message.repeat || message.isComposing) return;
+    const pressed = strokeFromEvent(message);
+    const chord = pressed === undefined ? undefined : hostChords.find(({ id }) => id === strokeId(pressed));
+    if (chord !== undefined) run(chord.action, false, view);
+  };
 
   const attachPage = (view: PageView) => {
-    pageListeners.get(view)?.();
-    pages.add(view);
-    view.send({ bbim: BRIDGE_PROTOCOL, type: "chords", chords: hostChords.map(({ code }) => code) });
+    pages.get(view)?.stop();
     // Focus in the page keeps the host's chords from the host: the page passes them back.
-    const stop = view.listen((data) => {
-      if (!isBridgeMessage(data, ["key"])) return;
-      const message = decodeFrameMessage(data);
-      if (message?.type !== "key" || message.repeat || message.isComposing) return;
-      const pressed = strokeFromEvent(message);
-      const chord = pressed === undefined ? undefined : hostChords.find(({ id }) => id === strokeId(pressed));
-      if (chord !== undefined) run(chord.action, false, view);
-    });
-    pageListeners.set(view, stop);
+    const stop = view.listen((data) => pageMessage(view, data));
+    const page = { stop, document: undefined, spent: 0 };
+    pages.set(view, page);
+    sendChords(view);
+    if (!keepingAlive) {
+      keepingAlive = true;
+      schedule(PAGE_KEEPALIVE_MS, keepAlive);
+    }
     return () => {
-      if (pageListeners.get(view) !== stop) return;
-      pageListeners.delete(view);
+      if (pages.get(view) !== page) return;
       pages.delete(view);
       stop();
+      if (session?.pages.includes(view) === true) endHints();
+      releasePage(view);
     };
   };
 
@@ -875,8 +943,10 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     mode: () => current(stack),
     attachPage,
     dispose: () => {
-      for (const stop of pageListeners.values()) stop();
-      pageListeners.clear();
+      for (const [view, page] of pages) {
+        page.stop();
+        releasePage(view);
+      }
       pages.clear();
       session = undefined;
       // Let go of the page's elements: a disposed engine may outlive its page.

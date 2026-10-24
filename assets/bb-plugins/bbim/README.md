@@ -30,14 +30,20 @@ Vim-style keyboard navigation for bb: link hints, scrolling, `gi`, help. See
   draw over it and its keys never reach bb's window (bb's main process resolves only bindings
   with a `browserFocus` gate there). So the engine treats the page as one more remote frame of
   the hint bridge, reached with `experimental_page.evaluate(..., { world: "isolated" })` and
-  `onMessage`: the page bridge (`core/bridge/bbim-page.ts`, sent with every request since a
-  navigation drops it) draws the labels in the page and passes the default chords back. The
-  page view's box is the last child of `[data-app-browser]`. The Browser chrome itself (address
-  bar) is `typing`.
+  `onMessage`: the page bridge (`core/bridge/bbim-page.ts`, sent along only to a document that
+  lacks it, since a navigation drops it) draws the labels in the page and passes the default
+  chords back. The engine repeats the chords every 2 s, so a reload (same URL, no re-attach)
+  has them back within that. Each document's bridge has its own nonce, so a page that
+  navigates mid-hint ends the session instead of swallowing keys for it. The page view's box
+  is the last child of `[data-app-browser]`. The Browser chrome itself (address bar) is
+  `typing`.
 - Bare keys run from the engine's capture-phase listener only when focus is `free`: no editable,
   no terminal, no browser tab, no dialog, no open menu. Hint and help modes swallow every key,
   so Esc never reaches bb's `app.back`. Digits are never bound (bb answers agent questions with
   them).
+- While a dialog is open (bb's modal selector, an `aria-modal` one included) bbim is off: the
+  chords are unavailable and `gi` is blocked, even for the dialog's own inputs. Tab and a click
+  reach those.
 
 ## Develop
 

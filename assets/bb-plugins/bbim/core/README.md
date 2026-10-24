@@ -12,7 +12,7 @@ bridge for iframes it cannot reach into. The bb plugin next door
 |---|---|---|---|
 | Domain | `src/domain/` | `effect` only (iso preset, no DOM types); the bridge protocol and target rules import nothing | key notation and the one key matcher, label generation, target classification and ordering, modes, settings schema, the bridge protocol decoders |
 | DOM | `src/dom/` | domain + the DOM (browser preset) | `createBbim`, hint collection, frames, overlay, activation, scrolling, focus guards, the single Effect runtime adapter (`runtime.ts`) |
-| Bridge | `src/bridge/` | protocol + DOM collection, no `effect` | `installBbimBridge` for the inside of a frame (`bridge/bbim-bridge.js` is its standalone build, ~12 KB) and the native-page bridge (`bridge/bbim-page.ts`, ~16 KB); the build fails if either bundles any `effect` module or passes its budget (20 KB, 24 KB) |
+| Bridge | `src/bridge/` | protocol + DOM collection, no `effect` | `installBbimBridge` for the inside of a frame (`bridge/bbim-bridge.js` is its standalone build, ~12 KB) and the native-page bridge (`bridge/bbim-page.ts`, ~17 KB); the build fails if either bundles any `effect` module or passes its budget (20 KB, 24 KB) |
 
 One mechanism per concept: chords, bare keys, multi-key sequences (`gg`) and
 hint typing all run through the same trie matcher (`domain/matcher.ts`), so
@@ -199,7 +199,9 @@ The bridge fails closed:
   mid-session cannot leave the frame swallowing keys. When it drops it, or
   someone clicks inside the frame, it tells the parent (`leave`), which ends
   hints too; so does a renewal that comes later than 3 s.
-- Held keys and IME composition are swallowed but never forwarded.
+- Held keys and IME composition are swallowed but never forwarded. Keys
+  typed in the frame's own same-origin child frames are forwarded too; a
+  click a page script makes up (`isTrusted` false) does not end hints.
 - One bridge per window: a second install is refused (and warned about).
   `window.bbimBridge.uninstall()` removes it and forgets its targets.
 
@@ -231,14 +233,16 @@ Parent → frame (the bridge only accepts messages whose `source` is its own
 |---|---|---|
 | `collect` | `requestId` (≤ 64 chars) | replies `targets` |
 | `activate` | `requestId`, `targetId` (int ≥ 0), `newTab` | activates that target from the last `collect`; a new-tab link becomes an `open` request carrying this `requestId` |
-| `mode` | `active` | while active, forwards every keydown as `key` and swallows it; sent only to the focused frame, renewed every `MODE_HEARTBEAT_MS` (1 s), dropped by the frame after `MODE_TTL_MS` (3 s) of silence |
+| `mode` | `active`, `requestId` (the session), `document?` (native pages only) | while active, forwards every keydown as `key` and swallows it; sent only to the focused frame, renewed every `MODE_HEARTBEAT_MS` (1 s), dropped by the frame after `MODE_TTL_MS` (3 s) of silence. A late `active` for a session already turned off is ignored; `requestId: ""` turns off any. A native page forwards only for its own `document` |
 | `labels` | `labels: {id, label}[]` (≤ 2000, label ≤ 16 chars) | native pages only: draws these labels on the last `collect`'s targets; `[]` removes them. An iframe bridge ignores it |
 | `typed` | `typed` (≤ 16 chars) | native pages only: narrows the drawn labels |
 | `chords` | `chords: {code, ctrlKey, altKey, metaKey, shiftKey}[]` (≤ 32) | native pages only: a person's keydown matching one (by physical `code`) is swallowed and passed back as `key` |
 
 Frame → parent (the parent only accepts messages whose `source` is the
 frame's own `contentWindow`, at most `FRAME_MESSAGE_BUDGET` (256) per frame per
-session for each listener: target replies and keys are counted apart):
+session for each listener: target replies and keys are counted apart. Esc and
+`leave` are never refused, and a key past the budget ends the session, so a
+frame never goes on swallowing keys nobody reads):
 
 | `type` | Fields | Parent does |
 |---|---|---|
@@ -246,6 +250,7 @@ session for each listener: target replies and keys are counted apart):
 | `key` | `key`, `code` (≤ 64 chars), `ctrlKey`, `altKey`, `metaKey`, `shiftKey`, `repeat`, `isComposing` | from the focused frame only: feeds the key to the hint session, where it can pick, narrow or take back only that frame's labels; held and IME keys are ignored |
 | `leave` | `reason`: `pointer` (a click in the frame) or `lapsed` (forwarding timed out) | ends hint mode |
 | `open` | `requestId`, `url` (≤ 8192 chars) | only as the answer to its `activate` with `newTab` (same `requestId`, within 1 s): opens it in a new tab, http(s) only |
+| `ready` | `document` (≤ 64 chars) | native pages only, on install and in answer to each `chords`: names the page's document (a nonce fresh in each). A new one ends a session the page was in; `mode` names it from then on |
 
 `kind` is `link`, `button`, `text`, `select`, `toggle` or `weak`. Replies go
 to the requester's origin (`"*"` only when that origin is opaque, as with a
@@ -259,11 +264,13 @@ reach the window. `bbim.attachPage({ element, send, listen })` adds such a
 page as one more remote frame, speaking the same protocol over the host's
 script channel: `element` is the box the view covers, `send(message)`
 delivers a request to the page bridge, `listen(handler)` hears what it posts.
-`pageRequest(message)` from `@popemkt/bbim-core/page` is the script that does
-the delivering: the page bridge (`bridge/bbim-page.ts`, generated from
-`src/bridge/page-entry.ts`, ~16 KB, no `effect`) installed if the document has
-none yet, then the request. Evaluate it in an isolated world that binds
-`bb.postMessage`.
+`scriptedPage(element, page, onError)` from `@popemkt/bbim-core/page` builds
+that view from script access to the page (`{evaluate, onMessage}`, what bb's
+`experimental_page` offers): each request is evaluated in the isolated world
+(which binds `bb.postMessage`) and handed to the page bridge; only when the
+document has none yet (a new page, a navigation, a reload) does the bridge
+itself (`bridge/bbim-page.ts`, generated from `src/bridge/page-entry.ts`,
+~17 KB, no `effect`) go along. `onError` hears failed evaluations.
 
 The page's targets join every hint session; the parent sends it `labels` and
 `typed`, and the page draws them itself. The parent sends `chords` (the
@@ -271,8 +278,17 @@ The page's targets join every hint session; the parent sends it `labels` and
 only), and the page passes those back when a person types them there, which
 starts a session with that page as the focused frame. Its forwarded keys may
 pick any label, the host's too: the page bridge is the host's own script and
-forwards only `isTrusted` keys, so a page script cannot type into a label.
-Scroll keys and the scroll picker do not reach into a native page.
+forwards only `isTrusted` keys, so a page script cannot type into a label,
+and only a person's click ends hints. Scroll keys and the scroll picker do
+not reach into a native page.
+
+A navigation drops the page bridge. The parent repeats `chords` every 2 s to
+each attached page (at most 64 messages read from a page between repeats), so
+a reloaded page gets its bridge and chords back within that, whatever the
+host noticed. Each bridge names its document (`ready`); `mode` carries the
+document it is for, so a new document never forwards keys for a session
+begun in the old one, and its `ready` ends that session. Detaching a page,
+or disposing bbim, clears its chords, labels and forwarding.
 
 ## Develop
 

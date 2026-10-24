@@ -7,7 +7,7 @@
 // scroll panes inside it.
 import { intersect, type Rect } from "../domain/targets.ts";
 import { type DocumentPlacement, isRendered, isUncovered, viewportOf, visibleBox } from "./collect.ts";
-import { parentAcrossShadow, querySelectorAllDeep } from "./tree.ts";
+import { containsAcrossShadow, parentAcrossShadow, querySelectorAllDeep } from "./tree.ts";
 
 export type ScrollAction = "scrollDown" | "scrollUp" | "halfPageDown" | "halfPageUp" | "scrollTop" | "scrollBottom";
 
@@ -29,11 +29,15 @@ function scrollableAncestor(start: Element | null): Element | undefined {
 
 /** Smallest visible box, in CSS pixels, worth a scroll-surface label. */
 const MIN_SURFACE = 40;
+/** Surfaces whose top-left corners are this close get labels on top of each other. */
+const SAME_CORNER_PX = 16;
 
 /**
  * Every surface in the placement document, open shadow roots included, that
  * scrolls vertically and shows on screen, with its visible box in top-level
- * coordinates. Nested surfaces (a code block in a transcript) both count.
+ * coordinates. Nested surfaces (a code block in a transcript) both count,
+ * unless the inner one starts where the outer does: their labels would sit
+ * on each other, so only the outer one is offered.
  */
 export function scrollSurfaces(
   placement: DocumentPlacement,
@@ -55,7 +59,17 @@ export function scrollSurfaces(
     );
     if (rect !== undefined) found.push({ element, rect });
   }
-  return found;
+  const sameCorner = (one: Rect, other: Rect) =>
+    Math.abs(one.left - other.left) < SAME_CORNER_PX && Math.abs(one.top - other.top) < SAME_CORNER_PX;
+  return found.filter(
+    (inner) =>
+      !found.some(
+        (outer) =>
+          outer.element !== inner.element &&
+          containsAcrossShadow(outer.element, inner.element) &&
+          sameCorner(outer.rect, inner.rect),
+      ),
+  );
 }
 
 /** Resolve the element to scroll. */

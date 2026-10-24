@@ -47,6 +47,8 @@ export interface RemoteFrame {
    * pick any label, not just its own.
    */
   readonly native: boolean;
+  /** A native page's document, as its bridge last announced it (`ready`); `mode` names it. */
+  readonly document?: string;
 }
 
 /**
@@ -60,8 +62,12 @@ export interface PageView {
   readonly listen: (handler: (data: unknown) => void) => () => void;
 }
 
-/** A page view as a remote frame where its element is now; undefined while it shows nothing. */
-export function pageRemote(view: PageView): RemoteFrame | undefined {
+/**
+ * A page view as a remote frame where its element is now; undefined while it
+ * shows nothing. `document` reads the page's document as the bridge last
+ * announced it, at each `mode` (it may be learned mid-session).
+ */
+export function pageRemote(view: PageView, document: () => string | undefined = () => undefined): RemoteFrame | undefined {
   if (!view.element.isConnected) return undefined;
   const win = view.element.ownerDocument.defaultView;
   const box = view.element.getBoundingClientRect();
@@ -76,6 +82,9 @@ export function pageRemote(view: PageView): RemoteFrame | undefined {
     post: view.send,
     listen: view.listen,
     native: true,
+    get document() {
+      return document();
+    },
   };
 }
 
@@ -241,21 +250,44 @@ export const awaitOpen = Effect.fn("awaitOpen")(function* (frame: RemoteFrame, r
   });
 });
 
-/** Turn key forwarding on or off in the one frame that has focus. */
-export function setRemoteMode(frame: RemoteFrame, active: boolean): void {
-  frame.post({ bbim: BRIDGE_PROTOCOL, type: "mode", active });
+/**
+ * Turn key forwarding on or off in the one frame that has focus, for the
+ * session `requestId` (a frame ignores a late `on` for a session it was told
+ * is over). A native page also gets the document the session belongs to.
+ */
+export function setRemoteMode(frame: RemoteFrame, active: boolean, requestId: string): void {
+  frame.post({
+    bbim: BRIDGE_PROTOCOL,
+    type: "mode",
+    active,
+    requestId,
+    ...(frame.document === undefined ? {} : { document: frame.document }),
+  });
 }
 
 export interface ForwardHandlers {
   /** A keydown typed in the frame (never a held-key repeat or IME composition). */
   readonly onKey: (event: KeyEventLike) => void;
-  /** The frame stopped forwarding on its own (a click in it, or lapsed renewals). */
+  /**
+   * The frame stopped forwarding on its own (a click in it, or lapsed
+   * renewals), or sent more keys than the budget allows: either way the
+   * session ends, so a key is never dropped while the frame keeps swallowing.
+   */
   readonly onLeave: () => void;
+}
+
+/** Whether `data` is a message that ends hints (Esc, `leave`): never refused for budget. */
+function endsHints(data: unknown): boolean {
+  return (
+    isBridgeMessage(data, ["leave"]) ||
+    (isBridgeMessage(data, ["key"]) && typeof data === "object" && data !== null && "key" in data && data.key === "Escape")
+  );
 }
 
 /**
  * What `frame` sends while it forwards keys, for as long as the scope lives.
- * Only that frame is heard, within its own budget.
+ * Only that frame is heard, within its own budget; Esc and `leave` always
+ * get through, and a frame past its budget ends the session.
  */
 export const listenForwarded = Effect.fn("listenForwarded")(function* (
   frame: RemoteFrame,
@@ -265,7 +297,12 @@ export const listenForwarded = Effect.fn("listenForwarded")(function* (
   yield* Effect.acquireRelease(
     Effect.sync(() =>
       frame.listen((data) => {
-        const message = receive(frame, budget, data, ["key", "leave"]);
+        if (!isBridgeMessage(data, ["key", "leave"])) return;
+        if (!endsHints(data) && !budget(frame)) {
+          handlers.onLeave();
+          return;
+        }
+        const message = decodeFrameMessage(data);
         if (message?.type === "key" && !message.repeat && !message.isComposing) handlers.onKey(message);
         else if (message?.type === "leave") handlers.onLeave();
       }),
