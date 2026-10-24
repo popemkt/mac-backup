@@ -160,9 +160,22 @@
   my.services.bb = {
     owner = "popemkt";
     port = 38886;
-    # bb-app tracks npm's latest release; update-npm-globals restarts it.
+    # bb-app tracks npm's latest release; update-npm-globals restarts it
+    # once it is idle (idleCheck).
     updatedBy.npmGlobal = "bb-app";
     command = "bb-app --server-port 38886 --host-daemon-port 38887 --no-in-app-updates";
+    # The server is also the host daemon every agent thread runs in, so a
+    # restart cuts them all off ("host daemon disconnected"). Neither a
+    # rebuild nor an upgrade restarts it until no thread, hidden ones
+    # included, is running a turn, a background agent, a background command,
+    # or a workflow. If bb cannot answer, it counts as busy.
+    idleCheck = ''
+      bb thread list --include-hidden --json | jq -e '
+        type == "array" and all(.[];
+          .status != "active"
+          and ([.activity // {} | (.activeBackgroundAgentCount, .activeBackgroundCommandCount, .activeWorkflowCount) // 0] | add) == 0)
+      ' >/dev/null
+    '';
     environment = {
       BB_APP_URL = config.my.stacks.vpn.services.bb-popemkt.publicOrigin;
       # The address bb gives the machines it enrolls (Settings → Machines →

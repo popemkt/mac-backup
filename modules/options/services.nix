@@ -23,6 +23,9 @@
 #     `restart-apps-updated-by <installer> <tool>...` (my.restartAppsUpdatedBy),
 #     which restarts the caller's apps that declared it. An installer passes
 #     its own name and what it changed; it never names an app.
+# An app that runs others' work (bb runs every agent thread) sets
+# `idleCheck`, a command that says when it may restart; then neither kind of
+# upgrade restarts it mid-work, only once it is idle.
 #
 # An app that can listen on a Unix socket sets `socket` instead of `port`:
 # the socket's directory is the unit's own, owned by the owner with mode
@@ -118,6 +121,23 @@ in
                 runs in the foreground under bash with the owner's installed
                 packages on PATH (so it can start the tools they have), not
                 their interactive shell configuration.
+              '';
+            };
+            idleCheck = mkOption {
+              type = types.nullOr types.str;
+              default = null;
+              example = "bb thread list --json | jq -e 'all(.[]; .status != \"active\")' >/dev/null";
+              description = ''
+                Shell command, run under bash as the owner with their
+                installed packages and jq on PATH, that exits 0 when the app
+                may be restarted now, e.g. when no work of anyone's is running
+                in it. When set, nothing restarts the app while it is busy: a
+                switch that changes its unit, and its installer's upgrade, each
+                leave a restart pending that a waiter unit,
+                `app-<app>-restart-when-idle`, carries out once the check
+                passes (checking every 30 s, for up to 24 h).
+                `sudo systemctl restart app-<app>` restarts it at once. Null
+                restarts the app as soon as something changes it.
               '';
             };
             environment = mkOption {

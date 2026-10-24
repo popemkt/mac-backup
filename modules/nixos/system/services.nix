@@ -15,7 +15,26 @@
 # path, so a switch to a new package restarts it. An `updatedBy` app is
 # restarted by its installer through `restart-apps-updated-by`, which reads
 # the table below; polkit lets each owner restart their own `app-*` units, so
-# the installer needs no sudo.
+# the installer needs no sudo. Every such restart goes through one command,
+# `restart-app <unit>`.
+#
+# An app with an `idleCheck` is never restarted mid-work. A switch leaves its
+# unit running (restartIfChanged = false). Instead the unit records, in
+# /run/app-restart/<app>/started, a hash of the definition it started with
+# (what the app declares, not the generated unit, which changes with every
+# nixpkgs bump);
+# an activation script that finds a different hash runs restart-app, which
+# prints "app-<app>: restart pending until idle". For such an app restart-app
+# marks a restart requested and starts `app-<app>-restart-when-idle`, a waiter
+# unit run as the owner: every 30 s it runs the idleCheck and, once it passes,
+# try-restarts the app; it gives up after 24 h. Being a unit, it runs once per
+# app (starting an active unit is a no-op), logs to the journal, and lives
+# outside the app's cgroup, so the restart it causes does not kill it. It
+# restarts the app only once the switch's daemon-reload has loaded the new
+# definition, never onto the old one. The app's next start records its new
+# hash and clears the request. multi-user.target also wants the waiter, so a
+# switch that first adds it, and a boot, check for a pending restart too.
+# `sudo systemctl restart app-<app>` forces one.
 let
   cfg = config.my.services;
   exposed = lib.filterAttrs (_: app: app.expose) cfg;
@@ -66,12 +85,59 @@ let
       )
     ) cfg
   );
+  idleApps = lib.filterAttrs (_: app: app.idleCheck != null) cfg;
+  restartStateDirectory = "/run/app-restart";
+  waiterUnit = name: "app-${name}-restart-when-idle.service";
+  # What restart-app knows of each app unit: its waiter, if it waits for idle.
+  restartTable = lib.mapAttrs' (
+    name: app:
+    lib.nameValuePair "app-${name}.service" (
+      lib.optionalAttrs (app.idleCheck != null) {
+        inherit name;
+        waiter = waiterUnit name;
+      }
+    )
+  ) cfg;
+  restartApp = pkgs.writeShellApplication {
+    name = "restart-app";
+    runtimeInputs = [
+      pkgs.jq
+      pkgs.coreutils
+      config.systemd.package
+    ];
+    text = ''
+      # restart-app <unit>: restart a running my.services app now or, when it
+      # has an idleCheck, once that check passes.
+      [ "$#" -eq 1 ] || { echo "usage: restart-app app-<name>.service" >&2; exit 2; }
+      unit="$1"
+      entry="$(jq -c --arg u "$unit" '.[$u] // empty' ${pkgs.writeText "app-restarts.json" (builtins.toJSON restartTable)})"
+      [ -n "$entry" ] || { echo "restart-app: $unit is not a my.services app" >&2; exit 2; }
+      name="$(jq -r '.name // empty' <<<"$entry")"
+      if [ -z "$name" ]; then
+        echo "Restarting $unit"
+        systemctl try-restart "$unit" \
+          || { echo "warning: could not restart $unit; run: sudo systemctl restart $unit" >&2; exit 1; }
+        exit 0
+      fi
+      waiter="$(jq -r '.waiter' <<<"$entry")"
+      requested="${restartStateDirectory}/$name/requested"
+      [ -e "$requested" ] || : >"$requested" \
+        || echo "warning: could not write $requested" >&2
+      echo "app-$name: restart pending until idle (or: sudo systemctl restart app-$name)"
+      # A waiter this very switch adds is not loaded before its daemon-reload;
+      # the switch starts it then, since multi-user.target wants it.
+      if [ "$(systemctl show -P LoadState "$waiter")" = loaded ]; then
+        systemctl start --no-block "$waiter" \
+          || echo "warning: could not start $waiter; run: sudo systemctl start $waiter" >&2
+      fi
+    '';
+  };
   restartAppsUpdatedBy = pkgs.writeShellApplication {
     name = "restart-apps-updated-by";
     runtimeInputs = [
       pkgs.jq
       pkgs.coreutils
-      config.systemd.package
+      restartApp
     ];
     text = ''
       # restart-apps-updated-by <installer> <tool>...: restart the caller's
@@ -85,14 +151,118 @@ let
           '.[] | select(.installer == $i and .tool == $t and .owner == $u) | .unit' \
           ${pkgs.writeText "apps-updated-by.json" (builtins.toJSON updatedApps)}
       done | sort -u | while read -r unit; do
-        echo "Restarting $unit: $installer upgraded what it runs"
-        systemctl try-restart "$unit" \
-          || echo "warning: could not restart $unit; run: sudo systemctl restart $unit" >&2
+        echo "$unit: $installer upgraded what it runs"
+        restart-app "$unit" || true
       done
     '';
   };
   listensOn =
     app: if app.socket != null then "socket ${app.socket}" else "127.0.0.1:${toString app.port}";
+  homeOf = app: config.users.users.${app.owner}.home;
+  # The owner's installed packages, as their login shell would find them.
+  ownerPath =
+    app:
+    "${homeOf app}/.local/bin:/etc/profiles/per-user/${app.owner}/bin:/run/wrappers/bin:/run/current-system/sw/bin";
+
+  # The app's unit, before what idleCheck adds.
+  appUnit = name: app: {
+    description = "${name}, run as ${app.owner} on ${listensOn app}";
+    wantedBy = [ "multi-user.target" ];
+    wants = [ "network-online.target" ];
+    # The owner's Home Manager activation installs what the app runs.
+    after = [
+      "network-online.target"
+      "home-manager-${app.owner}.service"
+    ];
+    environment =
+      lib.optionalAttrs (app.port != null) {
+        HOST = "127.0.0.1";
+        PORT = toString app.port;
+      }
+      // app.environment;
+    path = with pkgs; [
+      bash
+      coreutils
+    ];
+    script = ''
+      export PATH="${ownerPath app}:$PATH"
+      ${
+        if app.package != null then
+          "exec ${lib.escapeShellArgs ([ (lib.getExe app.package) ] ++ app.args)}"
+        else
+          app.command
+      }
+    '';
+    serviceConfig = {
+      User = app.owner;
+      WorkingDirectory = if app.workingDirectory == null then homeOf app else app.workingDirectory;
+      Restart = "on-failure";
+      RestartSec = 10;
+    }
+    // lib.optionalAttrs (app.socket != null) {
+      RuntimeDirectory = runtimeDirectory app.socket;
+      RuntimeDirectoryMode = "0700";
+    };
+  };
+  # What the app was declared to run, as one hash: a switch that changes it
+  # leaves a restart pending. Only the declaration, not the generated unit,
+  # whose script and PATH name bash and coreutils by store path and so change
+  # with every nixpkgs bump without changing what the app does.
+  definitionHash =
+    app:
+    builtins.hashString "sha256" (
+      builtins.unsafeDiscardStringContext (
+        builtins.toJSON {
+          inherit (app)
+            owner
+            port
+            socket
+            command
+            args
+            environment
+            workingDirectory
+            ;
+          package = if app.package == null then null else lib.getExe app.package;
+        }
+      )
+    );
+  definitionFile = name: "/etc/app-restart/${name}.definition";
+  # Run by the unit, as its owner, once it has started.
+  recordStart = pkgs.writeShellScript "app-restart-record" ''
+    # app-restart-record <app> <hash>: the definition <app> started with;
+    # the start also fulfils any requested restart.
+    printf '%s\n' "$2" >"${restartStateDirectory}/$1/started"
+    rm -f "${restartStateDirectory}/$1/requested"
+  '';
+  # Waits for an idleCheck app to report idle, then restarts it.
+  waiterScript = name: app: ''
+    export PATH="${ownerPath app}:$PATH"
+    unit=app-${name}.service
+    dir=${restartStateDirectory}/${name}
+    definition() { cat ${definitionFile name}; }
+    pending() {
+      [ -e "$dir/requested" ] || [ "$(cat "$dir/started" 2>/dev/null)" != "$(definition)" ]
+    }
+    announced=
+    for ((i = 0; i < 2880; i++)); do
+      systemctl is-active -q "$unit" || { echo "$unit is not running; nothing to restart"; exit 0; }
+      pending || { echo "$unit: no restart pending"; exit 0; }
+      if ! systemctl show -P ExecStartPost "$unit" | grep -qF -- "$(definition)"; then
+        # The switch has not yet run daemon-reload: a restart now would
+        # start the old definition.
+        :
+      elif bash -c ${lib.escapeShellArg app.idleCheck}; then
+        echo "$unit is idle; restarting it"
+        exec systemctl try-restart "$unit"
+      elif [ -z "$announced" ]; then
+        echo "$unit is busy; restarting it once it is idle (or: sudo systemctl restart $unit)"
+        announced=1
+      fi
+      sleep 30
+    done
+    echo "$unit: still busy after 24 h; giving up. Restart it with: sudo systemctl restart $unit" >&2
+    exit 1
+  '';
 in
 {
   config = lib.mkIf (cfg != { }) {
@@ -151,68 +321,114 @@ in
       ]) cfg
     );
 
-    systemd.services = lib.mapAttrs' (
-      name: app:
-      let
-        inherit (config.users.users.${app.owner}) home;
-        socketDirectory = runtimeDirectory app.socket;
-      in
-      lib.nameValuePair "app-${name}" {
-        description = "${name}, run as ${app.owner} on ${listensOn app}";
-        wantedBy = [ "multi-user.target" ];
-        wants = [ "network-online.target" ];
-        # The owner's Home Manager activation installs what the app runs.
-        after = [
-          "network-online.target"
-          "home-manager-${app.owner}.service"
-        ];
-        environment =
-          lib.optionalAttrs (app.port != null) {
-            HOST = "127.0.0.1";
-            PORT = toString app.port;
-          }
-          // app.environment;
-        path = with pkgs; [
-          bash
-          coreutils
-        ];
-        # The owner's installed packages, as their login shell would find them.
-        script = ''
-          export PATH="${home}/.local/bin:/etc/profiles/per-user/${app.owner}/bin:/run/wrappers/bin:/run/current-system/sw/bin:$PATH"
-          ${
-            if app.package != null then
-              "exec ${lib.escapeShellArgs ([ (lib.getExe app.package) ] ++ app.args)}"
-            else
-              app.command
-          }
-        '';
-        serviceConfig = {
-          User = app.owner;
-          WorkingDirectory = if app.workingDirectory == null then home else app.workingDirectory;
-          Restart = "on-failure";
-          RestartSec = 10;
+    systemd.services =
+      lib.mapAttrs' (
+        name: app:
+        lib.nameValuePair "app-${name}" (
+          let
+            unit = appUnit name app;
+          in
+          if app.idleCheck == null then
+            unit
+          else
+            unit
+            // {
+              # A switch never stops or restarts it, changed or not; the
+              # activation script below leaves the restart to its waiter.
+              restartIfChanged = false;
+              stopIfChanged = false;
+              serviceConfig = unit.serviceConfig // {
+                ExecStartPost = "-${recordStart} ${name} ${definitionHash app}";
+              };
+            }
+        )
+      ) cfg
+      // lib.mapAttrs' (
+        name: app:
+        lib.nameValuePair "app-${name}-restart-when-idle" {
+          description = "Restart app-${name} once it is idle";
+          # So a switch that adds it, and a boot, look for a pending restart.
+          wantedBy = [ "multi-user.target" ];
+          after = [ "app-${name}.service" ];
+          # A switch leaves a waiting waiter waiting.
+          restartIfChanged = false;
+          path = [
+            pkgs.bash
+            pkgs.coreutils
+            pkgs.gnugrep
+            pkgs.jq
+            config.systemd.package
+          ];
+          script = waiterScript name app;
+          serviceConfig = {
+            User = app.owner;
+            WorkingDirectory = homeOf app;
+          };
         }
-        // lib.optionalAttrs (app.socket != null) {
-          RuntimeDirectory = socketDirectory;
-          RuntimeDirectoryMode = "0700";
-        };
-      }
-    ) cfg;
+      ) idleApps;
+
+    environment.etc = lib.mapAttrs' (
+      name: app: lib.nameValuePair "app-restart/${name}.definition" { text = definitionHash app; }
+    ) idleApps;
+    systemd.tmpfiles.rules = lib.optionals (idleApps != { }) (
+      [ "d ${restartStateDirectory} 0755 root root -" ]
+      ++ lib.mapAttrsToList (
+        name: app: "d ${restartStateDirectory}/${name} 0755 ${app.owner} - -"
+      ) idleApps
+    );
+    # A switch that changed an idleCheck app's running definition leaves its
+    # restart pending until the app is idle. Not at boot: no unit runs yet.
+    system.activationScripts.app-restart = lib.mkIf (idleApps != { }) {
+      deps = [ "etc" ];
+      text = ''
+        ${config.systemd.package}/bin/systemd-tmpfiles --create --prefix=${restartStateDirectory} || true
+        ${lib.concatStrings (
+          lib.mapAttrsToList (name: app: ''
+            if ${config.systemd.package}/bin/systemctl is-active -q app-${name}.service 2>/dev/null \
+              && [ "$(cat ${restartStateDirectory}/${name}/started 2>/dev/null)" != ${definitionHash app} ]; then
+              ${lib.getExe restartApp} app-${name}.service || true
+            fi
+          '') idleApps
+        )}
+      '';
+    };
 
     my.restartAppsUpdatedBy = restartAppsUpdatedBy;
-    environment.systemPackages = [ restartAppsUpdatedBy ];
+    environment.systemPackages = [
+      restartApp
+      restartAppsUpdatedBy
+    ];
 
-    # Each owner may restart their own apps' units: the installers that
-    # upgrade them run as that person.
+    # Each owner may restart their own apps' units, and start their waiters:
+    # the installers that upgrade them, and the waiters, run as that person.
     security.polkit.enable = true;
     security.polkit.extraConfig = ''
       polkit.addRule(function (action, subject) {
-        var owners = ${
-          builtins.toJSON (lib.mapAttrs' (name: app: lib.nameValuePair "app-${name}.service" app.owner) cfg)
+        var units = ${
+          builtins.toJSON (
+            lib.mapAttrs' (
+              name: app:
+              lib.nameValuePair "app-${name}.service" {
+                inherit (app) owner;
+                verbs = [
+                  "restart"
+                  "try-restart"
+                ];
+              }
+            ) cfg
+            // lib.mapAttrs' (
+              name: app:
+              lib.nameValuePair (waiterUnit name) {
+                inherit (app) owner;
+                verbs = [ "start" ];
+              }
+            ) idleApps
+          )
         };
+        var unit = units[action.lookup("unit")];
         if (action.id == "org.freedesktop.systemd1.manage-units"
-            && owners[action.lookup("unit")] === subject.user
-            && ["restart", "try-restart"].indexOf(action.lookup("verb")) >= 0) {
+            && unit && unit.owner === subject.user
+            && unit.verbs.indexOf(action.lookup("verb")) >= 0) {
           return polkit.Result.YES;
         }
       });
