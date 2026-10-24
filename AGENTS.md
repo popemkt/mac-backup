@@ -23,10 +23,28 @@ Admission is gated. Before doing any work here, run:
 intent/gate.sh session <your-harness-name>
 ```
 
-Non-zero exit means required tools are missing — restore the environment first
-(`rebuild`, or `nix develop`) instead of working around it. All interaction
-surfaces and their shims are listed in `intent/SURFACES.md`; commits are
-independently gated by `.githooks/pre-commit` (record admission).
+Non-zero exit means the flake devShell lacks a required tool, or its `kb` is
+not the pinned release, or it could not be built — fix that instead of working
+around it. The gate checks the devShell's tools, never what PATH happens to
+hold, so a stale `kb` on PATH does not matter. All interaction surfaces and
+their shims are listed in `intent/SURFACES.md`; commits are independently
+gated by `.githooks/pre-commit` (record admission).
+
+### Repo tools: `scripts/dev`
+
+Run every repo tool (kb, nixfmt, statix, deadnix, shellcheck, actionlint,
+nvfetcher, jq, ...) as `scripts/dev <cmd> [args…]`. It runs the command in the
+flake devShell's environment, cached per worktree in `.cache/dev/` and rebuilt
+on its own when `flake.nix`, `flake.lock`, `pkgs/` or `_sources/` change: one
+`nix print-dev-env` cold, about 0.2 s warm. It is harness-neutral (no hooks,
+no env files) and works from any cwd, as `<worktree>/scripts/dev`. A bash
+shell can load it once with `source <(scripts/dev --print-env)`.
+
+- Do not wrap commands in `nix develop -c`: it re-evaluates the devShell on
+  every call (about 20 s on a loaded machine).
+- Never wrap `git` in anything. A plain `git commit` works: the hook loads
+  the cached devShell environment itself.
+- Humans can still use `nix develop` or direnv (`.envrc`).
 
 Start with the docs in [docs/](/Users/popemkt/.dotfiles/docs) before making structural changes.
 
@@ -103,8 +121,11 @@ the daemon.
 This repo holds no kb code: it installs kb's GitHub release (`pkgs/kb`, a
 [direct release package](docs/github-release-packages.md) bumped like the
 others) on every host and in the dev shell, and keeps its own small store.
-Everything here calls it as `kb` from PATH (the gate, CI, `.mcp.json`), and
-the gate refuses a session whose `kb` is not the pinned release.
+The repo's own checks run the dev shell's `kb` (the gate and hook through
+`scripts/dev`, CI through `nix develop`), and the gate refuses a session whose
+dev-shell `kb` is not the pinned release. A host's `kb` on PATH (and
+`.mcp.json`) only matches the pin after `rebuild`; agents call
+`scripts/dev kb …`; read the examples below that way.
 Todos, notes, rules, gaps, and any structured facts about this repo live as
 nodes in `.kb/nodes.jsonl` (committed). Everything is a node — fields and tags
 too. Props are keyed by field-node id; tags template fields; values may
@@ -259,13 +280,14 @@ module internals.
 Before suggesting commits, ensure changed Nix files pass:
 
 ```bash
-rtk nixfmt **/*.nix
-rtk statix check .
-rtk scripts/deadnix-repo
+rtk scripts/dev nixfmt **/*.nix
+rtk scripts/dev statix check .
+rtk scripts/dev scripts/deadnix-repo
 rtk nix flake check --no-build
 ```
 
-The pre-commit hook at `.githooks/pre-commit` runs these checks on staged files.
+The pre-commit hook at `.githooks/pre-commit` runs these checks on staged files,
+with the tools of the cached devShell environment (`scripts/dev`).
 It is activated with `git config core.hooksPath .githooks` on this clone.
 
 When adding modules, prefer `_:` over `{ ... }:` when no arguments are used;

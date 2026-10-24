@@ -37,7 +37,7 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/require-tools.sh session",
-            "timeout": 10,
+            "timeout": 180,
             "statusMessage": "Checking repo tool gate"
           }
         ]
@@ -50,7 +50,7 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/require-tools.sh pretool",
-            "timeout": 10
+            "timeout": 180
           }
         ]
       }

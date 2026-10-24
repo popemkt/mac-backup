@@ -1,5 +1,7 @@
 # Nix
 result
+# scripts/dev: each worktree's cached devShell environment and its GC root
+.cache/
 result-*
 .direnv/
 .venv/

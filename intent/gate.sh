@@ -12,33 +12,52 @@
 #   audit               verify every shim registered in SURFACES.md exists and
 #                       routes to this gate
 #
-# Tool tiers mirror flake.nix devShell — update together.
+# The gate checks, and record admission runs, the tools of the flake devShell
+# as scripts/dev caches it, never whatever PATH happens to hold: a stale host
+# install (the Mac's kb lags the pin until `rebuild`) decides nothing. Host
+# tools (git, nix) come from PATH; devShell tools must be in the devShell
+# itself. DEV_* tiers mirror flake.nix devShell — update together.
 set -euo pipefail
 
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 MODE="${1:-session}"
 SURFACE="${2:-unspecified}"
 
-HARD_TOOLS=(git jq nix nixfmt statix deadnix kb)
-SOFT_TOOLS=(shellcheck actionlint nvfetcher hujsonfmt)
+HOST_TOOLS=(git nix)
+DEV_HARD_TOOLS=(jq nixfmt statix deadnix kb)
+DEV_SOFT_TOOLS=(shellcheck actionlint nvfetcher hujsonfmt)
 ADMISSION_CHECKS_DIR=""
+DEV_ENV_STATUS=0
+
+# A devShell tool counts only when the devShell's own PATH provides it.
+in_dev_env() {
+  [ -n "${DOTFILES_DEV_PATH:-}" ] && PATH="$DOTFILES_DEV_PATH" command -v "$1" >/dev/null 2>&1
+}
 
 check_env() {
   local hard_missing=() soft_missing=() t
-  for t in "${HARD_TOOLS[@]}"; do
+  for t in "${HOST_TOOLS[@]}"; do
     command -v "$t" >/dev/null 2>&1 || hard_missing+=("$t")
   done
-  for t in "${SOFT_TOOLS[@]}"; do
-    command -v "$t" >/dev/null 2>&1 || soft_missing+=("$t")
-  done
-  # kb is called by name from PATH (this gate, CI, .mcp.json), so the kb found
-  # there must be the release the repo pins, not an older install or a shim.
+  if [ "$DEV_ENV_STATUS" -ne 0 ]; then
+    echo "DEV_ENV_FAILED: scripts/dev could not build the flake devShell environment"
+    hard_missing+=(devshell)
+  else
+    for t in "${DEV_HARD_TOOLS[@]}"; do
+      in_dev_env "$t" || hard_missing+=("$t")
+    done
+    for t in "${DEV_SOFT_TOOLS[@]}"; do
+      in_dev_env "$t" || soft_missing+=("$t")
+    done
+  fi
+  # kb writes the records (.kb/nodes.jsonl), so the kb every check below and
+  # every `scripts/dev kb` runs must be the release the repo pins.
   local kb_pinned kb_found
-  if command -v kb >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+  if in_dev_env kb && in_dev_env jq; then
     kb_pinned="$(jq -r '.kb.version // empty' "$REPO_ROOT/_sources/generated.json" 2>/dev/null || true)"
     kb_found="$(kb --version 2>/dev/null || true)"
     if [ -n "$kb_pinned" ] && [ "$kb_found" != "$kb_pinned" ]; then
-      echo "STALE_TOOL: kb on PATH ($(command -v kb)) is '${kb_found}', the pin is '${kb_pinned}'"
+      echo "STALE_TOOL: kb in the dev env ($(command -v kb)) is '${kb_found}', the pin is '${kb_pinned}'"
       hard_missing+=("kb@$kb_pinned")
     fi
   fi
@@ -214,13 +233,28 @@ audit_surfaces() {
   exit "$fail"
 }
 
+# The modes that use tools load the cached devShell environment first. This
+# runs at top level, not in a function, so the env's `declare`s stay global.
+case "$MODE" in
+  session | record)
+    if dev_env="$("$REPO_ROOT/scripts/dev" --print-env)"; then
+      set +eu
+      eval "$dev_env"
+      set -eu
+    else
+      DEV_ENV_STATUS=1
+    fi
+    unset dev_env
+    ;;
+esac
+
 case "$MODE" in
   session)
     check_env
     ;;
   record)
     if ! check_env; then
-      echo "gate: record admission refused — restore env first (rebuild or nix develop) [surface: $SURFACE]" >&2
+      echo "gate: record admission refused — fix the dev env first (scripts/dev must build the flake devShell) [surface: $SURFACE]" >&2
       exit 1
     fi
     record_admission

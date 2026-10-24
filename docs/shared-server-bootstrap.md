@@ -84,9 +84,9 @@ or a password. The agent cannot do these, so do them in order on a new machine.
    ```
 
    A fresh machine has no Git identity, so the first commit fails without the
-   last line. Until the switch installs them, the commit gate's tools (`jq`,
-   `nixfmt`, `statix`, `deadnix`) come from the flake's dev shell: commit
-   inside `nix develop`.
+   last line. The commit gate's tools (`jq`, `nixfmt`, `statix`, `deadnix`,
+   `kb`) come from the flake's dev shell, which the hook loads itself through
+   `scripts/dev`: a plain `git commit` works before the switch installs them.
 
 5. **Tailscale console (needs an admin account):**
    - Create the services `t3-popemkt` and `t3-bytetum`. Enter the names

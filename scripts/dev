@@ -1,0 +1,154 @@
+#!/usr/bin/env bash
+#
+# scripts/dev — run a command inside this worktree's flake devShell, cached.
+#
+#   scripts/dev <cmd> [args...]   run <cmd> with the devShell environment
+#   scripts/dev --print-env       print the environment as a bash script, for
+#                                 a bash shell that sources it once:
+#                                   source <(scripts/dev --print-env)
+#
+# The one way an actor (any agent harness, a hook, a human) gets the repo's
+# pinned tools — kb, nixfmt, statix, deadnix, shellcheck, ... — without paying
+# `nix develop` on every call. `nix develop` still works; this is its cache.
+#
+# The environment is `nix print-dev-env` of the worktree that holds this
+# script, stored under <worktree>/.cache/dev/<key>/ (gitignored) with a GC
+# root beside it. <key> hashes every file the devShell evaluates: flake.nix,
+# flake.lock, pkgs/ and _sources/ (the overlay that builds the pinned kb), so
+# a pin bump or lock update rebuilds it on the next call and nothing else
+# does. Cold, one `nix print-dev-env`; warm, a source and an exec.
+#
+# Concurrent first runs wait on one generation (a mkdir lock; a dead holder's
+# lock is taken over) and the environment is written by an atomic rename.
+set -euo pipefail
+
+# Bump when the post-processing below changes, so old caches are rebuilt.
+format=1
+
+root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+cache_root="$root/.cache/dev"
+
+die() {
+  echo "scripts/dev: $*" >&2
+  exit 1
+}
+
+usage() {
+  sed -n '3,8s/^# \{0,1\}//p' "${BASH_SOURCE[0]}" >&2
+  exit 64
+}
+
+[ $# -gt 0 ] || usage
+case "$1" in
+  -h | --help) usage ;;
+esac
+
+command -v nix >/dev/null 2>&1 || die "nix not found on PATH"
+
+# Every input the devShell's evaluation reads. Untracked files are hashed
+# too, which only ever costs a spurious rebuild.
+dev_key() {
+  (
+    cd "$root"
+    {
+      echo "format=$format $(uname -sm)"
+      find flake.nix flake.lock pkgs _sources -type f 2>/dev/null | LC_ALL=C sort | while IFS= read -r f; do
+        printf '%s\0' "$f"
+        cat "$f"
+      done
+    } | git hash-object --stdin
+  )
+}
+
+key="$(dev_key)"
+dir="$cache_root/$key"
+env_file="$dir/env.sh"
+
+# A cache is usable when its env was fully written and its GC root still
+# reaches the store.
+cache_ok() {
+  [ -s "$env_file" ] && [ -e "$dir/profile" ]
+}
+
+generate() {
+  local lock="$cache_root/$key.lock" waited=0 holder tmp dev_path
+  mkdir -p "$cache_root"
+  while ! mkdir "$lock" 2>/dev/null; do
+    cache_ok && return 0
+    holder="$(cat "$lock/pid" 2>/dev/null || true)"
+    if [ -n "$holder" ] && ! kill -0 "$holder" 2>/dev/null; then
+      rm -rf "$lock"
+      continue
+    fi
+    # A holder that has not written its pid yet gets the same grace.
+    waited=$((waited + 1))
+    [ "$waited" -lt 3000 ] || die "timed out waiting for $lock (remove it if no generation is running)"
+    sleep 0.2
+  done
+  echo "$$" >"$lock/pid"
+  # shellcheck disable=SC2064 # expand now: these are this run's paths
+  trap "rm -rf '$lock' '$dir/env.sh.tmp'" EXIT
+  if cache_ok; then
+    rm -rf "$lock"
+    trap - EXIT
+    return 0
+  fi
+
+  echo "scripts/dev: building the devShell environment (cache key ${key:0:12})" >&2
+  rm -rf "$dir"
+  mkdir -p "$dir"
+  tmp="$dir/env.sh.tmp"
+  # The profile lives where it stays: Nix registers its GC root by path.
+  # Git's hook variables would point Nix's flake fetcher at the wrong index.
+  (
+    cd "$root"
+    unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_PREFIX GIT_OBJECT_DIRECTORY
+    nix print-dev-env --profile "$dir/profile" "$root"
+  ) >"$tmp.raw" || {
+    rm -rf "$dir"
+    die "nix print-dev-env failed for $root"
+  }
+  # nix develop makes and removes a scratch TMPDIR per shell; a sourced env
+  # cannot remove it, so the caller's TMPDIR stays instead.
+  sed -E '/^export (NIX_BUILD_TOP|TMP|TMPDIR|TEMP|TEMPDIR)=/d' "$tmp.raw" >"$tmp"
+  rm -f "$tmp.raw"
+  # The devShell's own PATH, without the caller's: what the gate checks tools
+  # against, so a tool the devShell lacks is not found elsewhere on PATH.
+  # shellcheck disable=SC2016 # expanded by the inner shell
+  dev_path="$(env -i /bin/bash --noprofile --norc -c '. "$1" >/dev/null 2>&1; printf %s "$PATH"' _ "$tmp")"
+  [ -n "$dev_path" ] || die "could not read the devShell PATH from nix print-dev-env"
+  {
+    printf 'export DOTFILES_DEV_PATH=%q\n' "$dev_path"
+    printf 'export DOTFILES_DEV_KEY=%q\n' "$key"
+    printf 'export DOTFILES_DEV_ROOT=%q\n' "$root"
+  } >>"$tmp"
+  mv "$tmp" "$env_file"
+
+  # Only the current key is kept; older ones release their GC roots.
+  local old
+  for old in "$cache_root"/*/; do
+    old="${old%/}"
+    case "$old" in "$dir" | *.lock) continue ;; esac
+    rm -rf "$old"
+  done
+  rm -rf "$lock"
+  trap - EXIT
+}
+
+cache_ok || generate
+
+if [ "$1" = "--print-env" ]; then
+  cat "$env_file"
+  exit 0
+fi
+
+# Already inside this exact environment (a nested call): just run.
+if [ "${DOTFILES_DEV_KEY:-}" != "$key" ] || [ "${DOTFILES_DEV_ROOT:-}" != "$root" ]; then
+  # The env is stdenv's setup script: not written for set -eu, and its
+  # `declare`s must run at top level, never inside a function.
+  set +eu
+  # shellcheck disable=SC1090 # generated per worktree
+  . "$env_file"
+  set -eu
+fi
+exec "$@"
