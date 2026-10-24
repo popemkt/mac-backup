@@ -51,6 +51,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — one live run in bb desktop: open a Browser tab, alt+f, pick a label
 - **node** — `01M5PPQ98GKQZARPMF01TYZ1RV`
 
+### GAP: context composer v1 has not run in a live bb
+
+- **expected** — The composer page, spawn with a composed context, the trajectory advisor and contributed env are seen working in a real bb thread.
+- **current** — Verified only in bb's fake plugin host, a bb plugin build and a static render; the only bb server is shared-server, where installing was out of scope.
+- **impact** — UI layout, ThreadChat advisor behaviour and whether env reaches a 0.46.1 claude-code thread are unknown.
+- **closes** — Install the plugin on a bb server, compose and spawn on thr_5kgr5arqw3's project, and record the result in the research doc.
+- **node** — `01M5QKD89DMW3BR5RS6SYZD3RJ`
+
 ### GAP: kb.server has no NixOS side
 
 - **expected** — kb.server runs on NixOS as a supervised service for a named person, rendered from the same service declaration the macOS launchd agent comes from.
@@ -104,6 +112,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — One contract, every implementation
 - **node** — `01M3E9V4VV52HJPW181Y74AR0J`
 
+### GAP: per-item removal on bb Claude Code and Codex threads needs forked providers
+
+- **expected** — A composed bb Claude Code or Codex thread loads only the skills, MCP servers, instruction files and subagents its manifest keeps.
+- **current** — Only whole groups are enforced on Claude Code (CLAUDE_CODE_DISABLE_CLAUDE_MDS, _AUTO_MEMORY, _BUNDLED_SKILLS, _SAFE_MODE via contributed env); single items are advisory text. Codex gets no plugin env, so every Codex drop is advisory. bb hard-codes settingSources and never sets strictMcpConfig.
+- **impact** — The composer tells the agent what to ignore instead of removing it; the weight stays in context and the agent may use it anyway.
+- **closes** — A fork of provider-claude-code (and provider-codex) under a new provider id that sets settingSources, strictMcpConfig, disallowedTools and skills (Codex: -c and CODEX_HOME) from the thread's composer record.
+- **node** — `01M5QKD7E3SR1DT4Z39TY3ZTGF`
+
+### GAP: pi enforcement of a composer manifest is unproven inside bb
+
+- **expected** — A bb pi thread spawned from a composition loads only the kept skills, tools, context files and MCP servers, and reports what pi sent.
+- **current** — pi/extension.ts enforces this in a local pi 1.4.0 run outside bb; it is not installed on any host and pi is not on shared-server.
+- **impact** — The only provider where per-item removal is enforced has never run in bb.
+- **closes** — Install pi and link the extension on the Mac, spawn a pi thread from a composition, read its report via a bb.host entry.
+- **node** — `01M5QKD8SDR9TX6Y5G2DM220HP`
+
 ### GAP: popemkt's socket-served kb UI has no .kb/ui.json, so CLI/MCP ui.* calls see no tabs
 
 - **expected** — kb ui --socket on shared-server records its presence, so kb CLI and kb mcp ui.screen/navigate/select/capture reach the page's tabs
@@ -152,6 +176,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Give cli-proxy-api and cognee read-only port options and derive the other sites from them.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M3E9VX8SQJKV3K2Q1JEKT309`
+
+### GAP: the bb server's plugin data (composer manifests) has no backup on shared-server
+
+- **expected** — Saved context-composer manifests survive a lost shared-server disk.
+- **current** — Manifests live in the bb server's data dir (plugins/context-composer/data.db under ~/.bb); ~/.bb is in neither backup-strategy.md nor Mackup, and shared-server has no restic yet.
+- **impact** — Losing shared-server loses every saved manifest; only kb exports survive.
+- **closes** — A declared backup of the bb server's data dir on shared-server (restic), or manifests stored in kb.
+- **node** — `01M5QKD7TMB3HDV65V543HTD9M`
 
 ### GAP: the npm executor special-cases @openai/codex and aborts activation on a failed install
 
