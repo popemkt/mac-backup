@@ -6,7 +6,7 @@ import { MAX_CONCURRENT_ENTERS, type MotionPolicy, resolveMotion, tokensFor } fr
 import { decodeSettings, type Settings, type SettingsInput, type SettingsProblem } from "../domain/settings.ts";
 import { createPulser } from "./pulser.ts";
 import { createRowWatcher } from "./rows.ts";
-import { buildStylesheet, CLASSES, ROOT, ROOT_ATTRIBUTES } from "./stylesheet.ts";
+import { buildStylesheet, CLASSES, PAGE_REPLAYED, PULSE_ATTRIBUTES, ROOT, ROOT_ATTRIBUTES } from "./stylesheet.ts";
 import type { Targets } from "./targets.ts";
 
 /** The attribute on lively's own <style>, so it is easy to find and never doubled. */
@@ -73,6 +73,9 @@ export function createLively(options: CreateLivelyOptions): Lively {
     root.setAttribute(ROOT.source, current.source);
     root.setAttribute(ROOT.intensity, current.intensity);
     root.setAttribute(ROOT.style, current.style);
+    if (current.skew) root.setAttribute(ROOT.skew, "on");
+    if (current.stickers) root.setAttribute(ROOT.stickers, "on");
+    if (current.jelly === "matched") root.setAttribute(ROOT.jelly, "matched");
     root.setAttribute(ROOT.speed, current.speed);
     for (const effect of current.effects) root.setAttribute(effectAttribute(effect), "");
   };
@@ -88,10 +91,13 @@ export function createLively(options: CreateLivelyOptions): Lively {
     targets,
     onArrive: (arriving) => {
       if (!may("listEnter")) return;
+      // At most MAX_CONCURRENT_ENTERS animate; the last of those is marked (wobbly splits it into color).
+      const batch = arriving.slice(0, Math.max(0, MAX_CONCURRENT_ENTERS - pulser.running(CLASSES.enter)));
       let stagger = 0;
-      for (const row of arriving) {
-        if (pulser.running(CLASSES.enter) >= MAX_CONCURRENT_ENTERS) return;
-        if (pulser.pulse(row, CLASSES.enter, deadline(tokens().enterMs + 3 * tokens().stagger), { "data-lively-stagger": String(stagger) })) stagger += 1;
+      for (const [index, row] of batch.entries()) {
+        const attributes: Record<string, string> = { [PULSE_ATTRIBUTES.stagger]: String(stagger) };
+        if (index === batch.length - 1) attributes[PULSE_ATTRIBUTES.last] = "";
+        if (pulser.pulse(row, CLASSES.enter, deadline(tokens().enterMs + 3 * tokens().stagger), attributes)) stagger += 1;
       }
     },
   });
@@ -120,6 +126,24 @@ export function createLively(options: CreateLivelyOptions): Lively {
   win.addEventListener("pointerup", released, { capture: true, passive: true });
   win.addEventListener("click", clicked, { capture: true, passive: true });
 
+  // pageEnter, pageWipe: bb keeps the thread window mounted across a thread switch, so
+  // the mount animation never runs again; a changed path replays it with a class.
+  // The Navigation API reports in-app navigations (bb's router pushes state); popstate covers back.
+  // Not every engine has it (happy-dom, older WebKit).
+  const navigation: EventTarget | undefined = "navigation" in win ? win.navigation : undefined;
+  let path = win.location.pathname;
+  const navigated = () => {
+    if (win.location.pathname === path) return;
+    path = win.location.pathname;
+    if (!may("pageEnter") && !may("pageWipe")) return;
+    for (const view of doc.querySelectorAll(targets.pageView)) {
+      view.setAttribute(PAGE_REPLAYED, "");
+      pulser.pulse(view, CLASSES.page, deadline(tokens().enterMs));
+    }
+  };
+  navigation?.addEventListener("currententrychange", navigated);
+  win.addEventListener("popstate", navigated);
+
   const lively: Lively = {
     setSettings: (input) => {
       const decoded = decodeSettings(input);
@@ -134,7 +158,7 @@ export function createLively(options: CreateLivelyOptions): Lively {
       if (!may("sendPulse")) return;
       for (const button of doc.querySelectorAll(targets.sendButton)) pulser.pulse(button, CLASSES.send, deadline(tokens().pulseMs));
     },
-    pulseStatus: (row, tone) => may("statusPulse") && pulser.pulse(row, CLASSES.pulse, deadline(2 * tokens().pulseMs), { "data-lively-tone": tone }),
+    pulseStatus: (row, tone) => may("statusPulse") && pulser.pulse(row, CLASSES.pulse, deadline(2 * tokens().pulseMs), { [PULSE_ATTRIBUTES.tone]: tone }),
     dispose: () => {
       if (disposed) return;
       disposed = true;
@@ -143,6 +167,9 @@ export function createLively(options: CreateLivelyOptions): Lively {
       media.removeEventListener("change", refresh);
       win.removeEventListener("pointerup", released, { capture: true });
       win.removeEventListener("click", clicked, { capture: true });
+      navigation?.removeEventListener("currententrychange", navigated);
+      win.removeEventListener("popstate", navigated);
+      for (const view of doc.querySelectorAll(`[${PAGE_REPLAYED}]`)) view.removeAttribute(PAGE_REPLAYED);
       for (const name of ROOT_ATTRIBUTES) root.removeAttribute(name);
       style.remove();
     },

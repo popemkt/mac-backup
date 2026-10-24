@@ -1,20 +1,27 @@
 // The motion layer as one stylesheet, built once from the host's targets.
 // Every effect's rules are scoped to its root attribute
 // (`:root[data-lively-press]`), so switching an effect, the level, the
-// intensity or the speed only rewrites attributes on <html>; the sheet itself
-// never changes.
+// intensity, the style or the speed only rewrites attributes on <html>; the
+// sheet itself never changes.
 //
 // No effect has a number of its own: every distance, scale, duration, blur,
-// glow and easing is a token of the intensity (domain/motion.ts), written
-// here once per intensity as custom properties.
+// glow, squash, skew and easing is a token of the (style, intensity)
+// (domain/motion.ts), written here once per pair as custom properties.
+//
+// Two styles share the effects. The clean rules are the base; each effect's
+// wobbly variant is a second rule scoped to `[data-lively="full"]
+// [data-lively-style="wobbly"]`, which outweighs the clean one and never runs
+// under reduced motion, so both styles reduce to the same fades.
 //
 // Budget, checked by tests/stylesheet.test.ts:
-// - keyframes move only transform (`scale`, `translate`, `rotate`),
-//   `opacity` and `filter`;
+// - keyframes move only `scale`, `translate`, `rotate`, `opacity` and
+//   `filter`; the one exception is the skew-in, a `transform` that is only
+//   ever run with `animation-composition: add`, on top of the host's own
+//   transform, and never on toasts;
 // - lively's transitions add only those, beside the color transitions a host
 //   element already had;
-// - glows and rings are pseudo-elements whose opacity and scale animate,
-//   never an animated box-shadow;
+// - glows, rings, bursts and the page wipe are pseudo-elements; nothing
+//   animates a box-shadow;
 // - one-shot animations on host elements fill `backwards` only, so nothing
 //   (no transform, no filter) stays on the element afterwards;
 // - the only loops are the breathing glows, which run at the full level only.
@@ -22,8 +29,11 @@ import { EFFECT_IDS, type EffectId, effectAttribute } from "../domain/effects.ts
 import {
   exitEasing,
   INTENSITIES,
+  type Intensity,
+  jellyCoefficients,
   type MotionTokens,
   motionTokens,
+  snapEasing,
   springEasing,
   STYLES,
 } from "../domain/motion.ts";
@@ -38,6 +48,22 @@ export const CLASSES = {
   pulse: "lively-pulse",
   check: "lively-check",
   typing: "lively-typing",
+  /** A thread switch replays the page entrance on the window that stayed mounted. */
+  page: "lively-page-in",
+} as const;
+
+/**
+ * Set (and kept) on a thread window once lively has replayed its entrance: the
+ * mount rule stops matching, so taking the replay class off later never restarts it.
+ */
+export const PAGE_REPLAYED = "data-lively-paged";
+
+/** Attributes the DOM layer sets on a pulsing element beside its class. */
+export const PULSE_ATTRIBUTES = {
+  stagger: "data-lively-stagger",
+  /** The last row of an arriving batch (the wobbly chromatic split runs on it alone). */
+  last: "data-lively-last",
+  tone: "data-lively-tone",
 } as const;
 
 /** Root attributes besides the per-effect ones. */
@@ -46,23 +72,25 @@ export const ROOT = {
   source: "data-lively-source",
   intensity: "data-lively-intensity",
   style: "data-lively-style",
+  /** `on` when arriving rows skew in (wobbly, its skew switch on, full level). */
+  skew: "data-lively-skew",
+  /** `on` while hard offset "sticker" shadows show. */
+  stickers: "data-lively-stickers",
+  /** `matched` when the wobbly release decays like the intensity's own spring. */
+  jelly: "data-lively-jelly",
   speed: "data-lively-speed",
 } as const;
 
 /** Every root attribute lively may write, so cleanup can remove them all. */
-export const ROOT_ATTRIBUTES: ReadonlyArray<string> = [
-  ROOT.level,
-  ROOT.source,
-  ROOT.intensity,
-  ROOT.style,
-  ROOT.speed,
-  ...EFFECT_IDS.map(effectAttribute),
-];
+export const ROOT_ATTRIBUTES: ReadonlyArray<string> = [...Object.values(ROOT), ...EFFECT_IDS.map(effectAttribute)];
 
 const is = (selector: string) => `:is(${selector})`;
 
+/** The wobbly release for one intensity: the jelly keyframes are named by it. */
+const jellyName = (intensity: Intensity) => `lively-jelly-${intensity}`;
+
 /** One (style, intensity)'s tokens as custom properties. */
-function tokenBlock(tokens: MotionTokens): string {
+function tokenBlock(tokens: MotionTokens, jelly: string): string {
   return `
   --lively-t-press: ${tokens.pressMs}ms;
   --lively-t-release: ${tokens.releaseMs}ms;
@@ -84,8 +112,44 @@ function tokenBlock(tokens: MotionTokens): string {
   --lively-burst: ${tokens.burst};
   --lively-burst-opacity: ${tokens.burst > 0 ? 1 : 0};
   --lively-glow: ${tokens.glow};
-  --lively-breathe-depth: ${tokens.breatheMs > 0 ? Math.min(0.6, tokens.glow * 1.5) : 0};`;
+  --lively-breathe-depth: ${tokens.breatheMs > 0 ? Math.min(0.6, tokens.glow * 1.5) : 0};
+  --lively-squash: ${tokens.squash};
+  --lively-skew: ${tokens.skew}deg;
+  --lively-tilt: ${tokens.tilt}deg;
+  --lively-sticker: ${tokens.sticker}px;
+  --lively-swell: ${tokens.swell};
+  --lively-flash: ${tokens.flash};
+  --lively-chroma: ${tokens.chroma}px;
+  --lively-jelly-own: ${jelly};`;
 }
+
+/**
+ * The jelly for one intensity: a squash (wide and short), then the swings of
+ * that intensity's wobbly spring, each −overshoot times the last.
+ * `--lively-squash-k` lets a caller scale the whole jelly down.
+ */
+function jellyKeyframes(intensity: Intensity): string {
+  const coefficients = jellyCoefficients(motionTokens("wobbly", intensity).overshoot);
+  const step = 100 / (coefficients.length + 0.5);
+  const stops = coefficients.map((coefficient, index) => {
+    const amount = `var(--lively-squash) * var(--lively-squash-k, 1) * ${coefficient}`;
+    return `  ${Math.round(index * step)}% { scale: calc(1 + ${amount}) calc(1 - ${amount}); }`;
+  });
+  return `@keyframes ${jellyName(intensity)} {\n${stops.join("\n")}\n  100% { scale: 1 1; }\n}`;
+}
+
+/** Suffix of the keyframe copies a thread switch replays (see pageEnter). */
+const AGAIN = "-again";
+/** The thread window's keyframes: clean entrance, wobbly entrance, and the wipe. */
+const PAGE_FRAMES: Readonly<Record<string, string>> = {
+  "lively-page": "from { opacity: 0; translate: 0 calc(var(--lively-rise) / 2); }",
+  "lively-page-w": "from { opacity: 0; translate: calc(var(--lively-rise) * 0.8) calc(var(--lively-rise) / 2); }",
+  "lively-wipe": "0% { translate: 140% 0; } 40%, 65% { translate: 0 0; } 100% { translate: -140% 0; }",
+};
+/** Each once for the mount, and again under a new name for a switch: same bodies, same motion. */
+const pageKeyframes = Object.entries(PAGE_FRAMES)
+  .flatMap(([name, body]) => [`@keyframes ${name} { ${body} }`, `@keyframes ${name}${AGAIN} { ${body} }`])
+  .join("\n");
 
 export function buildStylesheet(targets: Targets): string {
   const suspend = targets.suspendOn.map((attribute) => `:not([${attribute}])`).join("");
@@ -93,17 +157,33 @@ export function buildStylesheet(targets: Targets): string {
   const on = (effect: EffectId) => `:root[${effectAttribute(effect)}]${suspend}`;
   /** The same, at the full level only (loops never run reduced). */
   const onFull = (effect: EffectId) => `:root[${ROOT.level}="full"][${effectAttribute(effect)}]${suspend}`;
+  /** An effect's wobbly variant: full level only, so reduced motion is the clean fades. */
+  const wobbly = (effect: EffectId) => `:root[${ROOT.level}="full"][${ROOT.style}="wobbly"][${effectAttribute(effect)}]${suspend}`;
+  /** Wobbly with skew on. */
+  const skewed = (effect: EffectId) =>
+    `:root[${ROOT.level}="full"][${ROOT.style}="wobbly"][${ROOT.skew}="on"][${effectAttribute(effect)}]${suspend}`;
+  /** Stickers on, in either style. */
+  const stickered = (effect: EffectId) => `:root[${ROOT.stickers}="on"][${effectAttribute(effect)}]${suspend}`;
+  /** The thread window on its first mount, and when a switch replays its entrance. */
+  const mounted = `${is(targets.pageView)}:not([${PAGE_REPLAYED}])`;
+  const replayed = `${is(targets.pageView)}.${CLASSES.page}`;
+  /** Wobbly and stickers together (outweighs both). */
+  const wobblyStickered = (effect: EffectId) =>
+    `:root[${ROOT.level}="full"][${ROOT.style}="wobbly"][${ROOT.stickers}="on"][${effectAttribute(effect)}]${suspend}`;
   const reducedRoot = `:root[${ROOT.level}="reduced"]`;
   const systemRoot = `:root[${ROOT.source}="system"]`;
 
-  const intensities = STYLES.flatMap((style) =>
+  const blocks = STYLES.flatMap((style) =>
     INTENSITIES.map(
       (intensity) =>
         // The style sits in :where() so a block weighs what an intensity alone did: the
         // reduced and media-query blocks after it must still win.
-        `:root[${ROOT.intensity}="${intensity}"]:where([${ROOT.style}="${style}"]) {${tokenBlock(motionTokens(style, intensity))}\n}`,
+        `:root[${ROOT.intensity}="${intensity}"]:where([${ROOT.style}="${style}"]) {${tokenBlock(motionTokens(style, intensity), jellyName(intensity))}\n}`,
     ),
   ).join("\n");
+  const reducedTokens = tokenBlock(REDUCED_TOKENS, jellyName("lively"));
+
+  const pressTarget = `${is(targets.pressable)}:not(${is(targets.pressExclude)}):not(:disabled)`;
 
   return `/* bb-lively motion layer. Generated; see core/src/dom/stylesheet.ts. */
 :root[${ROOT.level}] {
@@ -116,14 +196,23 @@ export function buildStylesheet(targets: Targets): string {
   --lively-pulse: calc(var(--lively-t-pulse) * var(--lively-speed));
   --lively-breathe: calc(var(--lively-t-breathe) * var(--lively-speed));
   --lively-stagger: calc(var(--lively-t-stagger) * var(--lively-speed));
+  --lively-delay: calc(var(--lively-stagger) * 0);
   --lively-ease-out: ${springEasing({ overshoot: 0 })};
   --lively-ease-in: ${exitEasing()};
+  /* Wobbly's hard stop (ZZZ's tab cut), the ease between jelly stops, and the jelly in use. */
+  --lively-snap: ${snapEasing()};
+  --lively-jelly-ease: cubic-bezier(0.3, 0, 0.4, 1);
+  --lively-jelly: ${jellyName("lively")};
+  /* A hover shadow tweens with the lift; a sticker shadow snaps in. */
+  --lively-filter-time: var(--lively-overlay);
+  --lively-filter-ease: var(--lively-spring);
   /* One accent, the theme's: the Lively themes and any other palette alike. */
   --lively-accent: var(--primary, #7c6cf0);
   --lively-accent-2: var(--timeline-accent, var(--lively-accent));
   /* Derived from the tokens, not numbers of their own. */
   --lively-pop-from: calc(var(--lively-press-scale) * var(--lively-overlay-scale) * var(--lively-overlay-scale));
   --lively-check-from: calc(var(--lively-press-scale) * var(--lively-overlay-scale));
+  --lively-exit-scale: calc((1 + var(--lively-overlay-scale)) / 2);
   /* Status rings sit on rows about three times wider than tall, inside a list that clips
      sideways: growing x a third as much grows the ring by about the same pixels each way. */
   --lively-ring-scale-x: calc(1 + (var(--lively-ring-scale) - 1) / 3);
@@ -131,19 +220,25 @@ export function buildStylesheet(targets: Targets): string {
 }
 :root[${ROOT.speed}="snappy"] { --lively-speed: 0.8; }
 :root[${ROOT.speed}="relaxed"] { --lively-speed: 1.25; }
-${intensities}
-${reducedRoot} {${tokenBlock(REDUCED_TOKENS)}
+:root[${ROOT.jelly}="matched"] { --lively-jelly: var(--lively-jelly-own); }
+:root[${ROOT.stickers}="on"] {
+  --lively-filter-time: var(--lively-exit);
+  --lively-filter-ease: steps(2, end);
+}
+${blocks}
+${reducedRoot} {${reducedTokens}
 }
 /* A stale "full" never animates for someone whose OS asks for less motion. */
 @media (prefers-reduced-motion: reduce) {
-  ${systemRoot} {${tokenBlock(REDUCED_TOKENS)}
+  ${systemRoot} {${reducedTokens}
   }
   ${systemRoot} ${is(targets.overlayOpen)} {
     --tw-enter-translate-x: 0;
     --tw-enter-translate-y: 0;
   }
   ${systemRoot} ${is(targets.focusBox)}:focus-within::after,
-  ${systemRoot} ${is(targets.working)} { animation: none; }
+  ${systemRoot} ${is(targets.working)},
+  ${systemRoot} .${CLASSES.pulse} { animation: none; }
 }
 
 @keyframes lively-press-in { to { scale: var(--lively-press-scale); } }
@@ -152,7 +247,6 @@ ${reducedRoot} {${tokenBlock(REDUCED_TOKENS)}
   from { opacity: 0; translate: 0 var(--lively-rise); filter: blur(var(--lively-blur)); }
   to { opacity: 1; translate: 0 0; filter: blur(0); }
 }
-@keyframes lively-page { from { opacity: 0; translate: 0 calc(var(--lively-rise) / 2); } }
 @keyframes lively-pop { from { opacity: 0; scale: var(--lively-pop-from); } to { opacity: 1; scale: 1; } }
 @keyframes lively-check { from { scale: var(--lively-check-from); } to { scale: 1; } }
 @keyframes lively-ripple { from { opacity: 0.5; scale: 1; } to { opacity: 0; scale: var(--lively-ripple-scale); } }
@@ -168,42 +262,150 @@ ${reducedRoot} {${tokenBlock(REDUCED_TOKENS)}
   to { opacity: 1; filter: drop-shadow(0 0 calc(var(--lively-glow) * 20px) var(--lively-glow-color)); }
 }
 
-/* press */
-${on("press")} ${is(targets.pressable)}:not(${is(targets.pressExclude)}):not(:disabled):active {
+/* Wobbly keyframes (docs/research/2026-10-24-bb-lively-zzz-wobble.md §3.3). */
+@keyframes lively-squash-in {
+  to { scale: calc(var(--lively-press-scale) + var(--lively-squash) * 0.6) calc(var(--lively-press-scale) - var(--lively-squash) * 0.4); }
+}
+${INTENSITIES.map(jellyKeyframes).join("\n")}
+@keyframes lively-swell {
+  0%, 30% { scale: 1; }
+  62% { scale: calc(1 + var(--lively-swell) * var(--lively-swell-x, 1)) calc(1 + var(--lively-swell)); }
+  100% { scale: 1; }
+}
+@keyframes lively-enter-w {
+  from { opacity: 0; translate: calc(var(--lively-rise) * 1.6) var(--lively-rise); filter: brightness(calc(1 + var(--lively-flash))); }
+  30% { opacity: 1; }
+  to { translate: 0 0; filter: brightness(1); }
+}
+@keyframes lively-skew-in { from { transform: skewX(var(--lively-skew)); } }
+@keyframes lively-flash { from { filter: brightness(calc(1 + var(--lively-flash))); } to { filter: brightness(1); } }
+@keyframes lively-chroma {
+  0%, 100% { filter: none; }
+  10% { filter: drop-shadow(var(--lively-chroma) 0 0 #3fd4ff) drop-shadow(calc(var(--lively-chroma) * -1) 0 0 #ff3dbb); }
+  35% { filter: drop-shadow(calc(var(--lively-chroma) * -1) 0 0 #3fd4ff) drop-shadow(var(--lively-chroma) 0 0 #ff3dbb); }
+  50% { filter: none; }
+}
+@keyframes lively-sticker-pop {
+  from { opacity: 0; scale: var(--lively-pop-from); rotate: calc(var(--lively-tilt) * 6); }
+  to { opacity: 1; scale: 1; rotate: 0deg; }
+}
+@keyframes lively-halftone {
+  0% { opacity: 0; scale: var(--lively-pop-from); }
+  20% { opacity: 1; }
+  100% { opacity: 0; scale: var(--lively-ripple-scale); }
+}
+@keyframes lively-idle { to { scale: calc(1 + var(--lively-swell) / 4); } }
+${pageKeyframes}
+
+/* press: clean sinks and springs back; wobbly squashes and wobbles back like jelly. */
+${on("press")} ${pressTarget}:active {
   animation: lively-press-in var(--lively-press) var(--lively-ease-out) forwards;
 }
 ${on("press")} .${CLASSES.pressOut} {
   animation: lively-press-out var(--lively-release) var(--lively-spring) backwards;
 }
+${wobbly("press")} ${pressTarget}:active {
+  animation: lively-squash-in var(--lively-press) var(--lively-ease-out) forwards;
+}
+${wobbly("press")} .${CLASSES.pressOut} {
+  animation: var(--lively-jelly) var(--lively-release) var(--lively-jelly-ease) backwards;
+  transform-origin: 50% 60%;
+}
 
-/* hoverLift: a real lift, and a soft shadow that grows with the intensity. */
+/* hoverLift: a real lift and a soft shadow; wobbly tilts; stickers snap a hard shadow in. */
 @media (hover: hover) {
   ${on("hoverLift")} ${is(targets.liftable)} {
-    transition-property: translate, filter, opacity, color, background-color, border-color;
-    transition-duration: var(--lively-overlay);
-    transition-timing-function: var(--lively-spring);
+    transition-property: translate, rotate, filter, opacity, color, background-color, border-color;
+    transition-duration: var(--lively-overlay), var(--lively-overlay), var(--lively-filter-time), var(--lively-overlay), var(--lively-overlay), var(--lively-overlay), var(--lively-overlay);
+    transition-timing-function: var(--lively-spring), var(--lively-spring), var(--lively-filter-ease), var(--lively-spring), var(--lively-spring), var(--lively-spring), var(--lively-spring);
   }
   ${on("hoverLift")} ${is(targets.liftable)}:hover {
     translate: 0 var(--lively-lift);
     filter: drop-shadow(0 calc(var(--lively-lift) * -3) calc(var(--lively-lift) * -6) color-mix(in oklab, #000 calc(var(--lively-lift-shadow) * 100%), transparent));
   }
+  ${wobbly("hoverLift")} ${is(targets.liftable)}:hover { rotate: var(--lively-tilt); }
+  ${stickered("hoverLift")} ${is(targets.liftable)}:hover {
+    translate: calc(var(--lively-sticker) * -0.5) calc(var(--lively-sticker) * -0.5);
+    filter: drop-shadow(calc(var(--lively-sticker) * 1.5) calc(var(--lively-sticker) * 1.5) 0 var(--lively-accent));
+  }
 }
 
-/* listEnter: staggered rise, sharpening from a blur. */
+/* listEnter: clean rises staggered from a blur; wobbly slaps in from the lower right with a
+   flash and settles in bounces, skewing in (composited onto the row's own transform) when
+   skew is on; the last row of a batch splits into color for a frame or two. */
 ${on("listEnter")} .${CLASSES.enter} {
-  animation: lively-enter var(--lively-enter) var(--lively-spring) backwards;
+  animation: lively-enter var(--lively-enter) var(--lively-spring) var(--lively-delay) backwards;
   will-change: transform, opacity, filter;
 }
-${on("listEnter")} .${CLASSES.enter}[data-lively-stagger="1"] { animation-delay: var(--lively-stagger); }
-${on("listEnter")} .${CLASSES.enter}[data-lively-stagger="2"] { animation-delay: calc(var(--lively-stagger) * 2); }
-${on("listEnter")} .${CLASSES.enter}[data-lively-stagger="3"] { animation-delay: calc(var(--lively-stagger) * 3); }
-
-/* pageEnter: a thread's window eases in when it mounts. */
-${on("pageEnter")} ${is(targets.pageView)} {
-  animation: lively-page var(--lively-enter) var(--lively-ease-out) backwards;
+${on("listEnter")} .${CLASSES.enter}[${PULSE_ATTRIBUTES.stagger}="1"] { --lively-delay: var(--lively-stagger); }
+${on("listEnter")} .${CLASSES.enter}[${PULSE_ATTRIBUTES.stagger}="2"] { --lively-delay: calc(var(--lively-stagger) * 2); }
+${on("listEnter")} .${CLASSES.enter}[${PULSE_ATTRIBUTES.stagger}="3"] { --lively-delay: calc(var(--lively-stagger) * 3); }
+${wobbly("listEnter")} .${CLASSES.enter} {
+  animation: lively-enter-w var(--lively-enter) var(--lively-spring) var(--lively-delay) backwards;
+}
+${wobbly("listEnter")} .${CLASSES.enter}[${PULSE_ATTRIBUTES.last}] {
+  animation:
+    lively-enter-w var(--lively-enter) var(--lively-spring) var(--lively-delay) backwards,
+    lively-chroma calc(var(--lively-pulse) / 2) steps(1, end) var(--lively-delay);
+}
+${skewed("listEnter")} .${CLASSES.enter} {
+  animation:
+    lively-enter-w var(--lively-enter) var(--lively-spring) var(--lively-delay) backwards,
+    lively-skew-in var(--lively-enter) var(--lively-spring) var(--lively-delay) backwards;
+  animation-composition: replace, add;
+  transform-origin: 0 100%;
+}
+${skewed("listEnter")} .${CLASSES.enter}[${PULSE_ATTRIBUTES.last}] {
+  animation:
+    lively-enter-w var(--lively-enter) var(--lively-spring) var(--lively-delay) backwards,
+    lively-skew-in var(--lively-enter) var(--lively-spring) var(--lively-delay) backwards,
+    lively-chroma calc(var(--lively-pulse) / 2) steps(1, end) var(--lively-delay);
+  animation-composition: replace, add, replace;
+  transform-origin: 0 100%;
 }
 
-/* focusRing: a glow drawn once on a pseudo-element; its opacity moves, and breathes at full level. */
+/* pageEnter: a thread's window eases in when it mounts; wobbly bounces in from the lower right.
+   bb keeps the window mounted across a thread switch, so a switch replays the entrance
+   through a class, under copies of the keyframes (a new name is what restarts a CSS animation). */
+${on("pageEnter")} ${mounted} {
+  animation: lively-page var(--lively-enter) var(--lively-ease-out) backwards;
+}
+${wobbly("pageEnter")} ${mounted} {
+  animation: lively-page-w var(--lively-enter) var(--lively-spring) backwards;
+}
+${on("pageEnter")} ${replayed} {
+  animation: lively-page${AGAIN} var(--lively-enter) var(--lively-ease-out) backwards;
+}
+${wobbly("pageEnter")} ${replayed} {
+  animation: lively-page-w${AGAIN} var(--lively-enter) var(--lively-spring) backwards;
+}
+
+/* pageWipe (either style, full level): ZZZ's slanted, dotted panel sweeps across the
+   thread as it mounts. The slant is a mask, not a skew, so only translate moves; the
+   window already clips its overflow, and positioning it moves none of its children.
+   It runs as long as the entrance, so the replay's one class ends with both. */
+${onFull("pageWipe")} ${is(targets.pageView)} { position: relative; }
+${onFull("pageWipe")} ${is(targets.pageView)}::after {
+  content: "";
+  position: absolute;
+  inset: 0 -40%;
+  z-index: 60;
+  pointer-events: none;
+  background:
+    radial-gradient(circle, color-mix(in oklab, #000 24%, transparent) 1px, transparent 1.5px) 0 0 / 6px 6px,
+    var(--lively-accent);
+  mask: linear-gradient(105deg, transparent 18%, #000 18% 82%, transparent 82%);
+  translate: 140% 0;
+}
+${onFull("pageWipe")} ${mounted}::after {
+  animation: lively-wipe var(--lively-enter) linear backwards;
+}
+${onFull("pageWipe")} ${replayed}::after {
+  animation: lively-wipe${AGAIN} var(--lively-enter) linear backwards;
+}
+
+/* focusRing: a glow drawn once on a pseudo-element; its opacity moves, and breathes at full
+   level. Wobbly: a solid ring snaps in and swells once (ZZZ's tab: cut, then swell). */
 ${on("focusRing")} ${is(targets.focusBox)}::after {
   content: "";
   position: absolute;
@@ -220,8 +422,27 @@ ${on("focusRing")} ${is(targets.focusBox)}:focus-within::after { opacity: 1; }
 ${onFull("focusRing")} ${is(targets.focusBox)}:focus-within::after {
   animation: lively-breathe var(--lively-breathe) var(--lively-ease-out) var(--lively-overlay) infinite alternate;
 }
+${stickered("focusRing")} ${is(targets.focusBox)}::after {
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--lively-accent) 55%, transparent),
+    0 0 calc(var(--lively-glow) * 28px) calc(var(--lively-glow) * 6px) var(--lively-glow-color),
+    var(--lively-sticker) var(--lively-sticker) 0 0 #000;
+}
+${wobbly("focusRing")} ${is(targets.focusBox)}::after {
+  box-shadow: 0 0 0 2px var(--lively-accent);
+  transition: opacity var(--lively-exit) steps(2, end);
+}
+${wobblyStickered("focusRing")} ${is(targets.focusBox)}::after {
+  box-shadow: 0 0 0 2px var(--lively-accent), var(--lively-sticker) var(--lively-sticker) 0 2px #000;
+}
+${wobbly("focusRing")} ${is(targets.focusBox)}:focus-within::after {
+  animation:
+    lively-swell var(--lively-pulse) var(--lively-ease-out),
+    lively-breathe var(--lively-breathe) var(--lively-ease-out) var(--lively-overlay) infinite alternate;
+}
 
-/* sendPulse: a ripple, and at lively and bold a burst of sparks in the accents. */
+/* sendPulse: a ripple, and at lively and bold a burst of sparks in the accents.
+   Wobbly: a halftone comic burst ring, and the icon pops in like a sticker. */
 ${on("sendPulse")} .${CLASSES.send} { position: relative; }
 ${on("sendPulse")} .${CLASSES.send}::after {
   content: "";
@@ -258,12 +479,24 @@ ${on("sendPulse")} .${CLASSES.send}::before {
 ${on("sendPulse")} ${is(targets.sendIcon)} {
   animation: lively-pop var(--lively-overlay) var(--lively-spring) backwards;
 }
+${wobbly("sendPulse")} .${CLASSES.send}::after {
+  inset: -14px;
+  border-radius: 50%;
+  box-shadow: none;
+  background: radial-gradient(circle, var(--lively-accent) 1.4px, transparent 1.8px) 0 0 / 6px 6px;
+  mask: radial-gradient(circle, transparent 38%, #000 40% 62%, transparent 70%);
+  animation: lively-halftone var(--lively-pulse) var(--lively-ease-out);
+}
+${wobbly("sendPulse")} ${is(targets.sendIcon)} {
+  animation: lively-sticker-pop var(--lively-overlay) var(--lively-spring) backwards;
+}
 
-/* statusPulse: two rings in a gradient of the status color, with a soft halo. */
+/* statusPulse: two rings in a gradient of the status color, with a soft halo.
+   Wobbly: the rings land hard once; the row splits into color and swells; a failure shudders. */
 ${on("statusPulse")} .${CLASSES.pulse} { --lively-tone: var(--lively-accent); }
-${on("statusPulse")} .${CLASSES.pulse}[data-lively-tone="success"] { --lively-tone: var(--success, #3ecf8e); }
-${on("statusPulse")} .${CLASSES.pulse}[data-lively-tone="error"] { --lively-tone: var(--destructive, #f2626b); }
-${on("statusPulse")} .${CLASSES.pulse}[data-lively-tone="waiting"] { --lively-tone: var(--attention, var(--warning, #e8c547)); }
+${on("statusPulse")} .${CLASSES.pulse}[${PULSE_ATTRIBUTES.tone}="success"] { --lively-tone: var(--success, #3ecf8e); }
+${on("statusPulse")} .${CLASSES.pulse}[${PULSE_ATTRIBUTES.tone}="error"] { --lively-tone: var(--destructive, #f2626b); }
+${on("statusPulse")} .${CLASSES.pulse}[${PULSE_ATTRIBUTES.tone}="waiting"] { --lively-tone: var(--attention, var(--warning, #e8c547)); }
 ${on("statusPulse")} .${CLASSES.pulse}::after {
   content: "";
   position: absolute;
@@ -288,14 +521,37 @@ ${on("statusPulse")} .${CLASSES.pulse}::before {
   opacity: 0;
   animation: lively-ring var(--lively-pulse) var(--lively-ease-out) 2;
 }
+${wobbly("statusPulse")} .${CLASSES.pulse}::after,
+${wobbly("statusPulse")} .${CLASSES.pulse}::before {
+  animation: lively-ring var(--lively-pulse) var(--lively-snap);
+}
+${wobbly("statusPulse")} .${CLASSES.pulse} {
+  /* Rows are wide in a list that clips sideways: swell and shudder mostly vertically. */
+  --lively-swell-x: 0.33;
+  --lively-squash-k: 0.35;
+  animation:
+    lively-chroma calc(var(--lively-pulse) / 2) steps(1, end),
+    lively-swell var(--lively-pulse) var(--lively-ease-out);
+}
+${wobbly("statusPulse")} .${CLASSES.pulse}[${PULSE_ATTRIBUTES.tone}="error"] {
+  animation:
+    lively-chroma calc(var(--lively-pulse) / 2) steps(1, end),
+    var(--lively-jelly) var(--lively-release) var(--lively-jelly-ease);
+}
 
-/* toastSpring: sonner's transitions are transform, opacity, height, box-shadow, in that order. */
+/* toastSpring: sonner's transitions are transform, opacity, height, box-shadow, in that order.
+   Retimed only (the wobbly spring bounces the slide-in): sonner drives transform and its own
+   swipe animations, so lively never animates a toast. Stickers add a static hard shadow. */
 ${on("toastSpring")} ${is(targets.toast)} {
   transition-duration: var(--lively-enter), var(--lively-overlay), var(--lively-enter), var(--lively-overlay);
   transition-timing-function: var(--lively-spring), var(--lively-ease-out), var(--lively-ease-out), var(--lively-ease-out);
 }
+${stickered("toastSpring")} ${is(targets.toast)} {
+  filter: drop-shadow(var(--lively-sticker) var(--lively-sticker) 0 #000);
+}
 
-/* overlayEnter: retime the host's own enter/exit keyframes through their per-element variables. */
+/* overlayEnter: retime the host's own enter/exit keyframes through their per-element variables.
+   Wobbly opens from a tilt (dialogs half as much) and snaps shut smaller. */
 ${on("overlayEnter")} ${is(targets.overlayOpen)} {
   --tw-duration: var(--lively-overlay);
   --tw-ease: var(--lively-spring);
@@ -311,8 +567,15 @@ ${on("overlayEnter")} ${is(targets.overlayClosed)} {
   --tw-duration: var(--lively-exit);
   --tw-ease: var(--lively-ease-in);
 }
+${wobbly("overlayEnter")} ${is(targets.overlayOpen)} { --tw-enter-rotate: calc(var(--lively-tilt) * 2); }
+${wobbly("overlayEnter")} ${is(targets.dialogOpen)} { --tw-enter-rotate: var(--lively-tilt); }
+${wobbly("overlayEnter")} ${is(targets.overlayClosed)} { --tw-exit-scale: var(--lively-exit-scale); }
+${stickered("overlayEnter")} ${is(targets.overlayOpen)} {
+  filter: drop-shadow(var(--lively-sticker) var(--lively-sticker) 0 var(--lively-accent));
+}
 
-/* toggles */
+/* toggles: switch thumbs ride the spring (wobbly's bounces as it lands); a ticked checkbox
+   pops, and under wobbly pops like a sticker with a flash. */
 ${on("toggles")} ${is(targets.switchThumb)} {
   transition-duration: var(--lively-release);
   transition-timing-function: var(--lively-spring);
@@ -320,10 +583,21 @@ ${on("toggles")} ${is(targets.switchThumb)} {
 ${on("toggles")} .${CLASSES.check} {
   animation: lively-check var(--lively-release) var(--lively-spring) backwards;
 }
+${wobbly("toggles")} .${CLASSES.check} {
+  animation:
+    lively-sticker-pop var(--lively-release) var(--lively-spring) backwards,
+    lively-flash var(--lively-release) var(--lively-ease-out) backwards;
+}
 
-/* workingGlow: the host's working line breathes an accent glow (full level only). */
+/* workingGlow: the host's working line breathes an accent glow (full level only); wobbly
+   also breathes in scale, like a character's idle loop. */
 ${onFull("workingGlow")} ${is(targets.working)} {
   animation: lively-working var(--lively-breathe) var(--lively-ease-out) infinite alternate;
+}
+${wobbly("workingGlow")} ${is(targets.working)} {
+  animation:
+    lively-working var(--lively-breathe) var(--lively-ease-out) infinite alternate,
+    lively-idle var(--lively-breathe) ease-in-out infinite alternate;
 }
 
 /* typingGlow */

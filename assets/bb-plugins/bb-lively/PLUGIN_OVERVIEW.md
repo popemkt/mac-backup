@@ -1,4 +1,5 @@
-Motion for bb on whatever theme you use, from subtle to bold, under one intensity setting.
+Motion for bb on whatever theme you use: an intensity (subtle to bold) and a style (clean or
+wobbly), each one setting.
 
 ## What you get
 
@@ -18,9 +19,28 @@ Motion for bb on whatever theme you use, from subtle to bold, under one intensit
 - Optional: an **accent caret** in the composer, and **calm bb's own motion** under reduced
   motion (bb has no reduced-motion setting of its own).
 
-Presses stay under 100 ms and entrances under 400 ms, everything shares one spring easing,
-moves only position, scale, opacity and blur, and stays out of the way of bbim: while bbim's
-hints are up, nothing moves.
+- Optional: a **page wipe**, ZZZ's slanted, dotted panel sweeping across a thread as you
+  switch to it (off by default: it covers the thread for a moment).
+
+### Wobbly
+
+The **Wobbly** style, after Zenless Zone Zero's UI, changes the shape of every effect rather
+than its volume: things snap in fast, then settle in two or three bounces.
+- Buttons squash while held and wobble back like jelly.
+- New messages slap in from the lower right with a bright flash, skewing in and straightening
+  as they land; the last of a batch splits into color for a frame.
+- Menus spring open from a tilt and snap shut.
+- The send button throws a halftone comic burst, and its icon pops in like a sticker.
+- A status change lands its ring hard, splits into color and swells; a failed thread shudders.
+- The focused composer gets a solid accent ring that snaps in and swells once.
+- Hovered cards tilt, and **sticker shadows** (hard offset shadows) snap in under them and sit
+  under menus and toasts.
+- The working line breathes in scale, like a character idling.
+
+Clean presses stay under 100 ms and everything else under 400 ms. Wobbly lands within 120 ms
+and settles within 560 ms: the feel is the attack, not the tail. Everything moves only
+position, scale, rotation, opacity and filters; the one skew is composited onto bb's own
+positioning and never touches toasts. Nothing moves while bbim's hints are up.
 
 ## Settings
 
@@ -29,6 +49,12 @@ hints are up, nothing moves.
 - **Intensity:** Subtle (the quiet original), Lively, or Bold (the default): more
   overshoot, travel, glow and particles, with every effect scaled together.
   Reduced motion turns any intensity into the same short fades.
+- **Style:** Clean (the default) or Wobbly. Any intensity works with either; Lively suits
+  wobbly for all-day use. Reduced motion turns both into the same short fades.
+- **Skew** (wobbly): arriving messages skew in. On by default.
+- **Sticker shadows:** with wobbly (the default), always (clean too), or off.
+- **Jelly decay** (wobbly): Shared (one jelly shape, the default) or Matched (each intensity
+  wobbles like its own spring, so Bold wobbles longer).
 - **Speed:** Snappy, Normal, Relaxed.
 - One switch per effect.
 
@@ -41,4 +67,5 @@ Optional palettes in Settings → Appearance: **Lively** (warm neutrals, a soft 
 accent) and **Lively Dracula** (bb's Dracula with Lively's rounder corners and springier
 transitions), each with a **Bold** variant that carries the accent further (tinted
 selection, accent focus ring, glowing elevation, rounder corners) to pair with Bold
-intensity. The motion works without any of them.
+intensity. **Lively ZZZ** is near-black with lime and yellow accents and hard offset
+shadows, to pair with Wobbly. The motion works without any of them.

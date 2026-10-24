@@ -29,6 +29,8 @@ export interface Targets {
   readonly toast: string;
   /** Menus, popovers, dialogs while open, animated by the host's own `enter` keyframes. */
   readonly overlayOpen: string;
+  /** The large overlays among `overlayOpen` (dialogs): they tilt half as much under the wobbly style. */
+  readonly dialogOpen: string;
   /** The same while closing (the host's `exit` keyframes). */
   readonly overlayClosed: string;
   /** A switch's moving thumb. */

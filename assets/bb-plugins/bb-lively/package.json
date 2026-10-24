@@ -2,7 +2,7 @@
   "name": "bb-plugin-bb-lively",
   "version": "0.1.0",
   "private": true,
-  "description": "bb plugin: a motion layer of micro-interactions for bb at three intensities, honouring reduced motion, plus Lively palette themes.",
+  "description": "bb plugin: a motion layer of micro-interactions for bb at three intensities and two styles, honouring reduced motion, plus Lively palette themes.",
   "type": "module",
   "engines": {
     "bb": ">=0.46",
@@ -10,7 +10,7 @@
   },
   "bb": {
     "name": "Lively [Experimental]",
-    "description": "Motion for bb on any theme, from subtle to bold: springy presses, new messages rising in, menu springs, a send burst, status rings, breathing glows. One intensity setting; follows your OS reduced-motion setting. Plus optional Lively palettes.",
+    "description": "Motion for bb on any theme, subtle to bold, clean or wobbly (Zenless Zone Zero-style): springy presses, new messages rising in, menu springs, a send burst, status rings, breathing glows. Follows your OS reduced-motion setting. Plus optional Lively palettes, Lively ZZZ among them.",
     "branding": {
       "icon": "Palette"
     },
@@ -40,6 +40,12 @@
         "name": "Lively Dracula Bold",
         "description": "Lively Dracula with the accent turned up: tinted selection, accent focus and glowing elevation",
         "css": "./themes/lively-dracula-bold.css"
+      },
+      {
+        "id": "lively-zzz",
+        "name": "Lively ZZZ",
+        "description": "After Zenless Zone Zero: near-black with lime and yellow accents and hard offset sticker shadows; pairs with the Wobbly style",
+        "css": "./themes/lively-zzz.css"
       }
     ]
   },

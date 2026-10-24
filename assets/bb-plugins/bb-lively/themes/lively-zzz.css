@@ -1,0 +1,73 @@
+/*
+ * Lively ZZZ: after Zenless Zone Zero's menus (docs/research/2026-10-24-bb-lively-zzz-wobble.md
+ * §3.6). Near-black, lime for "selected" and yellow for "pressed", orange and red for events,
+ * and hard offset shadows instead of soft elevation, so raised things read as stickers.
+ * Colors are sampled from measured frames of the game's UI. A palette theme only (tokens):
+ * it pairs with the motion layer's Wobbly style but does not need it. Fonts are left alone.
+ *
+ * ZZZ is dark; the light variant keeps the same voice on paper (off-white, black ink, a
+ * darker lime that reads on it). Contrast (WCAG): dark ink 17.2:1, lime 14.7:1, yellow
+ * 13.8:1 on the canvas; light ink 16.7:1, primary 5.3:1, white on primary 6.1:1.
+ */
+:root, .light {
+  --canvas: #f1efe6;
+  --ink: #0e0e10;
+  --primary: #4f6b00;
+  --primary-foreground: #ffffff;
+  --timeline-accent: #806a00;
+  --file-accent: var(--timeline-accent);
+  --destructive: #c42a1f;
+  --destructive-text: #a8231a;
+  --warning: #b35a00;
+  --warning-text: #8c4600;
+  --attention: #806a00;
+  --success: #2a7a2a;
+  --diff-added: #2a7a2a;
+  --diff-removed: #c42a1f;
+  --pr-merged: #4f6b00;
+  --ring: var(--primary);
+
+  --radius: 0.75rem;
+  --shadow-xs: 1px 1px 0 0 #0e0e10;
+  --shadow-sm: 2px 2px 0 0 #0e0e10;
+  --shadow-md: 3px 3px 0 0 #0e0e10;
+  --shadow-lg: 4px 4px 0 0 #0e0e10;
+  --shadow-xl: 6px 6px 0 0 #0e0e10;
+  --shadow-lift: 4px 4px 0 0 #0e0e10;
+  /* The snap: most of the way at once, then dead still (ZZZ's tab cut). */
+  --default-transition-duration: 120ms;
+  --default-transition-timing-function: linear(0, 0.62 12%, 0.94 24%, 1 30%, 1);
+  --ease-out: linear(0, 0.62 12%, 0.94 24%, 1 30%, 1);
+}
+
+.dark {
+  --canvas: #0e0e10;
+  --ink: #f3f2ec;
+  --primary: #c8f031;
+  --primary-foreground: #0e0e10;
+  --timeline-accent: #f7da00;
+  --file-accent: var(--timeline-accent);
+  --destructive: #ff4b3e;
+  --destructive-text: #ff6b60;
+  --warning: #ff8a1f;
+  --warning-text: #ff8a1f;
+  --attention: #f7da00;
+  --success: #6bf06b;
+  --diff-added: #6bf06b;
+  --diff-removed: #ff4b3e;
+  --pr-merged: #c8f031;
+  --ring: var(--primary);
+  /* The CRT bezel grey, and accent-tinted selection. */
+  --border: #34363c;
+  --input: #34363c;
+  --surface-selected: color-mix(in oklch, var(--primary) 14%, var(--canvas));
+  --state-active: color-mix(in oklch, var(--primary) 16%, var(--canvas));
+  --sidebar: #0b0b0d;
+  --sidebar-accent: color-mix(in oklch, var(--primary) 10%, var(--sidebar));
+  --shadow-xs: 1px 1px 0 0 #000000;
+  --shadow-sm: 2px 2px 0 0 #000000;
+  --shadow-md: 3px 3px 0 0 #000000;
+  --shadow-lg: 4px 4px 0 0 #000000;
+  --shadow-xl: 6px 6px 0 0 #000000;
+  --shadow-lift: 4px 4px 0 0 #000000;
+}

@@ -1,7 +1,7 @@
 # @popemkt/bb-lively-core
 
 A motion layer for any web app: presses, list arrivals, overlay springs, send and status
-pulses, a focus glow, page entrances, a working-state glow, at three intensities. It knows no host: the host passes a `Targets` object (one CSS
+pulses, a focus glow, page entrances, a working-state glow, at three intensities and two styles (clean, and a Zenless Zone Zero-style wobbly). It knows no host: the host passes a `Targets` object (one CSS
 selector per role, plus the attributes that pause it). The bb plugin next door
 (`../adapter`) is one host.
 
