@@ -31,6 +31,9 @@ in
       # socket come from the bb server's KB_URL and KB_SOCKET, set where
       # a host places both.
       "assets/bb-plugins/kb"
+      # Threads a host daemon restart or lost connection interrupted get a
+      # short continuation message, at most 3 in a row per thread.
+      "assets/bb-plugins/restart-resume"
     ];
 
     # No anonymous usage telemetry (PostHog) from any bb server or host

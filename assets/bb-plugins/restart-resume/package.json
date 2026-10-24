@@ -1,0 +1,31 @@
+{
+  "name": "bb-plugin-restart-resume",
+  "version": "0.1.0",
+  "private": true,
+  "description": "bb plugin: continue threads that a bb restart interrupted, by sending each a short continuation message.",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.46",
+    "bbPluginSdk": ">=0.6.49"
+  },
+  "bb": {
+    "name": "Restart resume",
+    "description": "Continue threads interrupted because their machine's bb daemon restarted or lost its connection: each gets a short message to carry on, at most 3 times in a row.",
+    "branding": {
+      "icon": "ArrowReloadHorizontal"
+    },
+    "server": "./server.ts"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.49",
+    "@types/node": "^22.0.0",
+    "oxlint": "1.83.0",
+    "typescript": "^5.7.0"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "lint": "oxlint server.ts core tests",
+    "test": "node --test tests/*.test.ts",
+    "verify": "npm run typecheck && npm run lint && npm test && bb plugin build"
+  }
+}

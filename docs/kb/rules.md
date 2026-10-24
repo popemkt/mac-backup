@@ -96,6 +96,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A per-source provenance declaration in nvfetcher.toml (passthru, so nvfetcher carries it into generated.json), and verify running gh attestation verify on each declared artifact, with gh and an auth token in the flake app and the CI step
 - **node** — `01M56X1F1XG657D70A8804PEQY`
 
+### GAP: restart-resume is not yet verified against a live daemon restart
+
+- **expected** — After a host daemon restart, each thread interrupted with host-daemon-restarted gets one continuation message from the restart-resume bb plugin, resumes its provider session, and stops after 3 in a row
+- **current** — Unit-tested only (policy and resumer against an in-memory bb); the SDK and cause names were read from bb 0.46.1 start-server.js, but no restart has run with the plugin installed
+- **impact** — A wrong assumption about event order, thread.failed delivery or send on an error thread would leave interrupted threads stopped, as before the plugin
+- **closes** — The live test in assets/bb-plugins/restart-resume/README.md, run on shared-server when the owner allows a daemon restart
+- **node** — `01M5P0X2VEQBNFPQ2GKKP316MN`
+
 ### GAP: retire Homebrew Bun after switching to Nix
 
 - **expected** — The flake-pinned Nix Bun is the only installed Bun runtime.
