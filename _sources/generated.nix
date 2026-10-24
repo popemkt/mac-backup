@@ -40,10 +40,10 @@
   };
   kb = {
     pname = "kb";
-    version = "0.3.1-nightly.20261024121106";
+    version = "0.3.1-nightly.20261024191320";
     src = fetchurl {
-      url = "https://github.com/popemkt/kb/releases/download/v0.3.1-nightly.20261024121106/kb-0.3.1-nightly.20261024121106.tar.gz";
-      sha256 = "sha256-FWM698V2n0H88W3S/5cJLfOB3a7KHKDEht7z5jXLCoY=";
+      url = "https://github.com/popemkt/kb/releases/download/v0.3.1-nightly.20261024191320/kb-0.3.1-nightly.20261024191320.tar.gz";
+      sha256 = "sha256-ARoKG6gaR+07CiyiftCaErylnz7QdTE5s7JYMMmh1Po=";
     };
   };
   logseq = {
