@@ -196,14 +196,17 @@
       environment.BB_APP_URL = config.my.stacks.vpn.services.bb-popemkt.publicOrigin;
       # A daemon restart cuts every thread on this machine off ("host daemon
       # disconnected"). Neither a rebuild nor an upgrade restarts it until no
-      # thread, hidden ones included, is running a turn, a background agent,
-      # a background command, or a workflow. If bb cannot answer, it counts
-      # as busy.
+      # thread on this machine, hidden ones included, is running a turn, a
+      # background agent, a background command, or a workflow. Threads on
+      # other machines (the Macs' own daemons) only see the server blink, so
+      # they do not count. If bb or the host id cannot answer, it counts as
+      # busy.
       # GAP [[01M5P0D3VP9RXH16D7VJV282BT]]: it asks the server, so a daemon
       # the server cannot see (down) never counts as idle.
       idleCheck = ''
-        bb thread list --include-hidden --json | jq -e '
-          type == "array" and all(.[];
+        host=$(cat "$HOME/.bb/host-id") && [ -n "$host" ] || exit 1
+        bb thread list --include-hidden --json | jq -e --arg host "$host" '
+          type == "array" and all(.[] | select(.environmentHostId == $host);
             .status != "active"
             and ([.activity // {} | (.activeBackgroundAgentCount, .activeBackgroundCommandCount, .activeWorkflowCount) // 0] | add) == 0)
         ' >/dev/null
