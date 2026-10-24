@@ -43,6 +43,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — An idle check that also asks the daemon itself (its local API on 127.0.0.1:38887) or treats a disconnected daemon as idle; or an upstream bb way to list a daemon's running work
 - **node** — `01M5P0D3VP9RXH16D7VJV282BT`
 
+### GAP: bb's SDK cannot keep a thread panel tab mounted, so the kb plugin hoists its frames into an app overlay
+
+- **expected** — A threadPanelAction can ask bb to keep its tab mounted (hidden, not unmounted) across thread switches and while inactive, or bb offers a window-level panel host, so a plugin's iframe survives without positioning tricks.
+- **current** — bb 0.46 renders only the active panel tab and keys each plugin tab by thread (mount key thread/<id>/<tab>), so a switch destroys the tab. The kb plugin keeps one frame per recently shown thread (three) in an experimental_appOverlay (assets/bb-plugins/kb/frames.tsx) and positions it, fixed, over the tab's placeholder every animation frame; hidden frames are visibility:hidden and inert.
+- **impact** — Depends on an experimental slot; the frame follows its place one animation frame late during panel resizes and moves; z-index 40 is a guess at bb's stacking (above the thread view, below z-50 popovers); a fourth thread evicts the least recently shown kb tab.
+- **closes** — bb ships a keep-mounted option for threadPanelAction (or a stable per-window panel host); then KbPanel renders its frame directly again and frames.tsx goes.
+- **node** — `01M5QN6PKBQ5YE4FNB1PYPXR92`
+
 ### GAP: bbim's Browser-tab page bridge is not verified in bb desktop itself
 
 - **expected** — alt+f in a bb desktop Browser tab labels the page and a pick clicks there, checked in the app

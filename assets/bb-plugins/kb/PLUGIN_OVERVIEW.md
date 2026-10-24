@@ -3,7 +3,9 @@ Keep your kb open beside the conversation, and let the agent work in it.
 ## What you get
 
 - A **kb** tab in a thread's side panel (the header's network button, or the panel's Actions list) showing
-  your kb page. A dot in its bar says whether the agent works in this tab.
+  your kb page. A dot in its bar says whether the agent works in this tab. Each thread keeps its own kb tab
+  alive while you switch between threads (the three most recent), so coming back is instant and kb is
+  where you left it.
 - Agent tools that act in that tab while it is open:
   - `kb_call` invokes any kb action. Inputs kb fills from the tab may be left out: "rename this" renames the
     node you have focused, a canvas verb acts on the canvas you have open and the items you selected. The
