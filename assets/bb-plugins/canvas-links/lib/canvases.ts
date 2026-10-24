@@ -2,9 +2,13 @@
 // threads a row links to, and "edited 3h ago". The link rules themselves (merge, scopes, resolution) live in the
 // canvas-link CLI (modules/stacks/ai-agents/canvas-links/cli); this file only reads its answer. Rows are drawn,
 // searched and dated as the kb canvases panel's are (assets/bb-plugins/linked-items).
-import { SCOPES, type LinkRow, type Scope } from "../../linked-items/rows.ts";
+import type { LinkRow, Scope } from "../../linked-items/rows.ts";
 
 export type { Scope };
+// GAP [[01M5QJFW217ZNBXHEX74VG7VYP]]: bb's server build rejects a runtime import from outside the plugin folder
+// ("server source import escapes the plugin directory"), so server code imports ../linked-items for types only
+// (erased before bundling) and keeps its own copy of the scope list. The client build bundles it fine.
+export const SCOPES = ["session", "project", "all"] as const satisfies readonly Scope[];
 
 export type Session = { harness: string; id: string | null };
 export type Project = { remote: string | null; root: string | null };
