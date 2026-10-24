@@ -32,7 +32,7 @@ the page URL. Nothing but the session crosses the frame.
 |---|---|---|
 | `url` | the server's `KB_URL` | The kb page the panel frames. |
 | `socket` | the server's `KB_SOCKET` | kb ui's Unix socket the tools call through; else the page URL. |
-| `autoOpen` | `false` | Open the panel beside each thread the first time a window shows it. |
+| `autoOpen` | `true` | Open the panel beside each thread the first time a window shows it. |
 
 On shared-server, `hosts/shared-server/default.nix` sets `KB_URL` and `KB_SOCKET` in bb's environment and
 names bb's origin in kb's `--embed-origin`, so the plugin needs no configuration there.

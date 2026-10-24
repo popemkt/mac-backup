@@ -1,4 +1,9 @@
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 # bb on NixOS: the `bb-app` launcher and the `bb` CLI from npm, so they track
 # the latest release. Its native add-ons (better-sqlite3, node-pty,
@@ -18,5 +23,10 @@
 
     # Installed per user by the npm executor (modules/common/home-manager/npm-global.nix).
     my.pkgs.npmGlobals = [ "bb-app" ];
+
+    # The Chrome bb's built-in browser-automation plugin drives for local and
+    # headless sessions: it looks for `chromium` on its server's PATH, which
+    # includes the system profile. The Macs have the desktop browser.
+    environment.systemPackages = [ pkgs.chromium ];
   };
 }

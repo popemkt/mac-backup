@@ -101,7 +101,7 @@ export default async function plugin(bb: BbPluginApi) {
       type: "boolean",
       label: "Open with each thread",
       description: "Open the kb panel beside a thread when it is shown (once per thread in each window).",
-      default: false,
+      default: true,
     },
   });
 

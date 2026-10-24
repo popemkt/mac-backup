@@ -12,7 +12,7 @@ Keep your kb open beside the conversation, and let the agent work in it.
   - `kb_manifest` lists kb's actions, and what each can take from the tab.
 - With no kb tab open, the same tools still work, with every input given: the agent gets the work done
   without depending on your screen.
-- **Open with each thread** (off by default) opens the tab beside every thread you open.
+- **Open with each thread** (on by default) opens the tab beside every thread you open; closing the tab keeps it closed until the window reloads.
 
 ## Requirements
 
