@@ -59,6 +59,7 @@ export const TARGETS: Targets = {
   statusRow: ".thread",
   toast: ".toast",
   overlayOpen: '[role=menu][data-state="open"]',
+  dialogOpen: '[role=dialog][data-state="open"]',
   overlayClosed: '[role=menu][data-state="closed"]',
   switchThumb: "[role=switch] > span",
   checkbox: "[role=checkbox]",

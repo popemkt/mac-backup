@@ -1,16 +1,18 @@
 // The pure domain: effects, settings, the motion system and policy. No DOM.
 export { EFFECT_IDS, EffectId, type EffectInfo, EFFECTS, effectAttribute } from "./effects.ts";
 export {
-  DEFAULT_STYLE,
+  BUDGETS,
+  type DurationBudget,
   exitEasing,
   INTENSITIES,
   Intensity,
+  jellyCoefficients,
   landsAt,
-  MAX_ONCE_MS,
-  MAX_PRESS_MS,
   MOTION_TOKENS,
   motionTokens,
   type MotionTokens,
+  SNAP_LANDS_AT,
+  snapEasing,
   type Spring,
   springEasing,
   springPoints,
@@ -20,6 +22,8 @@ export {
 export {
   DEFAULT_SETTINGS,
   decodeSettings,
+  JELLY_MODES,
+  JellyMode,
   MOTION_MODES,
   MotionMode,
   type Settings,
@@ -28,6 +32,8 @@ export {
   Speed,
   SPEED_FACTOR,
   SPEEDS,
+  STICKER_MODES,
+  StickerMode,
 } from "./settings.ts";
 export {
   MAX_CONCURRENT_ENTERS,

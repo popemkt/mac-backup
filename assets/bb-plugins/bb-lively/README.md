@@ -1,6 +1,6 @@
 # bb-plugin-bb-lively
 
-A motion layer (three intensities) and four palette themes for bb. See [PLUGIN_OVERVIEW.md](PLUGIN_OVERVIEW.md)
+A motion layer (three intensities × two styles) and five palette themes for bb. See [PLUGIN_OVERVIEW.md](PLUGIN_OVERVIEW.md)
 for what a person gets, [core/README.md](core/README.md) for the engine, and the design in
 [docs/research/2026-10-24-bb-theming-feasibility.md](../../../docs/research/2026-10-24-bb-theming-feasibility.md).
 
@@ -14,7 +14,7 @@ for what a person gets, [core/README.md](core/README.md) for the engine, and the
 | `adapter/bb.ts` | Mounting, sends, sidebar indicator → pulse tone, and the canary for the settings page. |
 | `app.tsx` | The `motion` content script; a headless app overlay for settings and one for `experimental_useSidebarThreads` (feature-detected); an invisible composer action for `useComposer().onSubmitted` and the accent caret (`setTextEffect`); the selector-health settings section. |
 | `server.ts` | `bb.settings.define`. |
-| `themes/` | `lively.css`, `lively-dracula.css` and their `-bold` variants (manifest `bb.themes`): tokens only, no motion. A bold file is its base palette copied plus a Bold block at the end (one theme is active at a time, so it cannot import the base): keep each pair in step. |
+| `themes/` | `lively.css`, `lively-dracula.css`, their `-bold` variants and `lively-zzz.css` (manifest `bb.themes`): tokens only, no motion. A bold file is its base palette copied plus a Bold block at the end (one theme is active at a time, so it cannot import the base): keep each pair in step. |
 | `skills/bb-lively/` | Tells agents what lively does, its settings, and how to report a broken selector. |
 | `tests/` | Adapter tests, and `fixtures/bb-0.46.1.html`: bb's markup captured from the web UI (structure and attributes only) that `selectors.test.ts` runs the table against. |
 
@@ -31,9 +31,20 @@ for what a person gets, [core/README.md](core/README.md) for the engine, and the
   `--lively-*` custom properties under `:root[data-lively-intensity=...]`; effect rules use
   only those, never a number of their own (the stylesheet test enforces it). Presses stay
   at most 100 ms and anything that runs once at most 400 ms. Tokens are keyed by
-  (style, intensity): `clean` is the only style today (`data-lively-style`), and the spring
-  takes a `bounces` count, so a bouncier style is a new row of tokens, not a rewrite; such a
-  style would budget its time to land (`landsAt`) and its total separately.
+  (style, intensity). `wobbly` (the ZZZ style, docs/research/2026-10-24-bb-lively-zzz-wobble.md)
+  is a second row of tokens with an earlier first peak (`peakAt`) and the style tokens
+  `squash`, `skew`, `tilt`, `sticker`, `swell`, `flash` and `chroma`, all at rest in `clean`.
+  Budgets are per style (`BUDGETS`): clean keeps its caps (presses 100 ms, the rest 400 ms);
+  wobbly caps the time to land (`landsAt`) at 120 ms and the total at 560 ms.
+- **Two styles, one set of effects.** Each effect's wobbly variant is a second rule scoped to
+  `:root[data-lively="full"][data-lively-style="wobbly"]`, which outweighs the clean rule and
+  never runs under reduced motion. `data-lively-skew="on"`, `data-lively-stickers="on"` and
+  `data-lively-jelly="matched"` carry the style's settings. The skew-in is the only
+  `transform` keyframe and runs only with `animation-composition: add`, onto the row's own
+  transform, never on toasts (the stylesheet test enforces both). The page wipe slants with a
+  mask and moves by `translate` only; it sets `position: relative` on the thread window, which
+  moves none of its children (checked live: no absolutely positioned descendant used an
+  outer containing block).
 - **One easing family.** Every entrance uses a spring generated as CSS `linear()` from a
   damped oscillator whose peak is the intensity's overshoot; overshoot 0 is the plain
   ease-out, and exits use its mirrored ease-in.
@@ -58,7 +69,9 @@ for what a person gets, [core/README.md](core/README.md) for the engine, and the
 ## Effects held back
 
 Thread transitions and the working glow, held back in v1, now ship: bb mounts
-`[data-thread-window]` per thread and split pane, and the "Working..." line is bb's named
+`[data-thread-window]` per split pane and keeps it mounted across a thread switch, so a
+switch (a path change, seen through the Navigation API and `popstate`) replays the entrance
+with a class; the "Working..." line is bb's named
 `.animate-shine`. From the design's list, the fragile ones (rated H) are still left out
 rather than shipped off: copy-button feedback,
 mention-chip pop-in, the undo-countdown toast bar, pin-to-top (needs FLIP, i.e. layout

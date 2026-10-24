@@ -8,10 +8,9 @@ import {
   EFFECTS,
   effectAttribute,
   INTENSITIES,
+  jellyCoefficients,
   landsAt,
   MOTION_TOKENS,
-  MAX_ONCE_MS,
-  MAX_PRESS_MS,
   REDUCED_TOKENS,
   resolveMotion,
   type Settings,
@@ -88,6 +87,8 @@ test("defaults: motion follows the system; the experimental-feeling ones start o
   assert.equal(DEFAULT_SETTINGS.motion, "system");
   assert.equal(DEFAULT_SETTINGS.speed, "normal");
   assert.equal(DEFAULT_SETTINGS.intensity, "bold");
+  assert.deepEqual([DEFAULT_SETTINGS.style, DEFAULT_SETTINGS.skew, DEFAULT_SETTINGS.stickers, DEFAULT_SETTINGS.jelly], ["clean", true, "wobbly", "shared"]);
+  assert.equal(DEFAULT_SETTINGS.effects.pageWipe, false);
   assert.equal(DEFAULT_SETTINGS.effects.typingGlow, false);
   assert.equal(DEFAULT_SETTINGS.effects.calmHost, false);
 });
@@ -101,12 +102,14 @@ test("intensity: the one volume knob scales every token the same way", () => {
   for (const key of ["pressScale", "overlayScale"] as const) assert.ok(subtle[key] >= lively[key] && lively[key] >= bold[key], key);
 });
 
-test("intensity: presses stay snappy; nothing that runs once outlasts an entrance", () => {
-  for (const intensity of INTENSITIES) {
-    const tokens = MOTION_TOKENS.clean[intensity];
-    assert.ok(tokens.pressMs <= MAX_PRESS_MS, intensity);
-    for (const ms of [tokens.releaseMs, tokens.enterMs, tokens.overlayMs, tokens.exitMs, tokens.pulseMs]) assert.ok(ms <= MAX_ONCE_MS, `${intensity} ${ms}`);
+test("intensity scales the wobbly style the same way: more bounce, squash, skew, tilt, sticker, swell, flash, chroma", () => {
+  const [subtle, lively, bold] = INTENSITIES.map((intensity) => MOTION_TOKENS.wobbly[intensity]);
+  assert.ok(subtle && lively && bold);
+  for (const key of ["enterMs", "overlayMs", "overshoot", "rise", "squash", "sticker", "swell", "flash", "chroma"] as const) {
+    assert.ok(subtle[key] < lively[key] && lively[key] < bold[key], key);
   }
+  // Skew and tilt lean left: larger in magnitude, so more negative. The attack quickens.
+  for (const key of ["skew", "tilt", "peakAt", "pressScale", "overlayScale"] as const) assert.ok(subtle[key] > lively[key] && lively[key] > bold[key], key);
 });
 
 test("subtle is v1: the same numbers lively shipped first", () => {
@@ -139,14 +142,59 @@ test("reduced collapses every intensity to fades; the policy carries the intensi
   assert.equal(tokensFor(full).enterMs, MOTION_TOKENS.clean.bold.enterMs * 0.8);
 });
 
-test("the style axis: clean bounces once and lands at its peak; more bounces land sooner and still rest at 1", () => {
+/** Local maxima above 1: the visible overshoots of a spring. */
+const swings = (points: ReadonlyArray<number>) =>
+  points.filter((point, index) => index > 0 && point > 1.001 && point >= (points[index - 1] ?? 0) && point >= (points[index + 1] ?? Infinity)).length;
+
+test("the style axis: clean has no style tokens and swings once; wobbly attacks sooner and swings two or three times", () => {
   for (const intensity of INTENSITIES) {
-    const tokens = MOTION_TOKENS.clean[intensity];
-    assert.equal(tokens.bounces, 1);
-    assert.ok(landsAt(tokens) <= 0.4, `${intensity}: ${landsAt(tokens)}`);
+    const clean = MOTION_TOKENS.clean[intensity];
+    assert.deepEqual([clean.peakAt, clean.squash, clean.skew, clean.tilt, clean.swell, clean.flash, clean.chroma], [0.4, 0, 0, 0, 0, 0, 0]);
+    assert.equal(swings(springPoints(clean, 400)), 1, intensity);
+    const wobbly = MOTION_TOKENS.wobbly[intensity];
+    const points = springPoints(wobbly, 400);
+    assert.equal(points.at(-1), 1);
+    assert.ok(Math.abs(Math.max(...points) - 1 - wobbly.overshoot) < 0.01, `${intensity}: ${Math.max(...points)}`);
+    assert.ok(landsAt(wobbly) < landsAt(clean), intensity);
+    assert.equal(wobbly.blur, 0, "ZZZ edges are hard: no blur-in");
   }
-  const wobbly = { overshoot: 0.16, bounces: 3 };
-  assert.ok(landsAt(wobbly) < landsAt({ overshoot: 0.16 }));
-  assert.equal(springPoints(wobbly).at(-1), 1);
-  assert.ok(Math.abs(Math.max(...springPoints(wobbly, 400)) - 1.16) < 0.01);
+  assert.ok(swings(springPoints(MOTION_TOKENS.wobbly.subtle, 400)) >= 1);
+  assert.ok(swings(springPoints(MOTION_TOKENS.wobbly.lively, 400)) >= 2);
+  assert.ok(swings(springPoints(MOTION_TOKENS.wobbly.bold, 400)) >= 3);
+  // Clean's curve is what it was before styles existed: 24 points, one overshoot.
+  assert.equal(springPoints(MOTION_TOKENS.clean.bold).length, 25);
+});
+
+test("jelly: the swings of the matching spring, each -overshoot times the last", () => {
+  assert.deepEqual(jellyCoefficients(0.3), [1, -0.3, 0.09, -0.027]);
+});
+
+test("the policy resolves skew, stickers and jelly from the style", () => {
+  const wobbly: Settings = { ...DEFAULT_SETTINGS, motion: "full", style: "wobbly" };
+  const full = resolveMotion(wobbly, false);
+  assert.deepEqual([full.style, full.skew, full.stickers, full.jelly], ["wobbly", true, true, "shared"]);
+  assert.equal(tokensFor(full).squash, MOTION_TOKENS.wobbly.bold.squash);
+  assert.equal(resolveMotion({ ...wobbly, skew: false }, false).skew, false);
+  // Under reduced, no skew; stickers stay (paint, not motion); every style token is 0.
+  const reduced = resolveMotion({ ...wobbly, motion: "reduced" }, false);
+  assert.deepEqual([reduced.skew, reduced.stickers], [false, true]);
+  const calm = tokensFor(reduced);
+  assert.deepEqual([calm.squash, calm.skew, calm.tilt, calm.swell, calm.flash, calm.chroma, calm.overshoot], [0, 0, 0, 0, 0, 0, 0]);
+  // Stickers: with wobbly by default, always on request, never when off; never with motion off.
+  const clean = { ...DEFAULT_SETTINGS, motion: "full" } as const;
+  assert.equal(resolveMotion(clean, false).stickers, false);
+  assert.equal(resolveMotion({ ...clean, stickers: "always" }, false).stickers, true);
+  assert.equal(resolveMotion({ ...wobbly, stickers: "off" }, false).stickers, false);
+  assert.equal(resolveMotion({ ...wobbly, motion: "off" }, false).stickers, false);
+  // Clean never skews, whatever the switch says.
+  assert.equal(resolveMotion({ ...clean, skew: true }, false).skew, false);
+});
+
+test("the style settings decode, and bad values fall back with a problem", () => {
+  const { settings, problems } = decodeSettings({ style: "wobbly", skew: false, stickers: "always", jelly: "matched" });
+  assert.deepEqual([settings.style, settings.skew, settings.stickers, settings.jelly], ["wobbly", false, "always", "matched"]);
+  assert.deepEqual(problems, []);
+  const bad = decodeSettings({ style: "jelly", skew: "yes", stickers: 3, jelly: "wobbly" });
+  assert.deepEqual([bad.settings.style, bad.settings.skew, bad.settings.stickers, bad.settings.jelly], ["clean", true, "wobbly", "shared"]);
+  assert.deepEqual(bad.problems.map((problem) => problem.field), ["style", "skew", "stickers", "jelly"]);
 });

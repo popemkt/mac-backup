@@ -114,6 +114,13 @@ export const SELECTORS = {
     where: "an open menu, popover or dialog",
     purpose: "overlayEnter: retimes their enter",
   },
+  dialogOpen: {
+    selector: ':is([role="dialog"], [role="alertdialog"])[data-state="open"]',
+    rating: "M",
+    verified: SOURCE,
+    where: "an open dialog",
+    purpose: "overlayEnter: under the wobbly style, dialogs tilt half as much as menus",
+  },
   overlayClosed: {
     selector: `:is(${OVERLAY_CONTENT})[data-state="closed"]`,
     rating: "M",
@@ -139,7 +146,7 @@ export const SELECTORS = {
     selector: "[data-thread-window]",
     rating: "M",
     verified: LIVE,
-    where: "an open thread (it mounts fresh per thread and per split pane)",
+    where: "an open thread (mounts per split pane; stays mounted across a thread switch)",
     purpose: "pageEnter: the thread view that eases in",
   },
   working: {
@@ -188,6 +195,7 @@ export const BB_TARGETS: Targets = {
   statusRow: SELECTORS.statusRow.selector,
   toast: SELECTORS.toast.selector,
   overlayOpen: SELECTORS.overlayOpen.selector,
+  dialogOpen: SELECTORS.dialogOpen.selector,
   overlayClosed: SELECTORS.overlayClosed.selector,
   switchThumb: SELECTORS.switchThumb.selector,
   checkbox: SELECTORS.checkbox.selector,

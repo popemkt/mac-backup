@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { effectAttribute } from "../src/domain/index.ts";
 import { createLively, type Lively, STYLE_ATTRIBUTE } from "../src/dom/lively.ts";
-import { CLASSES, ROOT_ATTRIBUTES } from "../src/dom/stylesheet.ts";
+import { CLASSES, PAGE_REPLAYED, ROOT_ATTRIBUTES } from "../src/dom/stylesheet.ts";
 import { page, type Page, rowHtml, TARGETS } from "./harness.ts";
 
 let cleanup: Array<() => void> = [];
@@ -66,6 +66,44 @@ test("settings: off clears the root; an effect switched off loses its attribute;
   assert.ok(p.root.hasAttribute(effectAttribute("hoverLift")));
 });
 
+test("style: wobbly writes its style, skew, stickers and jelly; clean writes none of the extras", () => {
+  const { p, lively } = mounted();
+  assert.ok(!p.root.hasAttribute("data-lively-skew") && !p.root.hasAttribute("data-lively-stickers") && !p.root.hasAttribute("data-lively-jelly"));
+  lively.setSettings({ motion: "full", style: "wobbly", jelly: "matched", effects: { pageWipe: true } });
+  assert.equal(p.root.getAttribute("data-lively-style"), "wobbly");
+  assert.equal(p.root.getAttribute("data-lively-skew"), "on");
+  assert.equal(p.root.getAttribute("data-lively-stickers"), "on");
+  assert.equal(p.root.getAttribute("data-lively-jelly"), "matched");
+  assert.ok(p.root.hasAttribute(effectAttribute("pageWipe")));
+  lively.setSettings({ motion: "reduced", style: "wobbly" });
+  assert.ok(!p.root.hasAttribute("data-lively-skew"), "no skew under reduced motion");
+  assert.equal(p.root.getAttribute("data-lively-stickers"), "on", "stickers are paint, not motion");
+  assert.ok(!p.root.hasAttribute(effectAttribute("pageWipe")), "the wipe is off under reduced motion");
+  lively.setSettings({ motion: "full", style: "clean", stickers: "always" });
+  assert.equal(p.root.getAttribute("data-lively-stickers"), "on");
+  assert.ok(!p.root.hasAttribute("data-lively-skew"));
+});
+
+test("a thread switch replays the page entrance on the window that stayed mounted", () => {
+  const { p, lively, controller } = mounted(`<div class="page"></div>`);
+  const view = p.doc.querySelector(".page") as Element;
+  const navigate = (to: string) => {
+    p.win.history.pushState({}, "", to);
+    p.win.dispatchEvent(new p.win.PopStateEvent("popstate"));
+  };
+  p.win.dispatchEvent(new p.win.PopStateEvent("popstate"));
+  assert.ok(!view.classList.contains(CLASSES.page), "the same path is no switch");
+  navigate("/threads/other");
+  assert.ok(view.classList.contains(CLASSES.page));
+  assert.ok(view.hasAttribute(PAGE_REPLAYED), "the mount rule stops matching for good");
+  lively.setSettings({ effects: { pageEnter: false } });
+  view.classList.remove(CLASSES.page);
+  navigate("/threads/third");
+  assert.ok(!view.classList.contains(CLASSES.page), "nothing replays with both page effects off");
+  controller.abort();
+  assert.ok(!view.hasAttribute(PAGE_REPLAYED));
+});
+
 test("system mode follows a live change of the OS preference", () => {
   const { p, lively } = mounted();
   p.setReducedMotion(true);
@@ -124,6 +162,11 @@ test("listEnter: at most 4 rows animate at once, staggered; more than 4 at once 
   assert.deepEqual(
     [...p.doc.querySelectorAll(`.${CLASSES.enter}`)].map((row) => row.getAttribute("data-lively-stagger")),
     ["0", "1", "2"],
+  );
+  assert.deepEqual(
+    [...p.doc.querySelectorAll("[data-lively-last]")].map((row) => row.getAttribute("data-id")),
+    ["n5"],
+    "the last row of the batch is marked",
   );
   append(p, "n6", 6);
   append(p, "n7", 7);
