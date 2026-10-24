@@ -59,6 +59,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Install the plugin on a bb server, compose and spawn on thr_5kgr5arqw3's project, and record the result in the research doc.
 - **node** — `01M5QKD89DMW3BR5RS6SYZD3RJ`
 
+### GAP: kb canvas links see only the kb the plugin serves (shared-server's home store)
+
+- **expected** — Every kb store a bb thread writes is read for links: the home store, a Mac's own home store, a repo's .kb, each named by its root (kb Locations), read on the machine that holds it.
+- **current** — The plugin reads graph.changes of the one kb behind KB_SOCKET. kb_call writes and the kb CLI/MCP of shared-server threads in a non-repo cwd land there and are linked; a Mac thread's kb CLI/MCP writes to that Mac's stores, and any thread's writes to a repo .kb, carry KB_VIA but are never read. A plugin that falls more than ~1024 transactions behind (tail compaction) skips the gap.
+- **impact** — A canvas a Mac agent makes with the kb CLI does not appear in the kb canvases panel; the owner sees it only by opening that Mac's kb.
+- **closes** — A trigger from docs/research/2026-10-25-kb-topology.md fires: then a host entry runs kb graph.changes against each store a thread's machine holds, links are keyed by (root, id), and open goes through location.open.
+- **node** — `01M5QJFVQ61E19BAB2KXC0FA4M`
+
 ### GAP: kb.server has no NixOS side
 
 - **expected** — kb.server runs on NixOS as a supervised service for a named person, rendered from the same service declaration the macOS launchd agent comes from.
@@ -177,6 +185,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M3E9VX8SQJKV3K2Q1JEKT309`
 
+### GAP: shared-server's kb home store and bb plugin data have no backup
+
+- **expected** — shared-server's kb home store (~/.local/share/kb/home/.kb) and bb's data dir (bb.db, plugins/*/data.db, which now holds kb canvas links) are backed up off the machine on a schedule, restore rehearsed.
+- **current** — docs/backup-strategy.md → kb Home Store names Time Machine, which only the Macs have; nothing copies shared-server's home store or bb data dir anywhere.
+- **impact** — A disk loss on shared-server loses the person's whole kb home graph and every thread link.
+- **closes** — Stage 1 of docs/research/2026-10-24-interaction-app-topology.md (Litestream or a restic timer) extended to the kb home store, as docs/research/2026-10-25-kb-topology.md recommends.
+- **node** — `01M5QJFWFYAKE90KSRNPN4EX78`
+
 ### GAP: the bb server's plugin data (composer manifests) has no backup on shared-server
 
 - **expected** — Saved context-composer manifests survive a lost shared-server disk.
@@ -184,6 +200,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Losing shared-server loses every saved manifest; only kb exports survive.
 - **closes** — A declared backup of the bb server's data dir on shared-server (restic), or manifests stored in kb.
 - **node** — `01M5QKD7TMB3HDV65V543HTD9M`
+
+### GAP: the kb canvases panel copies the Canvases panel's row and ago()
+
+- **expected** — One linked-items row and list, shared by the kb canvases panel and the Canvases (tldraw) panel, or tldraw canvases as a second kind of the kb plugin's linked items.
+- **current** — assets/bb-plugins/kb/linked-panel.tsx and lib/links.ts copy canvas-links/app.tsx's Row, ScopeTab, ThreadChip and lib/canvases.ts's ago(), on purpose, so the owner can daily-drive both and let the UX differences surface.
+- **impact** — A UX fix made in one panel must be made in the other by hand.
+- **closes** — The owner settles the row UX after daily use; then extract the shared row, or fold tldraw links into the kb plugin as a kind.
+- **node** — `01M5QJFW217ZNBXHEX74VG7VYP`
 
 ### GAP: the npm executor special-cases @openai/codex and aborts activation on a failed install
 
