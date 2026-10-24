@@ -45,10 +45,10 @@ export const SELECTORS = {
     purpose: "press: never pressed (drag handles, resizers, fields)",
   },
   liftable: {
-    selector: '[data-resource-detail-section], [data-testid="notification-row"]',
+    selector: '[data-parent-card], [data-resource-detail-section], [data-testid="notification-row"]',
     rating: "M",
-    verified: SOURCE,
-    where: "notifications list, resource detail pages",
+    verified: LIVE,
+    where: "the sidebar thread list, notifications, resource detail pages",
     purpose: "hoverLift: cards that rise",
   },
   rowList: {
@@ -135,6 +135,20 @@ export const SELECTORS = {
     where: "Settings and pickers with checkboxes",
     purpose: "toggles: the checkbox that pops",
   },
+  pageView: {
+    selector: "[data-thread-window]",
+    rating: "M",
+    verified: LIVE,
+    where: "an open thread (it mounts fresh per thread and per split pane)",
+    purpose: "pageEnter: the thread view that eases in",
+  },
+  working: {
+    selector: ".animate-shine",
+    rating: "M",
+    verified: LIVE,
+    where: "the \"Working…\" line under a running agent",
+    purpose: "workingGlow: bb's own named shine class on the working line",
+  },
   hostAnimation: {
     selector: '[class*="animate-in"], [class*="animate-out"]',
     rating: "M",
@@ -177,6 +191,8 @@ export const BB_TARGETS: Targets = {
   overlayClosed: SELECTORS.overlayClosed.selector,
   switchThumb: SELECTORS.switchThumb.selector,
   checkbox: SELECTORS.checkbox.selector,
+  pageView: SELECTORS.pageView.selector,
+  working: SELECTORS.working.selector,
   hostAnimation: SELECTORS.hostAnimation.selector,
   suspendOn: [BBIM_ACTIVE],
 };

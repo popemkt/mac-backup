@@ -1,8 +1,9 @@
-// lively's settings: a motion mode, a speed, and one switch per effect.
+// lively's settings: a motion mode, an intensity, a speed, and one switch per effect.
 // Decoded from untrusted input (a host's stored values); a missing or invalid
 // field takes its default and an invalid one is reported.
 import { Result, Schema } from "effect";
 import { EFFECT_IDS, EFFECTS, type EffectId } from "./effects.ts";
+import { Intensity } from "./motion.ts";
 
 export const MOTION_MODES = ["system", "full", "reduced", "off"] as const;
 export const MotionMode = Schema.Literals(MOTION_MODES);
@@ -17,18 +18,21 @@ export const SPEED_FACTOR: Readonly<Record<Speed, number>> = { snappy: 0.8, norm
 
 export interface Settings {
   readonly motion: MotionMode;
+  readonly intensity: Intensity;
   readonly speed: Speed;
   readonly effects: Readonly<Record<EffectId, boolean>>;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   motion: "system",
+  intensity: "bold",
   speed: "normal",
   effects: Object.fromEntries(EFFECT_IDS.map((id) => [id, EFFECTS[id].default])) as Record<EffectId, boolean>,
 };
 
 export interface SettingsInput {
   readonly motion?: unknown;
+  readonly intensity?: unknown;
   readonly speed?: unknown;
   readonly effects?: Readonly<Partial<Record<string, unknown>>>;
 }
@@ -67,6 +71,7 @@ export function decodeSettings(input: SettingsInput): {
   return {
     settings: {
       motion: decodeField(MotionMode, "motion", input.motion, DEFAULT_SETTINGS.motion, problems),
+      intensity: decodeField(Intensity, "intensity", input.intensity, DEFAULT_SETTINGS.intensity, problems),
       speed: decodeField(Speed, "speed", input.speed, DEFAULT_SETTINGS.speed, problems),
       effects,
     },

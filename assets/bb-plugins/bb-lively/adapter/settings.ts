@@ -7,6 +7,8 @@ import {
   EFFECT_IDS,
   EFFECTS,
   type EffectId,
+  INTENSITIES,
+  Intensity,
   MOTION_MODES,
   MotionMode,
   type SettingsInput,
@@ -49,10 +51,20 @@ export const SETTINGS = {
     default: DEFAULT_SETTINGS.motion,
     experimental_schema: standard(Schema.toStandardSchemaV1(MotionMode)),
   },
+  intensity: {
+    type: "select",
+    label: "Intensity",
+    description:
+      "One volume for every effect: how far things travel, how much they bounce, how long they take, how strongly they glow. Subtle is quiet and quick; Bold is expressive (springier overshoot, blur-in, a send burst, breathing glows). Reduced motion collapses every level to short fades.",
+    options: [...INTENSITIES],
+    experimental_optionLabels: { subtle: "Subtle", lively: "Lively", bold: "Bold" },
+    default: DEFAULT_SETTINGS.intensity,
+    experimental_schema: standard(Schema.toStandardSchemaV1(Intensity)),
+  },
   speed: {
     type: "select",
     label: "Speed",
-    description: "Scales every duration: snappy is 0.8×, relaxed 1.25×. Normal runs 90–220 ms.",
+    description: "Scales every duration: snappy is 0.8×, relaxed 1.25×.",
     options: [...SPEEDS],
     experimental_optionLabels: { snappy: "Snappy", normal: "Normal", relaxed: "Relaxed" },
     default: DEFAULT_SETTINGS.speed,
@@ -65,6 +77,7 @@ export const SETTINGS = {
 export function settingsInput(values: Readonly<Record<string, unknown>>): SettingsInput {
   return {
     motion: values["motion"],
+    intensity: values["intensity"],
     speed: values["speed"],
     effects: Object.fromEntries(EFFECT_IDS.map((id) => [id, values[id]])),
   };

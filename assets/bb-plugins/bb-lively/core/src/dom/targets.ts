@@ -35,6 +35,10 @@ export interface Targets {
   readonly switchThumb: string;
   /** A checkbox, which pops when ticked. */
   readonly checkbox: string;
+  /** A page or panel view that mounts fresh on navigation (a thread's window); it eases in on mount. */
+  readonly pageView: string;
+  /** The host's "agent is working" line, which breathes a glow while present. */
+  readonly working: string;
   /** The host's own enter/exit animations, stopped by `calmHost` under reduced motion. */
   readonly hostAnimation: string;
   /**
