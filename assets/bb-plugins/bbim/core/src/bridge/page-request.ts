@@ -20,9 +20,14 @@ export function pageDelivery(message: ParentMessage): string {
   return `(()=>{const b=${BRIDGE};if(b===undefined)return false;b.receive(${JSON.stringify(message)});return true})()`;
 }
 
-/** Install the page bridge, then deliver `message`. */
+/**
+ * Install the page bridge, then deliver `message`; resolves whether a bridge
+ * took it. One expression, like every request: bb awaits it inside a function
+ * whose parameter is `bb` (statements there do not parse), so the bundle's
+ * statements run in an arrow's body, where that `bb` is in scope.
+ */
 export function pageInstall(message: ParentMessage): string {
-  return `${BBIM_PAGE_SCRIPT}\n;${BRIDGE}?.receive(${JSON.stringify(message)});true`;
+  return `(()=>{${BBIM_PAGE_SCRIPT}\n;const b=${BRIDGE};if(b===undefined)return false;b.receive(${JSON.stringify(message)});return true})()`;
 }
 
 /** `page`, its native view drawn over `element`, as a page for `Bbim.attachPage`; `onError` hears failed evaluations. */
@@ -33,7 +38,11 @@ export function scriptedPage(element: Element, page: ScriptedPage, onError: (err
     send: (message) => {
       page
         .evaluate(pageDelivery(message), isolated)
-        .then((delivered) => (delivered === true ? undefined : page.evaluate(pageInstall(message), isolated)))
+        .then((delivered) => (delivered === true ? true : page.evaluate(pageInstall(message), isolated)))
+        .then((installed) => {
+          if (installed !== true) onError(new Error("bbim: the page bridge did not install (no bb channel in the page's world)"));
+          return undefined;
+        })
         .catch(onError);
     },
     listen: (handler) => page.onMessage(handler),

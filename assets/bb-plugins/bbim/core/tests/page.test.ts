@@ -7,7 +7,7 @@ import { afterEach, test } from "node:test";
 import { createBbim } from "../src/dom/bbim.ts";
 import { scriptedPage } from "../src/bridge/page-request.ts";
 import { MODE_HEARTBEAT_MS } from "../src/domain/protocol.ts";
-import { layOutFrame, page, type Page } from "./harness.ts";
+import { bbPageEvaluate, layOutFrame, page, type Page } from "./harness.ts";
 
 const HOST = `
   <main data-rect="0,0,1000,800">
@@ -26,27 +26,25 @@ afterEach(() => {
 });
 
 /**
- * What bb's experimental_page does, over a happy-dom window standing in for
- * the tab. `navigate` loads a new document (a new window: whatever was
- * installed in the old one is gone), as a navigation or a reload does.
+ * What bb's experimental_page does (bbPageEvaluate: its exact evaluation
+ * contract), over a happy-dom window standing in for the tab. `navigate`
+ * loads a new document (a new window: whatever was installed in the old one
+ * is gone), as a navigation or a reload does.
  */
 function fakeTab(html: string) {
   const listeners = new Set<(data: unknown) => void>();
   let site = page(html);
-  // The isolated world's `bb`: what the page bridge posts goes to the host's
-  // listeners, those listening when it was sent (as an event's are).
-  const bindBb = () =>
-    Object.defineProperty(site.win, "bb", {
-      value: { postMessage: (data: unknown) => { for (const listener of Array.from(listeners)) listener(JSON.parse(JSON.stringify(data))); } },
-      configurable: true,
-    });
-  bindBb();
+  // The page bridge's posts go to the host's listeners, those listening when it was sent (as an event's are).
+  const post = (data: unknown) => {
+    for (const listener of Array.from(listeners)) listener(data);
+  };
+  let evaluate = bbPageEvaluate(site.win, post);
   const scripts: Array<string> = [];
   return {
     page: {
-      evaluate: (expression: string) => {
+      evaluate: (expression: string, options?: { readonly world?: "isolated" | "main" }) => {
         scripts.push(expression);
-        return Promise.resolve(site.win.eval(expression) as unknown);
+        return evaluate(expression, options?.world);
       },
       onMessage: (listener: (data: unknown) => void) => {
         listeners.add(listener);
@@ -59,7 +57,7 @@ function fakeTab(html: string) {
     navigate: () => {
       site.close();
       site = page(html);
-      bindBb();
+      evaluate = bbPageEvaluate(site.win, post);
     },
     close: () => site.close(),
   };

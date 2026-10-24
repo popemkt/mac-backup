@@ -43,6 +43,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — An idle check that also asks the daemon itself (its local API on 127.0.0.1:38887) or treats a disconnected daemon as idle; or an upstream bb way to list a daemon's running work
 - **node** — `01M5P0D3VP9RXH16D7VJV282BT`
 
+### GAP: bbim's Browser-tab page bridge is not verified in bb desktop itself
+
+- **expected** — alt+f in a bb desktop Browser tab labels the page and a pick clicks there, checked in the app
+- **current** — fixed 2026-10-24 (pageInstall was statements; bb 0.47 evaluates one expression) and verified in tests replaying bb's evaluation source and in a real Chromium isolated world over CDP; the desktop app could not be driven (screen locked)
+- **impact** — a desktop-only regression in the toolbar slot, the [data-app-browser] viewport lookup or chord delivery would go unseen
+- **closes** — one live run in bb desktop: open a Browser tab, alt+f, pick a label
+- **node** — `01M5PPQ98GKQZARPMF01TYZ1RV`
+
 ### GAP: kb.server has no NixOS side
 
 - **expected** — kb.server runs on NixOS as a supervised service for a named person, rendered from the same service declaration the macOS launchd agent comes from.

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { ACTIVE_ATTRIBUTE, attachBrowserPage, commandAvailable, mountBbim, runAction, syncSettings } from "../adapter/bb.ts";
 import { hostSettings } from "../adapter/settings.ts";
-import { page, type Page } from "../core/tests/harness.ts";
+import { bbPageEvaluate, page, type Page } from "../core/tests/harness.ts";
 
 const BB = `
   <div class="pane" data-rect="0,0,500,800">
@@ -96,18 +96,15 @@ function browserTab(p: Page): Element {
   return browser.querySelector("#anchor") as Element;
 }
 
-/** A fake `experimental_page`: evaluates in a happy-dom window standing in for the tab's isolated world. */
+/** A fake `experimental_page`: bb's evaluation contract (bbPageEvaluate) over a happy-dom window standing in for the tab. */
 function fakeExperimentalPage(site: Page) {
   const listeners = new Set<(data: unknown) => void>();
-  Object.defineProperty(site.win, "bb", {
-    value: { postMessage: (data: unknown) => listeners.forEach((listener) => listener(JSON.parse(JSON.stringify(data)))) },
-    configurable: true,
-  });
+  const evaluate = bbPageEvaluate(site.win, (data) => listeners.forEach((listener) => listener(data)));
   const worlds: Array<string | undefined> = [];
   return {
     evaluate: (expression: string, options?: { readonly world?: "isolated" | "main" }) => {
       worlds.push(options?.world);
-      return Promise.resolve(site.win.eval(expression) as unknown);
+      return evaluate(expression, options?.world);
     },
     onMessage: (listener: (data: unknown) => void) => {
       listeners.add(listener);
