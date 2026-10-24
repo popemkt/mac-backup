@@ -2,7 +2,7 @@
   "name": "bb-plugin-restart-resume",
   "version": "0.1.0",
   "private": true,
-  "description": "bb plugin: continue threads that a bb restart interrupted, by sending each a short continuation message.",
+  "description": "bb plugin: continue threads that a bb restart interrupted, and show on every thread why its last turn stopped.",
   "type": "module",
   "engines": {
     "bb": ">=0.46",
@@ -10,21 +10,27 @@
   },
   "bb": {
     "name": "Restart resume",
-    "description": "Continue threads interrupted because their machine's bb daemon restarted or lost its connection: each gets a short message to carry on, at most 3 times in a row.",
+    "description": "Continue threads interrupted because their machine's bb daemon restarted or lost its connection (at most 3 times in a row), and show why a thread's last turn stopped: by you or an agent, a daemon restart, a lost connection, with the auto-resume count.",
     "branding": {
       "icon": "ArrowReloadHorizontal"
     },
-    "server": "./server.ts"
+    "server": "./server.ts",
+    "app": "./app.tsx"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@get-bb/plugin-sdk": "0.6.49",
     "@types/node": "^22.0.0",
+    "@types/react": "^19.3.0",
     "oxlint": "1.83.0",
+    "sonner": "^1.7.4",
     "typescript": "^5.7.0"
   },
   "scripts": {
     "typecheck": "tsc -p .",
-    "lint": "oxlint server.ts core tests",
+    "lint": "oxlint server.ts app.tsx core adapter tests",
     "test": "node --test tests/*.test.ts",
     "verify": "npm run typecheck && npm run lint && npm test && bb plugin build"
   }

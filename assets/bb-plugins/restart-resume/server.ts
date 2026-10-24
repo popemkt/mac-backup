@@ -7,9 +7,15 @@
 //   - the plugin starting (server start, reload, enable): a sweep for whatever happened while it
 //     was not loaded.
 // The plugin never looks at which process or unit restarted; it reacts to the interruption only.
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+//
+// It also serves the "why this thread stopped" indicator: `stops` (RPC) answers from the resumer's
+// own reads and records, and a `stops` realtime signal names a thread whose answer may have changed,
+// so the frontend refetches it instead of polling.
+import { type BbPluginApi, defineRpcContract } from "@get-bb/plugin-sdk";
+import { z } from "zod";
 import { DEFAULTS, type EventRow, parseRecord, parseSettings } from "./core/policy.ts";
 import { createResumer, type EventQuery, type ResumePort, type ThreadSummary } from "./core/resumer.ts";
+import { STOPS_BATCH, STOPS_CHANNEL, type StopView } from "./core/stops.ts";
 
 /** bb registers the daemon before it reconciles the daemon's threads; let that settle first. */
 const RECONNECT_SWEEP_DELAY_MS = 5_000;
@@ -20,6 +26,22 @@ const LIST_MAX_PAGES = 25;
 type EventTypes = NonNullable<Parameters<BbPluginApi["sdk"]["threads"]["events"]["list"]>[0]["types"]>;
 
 const recordKey = (threadId: string): string => `thread:${threadId}`;
+
+/** Threads read at once inside one `stops` call. */
+const STOPS_CONCURRENCY = 8;
+
+// The view is built by core/stops.ts; the contract only checks its outer shape on the way out.
+const stopView = z.custom<StopView>(
+  (value) => typeof value === "object" && value !== null && typeof (value as { threadId?: unknown }).threadId === "string",
+);
+
+export const rpcContract = defineRpcContract({
+  /** The standing stop of each thread, for those whose latest turn ended with an interruption. */
+  stops: {
+    input: z.object({ threadIds: z.array(z.string().min(1).max(200)).max(STOPS_BATCH) }).strict(),
+    output: z.object({ stops: z.array(stopView), checked: z.array(z.string()) }),
+  },
+});
 
 const summary = (thread: ThreadSummary): ThreadSummary => ({
   id: thread.id,
@@ -104,11 +126,44 @@ export default function plugin(bb: BbPluginApi): void {
   };
   const resumer = createResumer(port);
 
-  bb.events.on("thread.failed", async ({ thread }) => {
-    await resumer.consider(summary(thread));
+  const stopChanged = (threadId: string): void => bb.realtime.publish(STOPS_CHANNEL, { threadId });
+
+  bb.rpc.register(rpcContract, {
+    async stops({ threadIds }) {
+      const stops: StopView[] = [];
+      const checked: string[] = [];
+      const queue = [...new Set(threadIds)];
+      const worker = async (): Promise<void> => {
+        for (let threadId = queue.shift(); threadId !== undefined; threadId = queue.shift()) {
+          try {
+            const stop = await resumer.stop(threadId);
+            if (stop !== null) stops.push(stop);
+            checked.push(threadId);
+          } catch {
+            // Gone or unreadable: leave it unchecked, so the frontend keeps what it had.
+          }
+        }
+      };
+      await Promise.all(Array.from({ length: STOPS_CONCURRENCY }, worker));
+      return { stops, checked };
+    },
   });
+
+  bb.events.on("thread.failed", async ({ thread }) => {
+    try {
+      await resumer.consider(summary(thread));
+    } finally {
+      stopChanged(thread.id);
+    }
+  });
+  // The other moments a thread's standing stop can change: a manual stop settles (idle), a resumed
+  // or new turn starts (active), a turn completes (idle), the thread leaves the list.
+  for (const event of ["thread.idle", "thread.active", "thread.archived", "thread.unarchived"] as const) {
+    bb.events.on(event, ({ thread }) => stopChanged(thread.id));
+  }
   bb.events.on("thread.deleted", async ({ thread }) => {
     await bb.storage.kv.delete(recordKey(thread.id));
+    stopChanged(thread.id);
   });
 
   bb.background.service("watch", {

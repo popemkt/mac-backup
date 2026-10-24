@@ -19,6 +19,10 @@ only for interruptions newer than `windowMinutes` (30), and never for a thread s
 or one that was waiting on the person. A child thread of a resumed parent gets no message: if
 you are that parent and a child was interrupted, re-drive the child yourself.
 
+The same plugin draws the "why this thread stopped" badge in bb's sidebar and thread header
+("Stopped", "Daemon restart → resumed 1/3", "Connection lost", …). It cannot tell a person's stop
+from an agent's: bb records only `reason: manual-stop` for both.
+
 ```sh
 bb plugin config restart-resume set enabled false
 bb plugin config restart-resume set message "<text>"
