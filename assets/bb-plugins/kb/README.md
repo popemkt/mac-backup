@@ -17,6 +17,17 @@ DESIGN.md → Action registry → A call made in a tab session, and → Surfaces
 The tools reach kb as a local program: through kb ui's owner-only Unix socket when one is set, else through
 the page URL. Nothing but the session crosses the frame.
 
+## Linked items
+
+The plugin keeps which kb things each thread wrote or linked: canvases now, more kinds later
+([docs/research/2026-10-25-kb-topology.md](../../../docs/research/2026-10-25-kb-topology.md) says why the link
+lives here and not in kb). kb records the caller's `via` label on every write and reads its log back with
+`graph.changes` (kb DESIGN.md → Action registry → The caller's via). The plugin labels a thread's writes
+`bb:<thread>`: `kb_call` states it on the envelope, and every provider gets `KB_VIA=bb:<thread>`, so the
+thread's own kb CLI and kb MCP label theirs. A background loop reads kb's log every 10 s (and on each list)
+and records a link for every canvas a labelled write touched, in the plugin's database, with the thread's bb
+project and machine. The **kb canvases** panel lists them: Thread | Project | All, like the Canvases panel.
+
 ## Layout
 
 | File | Role |
@@ -24,6 +35,9 @@ the page URL. Nothing but the session crosses the frame.
 | `lib/kb.ts` | Pure: the thread → session registry with its lapse, the frame message, tool answer text. Tested. |
 | `server.ts` | Settings, the `config` and `reportSession` RPC, the kb transport, `kb_call`, `kb_screen`, `kb_manifest`. |
 | `app.tsx` | The `kb` thread panel tab (the frame) and the header button that opens it, or opens it by itself. |
+| `lib/links.ts` | Pure: the `via` a thread's writes carry, reading `graph.changes`, which changes link what, rows. Tested. |
+| `links.ts` | Linked items: KB_VIA for every provider, the log-reading loop, the links database, the `links`, `linkOpen`, `openItem` RPC. |
+| `linked-panel.tsx` | The `kb canvases` thread panel tab, the Canvases panel's twin. |
 | `skills/kb/` | Tells agents how to use the tools. |
 
 ## Settings

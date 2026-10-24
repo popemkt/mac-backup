@@ -23,6 +23,8 @@
   "include": [
     "server.ts",
     "app.tsx",
+    "links.ts",
+    "linked-panel.tsx",
     "components",
     "lib"
   ]

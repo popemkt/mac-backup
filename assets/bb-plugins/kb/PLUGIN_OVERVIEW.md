@@ -12,6 +12,10 @@ Keep your kb open beside the conversation, and let the agent work in it.
   - `kb_manifest` lists kb's actions, and what each can take from the tab.
 - With no kb tab open, the same tools still work, with every input given: the agent gets the work done
   without depending on your screen.
+- A **kb canvases** tab: the kb canvases this thread, its project, or any thread wrote (through `kb_call`, or
+  the thread's own kb CLI or kb MCP) or linked. Search them, **Link open canvas** (the one the kb tab shows),
+  and click one to show it in the kb tab. A green dot marks the canvas the kb tab shows now. It works like the
+  Canvases tab for tldraw, on purpose: use both and compare.
 - **Open with each thread** (on by default) opens the tab beside every thread you open; closing the tab keeps it closed until the window reloads.
 
 ## Requirements
