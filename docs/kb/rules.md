@@ -27,14 +27,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Decide the home for the checklist in this repo, port R1-R20, and wire the mechanical subset the way the reference repo does before adding more skills.
 - **node** — `01M1M08W6Z70XV3KCQB5CWH3ZR`
 
-### GAP: bb plugins stay stale when Home Manager activation is interrupted
-
-- **expected** — Every rebuild leaves each declared bb plugin installed at its current source; an interrupted activation is redone by the next rebuild.
-- **current** — installBbPlugins runs only in Home Manager activation. When it is cut off (2026-10-24 10:09 power-key poweroff mid-switch), the next rebuild yields the same system closure, home-manager-<user>.service is unchanged and not restarted, so plugin stamps stay old (bbim v2 was not installed until activation was rerun by hand).
-- **impact** — A merged plugin change silently does not reach bb; nothing reports it.
-- **closes** — Run the bb plugin installer on every rebuild (or at boot) regardless of closure change, or have rebuild/restart-app --status report plugins whose stamp differs from their source.
-- **node** — `01M5P3ET7FV0S3JJ7DH50EHNY4`
-
 ### GAP: bb's idle gate cannot see past a daemon cut off from the server
 
 - **expected** — app-bb-daemon's idle-gated restart happens once its threads finish, even while the daemon cannot reach the server
@@ -199,6 +191,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 
 ## Closed
+
+### GAP: bb plugins stay stale when Home Manager activation is interrupted
+
+- **expected** — Every rebuild leaves each declared bb plugin installed at its current source; an interrupted activation is redone by the next rebuild.
+- **current** — installBbPlugins runs only in Home Manager activation. When it is cut off (2026-10-24 10:09 power-key poweroff mid-switch), the next rebuild yields the same system closure, home-manager-<user>.service is unchanged and not restarted, so plugin stamps stay old (bbim v2 was not installed until activation was rerun by hand).
+- **impact** — A merged plugin change silently does not reach bb; nothing reports it.
+- **closes** — Run the bb plugin installer on every rebuild (or at boot) regardless of closure change, or have rebuild/restart-app --status report plugins whose stamp differs from their source.
+- **node** — `01M5P3ET7FV0S3JJ7DH50EHNY4`
 
 ### GAP: bbim gives no hints inside bb's browser tabs
 
