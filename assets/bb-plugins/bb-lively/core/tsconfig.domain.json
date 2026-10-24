@@ -1,0 +1,5 @@
+{
+  // The pure domain alone, on the iso preset: a DOM reference here fails.
+  "extends": "./tsconfig.iso.json",
+  "include": ["src/domain"]
+}

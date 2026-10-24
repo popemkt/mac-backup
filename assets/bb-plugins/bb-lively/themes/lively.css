@@ -1,0 +1,54 @@
+/*
+ * Lively: warm neutrals, a soft violet accent, rounder corners and springier
+ * transitions. A palette theme only (tokens); the motion layer is the
+ * plugin's content script and runs on any theme.
+ *
+ * The two motion tokens retime every bb hover and color transition
+ * (Tailwind's `transition-*` utilities) with no selectors.
+ * Contrast, checked by hand (WCAG): light ink 15.7:1, primary 5.9:1,
+ * timeline accent 4.9:1; dark ink 12.0:1, primary 7.3:1.
+ */
+:root, .light {
+  --canvas: #faf8f5;
+  --ink: #1f1d24;
+  --primary: #5b4bd1;
+  --primary-foreground: #ffffff;
+  --timeline-accent: #0f7a6c;
+  --file-accent: var(--timeline-accent);
+  --destructive: #c4323f;
+  --destructive-text: #a92633;
+  --warning: #b26a12;
+  --warning-text: #8a500b;
+  --attention: #8c6a00;
+  --success: #1f7a4d;
+  --diff-added: #1f7a4d;
+  --diff-removed: #c4323f;
+  --pr-merged: #5b4bd1;
+  --ring: color-mix(in oklch, var(--primary) 70%, transparent);
+
+  --radius: 0.625rem;
+  --shadow-lift: 0px -6px 18px -8px #2a1f4a1f;
+  --default-transition-duration: 160ms;
+  --default-transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dark {
+  --canvas: #1a1920;
+  --ink: #d8d4df;
+  --primary: #a99bff;
+  --primary-foreground: #1a1920;
+  --timeline-accent: #5fd4c0;
+  --file-accent: var(--timeline-accent);
+  --destructive: #ff6b78;
+  --destructive-text: #ff8a94;
+  --warning: #f0a35e;
+  --warning-text: #f0a35e;
+  --attention: #ecd06f;
+  --success: #5fd99a;
+  --diff-added: #5fd99a;
+  --diff-removed: #ff6b78;
+  --pr-merged: #a99bff;
+  --ring: color-mix(in oklch, var(--primary) 70%, transparent);
+  --shadow-lift: 0px -6px 18px -8px #00000059;
+}

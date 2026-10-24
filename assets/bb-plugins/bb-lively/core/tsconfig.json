@@ -1,0 +1,13 @@
+{
+  // What editors and the type-aware linter resolve for core files. The
+  // layered checks (domain on the iso preset, src on the browser preset,
+  // tests with Node's types) are tsconfig.domain.json, tsconfig.dom.json and
+  // tests/tsconfig.json, which `npm run typecheck` runs.
+  "extends": "./tsconfig.browser.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "allowJs": true,
+    "noEmit": true
+  },
+  "include": ["src", "tests", "scripts"]
+}

@@ -63,9 +63,22 @@ const live: {
 let engine: Bbim | undefined;
 let engineGuards: ReadonlyArray<FocusGuard> = [];
 
+/**
+ * Set on `<html>` while hints or a picker show. bbim places its labels from
+ * where targets are when hints open, so a plugin that moves bb's elements
+ * (bb-lively) holds still while this is present. It names no mode: the
+ * attribute is the whole contract, present or absent.
+ */
+export const ACTIVE_ATTRIBUTE = "data-bbim-active";
+
+function markActive(doc: Document, active: boolean): void {
+  doc.documentElement.toggleAttribute(ACTIVE_ATTRIBUTE, active);
+}
+
 function hooks(doc: Document): BbimHooks {
   return {
     guards: engineGuards,
+    onModeChange: (mode) => markActive(doc, mode === "hint"),
     // An in-app link opens through its own click handler (a mod-click for a
     // new tab); only another origin goes to bb's URL opener.
     openUrl: (url) => {
@@ -115,6 +128,7 @@ export function mountBbim(signal: AbortSignal, win: Window = window): void {
   signal.addEventListener(
     "abort",
     () => {
+      markActive(doc, false);
       if (engine !== mounted) return;
       engine = undefined;
       engineWindow = undefined;

@@ -27,6 +27,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Decide the home for the checklist in this repo, port R1-R20, and wire the mechanical subset the way the reference repo does before adding more skills.
 - **node** — `01M1M08W6Z70XV3KCQB5CWH3ZR`
 
+### GAP: bb-lively not verified as an installed plugin
+
+- **expected** — bb-lively installed (bb plugin install) and checked live on the web UI and the 0.47 desktop app: real composer sends (onSubmitted), real sidebar indicator changes (experimental_useSidebarThreads), real timeline arrivals, the settings page with Selector health, the Lively and Lively Dracula themes in Settings > Appearance, reduced motion from the OS, and the selectors not on screen when checked (toast, switch thumb, checkbox, dialog, hover-lift cards)
+- **current** — 2026-10-24: npm run verify passes (unit tests, a captured bb 0.46.1 DOM fixture, bb plugin build). Live, only by injecting the adapter bundle into bb-popemkt's web UI (0.46.1, dark Dracula) by hand: focus glow, send ripple, status rings, row rise-in and the menu spring retime were seen and screenshotted with simulated triggers; the plugin was not installed anywhere
+- **impact** — An effect wired to a host API or a selector that was not on screen may do nothing, or a theme may render wrong, until someone looks
+- **closes** — install on a bb host, walk the README's after-upgrade checklist (a thread, a menu, a dialog, a toast, Settings switches), read Selector health, try both themes in light and dark, then set this gap's status to done
+- **node** — `01M5P9K2RC2J4QHB6TZWM2ASR2`
+
 ### GAP: bb's idle gate cannot see past a daemon cut off from the server
 
 - **expected** — app-bb-daemon's idle-gated restart happens once its threads finish, even while the daemon cannot reach the server

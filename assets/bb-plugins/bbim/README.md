@@ -44,6 +44,11 @@ Vim-style keyboard navigation for bb: link hints, scrolling, `gi`, help. See
 - While a dialog is open (bb's modal selector, an `aria-modal` one included) bbim is off: the
   chords are unavailable and `gi` is blocked, even for the dialog's own inputs. Tab and a click
   reach those.
+- While hints or a picker (`gi`, `alt+s`) show, `<html>` carries `data-bbim-active`. Labels are
+  placed from where targets are when hints open, so a plugin that moves bb's elements
+  (bb-lively) holds still while the attribute is present. The engine reports each mode change
+  through the `onModeChange` hook; the adapter turns `hint` into the attribute and clears it on
+  unmount.
 
 ## Develop
 
