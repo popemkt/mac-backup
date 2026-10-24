@@ -15,7 +15,9 @@ Three tools reach the person's kb server.
 
 ## With the kb tab open (hands-on)
 
-The panel beside the thread is a kb tab, and every call is made in it.
+The panel beside the thread is a kb tab, and every call is made in it while the person shows this thread. When
+they switch to another thread, this thread's kb tab stays loaded but hidden, and is not your tab: calls are
+made in no tab (below) until they come back to this thread.
 
 - Leave out an input the listing marks as filled in the tab, to mean what the person is looking at:
   `kb_call {id: "node.update", input: {text: "New title"}}` renames the node they focus; the canvas verbs act

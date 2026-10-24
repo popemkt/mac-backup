@@ -43,6 +43,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — An idle check that also asks the daemon itself (its local API on 127.0.0.1:38887) or treats a disconnected daemon as idle; or an upstream bb way to list a daemon's running work
 - **node** — `01M5P0D3VP9RXH16D7VJV282BT`
 
+### GAP: bb's SDK cannot keep a thread panel tab mounted, so the kb plugin hoists its frames into an app overlay
+
+- **expected** — A threadPanelAction can ask bb to keep its tab mounted (hidden, not unmounted) across thread switches and while inactive, or bb offers a window-level panel host, so a plugin's iframe survives without positioning tricks.
+- **current** — @get-bb/plugin-sdk 0.6.49 (bundled-types/bb-plugin-sdk-app.d.ts): PluginThreadPanelActionRegistration is { id, title, icon?, component, layout?, run? } and PluginThreadPanelProps is { threadId, params }, with no keep-mounted option; experimental_appOverlay is the one slot mounted once per window. bb-app 0.47.0 (app/dist/assets): ThreadSecondaryPanel-*.js renders only the active tab (renderContent of the active one), and usePanelTerminals-*.js keys a plugin tab's mount by thread/<threadId>/<tab id>, so a thread switch destroys the tab. The kb plugin keeps one frame per recently shown thread (three) in an experimental_appOverlay (assets/bb-plugins/kb/frames.tsx), positioned fixed over the tab's placeholder by one shared animation-frame loop and clipped to the placeholder's clipping ancestors; hidden frames are visibility:hidden and inert, and only shown frames are reported as their thread's tab.
+- **impact** — Depends on an experimental slot; a frame follows its place one animation frame late during panel resizes and moves; its z-index (35) is read from bb's bundled classes and must be checked again when bb changes its stacking; a fourth thread evicts the least recently shown kb tab.
+- **closes** — bb ships a keep-mounted option for threadPanelAction (or a stable per-window panel host); then KbPanel renders its frame directly again and frames.tsx goes.
+- **node** — `01M5QN6PKBQ5YE4FNB1PYPXR92`
+
 ### GAP: bbim's Browser-tab page bridge is not verified in bb desktop itself
 
 - **expected** — alt+f in a bb desktop Browser tab labels the page and a pick clicks there, checked in the app

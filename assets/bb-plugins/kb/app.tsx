@@ -1,19 +1,19 @@
-// bb-plugin-kb — the frontend: a thread side-panel tab that frames the person's kb page, and a header
-// button that opens it. The framed page tells its embedder its tab session (kb DESIGN.md → Surfaces →
-// Embedding the page); the panel hands that to the backend, so the thread's agent makes its kb calls in this
-// tab. Nothing else crosses the frame: the agent's calls go to kb's server, never through the panel.
-import { useEffect, useRef, useState } from "react";
+// bb-plugin-kb — the frontend: a thread side-panel tab that shows the person's kb page, and a header
+// button that opens it. The page itself lives in the window's kb frames (frames.tsx), one per recently shown
+// thread, so a thread switch does not load kb again; the tab is where its thread's frame is drawn. The framed
+// page tells its embedder its tab session (kb DESIGN.md → Surfaces → Embedding the page); the frame hands
+// that to the backend, so the thread's agent makes its kb calls in this tab. Nothing else crosses the frame:
+// the agent's calls go to kb's server, never through the panel.
+import { useEffect, useRef } from "react";
 import {
   definePluginApp,
   experimental_usePluginId,
   useBbNavigate,
-  useRpc,
   type PluginThreadHeaderActionProps,
   type PluginThreadPanelProps,
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
-import type { rpcContract } from "./server";
-import { originOf, SESSION_HEARTBEAT_MS, sessionOfMessage } from "./lib/kb";
+import { frames, KbFrameHost, useFrames } from "./frames";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { LINKED_PANEL, LINKED_TITLE, LinkedPanel } from "./linked-panel";
@@ -21,58 +21,22 @@ import { LINKED_PANEL, LINKED_TITLE, LinkedPanel } from "./linked-panel";
 const PANEL_ACTION = "kb";
 const PANEL_TITLE = "kb";
 
-type Config = { readonly url: string | null; readonly autoOpen: boolean };
-
-/** The backend's config, read once per mount. */
-function useConfig(): Config | null {
-  const rpc = useRpc<typeof rpcContract>();
-  const [config, setConfig] = useState<Config | null>(null);
-  useEffect(() => {
-    let current = true;
-    rpc.call("config", {}).then(
-      next => current && setConfig(next),
-      () => current && setConfig({ url: null, autoOpen: false }),
-    );
-    return () => {
-      current = false;
-    };
-  }, [rpc]);
-  return config;
-}
-
+/**
+ * The thread's kb tab: the place the window's frame for this thread is drawn over (frames.tsx), with the
+ * tab's status and controls above it. Switching threads unmounts this, not the frame, so coming back finds
+ * kb as it was left.
+ */
 function KbPanel({ threadId }: PluginThreadPanelProps) {
-  const rpc = useRpc<typeof rpcContract>();
-  const config = useConfig();
-  const frame = useRef<HTMLIFrameElement | null>(null);
-  const [session, setSession] = useState<string | null>(null);
+  const store = useFrames();
+  const place = useRef<HTMLDivElement | null>(null);
+  const config = store.config;
   const url = config?.url ?? null;
-  const origin = url === null ? null : originOf(url);
+  const session = store.sessionOf(threadId);
 
-  // The framed page posts its session once it knows the origins allowed to frame it, and again when its id
-  // is renewed. Only a message from this panel's own frame, from kb's origin, is taken.
   useEffect(() => {
-    if (origin === null) return;
-    const onMessage = (event: MessageEvent) => {
-      if (event.origin !== origin || event.source !== frame.current?.contentWindow) return;
-      const next = sessionOfMessage(event.data);
-      if (next !== null) setSession(next);
-    };
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, [origin]);
-
-  // Report the session while the panel shows it, repeated so the backend lets it lapse once the panel is
-  // gone without saying so; say so when it goes.
-  useEffect(() => {
-    if (session === null) return;
-    const report = () => void rpc.call("reportSession", { threadId, session }).catch(() => undefined);
-    report();
-    const timer = setInterval(report, SESSION_HEARTBEAT_MS);
-    return () => {
-      clearInterval(timer);
-      void rpc.call("reportSession", { threadId, session: null }).catch(() => undefined);
-    };
-  }, [rpc, threadId, session]);
+    if (url === null || place.current === null) return;
+    return frames.claim(threadId, place.current);
+  }, [threadId, url]);
 
   if (config === null) return <p className="p-4 text-sm text-muted-foreground">Loading kb…</p>;
   if (url === null) {
@@ -98,10 +62,7 @@ function KbPanel({ threadId }: PluginThreadPanelProps) {
           size="sm"
           className="h-6 px-1.5"
           aria-label="Reload kb"
-          onClick={() => {
-            setSession(null);
-            if (frame.current !== null) frame.current.src = url;
-          }}
+          onClick={() => frames.reload(threadId)}
         >
           <Icon name="RotateCw" className="size-3.5" />
         </Button>
@@ -109,13 +70,9 @@ function KbPanel({ threadId }: PluginThreadPanelProps) {
           <Icon name="ExternalLink" className="size-3.5" />
         </a>
       </div>
-      <iframe
-        ref={frame}
-        src={url}
-        title="kb"
-        className="min-h-0 w-full flex-1 border-0 bg-background"
-        allow="clipboard-read; clipboard-write; fullscreen"
-      />
+      <div ref={place} className="flex min-h-0 flex-1 items-center justify-center bg-background">
+        <span className="text-xs text-muted-foreground">Loading kb…</span>
+      </div>
     </div>
   );
 }
@@ -123,7 +80,7 @@ function KbPanel({ threadId }: PluginThreadPanelProps) {
 function HeaderButton({ threadId }: PluginThreadHeaderActionProps) {
   const navigate = useBbNavigate();
   const pluginId = experimental_usePluginId();
-  const config = useConfig();
+  const config = useFrames().config;
 
   // With auto-open on, a thread opens kb beside it the first time this window shows it; closing the tab
   // keeps it closed until the window is reloaded.
@@ -179,6 +136,8 @@ export default definePluginApp(app => {
       openPanel({ title: LINKED_TITLE });
     },
   });
+  // The window's kb frames, which outlive the thread panel tabs that show them (frames.tsx).
+  app.slots.experimental_appOverlay({ id: "kb-frames", component: KbFrameHost });
   app.slots.experimental_threadHeaderAction({
     id: "kb-open",
     title: PANEL_TITLE,
