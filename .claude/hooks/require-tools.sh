@@ -18,13 +18,13 @@ reason="missing required tools ($hard)"
 
 if [ "$event" = "pretool" ]; then
   [ "$status" -eq 0 ] && exit 0
-  jq -cn --arg r "Gate: $reason. Restore env first (rebuild, or nix develop) before editing this repo." \
+  jq -cn --arg r "Gate: $reason. Fix the dev env first (scripts/dev must build the flake devShell; see the gate output) before editing this repo." \
     '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$r}}'
   exit 0
 fi
 
 [ -z "$hard" ] && [ -z "$soft" ] && exit 0
 msg=""
-[ -n "$hard" ] && msg="GATE FAILED: missing required tools ($hard). Editing is blocked until restored — run rebuild or nix develop. "
-[ -n "$soft" ] && msg="${msg}Missing devShell tools ($soft): run repo shell/CI tasks through nix develop --command <cmd>."
+[ -n "$hard" ] && msg="GATE FAILED: missing required tools ($hard). Editing is blocked until restored — scripts/dev must build the flake devShell. "
+[ -n "$soft" ] && msg="${msg}The flake devShell lacks optional tools ($soft). Run repo tools as scripts/dev <cmd> (cached devShell env; no nix develop per call)."
 printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"},"systemMessage":"dotfiles gate: %s"}\n' "$msg" "$msg"

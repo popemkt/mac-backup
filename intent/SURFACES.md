@@ -11,6 +11,10 @@ Rules:
 - `intent/gate.sh audit` parses the table: every backticked path in the Shim
   column must exist and reference `gate.sh`. Run it after changing any shim.
 - Shims carry no logic. All admission logic lives in the gate.
+- The gate takes its tools from the flake devShell, through the cached
+  environment `scripts/dev` keeps per worktree, never from PATH. So every
+  surface checks and runs the same pinned tools (a stale host `kb` decides
+  nothing), and no surface needs `nix develop` or a harness env file.
 
 | Surface | Actor class | Shim | Admission | Enforcement |
 |---|---|---|---|---|

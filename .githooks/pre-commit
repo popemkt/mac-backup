@@ -2,6 +2,7 @@
 # Shim: record admission routes through the single gate (intent/gate.sh).
 # Registered in intent/SURFACES.md.
 # Install: git config core.hooksPath .githooks
+# Needs no wrapper: the gate loads the cached devShell env (scripts/dev).
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
