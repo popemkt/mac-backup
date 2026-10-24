@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en" data-style="wobbly" data-intensity="lively">
+<head>
+<meta charset="utf-8">
+<title>bb-lively: ZZZ wobble demo</title>
+<style>
+/* ---------- Lively ZZZ palette (proposal) ---------- */
+:root {
+  --canvas: #0e0e10; --panel: #1a1b1e; --bezel: #34363c; --ink: #f3f2ec; --muted: #9a9ba3;
+  --primary: #c8f031; --primary-2: #f7da00; --hot: #ff5a1f; --cyan: #3fd4ff; --magenta: #ff3dbb;
+  --success: #6bf06b; --destructive: #ff4b3e; --attention: #f7da00;
+  --outline: #000; --radius: 12px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--canvas); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
+body::before { /* halftone texture, static paint */
+  content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .06;
+  background: radial-gradient(circle at 50% 50%, #fff 1px, transparent 1.6px) 0 0 / 7px 7px;
+}
+header { display: flex; gap: 16px; align-items: center; padding: 14px 20px; border-bottom: 3px solid var(--bezel); flex-wrap: wrap; }
+h1 { margin: 0; font-size: 20px; font-weight: 900; font-style: italic; letter-spacing: -.01em; }
+.seg { display: inline-flex; background: #000; border-radius: 999px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: none; color: var(--ink); font-weight: 800; font-style: italic; padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--primary); color: #000; }
+main { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; padding: 20px; }
+.card { background: var(--panel); border: 3px solid var(--bezel); border-radius: var(--radius); padding: 14px; position: relative; }
+.card h2 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); font-weight: 800; }
+.btn { border: 2px solid var(--outline); background: var(--primary); color: #000; font-weight: 900; font-style: italic;
+  padding: 9px 18px; border-radius: 999px; cursor: pointer; filter: drop-shadow(3px 3px 0 var(--outline)); }
+.btn.alt { background: var(--hot); }
+.row { background: #24252a; border: 2px solid #000; border-radius: 10px; padding: 8px 10px; margin-top: 6px; }
+.list { height: 220px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
+.lift { padding: 12px; background: #24252a; border: 2px solid #000; border-radius: 10px; cursor: default; }
+.composer { position: relative; border: 2px solid var(--bezel); border-radius: 14px; padding: 10px; display: flex; gap: 8px; align-items: center; background: #121316; }
+.composer input { flex: 1; background: none; border: 0; color: var(--ink); outline: none; font: inherit; }
+.send { position: relative; width: 38px; height: 38px; border-radius: 50%; border: 2px solid #000; background: var(--primary); font-weight: 900; cursor: pointer; }
+.send .icon { display: inline-block; }
+.thread { position: relative; padding: 10px 12px; border-radius: 10px; background: #24252a; border: 2px solid #000; margin-top: 6px; }
+.switch { width: 46px; height: 26px; border-radius: 999px; background: #000; border: 2px solid var(--bezel); position: relative; cursor: pointer; padding: 0; }
+.switch > span { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--muted);
+  translate: 0 0; transition: translate var(--lv-overlay) var(--lv-spring), background-color 120ms; }
+.switch[data-state="checked"] > span { translate: 20px 0; background: var(--primary); }
+.check { width: 24px; height: 24px; border: 2px solid var(--bezel); background: #000; border-radius: 6px; cursor: pointer; color: #000; font-weight: 900; }
+.check[data-state="checked"] { background: var(--primary); border-color: #000; }
+.menu { position: absolute; top: 52px; left: 14px; width: 190px; background: #111214; border: 2px solid #000; border-radius: 10px; padding: 6px;
+  filter: drop-shadow(4px 4px 0 var(--primary)); transform-origin: top left; z-index: 2; }
+.menu[hidden] { display: none; }
+.menu div { padding: 6px 8px; border-radius: 6px; font-weight: 700; }
+.menu div:hover { background: var(--primary); color: #000; }
+.toasts { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 5; }
+.toast { background: #111214; border: 2px solid #000; border-left: 6px solid var(--primary); border-radius: 10px; padding: 10px 14px; font-weight: 700;
+  filter: drop-shadow(4px 4px 0 #000); }
+.note { color: var(--muted); font-size: 12px; margin-top: 8px; }
+.flex { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+/* ---------- motion tokens: intensity x style ---------- */
+:root { --lv-ease-out: cubic-bezier(.16,1,.3,1); --lv-ease-in: cubic-bezier(.4,0,1,1); }
+/* clean = today's bb-lively (single small overshoot); the numbers mirror motion.ts */
+:root[data-style="clean"][data-intensity="subtle"] { --lv-press: 90ms; --lv-release: 160ms; --lv-enter: 220ms; --lv-overlay: 160ms; --lv-exit: 90ms; --lv-pulse: 300ms;
+  --lv-spring: linear(0, .32 8%, .7 18%, .93 30%, 1.025 42%, 1.02 55%, 1.005 70%, 1); --lv-rise: 6px; --lv-press-scale: .97; --lv-overlay-scale: .96;
+  --lv-squash: 0; --lv-skew: 0deg; --lv-tilt: 0deg; --lv-sticker: 0px; --lv-swell: 0; --lv-flash: 0; --lv-chroma: 0px; --lv-pop-from: .6; }
+:root[data-style="clean"][data-intensity="lively"] { --lv-press: 85ms; --lv-release: 220ms; --lv-enter: 280ms; --lv-overlay: 210ms; --lv-exit: 100ms; --lv-pulse: 340ms;
+  --lv-spring: linear(0, .3 8%, .72 18%, .98 30%, 1.08 40%, 1.04 55%, .995 72%, 1); --lv-rise: 10px; --lv-press-scale: .96; --lv-overlay-scale: .94;
+  --lv-squash: 0; --lv-skew: 0deg; --lv-tilt: 0deg; --lv-sticker: 0px; --lv-swell: 0; --lv-flash: 0; --lv-chroma: 0px; --lv-pop-from: .5; }
+:root[data-style="clean"][data-intensity="bold"] { --lv-press: 80ms; --lv-release: 280ms; --lv-enter: 360ms; --lv-overlay: 260ms; --lv-exit: 120ms; --lv-pulse: 400ms;
+  --lv-spring: linear(0, .3 8%, .78 18%, 1.06 30%, 1.16 40%, 1.06 55%, .99 72%, 1); --lv-rise: 16px; --lv-press-scale: .95; --lv-overlay-scale: .9;
+  --lv-squash: 0; --lv-skew: 0deg; --lv-tilt: 0deg; --lv-sticker: 0px; --lv-swell: 0; --lv-flash: 0; --lv-chroma: 0px; --lv-pop-from: .4; }
+/* wobbly = ZZZ: fast attack, under-damped multi-bounce settle, squash, skew, tilt, sticker shadows, flash */
+:root[data-style="wobbly"][data-intensity="subtle"] { --lv-press: 70ms; --lv-release: 320ms; --lv-enter: 340ms; --lv-overlay: 300ms; --lv-exit: 80ms; --lv-pulse: 320ms;
+  --lv-spring: linear(0, 0.08, 0.27, 0.505, 0.735, 0.926, 1.064, 1.146, 1.178, 1.173, 1.144, 1.103, 1.06, 1.023, 0.995, 0.977, 0.969, 0.968, 0.972, 0.979, 0.987, 0.994, 0.999, 1.003, 1.005, 1.006, 1.005, 1.004, 1.003, 1.001, 1, 1, 1);
+  --lv-rise: 8px; --lv-press-scale: .95; --lv-overlay-scale: .92;
+  --lv-squash: .05; --lv-skew: -4deg; --lv-tilt: -.6deg; --lv-sticker: 2px; --lv-swell: .03; --lv-flash: .25; --lv-chroma: 1px; --lv-pop-from: .5; }
+:root[data-style="wobbly"][data-intensity="lively"] { --lv-press: 65ms; --lv-release: 400ms; --lv-enter: 420ms; --lv-overlay: 360ms; --lv-exit: 80ms; --lv-pulse: 360ms;
+  --lv-spring: linear(0, 0.079, 0.276, 0.531, 0.79, 1.013, 1.177, 1.271, 1.3, 1.276, 1.217, 1.141, 1.063, 0.996, 0.947, 0.919, 0.91, 0.917, 0.935, 0.958, 0.981, 1.001, 1.016, 1.024, 1.027, 1.025, 1.02, 1.013, 1.006, 1, 0.995, 0.993, 0.992, 0.993, 0.994, 0.996, 0.998, 1, 1.001, 1.002, 1);
+  --lv-rise: 14px; --lv-press-scale: .93; --lv-overlay-scale: .86;
+  --lv-squash: .09; --lv-skew: -8deg; --lv-tilt: -1.2deg; --lv-sticker: 3px; --lv-swell: .055; --lv-flash: .45; --lv-chroma: 2px; --lv-pop-from: .35; }
+:root[data-style="wobbly"][data-intensity="bold"] { --lv-press: 60ms; --lv-release: 480ms; --lv-enter: 500ms; --lv-overlay: 420ms; --lv-exit: 90ms; --lv-pulse: 400ms;
+  --lv-spring: linear(0, 0.082, 0.294, 0.575, 0.866, 1.12, 1.304, 1.402, 1.416, 1.362, 1.261, 1.139, 1.02, 0.921, 0.855, 0.826, 0.83, 0.86, 0.906, 0.958, 1.006, 1.044, 1.066, 1.074, 1.068, 1.053, 1.032, 1.011, 0.992, 0.978, 0.97, 0.969, 0.973, 0.98, 0.989, 0.998, 1.006, 1.011, 1.013, 1.013, 1.01, 1.007, 1.003, 1, 0.997, 0.995, 0.995, 0.995, 1);
+  --lv-rise: 20px; --lv-press-scale: .9; --lv-overlay-scale: .8;
+  --lv-squash: .14; --lv-skew: -12deg; --lv-tilt: -2deg; --lv-sticker: 4px; --lv-swell: .08; --lv-flash: .7; --lv-chroma: 3px; --lv-pop-from: .25; }
+:root[data-style="wobbly"] .btn, :root[data-style="wobbly"] .lift { filter: drop-shadow(var(--lv-sticker) var(--lv-sticker) 0 #000); }
+
+/* ---------- keyframes (transform / opacity / filter only) ---------- */
+/* jelly: alternating squash at the half-cycle extremes; coefficients 1, -r, r^2, -r^3 (r = overshoot of the lively curve) */
+@keyframes lv-jelly {
+  0%   { scale: calc(1 + var(--lv-squash)) calc(1 - var(--lv-squash)); }
+  22%  { scale: calc(1 - var(--lv-squash) * .3) calc(1 + var(--lv-squash) * .3); }
+  44%  { scale: calc(1 + var(--lv-squash) * .09) calc(1 - var(--lv-squash) * .09); }
+  66%  { scale: calc(1 - var(--lv-squash) * .027) calc(1 + var(--lv-squash) * .027); }
+  100% { scale: 1 1; }
+}
+@keyframes lv-press-in { to { scale: calc(var(--lv-press-scale) + var(--lv-squash) * .6) calc(var(--lv-press-scale) - var(--lv-squash) * .4); } }
+@keyframes lv-press-out-clean { from { scale: var(--lv-press-scale); } to { scale: 1; } }
+@keyframes lv-enter {
+  from { opacity: 0; translate: calc(var(--lv-rise) * 1.6 * var(--lv-is-wobbly, 0)) var(--lv-rise); filter: brightness(calc(1 + var(--lv-flash))); }
+  30% { opacity: 1; }
+  to { opacity: 1; translate: 0 0; filter: brightness(1); }
+}
+@keyframes lv-skew-in { from { transform: skewX(var(--lv-skew)); } }
+@keyframes lv-pop {
+  from { opacity: 0; scale: var(--lv-pop-from); rotate: calc(var(--lv-tilt) * 6); }
+  to { opacity: 1; scale: 1; rotate: 0deg; }
+}
+@keyframes lv-swell { 0%, 30% { scale: 1; } 62% { scale: calc(1 + var(--lv-swell)); } 100% { scale: 1; } }
+@keyframes lv-ring { 0% { opacity: 0; scale: 1; } 25% { opacity: 1; } 100% { opacity: 0; scale: 1.06; } }
+@keyframes lv-chroma {
+  0%, 100% { filter: none; }
+  10% { filter: drop-shadow(var(--lv-chroma) 0 0 var(--cyan)) drop-shadow(calc(var(--lv-chroma) * -1) 0 0 var(--magenta)); }
+  35% { filter: drop-shadow(calc(var(--lv-chroma) * -1) 0 0 var(--cyan)) drop-shadow(var(--lv-chroma) 0 0 var(--magenta)); }
+  50% { filter: none; }
+}
+@keyframes lv-burst { 0% { opacity: 0; scale: .3; } 20% { opacity: 1; } 100% { opacity: 0; scale: 1.6; } }
+@keyframes lv-breathe { from { scale: 1; } to { scale: calc(1 + var(--lv-swell) * .25); } }
+:root[data-style="wobbly"] { --lv-is-wobbly: 1; }
+
+/* press */
+.btn:active, .send:active { animation: lv-press-in var(--lv-press) var(--lv-ease-out) forwards; }
+.press-out { animation: lv-press-out-clean var(--lv-release) var(--lv-spring) backwards; }
+:root[data-style="wobbly"] .press-out { animation: lv-jelly var(--lv-release) cubic-bezier(.3,0,.4,1) backwards; }
+/* hover lift: clean rises; wobbly rises, tilts and grows a hard sticker shadow */
+.lift { transition: translate var(--lv-overlay) var(--lv-spring), rotate var(--lv-overlay) var(--lv-spring), filter 60ms steps(2, end); }
+.lift:hover { translate: 0 -2px; rotate: var(--lv-tilt); }
+:root[data-style="wobbly"] .lift:hover { translate: calc(var(--lv-sticker) * -.5) calc(var(--lv-sticker) * -.5); filter: drop-shadow(calc(var(--lv-sticker) * 1.5) calc(var(--lv-sticker) * 1.5) 0 var(--primary)); }
+/* list enter */
+.enter { animation: lv-enter var(--lv-enter) var(--lv-spring) backwards; will-change: transform, opacity, filter; }
+:root[data-style="wobbly"] .enter { animation: lv-enter var(--lv-enter) var(--lv-spring) backwards, lv-skew-in var(--lv-enter) var(--lv-spring) backwards; animation-composition: replace, add; }
+/* send */
+.send.fire::after { content: ""; position: absolute; inset: -14px; border-radius: 50%; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle, var(--primary) 1.4px, transparent 1.8px) 0 0 / 6px 6px;
+  -webkit-mask: radial-gradient(circle, transparent 38%, #000 40%, #000 62%, transparent 70%);
+  animation: lv-burst var(--lv-pulse) var(--lv-ease-out); }
+.send .icon.pop { animation: lv-pop var(--lv-overlay) var(--lv-spring) backwards; }
+/* status ring + chromatic flash */
+.thread.pulse::after { content: ""; position: absolute; inset: -2px; border-radius: inherit; pointer-events: none; border: 2px solid var(--tone, var(--primary));
+  opacity: 0; animation: lv-ring var(--lv-pulse) var(--lv-ease-out) 2; }
+:root[data-style="wobbly"] .thread.pulse { animation: lv-chroma 160ms steps(1, end) 1, lv-swell 360ms var(--lv-ease-out) 1; }
+/* toggles */
+.check.tick { animation: lv-pop var(--lv-release) var(--lv-spring) backwards; }
+:root[data-style="wobbly"] .switch.flip > span { animation: lv-jelly var(--lv-release) cubic-bezier(.3,0,.4,1) 60ms backwards; }
+/* menu */
+.menu.open { animation: lv-pop var(--lv-overlay) var(--lv-spring) backwards; }
+.menu.closing { animation: lv-pop var(--lv-exit) var(--lv-ease-in) reverse forwards; }
+/* toast */
+.toast.in { animation: lv-enter var(--lv-enter) var(--lv-spring) backwards; }
+:root[data-style="wobbly"] .toast.in { animation: lv-pop var(--lv-enter) var(--lv-spring) backwards; }
+/* composer focus: snap the outline in, then the ZZZ swell */
+.composer:focus-within { border-color: var(--primary); }
+:root[data-style="wobbly"] .composer:focus-within { animation: lv-swell 330ms var(--lv-ease-out) 1; filter: drop-shadow(var(--lv-sticker) var(--lv-sticker) 0 var(--primary)); }
+/* idle breathing of the working indicator */
+.working { display: inline-block; padding: 4px 10px; border-radius: 999px; background: var(--primary); color: #000; font-weight: 900; font-style: italic; }
+:root[data-style="wobbly"] .working { animation: lv-breathe 1.4s ease-in-out infinite alternate; }
+
+/* reduced motion: opacity only, no travel, no wobble, no flash */
+@media (prefers-reduced-motion: reduce) {
+  :root { --lv-spring: var(--lv-ease-out) !important; --lv-squash: 0 !important; --lv-skew: 0deg !important; --lv-tilt: 0deg !important; --lv-rise: 0px !important;
+    --lv-swell: 0 !important; --lv-flash: 0 !important; --lv-chroma: 0px !important; --lv-pop-from: 1 !important; --lv-press-scale: 1 !important;
+    --lv-enter: 120ms !important; --lv-overlay: 120ms !important; --lv-release: 120ms !important; }
+  .working, .thread.pulse { animation: none !important; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>bb-lively // ZZZ wobble</h1>
+  <span class="seg" id="style"><button data-v="clean">clean</button><button data-v="wobbly">wobbly</button></span>
+  <span class="seg" id="intensity"><button data-v="subtle">subtle</button><button data-v="lively">lively</button><button data-v="bold">bold</button></span>
+  <span class="working">WORKING</span>
+</header>
+<main>
+  <section class="card"><h2>press (jelly release)</h2>
+    <div class="flex"><button class="btn">Accept</button><button class="btn alt">Reject</button><button class="btn">Run</button></div>
+    <p class="note">Hold, then release. Wobbly: squash wide-and-short on press, jelly decay on release.</p></section>
+  <section class="card"><h2>hover lift / sticker</h2>
+    <div class="lift">Notification card: hover me</div>
+    <p class="note">Wobbly: tilt, hard offset shadow snaps in (steps), no blur.</p></section>
+  <section class="card"><h2>list enter (max 4, stagger 50ms)</h2>
+    <div class="list" id="list"></div>
+    <div class="flex" style="margin-top:8px"><button class="btn" id="add1">+1 row</button><button class="btn" id="add4">+4 rows</button></div></section>
+  <section class="card"><h2>send + composer focus</h2>
+    <form class="composer" id="composer"><input placeholder="Type, then Enter"><button class="send" type="submit"><span class="icon">&uarr;</span></button></form>
+    <p class="note">Send: halftone burst ring, icon sticker-pops with tilt. Focus: snap then swell.</p></section>
+  <section class="card"><h2>status rings (+ chroma glitch)</h2>
+    <div class="thread" id="t1" style="--tone: var(--success)">fix: drift audit (finished)</div>
+    <div class="thread" id="t2" style="--tone: var(--destructive)">feat: canvas links (failed)</div>
+    <div class="thread" id="t3" style="--tone: var(--attention)">chore: update kb (waiting)</div>
+    <div class="flex" style="margin-top:8px"><button class="btn" id="ring">Ring all</button></div></section>
+  <section class="card"><h2>menus, toasts, switches</h2>
+    <div class="flex"><button class="btn" id="menuBtn">Menu</button><button class="btn alt" id="toastBtn">Toast</button>
+      <button class="switch" id="sw" data-state="unchecked" role="switch"><span></span></button>
+      <button class="check" id="ck" data-state="unchecked" role="checkbox"></button></div>
+    <div class="menu" id="menu" hidden><div>Rename</div><div>Pin</div><div>Archive</div></div></section>
+</main>
+<div class="toasts" id="toasts"></div>
+<script>
+const root = document.documentElement;
+function seg(id, attr) {
+  const el = document.getElementById(id);
+  const sync = () => el.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === root.dataset[attr])));
+  el.addEventListener('click', e => { const v = e.target.dataset.v; if (v) { root.dataset[attr] = v; sync(); } });
+  sync();
+}
+seg('style', 'style'); seg('intensity', 'intensity');
+// One-shot class helper: restart an animation class without reading layout (double rAF instead of offsetWidth).
+function once(el, cls) {
+  el.classList.remove(cls);
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    el.classList.add(cls);
+    el.addEventListener('animationend', () => el.classList.remove(cls), { once: true });
+  }));
+}
+document.addEventListener('pointerup', e => { const b = e.target.closest('.btn, .send'); if (b) once(b, 'press-out'); });
+// list
+const list = document.getElementById('list'); let n = 0;
+function addRows(k) {
+  const rows = [];
+  for (let i = 0; i < k; i++) { const r = document.createElement('div'); r.className = 'row'; r.textContent = `Message ${++n}`; list.append(r); rows.push(r); }
+  rows.slice(-4).forEach((r, i) => { r.style.animationDelay = `${i * 50}ms`; once(r, 'enter'); });
+  while (list.children.length > 8) list.firstElementChild.remove();
+}
+document.getElementById('add1').onclick = () => addRows(1);
+document.getElementById('add4').onclick = () => addRows(4);
+// send
+document.getElementById('composer').onsubmit = e => { e.preventDefault(); const s = e.target.querySelector('.send'); once(s, 'fire'); once(s.querySelector('.icon'), 'pop'); addRows(1); };
+// rings
+document.getElementById('ring').onclick = () => ['t1','t2','t3'].forEach((id, i) => setTimeout(() => once(document.getElementById(id), 'pulse'), i * 120));
+// menu
+const menu = document.getElementById('menu');
+document.getElementById('menuBtn').onclick = () => {
+  if (menu.hidden) { menu.hidden = false; once(menu, 'open'); }
+  else { menu.classList.add('closing'); menu.addEventListener('animationend', () => { menu.hidden = true; menu.classList.remove('closing'); }, { once: true }); }
+};
+// toast
+document.getElementById('toastBtn').onclick = () => {
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = 'Thread archived';
+  document.getElementById('toasts').append(t); once(t, 'in'); setTimeout(() => t.remove(), 2600);
+};
+// switch + checkbox
+const sw = document.getElementById('sw');
+sw.onclick = () => { sw.dataset.state = sw.dataset.state === 'checked' ? 'unchecked' : 'checked'; once(sw, 'flip'); };
+const ck = document.getElementById('ck');
+ck.onclick = () => { const on = ck.dataset.state !== 'checked'; ck.dataset.state = on ? 'checked' : 'unchecked'; ck.textContent = on ? '✓' : ''; if (on) once(ck, 'tick'); };
+addRows(3);
+</script>
+</body>
+</html>
