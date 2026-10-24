@@ -198,6 +198,79 @@ test("scrolling: j scrolls the pane under the last click; gg goes to its top", (
   assert.deepEqual(calls, ["by 70", "by 200", "to 0"]);
 });
 
+/** Make `element` a vertical scroll surface (happy-dom lays nothing out) and record its scroll calls. */
+function scrollable(element: HTMLElement, calls: Array<string>) {
+  element.style.overflowY = "auto";
+  Object.defineProperty(element, "scrollHeight", { value: 2000 });
+  Object.defineProperty(element, "clientHeight", { value: 300 });
+  element.scrollBy = ((options: ScrollToOptions) => calls.push(`${element.id} by ${options.top}`)) as typeof element.scrollBy;
+  element.scrollTo = ((options: ScrollToOptions) => calls.push(`${element.id} to ${options.top}`)) as typeof element.scrollTo;
+}
+
+const PANES = `
+  <main data-rect="0,0,1000,800">
+    <nav id="sidebar" data-rect="0,0,200,800"><a id="row" href="#r" data-rect="10,10,100,20">Row</a></nav>
+    <section id="transcript" data-rect="220,0,560,800"><p id="line" data-rect="220,10,500,20">hello</p></section>
+    <div id="tiny" data-rect="800,10,20,20"></div>
+  </main>`;
+
+test("scroll picker: gs outlines every scroll surface; the picked one is what j/k/d/u/gg/G move", () => {
+  const p = page(PANES);
+  const bbim = createBbim({ window: p.win });
+  current = { page: p, bbim };
+  const calls: Array<string> = [];
+  for (const id of ["sidebar", "transcript", "tiny"]) scrollable(p.doc.getElementById(id) as HTMLElement, calls);
+  p.doc.getElementById("line")?.dispatchEvent(new p.win.PointerEvent("pointerdown", { bubbles: true, composed: true }));
+  p.key("g");
+  p.key("s");
+  assert.equal(bbim.mode(), "hint");
+  const labels = p.labels();
+  assert.equal(labels.length, 2, "two panes; a 20 px box is no surface");
+  const surfaces = p.overlayHost()?.shadowRoot?.querySelectorAll(".surface") ?? [];
+  assert.equal(surfaces.length, 2, "each surface is outlined");
+  // Labels go to the region first: the transcript (last click) gets the first one.
+  const sidebarLabel = labels[1] ?? "";
+  for (const char of sidebarLabel) p.key(char);
+  assert.equal(bbim.mode(), "normal");
+  p.key("j");
+  p.key("G", { shiftKey: true });
+  assert.deepEqual(calls, ["sidebar by 70", "sidebar to 2000"], "the picked pane scrolls, not the one clicked");
+  p.doc.getElementById("line")?.dispatchEvent(new p.win.PointerEvent("pointerdown", { bubbles: true, composed: true }));
+  p.key("j");
+  assert.equal(calls.at(-1), "transcript by 70", "a click elsewhere hands scrolling back");
+});
+
+test("scroll picker: a surface nested where its scroller starts gets no label of its own", () => {
+  const p = page(`
+    <main data-rect="0,0,1000,800">
+      <nav id="sidebar" data-rect="0,0,200,800"></nav>
+      <section id="transcript" data-rect="220,0,560,800">
+        <div id="inner" data-rect="220,0,560,700"><pre id="code" data-rect="240,300,400,100">x</pre></div>
+      </section>
+    </main>`);
+  const bbim = createBbim({ window: p.win });
+  current = { page: p, bbim };
+  const calls: Array<string> = [];
+  for (const id of ["sidebar", "transcript", "inner", "code"]) scrollable(p.doc.getElementById(id) as HTMLElement, calls);
+  p.key("g");
+  p.key("s");
+  assert.equal(p.labels().length, 3, "sidebar, transcript and the code block; the inner scroller's label would sit on the transcript's");
+});
+
+test("scroll picker: with one surface, gs selects it without labels", () => {
+  const p = page(PANES);
+  const bbim = createBbim({ window: p.win, settings: { keys: { pickScroll: "<A-s>" } } });
+  current = { page: p, bbim };
+  const calls: Array<string> = [];
+  scrollable(p.doc.getElementById("sidebar") as HTMLElement, calls);
+  p.key("ß", { altKey: true, code: "KeyS" });
+  assert.equal(bbim.mode(), "normal");
+  assert.deepEqual(p.labels(), []);
+  assert.equal(p.overlayHost()?.shadowRoot?.querySelectorAll(".flash").length, 1, "the pane flashes so you see which");
+  p.key("j");
+  assert.deepEqual(calls, ["sidebar by 70"]);
+});
+
 test("help: ? opens it, Esc closes it without reaching the app", () => {
   const { p, bbim } = start();
   const reached: Array<string> = [];
@@ -218,6 +291,75 @@ test("gi focuses the biggest text field", () => {
   p.key("g");
   p.key("i");
   assert.equal(p.doc.activeElement?.id, "composer");
+});
+
+const INPUTS = `
+  <main data-rect="0,0,1000,800">
+    <input id="search" type="search" data-rect="10,10,300,30">
+    <button id="go" data-rect="320,10,60,30">Go</button>
+    <input id="setting" data-rect="500,100,200,30">
+    <textarea id="gone" style="display:none" data-rect="10,300,300,60"></textarea>
+    <div class="composer"><textarea id="compose" data-rect="10,700,600,60"></textarea></div>
+  </main>`;
+
+function inputsPage(options: Omit<CreateBbimOptions, "window"> = {}) {
+  const p = page(INPUTS);
+  const bbim = createBbim({ window: p.win, ...options });
+  current = { page: p, bbim };
+  return { p, bbim };
+}
+
+test("gi with several inputs: labels the inputs only; the last one used gets the first label", () => {
+  const { p, bbim } = inputsPage();
+  const search = p.doc.getElementById("search") as HTMLInputElement;
+  search.focus();
+  search.blur();
+  p.key("g");
+  p.key("i");
+  assert.equal(bbim.mode(), "hint");
+  const labels = p.labels();
+  assert.equal(labels.length, 3, "search, setting and composer; not the button or the hidden field");
+  assert.ok(labels.every((label) => label.length === 1));
+  for (const char of labels[0] ?? "") p.key(char);
+  assert.equal(bbim.mode(), "normal");
+  assert.equal(p.doc.activeElement?.id, "search", "the first label is the input used last");
+});
+
+test("gi + Enter focuses the input used last, as gi alone did before", () => {
+  const { p, bbim } = inputsPage();
+  const setting = p.doc.getElementById("setting") as HTMLInputElement;
+  setting.focus();
+  setting.blur();
+  p.key("g");
+  p.key("i");
+  const enter = p.key("Enter");
+  assert.equal(enter.defaultPrevented, true, "Enter never reaches the page while labels are up");
+  assert.equal(bbim.mode(), "normal");
+  assert.equal(p.doc.activeElement?.id, "setting");
+});
+
+test("gi: with nothing used yet, the host's preferred input (bb: the composer) takes the first label", () => {
+  const { p } = inputsPage({ preferInput: ".composer textarea" });
+  p.key("g");
+  p.key("i");
+  p.key("Enter");
+  assert.equal(p.doc.activeElement?.id, "compose");
+});
+
+test("gi: a typed label picks any input, one in a same-origin frame too", () => {
+  const { p, bbim } = inputsPage();
+  const frame = p.doc.createElement("iframe");
+  frame.setAttribute("data-rect", "500,300,400,200");
+  p.doc.querySelector("main")?.append(frame);
+  const inner = layOutFrame(frame);
+  inner.body.innerHTML = `<input id="framed" data-rect="10,10,200,30">`;
+  p.key("g");
+  p.key("i");
+  assert.equal(p.labels().length, 4, "the frame's input joins the page's");
+  // The biggest page input (the composer) leads; the rest go by place, the framed one last.
+  for (const char of p.labels()[3] ?? "") p.key(char);
+  assert.equal(bbim.mode(), "normal");
+  assert.equal(inner.activeElement?.id, "framed");
 });
 
 test("settings: conflicts and bad values show in help and do not break the rest", () => {
@@ -551,9 +693,17 @@ test("bridge frames: a frame's keys cannot narrow or take back the page's typed 
 
 test("bridge frames: keys and target replies have separate budgets", async () => {
   const { p, focused, answer } = withFocusedFrame();
-  for (let index = 0; index < 300; index += 1) fromFrame(p, focused.child, key("x"));
+  for (let index = 0; index < 200; index += 1) fromFrame(p, focused.child, key("x"));
   await answer();
   assert.ok(p.labels().length > 0, "a frame that typed a lot still gets its labels");
+});
+
+test("bridge frames: a frame past its key budget ends the session, and turns its forwarding off", async () => {
+  const { p, bbim, focused, answer } = withFocusedFrame();
+  await answer();
+  for (let index = 0; index < 300; index += 1) fromFrame(p, focused.child, key("x"));
+  assert.equal(bbim.mode(), "normal", "no key is dropped while the frame keeps swallowing them");
+  assert.ok(focused.sent.some((message) => message.type === "mode" && message.active === false));
 });
 
 test("bridge frames: the frame leaving (a click in it, a lapse) ends hint mode", async () => {

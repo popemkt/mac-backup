@@ -112,10 +112,15 @@ export function presenceGuard(doc: Document, selector: string, state: FocusState
 }
 
 /**
- * A guard that blocks inside anything matching `selector` (a terminal, a
- * webview), across open shadow roots. Inside a closed shadow root focus is
- * seen on its host, so the selector must match the host or an ancestor.
+ * A guard that reports `state` (default `blocked`) inside anything matching
+ * `selector` (a terminal, a webview), across open shadow roots. `typing`
+ * keeps chords and turns bare keys off; a function is read on every check,
+ * so a setting can flip it live. Inside a closed shadow root focus is seen on
+ * its host, so the selector must match the host or an ancestor.
  */
-export function withinGuard(selector: string): FocusGuard {
-  return (element) => (closestAcrossShadow(element, selector) !== null ? "blocked" : undefined);
+export function withinGuard(selector: string, state: FocusState | (() => FocusState) = "blocked"): FocusGuard {
+  return (element) => {
+    if (closestAcrossShadow(element, selector) === null) return undefined;
+    return typeof state === "function" ? state() : state;
+  };
 }

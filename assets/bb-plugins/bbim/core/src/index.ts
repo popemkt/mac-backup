@@ -17,7 +17,8 @@ export {
   withinGuard,
 } from "./dom/focus.ts";
 export { frameTree, type OpaqueFrame } from "./dom/frames.ts";
-export { type InputChoice, pickInput, TEXT_INPUT_SELECTOR } from "./dom/inputs.ts";
+export { type PageView, type RemoteFrame } from "./dom/bridge-client.ts";
+export { type InputChoice, type InputField, inputFields, preferredInput, TEXT_INPUT_SELECTOR } from "./dom/inputs.ts";
 export { closestAcrossShadow, querySelectorDeep } from "./dom/tree.ts";
 export { type HelpSection, type Theme, THEME_PROPERTIES, type ThemeProperty } from "./dom/overlay.ts";
 export { type BridgeOptions, installBbimBridge } from "./bridge/bbim-bridge.ts";

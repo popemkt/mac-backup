@@ -1,53 +1,26 @@
 // The overlay: one fixed, click-through layer in a shadow root, holding hint
 // labels, activation flashes and the help panel. It never moves page layout
 // and the page's CSS never reaches into it. Colors and type come from CSS
-// custom properties (THEME_PROPERTIES) a host may set on `theme`.
+// custom properties (THEME_PROPERTIES) a host may set on `theme`. The labels
+// themselves are the label layer (label-layer.ts), which a page bridge draws
+// with too.
 import { Effect } from "effect";
 import type { Rect } from "../domain/targets.ts";
+import {
+  applyTheme,
+  element,
+  type HintView,
+  LABEL_STYLE,
+  labelLayer,
+  layerHost,
+  placeBox,
+  type Theme,
+} from "./label-layer.ts";
 import { attach, timers } from "./resources.ts";
 
-/**
- * Every themable property and its default. The defaults are a dark pill with
- * a light ring, legible on light and dark pages alike.
- */
-export const THEME_PROPERTIES = {
-  "--bbim-hint-bg": "#16181d",
-  "--bbim-hint-fg": "#ffffff",
-  "--bbim-hint-typed": "rgba(255, 255, 255, 0.42)",
-  "--bbim-hint-ring": "rgba(255, 255, 255, 0.55)",
-  "--bbim-hint-shadow": "rgba(0, 0, 0, 0.35)",
-  "--bbim-accent": "#f5b301",
-  "--bbim-font": 'ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace',
-  "--bbim-panel-bg": "#16181d",
-  "--bbim-panel-fg": "#f2f3f5",
-  "--bbim-panel-muted": "rgba(242, 243, 245, 0.62)",
-  "--bbim-panel-border": "rgba(255, 255, 255, 0.14)",
-  "--bbim-key-bg": "rgba(255, 255, 255, 0.1)",
-} as const;
+export { type HintView, type Theme, THEME_PROPERTIES, type ThemeProperty } from "./label-layer.ts";
 
-export type ThemeProperty = keyof typeof THEME_PROPERTIES;
-export type Theme = Readonly<Partial<Record<ThemeProperty, string>>>;
-
-const STYLE = `
-:host { all: initial; }
-.layer { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
-.hint {
-  position: absolute; left: 0; top: 0;
-  font: 650 11px/1 var(--bbim-font);
-  letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
-  padding: 2px 4px 2px 4.5px; border-radius: 4px;
-  color: var(--bbim-hint-fg); background: var(--bbim-hint-bg);
-  box-shadow: 0 0 0 1px var(--bbim-hint-ring), 0 1px 3px var(--bbim-hint-shadow);
-}
-/* Faded: the control shows only on hover. Same pill, dimmed, with a dashed ring. */
-.hint.faded {
-  color: color-mix(in srgb, var(--bbim-hint-fg) 72%, transparent);
-  background: color-mix(in srgb, var(--bbim-hint-bg) 62%, transparent);
-  box-shadow: 0 1px 3px var(--bbim-hint-shadow);
-  outline: 1px dashed var(--bbim-hint-ring); outline-offset: 0;
-}
-.hint[hidden] { display: none; }
-.hint .typed { color: var(--bbim-hint-typed); }
+const STYLE = `${LABEL_STYLE}
 .flash {
   position: absolute; border-radius: 4px;
   box-shadow: 0 0 0 2px var(--bbim-accent), 0 0 0 6px color-mix(in srgb, var(--bbim-accent) 30%, transparent);
@@ -80,13 +53,6 @@ const STYLE = `
 @media (prefers-reduced-motion: reduce) { .flash, .help { animation-duration: 1ms; } }
 `;
 
-export interface HintView {
-  readonly label: string;
-  readonly rect: Rect;
-  /** The target is drawn only on hover: its label is de-emphasized. */
-  readonly faded?: boolean;
-}
-
 export interface HelpSection {
   readonly title: string;
   readonly rows: ReadonlyArray<{ readonly label: string; readonly keys: ReadonlyArray<string> }>;
@@ -114,24 +80,6 @@ export interface Overlay {
   readonly host: HTMLElement;
 }
 
-/** Approximate label size, used to keep labels inside the viewport. */
-const LABEL_HEIGHT = 15;
-const CHAR_WIDTH = 8;
-
-function labelPosition(rect: Rect, label: string, win: Window): { x: number; y: number } {
-  const width = label.length * CHAR_WIDTH + 9;
-  const x = Math.min(Math.max(0, rect.left - 2), Math.max(0, win.innerWidth - width));
-  const y = Math.min(Math.max(0, rect.top - 2), Math.max(0, win.innerHeight - LABEL_HEIGHT));
-  return { x: Math.round(x), y: Math.round(y) };
-}
-
-function element<K extends keyof HTMLElementTagNameMap>(doc: Document, tag: K, className?: string, text?: string) {
-  const node = doc.createElement(tag);
-  if (className !== undefined) node.className = className;
-  if (text !== undefined) node.textContent = text;
-  return node;
-}
-
 function renderHelp(doc: Document, panel: HTMLElement, model: HelpModel): void {
   panel.replaceChildren(element(doc, "h2", undefined, model.title));
   for (const section of model.sections) {
@@ -154,77 +102,30 @@ function renderHelp(doc: Document, panel: HTMLElement, model: HelpModel): void {
 /** Mount the overlay into `doc` for as long as the scope lives. */
 export const mountOverlay = Effect.fn("mountOverlay")(function* (doc: Document, theme: Theme) {
   const win = doc.defaultView;
-  const host = doc.createElement("div");
-  host.setAttribute("data-bbim-overlay", "");
-  host.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:2147483647;contain:strict;";
-  const root = host.attachShadow({ mode: "open" });
-  const style = element(doc, "style", undefined, STYLE);
-  const layer = element(doc, "div", "layer");
+  const { host, layer } = layerHost(doc, STYLE);
   const help = element(doc, "div", "help");
   help.hidden = true;
   help.setAttribute("role", "dialog");
   help.setAttribute("aria-label", "Keyboard help");
   layer.append(help);
-  root.append(style, layer);
   // body is typed non-null but is null before parsing reaches it.
   yield* attach((doc.body as HTMLElement | null) ?? doc.documentElement, host);
   const schedule = win === null ? undefined : yield* timers(win);
-
-  let labels: Array<{ node: HTMLElement; label: string }> = [];
-
-  const setTheme = (next: Theme) => {
-    for (const [property, fallback] of Object.entries(THEME_PROPERTIES)) {
-      host.style.setProperty(property, next[property as ThemeProperty] ?? fallback);
-    }
-  };
+  const labels = labelLayer(layer);
+  const setTheme = (next: Theme) => applyTheme(host, next);
   setTheme(theme);
 
   const overlay: Overlay = {
     host,
     setTheme,
-    showHints: (views) => {
-      for (const { node } of labels) node.remove();
-      labels = views.map(({ label, rect, faded = false }) => {
-        const node = element(doc, "div", faded ? "hint faded" : "hint");
-        node.append(element(doc, "span", "typed"), element(doc, "span", undefined, label));
-        if (win !== null) {
-          const { x, y } = labelPosition(rect, label, win);
-          node.style.transform = `translate(${x}px, ${y}px)`;
-        }
-        layer.append(node);
-        return { node, label };
-      });
-    },
-    narrow: (typed) => {
-      for (const { node, label } of labels) {
-        const matches = label.startsWith(typed);
-        node.hidden = !matches;
-        if (!matches) continue;
-        const [done, rest] = [node.firstChild, node.lastChild];
-        if (done !== null) done.textContent = typed;
-        if (rest !== null) rest.textContent = label.slice(typed.length);
-      }
-    },
-    reposition: (rects) => {
-      labels.forEach(({ node, label }, index) => {
-        const rect = rects[index];
-        if (rect === undefined || win === null) {
-          node.style.visibility = "hidden";
-          return;
-        }
-        const { x, y } = labelPosition(rect, label, win);
-        node.style.visibility = "";
-        node.style.transform = `translate(${x}px, ${y}px)`;
-      });
-    },
-    hideHints: () => {
-      for (const { node } of labels) node.remove();
-      labels = [];
-    },
+    showHints: labels.show,
+    narrow: labels.narrow,
+    reposition: labels.reposition,
+    hideHints: labels.hide,
     flash: (rect) => {
       if (schedule === undefined) return;
       const node = element(doc, "div", "flash");
-      node.style.cssText = `left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;`;
+      placeBox(node, rect);
       layer.append(node);
       schedule(420, () => node.remove());
     },

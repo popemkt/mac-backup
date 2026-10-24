@@ -20,6 +20,19 @@ function rectOf(element: Element) {
   return { left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}) };
 }
 
+/** Hit-test `doc` by `data-rect`: the last element in document order whose box holds the point. */
+function hitTest(doc: Document): void {
+  const hits = (x: number, y: number) =>
+    [...doc.querySelectorAll("[data-rect]")]
+      .filter((element) => {
+        const box = rectOf(element);
+        return x >= box.left && x < box.right && y >= box.top && y < box.bottom;
+      })
+      .toReversed();
+  doc.elementFromPoint = (x: number, y: number) => hits(x, y)[0] ?? null;
+  doc.elementsFromPoint = (x: number, y: number) => hits(x, y);
+}
+
 export function page(html: string): Page {
   const happy = new Window({ url: "https://app.test/", width: 1000, height: 800 });
   const win = happy as unknown as globalThis.Window & typeof globalThis;
@@ -33,15 +46,7 @@ export function page(html: string): Page {
     const rect = rectOf(this);
     return (rect.width > 0 ? [rect] : []) as unknown as DOMRectList;
   };
-  const hits = (x: number, y: number) =>
-    [...doc.querySelectorAll("[data-rect]")]
-      .filter((element) => {
-        const box = rectOf(element);
-        return x >= box.left && x < box.right && y >= box.top && y < box.bottom;
-      })
-      .toReversed();
-  doc.elementFromPoint = (x: number, y: number) => hits(x, y)[0] ?? null;
-  doc.elementsFromPoint = (x: number, y: number) => hits(x, y);
+  hitTest(doc);
   return {
     win,
     doc,
@@ -81,5 +86,6 @@ export function layOutFrame(frame: HTMLIFrameElement): Document {
   const view = frame.contentWindow;
   if (inner === null || view === null) throw new Error("the frame has no document");
   Object.defineProperty(view, "frameElement", { value: frame, configurable: true });
+  hitTest(inner);
   return inner;
 }

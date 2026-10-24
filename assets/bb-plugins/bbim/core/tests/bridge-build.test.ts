@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 // @ts-expect-error -- a plain .mjs build script without declarations
-import { BRIDGE_BUDGET_BYTES, bridgeProblems, bundleBridge } from "../scripts/build-bridge.mjs";
+import { BRIDGE_BUDGET_BYTES, bridgeProblems, bundleBridge, bundlePage, PAGE_BUDGET_BYTES } from "../scripts/build-bridge.mjs";
+import { BBIM_PAGE_SCRIPT } from "../bridge/bbim-page.ts";
 import { BRIDGE_PROTOCOL } from "../src/domain/protocol.ts";
 import { page } from "./harness.ts";
 
@@ -12,6 +13,12 @@ const built = new URL("../bridge/bbim-bridge.js", import.meta.url);
 test("bridge build: the committed bridge/bbim-bridge.js matches its sources", async () => {
   const committed = await readFile(built, "utf8");
   assert.equal(committed, await (bundleBridge as () => Promise<string>)(), "run npm run build:bridge");
+});
+
+test("bridge build: the committed native-page bridge (bridge/bbim-page.ts) is fresh and within its budget", async () => {
+  const committed = await readFile(new URL("../bridge/bbim-page.ts", import.meta.url), "utf8");
+  assert.equal(committed, await (bundlePage as () => Promise<string>)(), "run npm run build:bridge");
+  assert.ok(Buffer.byteLength(BBIM_PAGE_SCRIPT) <= (PAGE_BUDGET_BYTES as number));
 });
 
 /** Run the built script in a fresh frame page as if loaded by `<script data-parent-origins=…>`. */

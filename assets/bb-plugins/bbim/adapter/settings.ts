@@ -64,9 +64,17 @@ export const SETTINGS = {
     type: "boolean",
     label: "Single-key shortcuts",
     description:
-      "f, j, k, d, u, gg, G, gi and ? work while nothing you can type into, no terminal and no browser tab has focus, and no dialog is open. Off leaves only the bb commands (alt+f, alt+shift+f).",
+      "f, j, k, d, u, gg, G, gi and ? work while nothing you can type into, no terminal and no browser tab has focus, and no dialog is open. Off leaves only the bb commands (alt+f, alt+shift+f, alt+s).",
     default: DEFAULT_SETTINGS.bareKeys,
     experimental_schema: standard(Schema.toStandardSchemaV1(SETTING_SCHEMAS.bareKeys)),
+  },
+  chordsInTerminal: {
+    type: "boolean",
+    label: "Chords in the terminal",
+    description:
+      "The bb commands (alt+f, alt+shift+f, alt+s) work while a terminal has focus: alt+f in the terminal shows hints instead of moving a word forward. Off gives those keys back to the shell. Single keys never work in a terminal.",
+    default: true,
+    experimental_schema: standard(Schema.toStandardSchemaV1(Schema.Boolean)),
   },
   hintAlphabet: {
     type: "string",
@@ -100,6 +108,17 @@ export const SETTINGS = {
     experimental_schema: standard(Schema.toStandardSchemaV1(SETTING_SCHEMAS.sequenceTimeoutMs)),
   },
 } satisfies Record<string, PluginSettingDescriptor>;
+
+/** The settings only the bb adapter reads (the core has no terminal). */
+export interface HostSettings {
+  readonly chordsInTerminal: boolean;
+}
+
+/** The adapter-only settings out of bb's values; a missing or bad value is its default. */
+export function hostSettings(values: Readonly<Record<string, unknown>>): HostSettings {
+  const chords = values["chordsInTerminal"];
+  return { chordsInTerminal: typeof chords === "boolean" ? chords : SETTINGS.chordsInTerminal.default };
+}
 
 /** bb's settings values (untrusted: they round-trip through storage) as core settings input. */
 export function settingsInput(values: Readonly<Record<string, unknown>>): SettingsInput {

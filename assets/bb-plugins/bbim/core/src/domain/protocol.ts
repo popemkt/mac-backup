@@ -98,7 +98,32 @@ const parentMessages = {
    * repeats it every MODE_HEARTBEAT_MS; the frame gives up after MODE_TTL_MS
    * of silence.
    */
-  mode: message("mode", { active: flag }),
+  mode: struct(
+    { bbim: oneOf([BRIDGE_PROTOCOL]), type: oneOf(["mode"]), active: flag, requestId },
+    /**
+     * Native pages only: the document (its `ready` nonce) the session's keys
+     * came from. A page whose document differs (it navigated) refuses to
+     * forward, so a new document never swallows keys for a stale session.
+     */
+    { document: text(64) },
+  ),
+  /**
+   * Native pages only (a page a host shows in a native view over its own
+   * window, which covers the parent's overlay): draw these labels on the
+   * targets of the last `collect`, by id. An empty list removes them. A
+   * postMessage bridge ignores it: the parent draws over an iframe itself.
+   */
+  labels: message("labels", { labels: listOf(struct({ id, label: text(16) }), MAX_FRAME_TARGETS) }),
+  /** Native pages only: narrow the drawn labels to those starting with `typed`. */
+  typed: message("typed", { typed: text(16) }),
+  /**
+   * Native pages only: chords the parent binds (its host's commands). A
+   * native page keeps every key typed in it, so it passes these back as
+   * `key` messages, matched by physical `code` and modifiers.
+   */
+  chords: message("chords", {
+    chords: listOf(struct({ code: text(32), ctrlKey: flag, altKey: flag, metaKey: flag, shiftKey: flag }), 32),
+  }),
 };
 
 // ---- frame -> parent -------------------------------------------------------
@@ -113,8 +138,9 @@ export type FrameTarget = Checked<typeof frameTarget>;
 const frameMessages = {
   targets: message("targets", { requestId, targets: listOf(frameTarget, MAX_FRAME_TARGETS) }),
   /**
-   * A keydown inside the frame while the parent's hint mode is up. `repeat`
-   * and `isComposing` travel so the parent can drop held and IME keys too.
+   * A keydown inside the frame while the parent's hint mode is up (or, from a
+   * native page, one of the parent's `chords`). `repeat` and `isComposing`
+   * travel so the parent can drop held and IME keys too.
    */
   key: message("key", {
     key: text(64),
@@ -138,6 +164,14 @@ const frameMessages = {
    * screen and where keys go never disagree.
    */
   leave: message("leave", { reason: oneOf(["pointer", "lapsed"]) }),
+  /**
+   * Native pages only: the page bridge's document, named by a nonce fresh in
+   * each document. Sent when it installs and in answer to every `chords`. A
+   * document the parent has not seen ends a hint session the page was part
+   * of (its labels and targets went with the old document); `mode` names the
+   * document it is for.
+   */
+  ready: message("ready", { document: text(64) }),
 };
 
 type Messages<M extends Readonly<Record<string, Check<unknown>>>> = { [K in keyof M]: Checked<M[K]> }[keyof M];

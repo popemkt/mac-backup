@@ -5,7 +5,7 @@ import { afterEach, test } from "node:test";
 import { Effect, Fiber, Option } from "effect";
 import { installBbimBridge } from "../src/bridge/bbim-bridge.ts";
 import { BRIDGE_PROTOCOL, FRAME_MESSAGE_BUDGET } from "../src/domain/protocol.ts";
-import { awaitOpen, collectRemote, frameBudget, listenForwarded } from "../src/dom/bridge-client.ts";
+import { awaitOpen, collectRemote, frameBudget, iframeRemote, listenForwarded } from "../src/dom/bridge-client.ts";
 import type { OpaqueFrame } from "../src/dom/frames.ts";
 import { openScope } from "../src/dom/runtime.ts";
 import { page, type Page } from "./harness.ts";
@@ -43,7 +43,7 @@ function deliver(target: Page, data: unknown, source: unknown, origin = BB) {
 }
 
 const collect = (requestId = "r1") => ({ bbim: BRIDGE_PROTOCOL, type: "collect", requestId });
-const mode = (active: boolean) => ({ bbim: BRIDGE_PROTOCOL, type: "mode", active });
+const mode = (active: boolean, requestId = "r1") => ({ bbim: BRIDGE_PROTOCOL, type: "mode", active, requestId });
 
 test("bridge (frame): fails closed: no parent origins, no bridge", () => {
   const { frame, parent, posted } = framed();
@@ -188,7 +188,15 @@ test("bridge (frame): a click in the frame or a lapse stops forwarding and tells
   const { frame, parent, posted } = framed();
   const uninstall = installBbimBridge({ window: frame.win, parentOrigins: [BB], modeTtlMs: 30 });
   deliver(frame, mode(true), parent);
-  frame.doc.body.dispatchEvent(new frame.win.PointerEvent("pointerdown", { bubbles: true }));
+  const click = (trusted: boolean) => {
+    const event = new frame.win.PointerEvent("pointerdown", { bubbles: true });
+    Object.defineProperty(event, "isTrusted", { value: trusted });
+    frame.doc.body.dispatchEvent(event);
+  };
+  click(false);
+  assert.equal(posted.length, 0, "a page script's click does not end hints");
+  assert.equal(frame.key("s").defaultPrevented, true, "and forwarding goes on");
+  click(true);
   assert.deepEqual(posted.at(-1)?.message, { bbim: BRIDGE_PROTOCOL, type: "leave", reason: "pointer" });
   assert.equal(frame.key("s").defaultPrevented, false);
   deliver(frame, mode(true), parent);
@@ -196,7 +204,21 @@ test("bridge (frame): a click in the frame or a lapse stops forwarding and tells
   assert.deepEqual(posted.at(-1)?.message, { bbim: BRIDGE_PROTOCOL, type: "leave", reason: "lapsed" });
   deliver(frame, mode(true), parent);
   deliver(frame, mode(false), parent);
-  assert.equal(posted.length, 2, "the parent turning it off needs no notice");
+  assert.equal(posted.length, 3, "the parent turning it off needs no notice");
+  uninstall();
+});
+
+test("bridge (frame): a late `mode` on for a session already turned off is ignored", () => {
+  const { frame, parent } = framed();
+  const uninstall = installBbimBridge({ window: frame.win, parentOrigins: [BB] });
+  deliver(frame, mode(false, "r1"), parent);
+  deliver(frame, mode(true, "r1"), parent);
+  assert.equal(frame.key("s").defaultPrevented, false, "the stale session does not swallow keys");
+  deliver(frame, mode(true, "r2"), parent);
+  deliver(frame, mode(false, "r1"), parent);
+  assert.equal(frame.key("s").defaultPrevented, true, "turning an older session off leaves the new one on");
+  deliver(frame, mode(false, "r2"), parent);
+  assert.equal(frame.key("s").defaultPrevented, false);
   uninstall();
 });
 
@@ -207,14 +229,14 @@ function parentWithFrame() {
   const sent: Array<unknown> = [];
   const child = { postMessage: (message: unknown) => sent.push(message) };
   const element = { contentWindow: child } as unknown as HTMLIFrameElement;
-  const frame: OpaqueFrame = {
+  const opaque: OpaqueFrame = {
     element,
     host: parentPage.win,
     box: { left: 100, top: 100, width: 300, height: 200 },
     offsetX: 100,
     offsetY: 100,
   };
-  return { parentPage, child, frame, sent };
+  return { parentPage, child, frame: iframeRemote(opaque), sent };
 }
 
 const targets = (requestId: string, left: number) => ({

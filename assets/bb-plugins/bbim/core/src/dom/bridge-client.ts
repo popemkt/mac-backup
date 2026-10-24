@@ -1,7 +1,11 @@
 // The parent side of the hint bridge (protocol: ../domain/protocol.ts). Every
 // message is decoded with the protocol's decoders and accepted only from the
-// window of the frame concerned, within a per-frame budget; anything else is
-// dropped unread.
+// frame concerned, within a per-frame budget; anything else is dropped unread.
+//
+// A remote frame is anything that speaks the protocol over a channel of its
+// own: an iframe the page cannot script (postMessage), or a page a host shows
+// in a native view and reaches by script (a desktop browser tab). Both are
+// one RemoteFrame; nothing here knows which.
 //
 // Limit: a frame reports its own target boxes, and the parent can only clip
 // them to the frame's box. A bridge frame could therefore place a label over
@@ -22,10 +26,91 @@ import {
 import type { KeyEventLike } from "../domain/keys.ts";
 import { intersect, type Rect, type TargetKind } from "../domain/targets.ts";
 import type { OpaqueFrame } from "./frames.ts";
-import { listen } from "./resources.ts";
+
+/** Something that answers the bridge protocol, placed in top-level coordinates. */
+export interface RemoteFrame {
+  /** The element it shows in: an iframe, or the box a native page view covers. */
+  readonly element: Element;
+  /** Its box in top-level coordinates, clipped to what is on screen. */
+  readonly box: Rect;
+  /** Offset of its viewport origin in top-level coordinates. */
+  readonly offsetX: number;
+  readonly offsetY: number;
+  /** Send it a request. */
+  readonly post: (message: ParentMessage) => void;
+  /** Hear what it sends (raw, undecoded); returns the function that stops. */
+  readonly listen: (handler: (data: unknown) => void) => () => void;
+  /**
+   * A page in a native view over this window: it covers the overlay, so it
+   * draws its own labels (sent `labels` and `typed`); and its bridge is the
+   * host's own script forwarding only keys a person typed, so those keys may
+   * pick any label, not just its own.
+   */
+  readonly native: boolean;
+  /** A native page's document, as its bridge last announced it (`ready`); `mode` names it. */
+  readonly document?: string;
+}
+
+/**
+ * A page a host shows in a native view over `element` and reaches by script
+ * (bb's desktop Browser tab). `send` delivers a request to its page bridge;
+ * `listen` hears what that bridge posts back.
+ */
+export interface PageView {
+  readonly element: Element;
+  readonly send: (message: ParentMessage) => void;
+  readonly listen: (handler: (data: unknown) => void) => () => void;
+}
+
+/**
+ * A page view as a remote frame where its element is now; undefined while it
+ * shows nothing. `document` reads the page's document as the bridge last
+ * announced it, at each `mode` (it may be learned mid-session).
+ */
+export function pageRemote(view: PageView, document: () => string | undefined = () => undefined): RemoteFrame | undefined {
+  if (!view.element.isConnected) return undefined;
+  const win = view.element.ownerDocument.defaultView;
+  const box = view.element.getBoundingClientRect();
+  const screen = { left: 0, top: 0, width: win?.innerWidth ?? 0, height: win?.innerHeight ?? 0 };
+  const shown = intersect({ left: box.left, top: box.top, width: box.width, height: box.height }, screen);
+  if (shown === undefined) return undefined;
+  return {
+    element: view.element,
+    box: shown,
+    offsetX: box.left,
+    offsetY: box.top,
+    post: view.send,
+    listen: view.listen,
+    native: true,
+    get document() {
+      return document();
+    },
+  };
+}
+
+/** An opaque iframe as a remote frame: postMessage to it, its own messages from its host window. */
+export function iframeRemote(frame: OpaqueFrame): RemoteFrame {
+  return {
+    element: frame.element,
+    box: frame.box,
+    offsetX: frame.offsetX,
+    offsetY: frame.offsetY,
+    // An opaque frame's origin is "null" or unknown, so "*" is the only target
+    // that reaches it. Requests carry no data worth hiding: ids and a flag.
+    post: (message) => frame.element.contentWindow?.postMessage(message, "*"),
+    listen: (handler) => {
+      const onMessage = (event: MessageEvent) => {
+        if (event.source !== null && event.source === frame.element.contentWindow) handler(event.data);
+      };
+      frame.host.addEventListener("message", onMessage);
+      return () => frame.host.removeEventListener("message", onMessage);
+    },
+    native: false,
+  };
+}
 
 export interface RemoteTarget {
-  readonly frame: OpaqueFrame;
+  readonly frame: RemoteFrame;
   readonly id: number;
   readonly kind: TargetKind;
   /** In top-level coordinates, clipped to the frame's box. */
@@ -34,25 +119,15 @@ export interface RemoteTarget {
   readonly faded: boolean;
 }
 
-function post(frame: OpaqueFrame, message: ParentMessage): void {
-  // An opaque frame's origin is "null" or unknown, so "*" is the only target
-  // that reaches it. Requests carry no data worth hiding: ids and a flag.
-  frame.element.contentWindow?.postMessage(message, "*");
-}
-
-function frameOf(frames: ReadonlyArray<OpaqueFrame>, source: MessageEventSource | null): OpaqueFrame | undefined {
-  return source === null ? undefined : frames.find((frame) => frame.element.contentWindow === source);
-}
-
 /**
  * How many more bridge messages a frame may send before the rest are dropped
  * unread. A hint session keeps one for collection and one for keys, so a
  * frame typing many keys never starves its own target reply, or the reverse.
  */
-export type FrameBudget = (frame: OpaqueFrame) => boolean;
+export type FrameBudget = (frame: RemoteFrame) => boolean;
 
 export function frameBudget(limit = FRAME_MESSAGE_BUDGET): FrameBudget {
-  const spent = new Map<OpaqueFrame, number>();
+  const spent = new Map<RemoteFrame, number>();
   return (frame) => {
     const used = spent.get(frame) ?? 0;
     if (used >= limit) return false;
@@ -62,24 +137,22 @@ export function frameBudget(limit = FRAME_MESSAGE_BUDGET): FrameBudget {
 }
 
 /**
- * Decode a message of one of `types` from one of `frames`. Only bridge
- * messages of those types are charged to this listener's budget (other
- * traffic, and messages another listener reads, are not), and only within
- * budget are they decoded at all.
+ * Decode a message of one of `types` from `frame`. Only bridge messages of
+ * those types are charged to this listener's budget (other traffic, and
+ * messages another listener reads, are not), and only within budget are they
+ * decoded at all.
  */
 function receive(
-  frames: ReadonlyArray<OpaqueFrame>,
+  frame: RemoteFrame,
   budget: FrameBudget,
-  event: MessageEvent,
+  data: unknown,
   types: ReadonlyArray<FrameMessage["type"]>,
-): { readonly frame: OpaqueFrame; readonly message: FrameMessage } | undefined {
-  const frame = frameOf(frames, event.source);
-  if (frame === undefined || !isBridgeMessage(event.data, types) || !budget(frame)) return undefined;
-  const message = decodeFrameMessage(event.data);
-  return message === undefined ? undefined : { frame, message };
+): FrameMessage | undefined {
+  if (!isBridgeMessage(data, types) || !budget(frame)) return undefined;
+  return decodeFrameMessage(data);
 }
 
-function placed(frame: OpaqueFrame, message: Extract<FrameMessage, { type: "targets" }>): Array<RemoteTarget> {
+function placed(frame: RemoteFrame, message: Extract<FrameMessage, { type: "targets" }>): Array<RemoteTarget> {
   // Frame-supplied boxes: trusted only as far as the frame's own box (see the limit above).
   return message.targets.flatMap((target) => {
     const rect = intersect(
@@ -90,40 +163,35 @@ function placed(frame: OpaqueFrame, message: Extract<FrameMessage, { type: "targ
   });
 }
 
-function hostsOf(frames: ReadonlyArray<OpaqueFrame>): ReadonlyArray<Window> {
-  return [...new Set(frames.map((frame) => frame.host))];
-}
-
-/** Listen on every window that hosts one of `frames`; the returned function stops. */
-function onHostMessages(frames: ReadonlyArray<OpaqueFrame>, handler: (event: MessageEvent) => void): () => void {
-  const hosts = hostsOf(frames);
-  for (const host of hosts) host.addEventListener("message", handler);
+/** Listen to every one of `frames`; the returned function stops them all. */
+function listenAll(frames: ReadonlyArray<RemoteFrame>, handler: (frame: RemoteFrame, data: unknown) => void): () => void {
+  const stops = frames.map((frame) => frame.listen((data) => handler(frame, data)));
   let stopped = false;
   return () => {
     if (stopped) return;
     stopped = true;
-    for (const host of hosts) host.removeEventListener("message", handler);
+    for (const stop of stops) stop();
   };
 }
 
 const NOTHING = () => {};
 
 /**
- * Listen to `frames`' messages until `onMessage` calls `done` or `timeoutMs`
- * passes, then stop listening, whichever way it ends: `Effect.callback`'s own
- * cleanup runs only on interruption, so the success path stops explicitly.
- * `start` runs once the listener is in place (to send the request).
+ * Listen to `frames` until `onMessage` calls `done` or `timeoutMs` passes,
+ * then stop listening, whichever way it ends: `Effect.callback`'s own cleanup
+ * runs only on interruption, so the success path stops explicitly. `start`
+ * runs once the listener is in place (to send the request).
  */
 function untilAnswered<A>(
-  frames: ReadonlyArray<OpaqueFrame>,
+  frames: ReadonlyArray<RemoteFrame>,
   timeoutMs: number,
-  onMessage: (event: MessageEvent, done: (value: A) => void) => void,
+  onMessage: (frame: RemoteFrame, data: unknown, done: (value: A) => void) => void,
   start: () => void = NOTHING,
 ): Effect.Effect<Option.Option<A>> {
   return Effect.suspend(() => {
     let stop = NOTHING;
     const answered = Effect.callback<A>((resume) => {
-      stop = onHostMessages(frames, (event) => onMessage(event, (value) => resume(Effect.succeed(value))));
+      stop = listenAll(frames, (frame, data) => onMessage(frame, data, (value) => resume(Effect.succeed(value))));
       start();
       return Effect.sync(() => stop());
     });
@@ -132,41 +200,40 @@ function untilAnswered<A>(
 }
 
 /**
- * Ask every opaque frame for its targets and wait up to `timeoutMs` for the
+ * Ask every remote frame for its targets and wait up to `timeoutMs` for the
  * replies. A frame without the bridge never answers and contributes nothing.
  * `onReply` sees every target so far each time a frame answers, so a caller
  * can show them before the slowest frame is in.
  */
 export const collectRemote = Effect.fn("collectRemote")(function* (
-  frames: ReadonlyArray<OpaqueFrame>,
+  frames: ReadonlyArray<RemoteFrame>,
   requestId: string,
   timeoutMs: number,
   budget: FrameBudget = frameBudget(),
   onReply: (sofar: ReadonlyArray<RemoteTarget>) => void = NOTHING,
 ) {
   if (frames.length === 0) return [] as ReadonlyArray<RemoteTarget>;
-  const replies = new Map<OpaqueFrame, ReadonlyArray<RemoteTarget>>();
+  const replies = new Map<RemoteFrame, ReadonlyArray<RemoteTarget>>();
   yield* untilAnswered<void>(
     frames,
     timeoutMs,
-    (event, done) => {
-      const received = receive(frames, budget, event, ["targets"]);
-      if (received === undefined || replies.has(received.frame)) return;
-      const { frame, message } = received;
-      if (message.type !== "targets" || message.requestId !== requestId) return;
+    (frame, data, done) => {
+      if (replies.has(frame)) return;
+      const message = receive(frame, budget, data, ["targets"]);
+      if (message?.type !== "targets" || message.requestId !== requestId) return;
       replies.set(frame, placed(frame, message));
       if (replies.size === frames.length) done(undefined);
       else onReply(frames.flatMap((each) => replies.get(each) ?? []));
     },
     () => {
-      for (const frame of frames) post(frame, { bbim: BRIDGE_PROTOCOL, type: "collect", requestId });
+      for (const frame of frames) frame.post({ bbim: BRIDGE_PROTOCOL, type: "collect", requestId });
     },
   );
   return frames.flatMap((frame) => replies.get(frame) ?? []);
 });
 
 export function activateRemote(target: RemoteTarget, requestId: string, newTab: boolean): void {
-  post(target.frame, { bbim: BRIDGE_PROTOCOL, type: "activate", requestId, targetId: target.id, newTab });
+  target.frame.post({ bbim: BRIDGE_PROTOCOL, type: "activate", requestId, targetId: target.id, newTab });
 }
 
 /**
@@ -174,41 +241,72 @@ export function activateRemote(target: RemoteTarget, requestId: string, newTab: 
  * asks to have opened, carrying that activation's requestId, within
  * `timeoutMs`. Any other open request, before or after, is ignored.
  */
-export const awaitOpen = Effect.fn("awaitOpen")(function* (frame: OpaqueFrame, requestId: string, timeoutMs: number) {
+export const awaitOpen = Effect.fn("awaitOpen")(function* (frame: RemoteFrame, requestId: string, timeoutMs: number) {
   const budget = frameBudget();
-  return yield* untilAnswered<string>([frame], timeoutMs, (event, done) => {
-    const received = receive([frame], budget, event, ["open"]);
-    if (received === undefined) return;
-    const { message } = received;
-    if (message.type !== "open" || message.requestId !== requestId || !isOpenableUrl(message.url)) return;
+  return yield* untilAnswered<string>([frame], timeoutMs, (from, data, done) => {
+    const message = receive(from, budget, data, ["open"]);
+    if (message?.type !== "open" || message.requestId !== requestId || !isOpenableUrl(message.url)) return;
     done(message.url);
   });
 });
 
-/** Turn key forwarding on or off in the one frame that has focus. */
-export function setRemoteMode(frame: OpaqueFrame, active: boolean): void {
-  post(frame, { bbim: BRIDGE_PROTOCOL, type: "mode", active });
+/**
+ * Turn key forwarding on or off in the one frame that has focus, for the
+ * session `requestId` (a frame ignores a late `on` for a session it was told
+ * is over). A native page also gets the document the session belongs to.
+ */
+export function setRemoteMode(frame: RemoteFrame, active: boolean, requestId: string): void {
+  frame.post({
+    bbim: BRIDGE_PROTOCOL,
+    type: "mode",
+    active,
+    requestId,
+    ...(frame.document === undefined ? {} : { document: frame.document }),
+  });
 }
 
 export interface ForwardHandlers {
   /** A keydown typed in the frame (never a held-key repeat or IME composition). */
   readonly onKey: (event: KeyEventLike) => void;
-  /** The frame stopped forwarding on its own (a click in it, or lapsed renewals). */
+  /**
+   * The frame stopped forwarding on its own (a click in it, or lapsed
+   * renewals), or sent more keys than the budget allows: either way the
+   * session ends, so a key is never dropped while the frame keeps swallowing.
+   */
   readonly onLeave: () => void;
 }
 
+/** Whether `data` is a message that ends hints (Esc, `leave`): never refused for budget. */
+function endsHints(data: unknown): boolean {
+  return (
+    isBridgeMessage(data, ["leave"]) ||
+    (isBridgeMessage(data, ["key"]) && typeof data === "object" && data !== null && "key" in data && data.key === "Escape")
+  );
+}
+
 /**
- * What the focused frame sends while hint mode is up, for as long as the
- * scope lives. Only that frame is heard, within its own budget.
+ * What `frame` sends while it forwards keys, for as long as the scope lives.
+ * Only that frame is heard, within its own budget; Esc and `leave` always
+ * get through, and a frame past its budget ends the session.
  */
 export const listenForwarded = Effect.fn("listenForwarded")(function* (
-  frame: OpaqueFrame,
+  frame: RemoteFrame,
   handlers: ForwardHandlers,
   budget: FrameBudget = frameBudget(),
 ): Effect.fn.Return<void, never, Scope.Scope> {
-  yield* listen<MessageEvent>(frame.host, "message", (event) => {
-    const message = receive([frame], budget, event, ["key", "leave"])?.message;
-    if (message?.type === "key" && !message.repeat && !message.isComposing) handlers.onKey(message);
-    else if (message?.type === "leave") handlers.onLeave();
-  });
+  yield* Effect.acquireRelease(
+    Effect.sync(() =>
+      frame.listen((data) => {
+        if (!isBridgeMessage(data, ["key", "leave"])) return;
+        if (!endsHints(data) && !budget(frame)) {
+          handlers.onLeave();
+          return;
+        }
+        const message = decodeFrameMessage(data);
+        if (message?.type === "key" && !message.repeat && !message.isComposing) handlers.onKey(message);
+        else if (message?.type === "leave") handlers.onLeave();
+      }),
+    ),
+    (stop) => Effect.sync(stop),
+  );
 });

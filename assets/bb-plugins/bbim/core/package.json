@@ -10,7 +10,8 @@
     ".": "./src/index.ts",
     "./domain": "./src/domain/index.ts",
     "./bridge": "./src/bridge/bbim-bridge.ts",
-    "./bridge.js": "./bridge/bbim-bridge.js"
+    "./bridge.js": "./bridge/bbim-bridge.js",
+    "./page": "./src/bridge/page-request.ts"
   },
   "peerDependencies": {
     "effect": "4.0.0-rc.112"

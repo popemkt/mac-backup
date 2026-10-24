@@ -1,7 +1,11 @@
-// createBbim: the key engine, hints, overlay, frames and scrolling composed
-// over one window. Everything it acquires lives in one scope; `dispose`
-// closes it. Keydown handling is plain synchronous code (the hot path); only
-// acquiring and releasing go through Effect.
+// createBbim: the key engine, pick sessions, overlay, frames and scrolling
+// composed over one window. Everything it acquires lives in one scope;
+// `dispose` closes it. Keydown handling is plain synchronous code (the hot
+// path); only acquiring and releasing go through Effect.
+//
+// Every labeled choice is one mechanism, a pick session: a Picker says which
+// targets get labels and what picking one does; the session owns labels,
+// the overlay, narrowing, frames and the bridge. Link hints are one picker.
 import { Effect, Option, Result } from "effect";
 import { ACTION_INFO, ACTIONS, type Action } from "../domain/actions.ts";
 import {
@@ -11,6 +15,7 @@ import {
   parseSequence,
   stroke,
   strokeFromEvent,
+  strokeId,
 } from "../domain/keys.ts";
 import { generateLabels } from "../domain/labels.ts";
 import {
@@ -34,26 +39,46 @@ import {
   type SettingsProblem,
 } from "../domain/settings.ts";
 import { area, order, type Rect, type TargetKind } from "../domain/targets.ts";
-import { type ActivateContext, activateElement } from "./activate.ts";
-import { MODE_HEARTBEAT_MS, MODE_TTL_MS } from "../domain/protocol.ts";
+import { type ActivateContext, activateElement, focusForTyping } from "./activate.ts";
+import {
+  BRIDGE_PROTOCOL,
+  decodeFrameMessage,
+  isBridgeMessage,
+  MODE_HEARTBEAT_MS,
+  MODE_TTL_MS,
+  type ParentMessage,
+} from "../domain/protocol.ts";
 import {
   activateRemote,
   awaitOpen,
   collectRemote,
   type FrameBudget,
   frameBudget,
+  iframeRemote,
   listenForwarded,
+  type PageView,
+  pageRemote,
+  type RemoteFrame,
   type RemoteTarget,
   setRemoteMode,
 } from "./bridge-client.ts";
-import { collectTargets, DEFAULT_SELECTORS, isRendered, isUncovered, viewportOf, visibleBox } from "./collect.ts";
+import {
+  collectTargets,
+  DEFAULT_SELECTORS,
+  type DocumentPlacement,
+  isRendered,
+  isUncovered,
+  viewportOf,
+  visibleBox,
+} from "./collect.ts";
 import { deepActiveElement, editableGuard, type FocusGuard, focusState, isEditable } from "./focus.ts";
-import { frameTree, liveFrame, liveRect, type OpaqueFrame, placementCache } from "./frames.ts";
+import { frameTree, liveFrame, liveRect, placementCache } from "./frames.ts";
 import { type HelpModel, type HelpSection, mountOverlay, type Overlay, type Theme } from "./overlay.ts";
-import { focusInput, TEXT_INPUT_SELECTOR } from "./inputs.ts";
+import { inputFields, preferredInput, TEXT_INPUT_SELECTOR } from "./inputs.ts";
 import { frameThrottle, listen, timers } from "./resources.ts";
 import { openScope, type ScopeHandle } from "./runtime.ts";
-import { scroll, scrollTarget } from "./scroll.ts";
+import { isScrollable, scroll, scrollSurfaces, scrollTarget } from "./scroll.ts";
+import { containsAcrossShadow } from "./tree.ts";
 
 export interface BbimHooks {
   /** Extra focus guards (a terminal, a webview, a modal). Editable focus is built in. */
@@ -72,10 +97,18 @@ export interface CreateBbimOptions {
   readonly theme?: Theme;
   /** Candidate selectors for hints; defaults to DEFAULT_SELECTORS. */
   readonly selectors?: ReadonlyArray<string>;
-  /** The inputs `focusInput` (gi) picks among; defaults to every text input. */
+  /** The inputs `gi` labels; defaults to every text input. */
   readonly inputSelector?: string;
+  /** Inputs `gi` means by default (first label, Enter) when none was used last; bb: its composers. */
+  readonly preferInput?: string;
   /** Aborting it disposes bbim. */
   readonly signal?: AbortSignal;
+  /**
+   * Chords the host binds itself (bb: its commands), in vim notation
+   * (`<A-f>`). A native page (attachPage) keeps every key typed in it, so it
+   * passes these back and they run their action there. Letters and digits only.
+   */
+  readonly hostChords?: ReadonlyArray<{ readonly keys: string; readonly action: Action }>;
   /**
    * How long frames speaking the hint bridge have to answer. The page's own
    * labels show at once; a frame's join when it answers, until a key is typed.
@@ -89,14 +122,22 @@ export interface Bbim {
   /** Replace settings, keys included; returns what was invalid (and fell back). */
   setSettings(input: SettingsInput): ReadonlyArray<SettingsProblem>;
   mode(): Mode;
+  /**
+   * Hint a page the host shows in a native view over `view.element` (bb's
+   * Browser tab): its targets join every hint session, it draws their labels,
+   * and the host's chords typed in it come back. Returns the detach.
+   */
+  attachPage(view: PageView): () => void;
   dispose(): void;
 }
 
+/** A labeled choice: an element of this page (or a same-origin frame), or one a bridge frame reported. */
 type Target =
   | {
       readonly source: "local";
       readonly element: Element;
-      readonly kind: TargetKind;
+      /** How activating it behaves; undefined for targets a picker does not activate (a scroll surface). */
+      readonly kind: TargetKind | undefined;
       readonly rect: Rect;
       readonly faded: boolean;
     }
@@ -108,15 +149,42 @@ type Target =
       readonly faded: boolean;
     };
 
-interface HintSession {
+type LocalTarget = Extract<Target, { readonly source: "local" }>;
+
+/**
+ * One kind of pick session: which targets get labels and what picking one
+ * does. Labels, narrowing, the overlay, frames and the bridge belong to the
+ * session, so a picker is only these decisions.
+ */
+interface Picker {
+  /** The page candidates in one document; same-origin frames are documents too. */
+  readonly collect: (placement: DocumentPlacement) => ReadonlyArray<LocalTarget>;
+  /** Whether bridge frames are asked for their targets as well. */
+  readonly remote: boolean;
+  /** Outline each target and put its label inside the top-left corner (a pane, not a control). */
+  readonly outline: boolean;
+  /** With exactly one target and no frames to ask, pick it without showing labels. */
+  readonly pickSingle: boolean;
+  /** Which target gets the first, shortest label and is what Enter picks; none when undefined. */
+  readonly first?: (targets: ReadonlyArray<Target>) => number | undefined;
+  /** Act on the picked target; `newTab` when Shift was on the last letter or the session asked for it. */
+  readonly pick: (target: Target, how: { readonly newTab: boolean; readonly requestId: string }) => void;
+}
+
+interface PickSession {
+  readonly picker: Picker;
   readonly scope: ScopeHandle;
   readonly newTab: boolean;
   readonly requestId: string;
-  readonly frames: ReadonlyArray<OpaqueFrame>;
+  readonly frames: ReadonlyArray<RemoteFrame>;
+  /** The native pages among `frames`: a new document in one ends the session. */
+  readonly pages: ReadonlyArray<PageView>;
+  /** The native page whose chord started the session: labeling again keeps it forwarding. */
+  readonly fromPage: PageView | undefined;
   /** The frame element that had focus when hints started, if any. */
   readonly startFrame: Element | null;
   /** The bridge frame that had focus: the only one asked to forward keys. */
-  readonly focusedFrame: OpaqueFrame | undefined;
+  readonly focusedFrame: RemoteFrame | undefined;
   /** How many more messages each bridge frame may send this session, for targets and for keys. */
   readonly collectBudget: FrameBudget;
   readonly keyBudget: FrameBudget;
@@ -128,8 +196,10 @@ interface HintSession {
   /** Only the focused bridge frame's labels: what keys it forwards may match. */
   frameKeymap: Keymap<number> | undefined;
   state: MatchState;
+  /** Whether Enter picks the first label (the picker named one). */
+  enterPicks: boolean;
   /** Keys typed before the labels showed up, replayed when they do. */
-  readonly queued: Array<{ readonly event: KeyEventLike; readonly from: OpaqueFrame | undefined }>;
+  readonly queued: Array<{ readonly event: KeyEventLike; readonly from: RemoteFrame | undefined }>;
 }
 
 const HINT_KEYS_LIMIT = 16;
@@ -137,6 +207,14 @@ const HINT_KEYS_LIMIT = 16;
 const MOVED_PX = 4;
 /** How long a bridge frame has to answer a new-tab activation with its URL. */
 const OPEN_REPLY_MS = 1000;
+/**
+ * How often attached native pages get the host's chords again. A reload or
+ * navigation drops the page bridge; the next delivery installs it again, so
+ * chords work in a new document within this long, whatever the host noticed.
+ */
+const PAGE_KEEPALIVE_MS = 2000;
+/** The most messages the chord listener reads from one page per keep-alive period. */
+const PAGE_MESSAGE_BUDGET = 64;
 
 function swallow(event: Event): void {
   event.preventDefault();
@@ -146,6 +224,16 @@ function swallow(event: Event): void {
 /** `element` when it is a frame element (focus inside a frame shows there). */
 function frameElement(element: Element | null): Element | null {
   return element?.tagName === "IFRAME" ? element : null;
+}
+
+/** The session's native pages, which draw their own labels. */
+function nativeFrames(active: PickSession): ReadonlyArray<RemoteFrame> {
+  return active.frames.filter((frame) => frame.native);
+}
+
+/** A native page covers the overlay where it shows: it draws its own targets' labels. */
+function elsewhere(target: Target): boolean {
+  return target.source === "remote" && target.remote.frame.native;
 }
 
 function composedTarget(event: Event): Element | null {
@@ -163,6 +251,33 @@ function regionOf(doc: Document, start: Element | null): Element | null {
     if (share >= 0.15 && share < 0.92) return element;
   }
   return null;
+}
+
+/** Leave nothing behind in a page let go of: no chords, no labels, no forwarding. */
+function releasePage(view: PageView): void {
+  view.send({ bbim: BRIDGE_PROTOCOL, type: "chords", chords: [] });
+  view.send({ bbim: BRIDGE_PROTOCOL, type: "labels", labels: [] });
+  view.send({ bbim: BRIDGE_PROTOCOL, type: "mode", active: false, requestId: "" });
+}
+
+type ChordCode = Extract<ParentMessage, { readonly type: "chords" }>["chords"][number];
+
+/**
+ * A host chord as a native page matches it (by physical key, as alt chords
+ * are on macOS) and as the engine compares it; undefined unless it is one
+ * chord on a letter or digit.
+ */
+function pageChord(keys: string): { readonly id: string; readonly code: ChordCode } | undefined {
+  const parsed = parseSequence(keys);
+  const only = Result.isSuccess(parsed) && parsed.success.length === 1 ? parsed.success[0] : undefined;
+  if (only === undefined || !isChord(only)) return undefined;
+  const letter = /^[a-z]$/iu.test(only.key);
+  if (!letter && !/^[0-9]$/u.test(only.key)) return undefined;
+  const code = letter ? `Key${only.key.toUpperCase()}` : `Digit${only.key}`;
+  return {
+    id: strokeId(only),
+    code: { code, ctrlKey: only.ctrl, altKey: only.alt, metaKey: only.meta, shiftKey: letter && only.key !== only.key.toLowerCase() },
+  };
 }
 
 function helpModel(settings: Settings, problems: ReadonlyArray<string>, extra: ReadonlyArray<HelpSection>): HelpModel {
@@ -184,6 +299,7 @@ function helpModel(settings: Settings, problems: ReadonlyArray<string>, extra: R
           { label: "Pick a target", keys: ["its letters"] },
           { label: "Open a link in a new tab", keys: ["Shift + last letter"] },
           { label: "Take back a letter", keys: ["Backspace"] },
+          { label: "gi: the input you used last", keys: ["Enter"] },
           { label: "Cancel", keys: ["Esc"] },
         ],
       },
@@ -208,10 +324,28 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
   let keymap: Keymap<Action> = compileKeymap(keyBindings(settings));
   let keyState: MatchState = EMPTY_STATE;
   let stack: ModeStack = INITIAL_STACK;
-  let session: HintSession | undefined;
+  let session: PickSession | undefined;
   let lastPointer: Element | null = null;
   let lastEditable: Element | null = null;
+  /** The surface `gs` picked: j/k/d/u/gg/G scroll it until a click lands outside it. */
+  let scrollFocus: Element | undefined;
   let requests = 0;
+  /** Native pages the host attached (attachPage): remote frames over its own window. */
+  const pages = new Map<
+    PageView,
+    {
+      /** Stops hearing the page. */
+      readonly stop: () => void;
+      /** Its bridge's document, as last announced (`ready`). */
+      document: string | undefined;
+      /** Messages read from it this keep-alive period. */
+      spent: number;
+    }
+  >();
+  const hostChords = (options.hostChords ?? []).flatMap(({ keys, action }) => {
+    const chord = pageChord(keys);
+    return chord === undefined ? [] : [{ ...chord, action }];
+  });
 
   const overlay: Overlay = root.run(mountOverlay(doc, options.theme ?? {}));
   const schedule = root.run(timers(win));
@@ -246,12 +380,19 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
 
   // ---- hints -------------------------------------------------------------
 
+  /** Narrow every label to `prefix`: the overlay's, and those native pages draw. */
+  const narrowTo = (active: PickSession, prefix: string) => {
+    overlay.narrow(prefix);
+    for (const frame of nativeFrames(active)) frame.post({ bbim: BRIDGE_PROTOCOL, type: "typed", typed: prefix });
+  };
+
   const endHints = () => {
     const ending = session;
     if (ending === undefined) return;
     session = undefined;
     stack = leave(stack, "hint");
     overlay.hideHints();
+    for (const frame of nativeFrames(ending)) frame.post({ bbim: BRIDGE_PROTOCOL, type: "labels", labels: [] });
     ending.scope.close();
   };
 
@@ -268,12 +409,8 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     return live !== undefined && Math.abs(live.left - drawn.left) <= MOVED_PX && Math.abs(live.top - drawn.top) <= MOVED_PX;
   };
 
-  const activate = (target: Target, drawn: Rect | undefined, newTab: boolean, requestId: string) => {
-    if (target.source === "local" && !stillThere(target.element, drawn)) {
-      // The page changed under the labels (moved, covered, gone): label it again.
-      startHints(newTab);
-      return;
-    }
+  /** What picking a link hint does: follow, click, focus or open, here or in the bridge frame that reported it. */
+  const activate = (target: Target, { newTab, requestId }: { readonly newTab: boolean; readonly requestId: string }) => {
     overlay.flash(target.rect);
     if (target.source === "remote") {
       const { frame } = target.remote;
@@ -292,12 +429,79 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       return;
     }
     lastPointer = target.element;
+    if (target.kind === undefined) return;
     const context: ActivateContext = { newTab, ...(hooks.openUrl === undefined ? {} : { openUrl: hooks.openUrl }) };
     activateElement(target.element, target.kind, context);
   };
 
+  const linkHints: Picker = {
+    collect: (placement) =>
+      collectTargets(placement, { selectors, exclude: (element) => element === overlay.host }).map(
+        (target): LocalTarget => ({ source: "local", ...target }),
+      ),
+    remote: true,
+    outline: false,
+    pickSingle: false,
+    pick: activate,
+  };
+
+  const isOverlay = (element: Element) => element === overlay.host || element.getRootNode() === overlay.host.shadowRoot;
+
+  /** Scroll surfaces: picking one makes it what the scroll keys move. */
+  const scrollPicker: Picker = {
+    collect: (placement) =>
+      scrollSurfaces(placement, isOverlay).map(
+        ({ element, rect }): LocalTarget => ({ source: "local", element, kind: undefined, rect, faded: false }),
+      ),
+    remote: false,
+    outline: true,
+    pickSingle: true,
+    pick: (target) => {
+      if (target.source !== "local") return;
+      scrollFocus = target.element;
+      overlay.flash(target.rect);
+    },
+  };
+
+  /** Text inputs: the one `gi` means by default gets the first label, and Enter. */
+  const inputPicker: Picker = {
+    collect: (placement) =>
+      inputFields(placement, inputSelector).map(
+        ({ element, rect }): LocalTarget => ({ source: "local", element, kind: undefined, rect, faded: false }),
+      ),
+    remote: false,
+    outline: false,
+    pickSingle: true,
+    first: (targets) => {
+      const fields = targets.flatMap((target) => (target.source === "local" ? [target] : []));
+      const preferred = preferredInput(fields, {
+        lastEditable,
+        near: lastPointer ?? deepActiveElement(doc),
+        ...(options.preferInput === undefined ? {} : { prefer: options.preferInput }),
+      });
+      const index = targets.findIndex((target) => target.source === "local" && target.element === preferred);
+      return index < 0 ? undefined : index;
+    },
+    pick: (target) => {
+      if (target.source === "local") focusForTyping(target.element);
+    },
+  };
+
+  /** Pick the target labeled `index`, or label again when the page moved under it. */
+  const choose = (active: PickSession, index: number, newTab: boolean) => {
+    const chosen = active.assigned?.[index];
+    endHints();
+    if (chosen === undefined) return;
+    if (chosen.target.source === "local" && !stillThere(chosen.target.element, active.drawn[index])) {
+      // The page changed under the labels (moved, covered, gone): label it again.
+      startPick(active.picker, newTab, active.fromPage);
+      return;
+    }
+    active.picker.pick(chosen.target, { newTab, requestId: active.requestId });
+  };
+
   /** A key typed in hint mode; `from` is the bridge frame it was typed in, if any. */
-  const hintKey = (event: KeyEventLike, from?: OpaqueFrame) => {
+  const hintKey = (event: KeyEventLike, from?: RemoteFrame) => {
     const active = session;
     if (active === undefined) return;
     if (event.key === "Escape") {
@@ -308,38 +512,44 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       if (active.queued.length < HINT_KEYS_LIMIT) active.queued.push({ event, from });
       return;
     }
+    // A native page's keys are a person's own (see RemoteFrame.native); an iframe's are not.
+    const trusted = from === undefined || from.native;
+    if (event.key === "Enter") {
+      // Enter takes the first label, the picker's default (gi: the last input used).
+      if (trusted && active.enterPicks && active.state.prefix.length === 0) choose(active, 0, active.newTab);
+      return;
+    }
     if (event.key === "Backspace") {
       // A frame may take back only letters of its own labels.
-      if (from !== undefined && (active.frameKeymap === undefined || !within(active.frameKeymap, active.state))) return;
+      if (!trusted && (active.frameKeymap === undefined || !within(active.frameKeymap, active.state))) return;
       active.state = back(active.state);
-      overlay.narrow(typed(active.keymap, active.state));
+      narrowTo(active, typed(active.keymap, active.state));
       return;
     }
     const pressed = strokeFromEvent(event);
     if (pressed === undefined || isChord(pressed)) return;
     // Keys a frame forwards are matched against that frame's own labels only,
     // before anything changes: they cannot pick, narrow or reset the page's.
-    const map = from === undefined ? active.keymap : active.frameKeymap;
+    const map = trusted ? active.keymap : active.frameKeymap;
     if (map === undefined) return;
     const [next, step] = feed(map, active.state, pressed, now());
     if (step.kind === "miss") return;
     active.state = next;
-    if (step.kind === "pending") overlay.narrow(typed(active.keymap, next));
+    if (step.kind === "pending") narrowTo(active, typed(active.keymap, next));
     if (step.kind !== "match") return;
-    const index = step.binding.action;
-    const chosen = active.assigned[index];
-    const newTab = active.newTab || event.shiftKey;
-    endHints();
-    if (chosen !== undefined) activate(chosen.target, active.drawn[index], newTab, active.requestId);
+    choose(active, step.binding.action, active.newTab || event.shiftKey);
   };
 
-  const showLabels = (active: HintSession, targets: ReadonlyArray<Target>) => {
+  const showLabels = (active: PickSession, targets: ReadonlyArray<Target>) => {
     if (session !== active) return;
     if (targets.length === 0) {
       endHints();
       return;
     }
-    const ordered = order(targets, regionRect());
+    const first = active.picker.first?.(targets);
+    const byPlace = order(targets, regionRect());
+    const ordered = first === undefined ? byPlace : [first, ...byPlace.filter((index) => index !== first)];
+    active.enterPicks = first !== undefined;
     const labels = generateLabels(ordered.length, settings.hintAlphabet);
     const assigned = labels.flatMap((label, rank) => {
       const target = targets[ordered[rank] ?? -1];
@@ -358,7 +568,16 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     const focused = active.focusedFrame;
     active.frameKeymap =
       focused === undefined ? undefined : labelKeymap((target) => target.source === "remote" && target.remote.frame === focused);
-    overlay.showHints(assigned.map(({ label, target }) => ({ label, rect: target.rect, faded: target.faded })));
+    const { outline } = active.picker;
+    overlay.showHints(
+      assigned.map(({ label, target }) => ({ label, rect: target.rect, faded: target.faded, outline, elsewhere: elsewhere(target) })),
+    );
+    for (const frame of nativeFrames(active)) {
+      const own = assigned.flatMap(({ label, target }) =>
+        target.source === "remote" && target.remote.frame === frame ? [{ id: target.remote.id, label }] : [],
+      );
+      frame.post({ bbim: BRIDGE_PROTOCOL, type: "labels", labels: own });
+    }
     for (const queued of active.queued.splice(0)) hintKey(queued.event, queued.from);
   };
 
@@ -368,10 +587,12 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     // Each document's and frame's placement once per reposition (one per animation
     // frame), not once per label; a document scrolled away hides all its labels.
     const place = placementCache(doc);
-    const frames = new Map<OpaqueFrame, OpaqueFrame | undefined>();
+    const frames = new Map<RemoteFrame, RemoteFrame | undefined>();
     active.drawn = active.assigned.map(({ target }) => {
       if (target.source === "local") return liveRect(place, target.element);
       const before = target.remote.frame;
+      // A native page draws (and keeps placing) its own labels.
+      if (before.native) return undefined;
       if (!frames.has(before)) frames.set(before, liveFrame(place, before));
       const after = frames.get(before);
       if (after === undefined) return undefined;
@@ -385,7 +606,12 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     overlay.reposition(active.drawn);
   };
 
-  const startHints = (newTab: boolean) => {
+  /**
+   * Start a pick session for `picker`; the same key again while one is up
+   * ends it. `fromPage` is the native page whose chord started it: focus is
+   * in that page, so it forwards the keys typed next.
+   */
+  const startPick = (picker: Picker, newTab: boolean, fromPage?: PageView) => {
     if (session !== undefined) {
       endHints();
       return;
@@ -393,19 +619,29 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     stack = leave(stack, "help");
     overlay.hideHelp();
     const tree = frameTree(doc);
-    const local: Array<Target> = tree.documents.flatMap((placement) =>
-      collectTargets(placement, { selectors, exclude: (element) => element === overlay.host }).flatMap(
-        (target): Array<Target> => (shows(target) ? [{ source: "local", ...target }] : []),
-      ),
-    );
+    const local: Array<Target> = tree.documents.flatMap((placement) => picker.collect(placement).filter(shows));
     requests += 1;
-    const active: HintSession = {
+    const only = local[0];
+    if (picker.pickSingle && !picker.remote && local.length === 1 && only !== undefined) {
+      picker.pick(only, { newTab, requestId: `bbim-${requests}` });
+      return;
+    }
+    const remotes = tree.opaque.map(iframeRemote);
+    const shownPages = [...pages].flatMap(([view, page]) => {
+      const frame = pageRemote(view, () => page.document);
+      return frame === undefined ? [] : [{ view, frame }];
+    });
+    const startPage = shownPages.find(({ view }) => view === fromPage)?.frame;
+    const active: PickSession = {
+      picker,
       scope: root.child(),
       newTab,
       requestId: `bbim-${requests}`,
-      frames: tree.opaque,
+      frames: picker.remote ? [...remotes, ...shownPages.map(({ frame }) => frame)] : [],
+      pages: shownPages.map(({ view }) => view),
+      fromPage,
       startFrame: frameElement(doc.activeElement),
-      focusedFrame: tree.opaque.find((frame) => deepActiveElement(doc) === frame.element),
+      focusedFrame: startPage ?? remotes.find((frame) => deepActiveElement(doc) === frame.element),
       collectBudget: frameBudget(),
       keyBudget: frameBudget(),
       assigned: undefined,
@@ -413,6 +649,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       keymap: undefined,
       frameKeymap: undefined,
       state: EMPTY_STATE,
+      enterPicks: false,
       queued: [],
     };
     session = active;
@@ -451,12 +688,17 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
               return;
             }
             renewed = now();
-            setRemoteMode(focused, true);
+            setRemoteMode(focused, true, active.requestId);
             beat(MODE_HEARTBEAT_MS, renew);
           };
           renew();
-          yield* Effect.addFinalizer(() => Effect.sync(() => setRemoteMode(focused, false)));
-          yield* listenForwarded(focused, { onKey: (event) => hintKey(event, focused), onLeave: endHints }, active.keyBudget);
+          yield* Effect.addFinalizer(() => Effect.sync(() => setRemoteMode(focused, false, active.requestId)));
+          const onLeave = () => {
+            // A click in a native page is a click outside the picked surface.
+            if (focused.native) scrollFocus = undefined;
+            endHints();
+          };
+          yield* listenForwarded(focused, { onKey: (event) => hintKey(event, focused), onLeave }, active.keyBudget);
         }
       }),
     );
@@ -503,7 +745,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
 
   // ---- actions -----------------------------------------------------------
 
-  const run = (action: Action, repeat = false) => {
+  const run = (action: Action, repeat = false, fromPage?: PageView) => {
     switch (action) {
       case "scrollDown":
       case "scrollUp":
@@ -511,16 +753,20 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       case "halfPageUp":
       case "scrollTop":
       case "scrollBottom": {
-        const target = scrollTarget(doc, [lastPointer, deepActiveElement(doc)], regionRect());
+        const picked = scrollFocus?.isConnected === true && isScrollable(scrollFocus) ? scrollFocus : undefined;
+        const target = picked ?? scrollTarget(doc, [lastPointer, deepActiveElement(doc)], regionRect());
         if (target !== undefined) scroll(target, action, settings.scrollStep, repeat);
         return;
       }
       case "hints":
       case "hintsNewTab":
-        startHints(action === "hintsNewTab");
+        startPick(linkHints, action === "hintsNewTab", fromPage);
+        return;
+      case "pickScroll":
+        startPick(scrollPicker, false, fromPage);
         return;
       case "focusInput":
-        focusInput(doc, { selector: inputSelector, lastEditable, near: lastPointer ?? deepActiveElement(doc) });
+        startPick(inputPicker, false, fromPage);
         return;
       case "help":
         toggleHelp();
@@ -598,6 +844,10 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
         "pointerdown",
         (event) => {
           lastPointer = composedTarget(event);
+          // A click outside the picked surface hands scrolling back to where the click was.
+          if (scrollFocus !== undefined && (lastPointer === null || !containsAcrossShadow(scrollFocus, lastPointer))) {
+            scrollFocus = undefined;
+          }
           keyState = EMPTY_STATE;
           if (session !== undefined) endHints();
           if (current(stack) === "help") toggleHelp();
@@ -628,15 +878,81 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
 
   if (options.settings !== undefined) applySettings(options.settings);
 
+  // ---- native pages --------------------------------------------------------
+
+  const sendChords = (view: PageView) =>
+    view.send({ bbim: BRIDGE_PROTOCOL, type: "chords", chords: hostChords.map(({ code }) => code) });
+
+  let keepingAlive = false;
+  const keepAlive = () => {
+    if (pages.size === 0) {
+      keepingAlive = false;
+      return;
+    }
+    for (const [view, page] of pages) {
+      page.spent = 0;
+      if (view.element.isConnected) sendChords(view);
+    }
+    schedule(PAGE_KEEPALIVE_MS, keepAlive);
+  };
+
+  /** What a page sends outside a session's own listeners: its new documents, and the host's chords typed in it. */
+  const pageMessage = (view: PageView, data: unknown) => {
+    const page = pages.get(view);
+    if (page === undefined || !isBridgeMessage(data, ["key", "ready"])) return;
+    if (page.spent >= PAGE_MESSAGE_BUDGET) return;
+    page.spent += 1;
+    const message = decodeFrameMessage(data);
+    if (message?.type === "ready") {
+      // A new document: a session it was part of lost its targets and labels with the old one.
+      // (The first one announced is the page's first: nothing was labeled in another.)
+      const replaced = page.document !== undefined && message.document !== page.document;
+      if (replaced && session?.pages.includes(view) === true) endHints();
+      page.document = message.document;
+      return;
+    }
+    if (message?.type !== "key" || message.repeat || message.isComposing) return;
+    const pressed = strokeFromEvent(message);
+    const chord = pressed === undefined ? undefined : hostChords.find(({ id }) => id === strokeId(pressed));
+    if (chord !== undefined) run(chord.action, false, view);
+  };
+
+  const attachPage = (view: PageView) => {
+    pages.get(view)?.stop();
+    // Focus in the page keeps the host's chords from the host: the page passes them back.
+    const stop = view.listen((data) => pageMessage(view, data));
+    const page = { stop, document: undefined, spent: 0 };
+    pages.set(view, page);
+    sendChords(view);
+    if (!keepingAlive) {
+      keepingAlive = true;
+      schedule(PAGE_KEEPALIVE_MS, keepAlive);
+    }
+    return () => {
+      if (pages.get(view) !== page) return;
+      pages.delete(view);
+      stop();
+      if (session?.pages.includes(view) === true) endHints();
+      releasePage(view);
+    };
+  };
+
   const bbim: Bbim = {
     run: (action) => run(action),
     setSettings: applySettings,
     mode: () => current(stack),
+    attachPage,
     dispose: () => {
+      for (const [view, page] of pages) {
+        page.stop();
+        releasePage(view);
+      }
+      pages.clear();
       session = undefined;
       // Let go of the page's elements: a disposed engine may outlive its page.
       lastPointer = null;
       lastEditable = null;
+      scrollFocus = undefined;
       root.close();
     },
   };

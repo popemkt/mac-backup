@@ -11,7 +11,7 @@ test("settings: defaults when nothing is given", () => {
   const { settings, problems } = decodeSettings({});
   assert.deepEqual(settings, DEFAULT_SETTINGS);
   assert.deepEqual(problems, []);
-  assert.equal(keyBindings(settings).length, 10);
+  assert.equal(keyBindings(settings).length, 11);
 });
 
 test("settings: a bad field falls back alone and is reported", () => {
@@ -71,7 +71,13 @@ test("protocol: well-formed messages decode", () => {
   assert.ok(
     decodeParentMessage({ bbim: BRIDGE_PROTOCOL, type: "activate", requestId: "x", targetId: 3, newTab: true }) !== undefined,
   );
-  assert.ok(decodeParentMessage({ bbim: BRIDGE_PROTOCOL, type: "mode", active: false }) !== undefined);
+  assert.ok(decodeParentMessage({ bbim: BRIDGE_PROTOCOL, type: "mode", active: false, requestId: "x" }) !== undefined);
+  assert.ok(
+    decodeParentMessage({ bbim: BRIDGE_PROTOCOL, type: "mode", active: true, requestId: "x", document: "d1" }) !== undefined,
+    "a native page's mode names its document",
+  );
+  assert.equal(decodeParentMessage({ bbim: BRIDGE_PROTOCOL, type: "mode", active: true }), undefined, "mode names its session");
+  assert.ok(decodeFrameMessage({ bbim: BRIDGE_PROTOCOL, type: "ready", document: "d1" }) !== undefined);
   assert.ok(decodeFrameMessage(keyMessage) !== undefined);
   assert.ok(decodeFrameMessage({ bbim: BRIDGE_PROTOCOL, type: "open", requestId: "x", url: "https://a.test/" }) !== undefined);
   assert.ok(decodeFrameMessage({ bbim: BRIDGE_PROTOCOL, type: "leave", reason: "lapsed" }) !== undefined);
@@ -153,7 +159,16 @@ const parentMessageArb = fc.oneof(
     targetId: fc.nat(),
     newTab: fc.boolean(),
   }),
-  fc.record({ bbim: fc.constant(BRIDGE_PROTOCOL), type: fc.constant("mode"), active: fc.boolean() }),
+  fc.record(
+    {
+      bbim: fc.constant(BRIDGE_PROTOCOL),
+      type: fc.constant("mode"),
+      active: fc.boolean(),
+      requestId: requestIdArb,
+      document: requestIdArb,
+    },
+    { requiredKeys: ["bbim", "type", "active", "requestId"] },
+  ),
 );
 
 test("protocol (property): valid messages survive postMessage's structured clone and decode unchanged", () => {

@@ -6,7 +6,7 @@
 // its own or an ancestor's) does not: a control drawn only on hover is still
 // there to click, so it is a target flagged `faded`, labeled after the rest.
 import { type Candidate, classify, dedupe, intersect, type Rect, type TargetKind } from "../domain/targets.ts";
-import { parentAcrossShadow } from "./tree.ts";
+import { closestAcrossShadow, containsAcrossShadow, parentAcrossShadow, querySelectorAllDeep } from "./tree.ts";
 
 /** What counts as interactive, before visibility filtering. */
 export const DEFAULT_SELECTORS: ReadonlyArray<string> = [
@@ -121,9 +121,13 @@ function isDisabled(element: Element): boolean {
   return element.matches(":disabled") || element.getAttribute("aria-disabled") === "true";
 }
 
-/** Whether a hit at a point belongs to `element`: itself, inside it, or its label. */
+/**
+ * Whether a hit at a point belongs to `element`: itself, inside it, or its
+ * label. A document hit-tests shadow content to its host, so ancestry crosses
+ * shadow roots.
+ */
 function owns(element: Element, hit: Element): boolean {
-  if (hit === element || element.contains(hit) || hit.contains(element)) return true;
+  if (hit === element || containsAcrossShadow(element, hit) || containsAcrossShadow(hit, element)) return true;
   const label = hit.closest("label");
   return label !== null && (label.control === element || label.contains(element));
 }
@@ -166,12 +170,14 @@ export function collectTargets(placement: DocumentPlacement, options: CollectOpt
   const found: Array<LocalTarget & Candidate> = [];
   const seen = new Set<Element>();
   const opacities = new Map<Element, number>();
-  for (const element of doc.querySelectorAll(options.selectors.join(","))) {
+  // Open shadow roots too: a component-built pane (a plugin's) is as clickable as the page.
+  for (const element of querySelectorAllDeep(doc, options.selectors.join(","))) {
     if (seen.has(element)) continue;
     seen.add(element);
     if (options.exclude?.(element) === true || isDisabled(element)) continue;
     // A contenteditable region's descendants are part of one text target.
-    if (element.parentElement?.closest('[contenteditable]:not([contenteditable="false"])') != null) continue;
+    const parent = parentAcrossShadow(element);
+    if (parent !== null && closestAcrossShadow(parent, '[contenteditable]:not([contenteditable="false"])') !== null) continue;
     const shown = visibleBox(element, viewport);
     if (shown === undefined || !isRendered(element) || !isUncovered(doc, element, shown)) continue;
     const kind = classify(factsOf(element));
@@ -185,7 +191,8 @@ export function collectTargets(placement: DocumentPlacement, options: CollectOpt
   }
   const indexOf = new Map(found.map((target, index) => [target.element, index]));
   const ancestors = function* (inner: number): Generator<number> {
-    for (let at = found[inner]?.element.parentElement ?? null; at !== null; at = at.parentElement) {
+    const start = found[inner]?.element;
+    for (let at = start === undefined ? null : parentAcrossShadow(start); at !== null; at = parentAcrossShadow(at)) {
       const outer = indexOf.get(at);
       if (outer !== undefined) yield outer;
     }
