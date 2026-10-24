@@ -10,8 +10,8 @@
 // when the parent stops renewing it, so a parent that dies mid-session
 // cannot leave the frame swallowing keys.
 //
-// Plain DOM on purpose: this file and what it imports (collect, frames,
-// activate, the protocol decoders) are all a frame bundles, so none of it
+// Plain DOM on purpose: this file and what it imports (collect, inputs,
+// scroll, frames, activate, the protocol decoders) are all a frame bundles, so none of it
 // imports Effect; scripts/build-bridge.mjs fails the build if any does. The
 // built script is ../../bridge/bbim-bridge.js.
 import {
@@ -21,11 +21,14 @@ import {
   type ParentMessage,
   isOpenableUrl,
   MODE_TTL_MS,
+  type PickerName,
 } from "../domain/protocol.ts";
-import type { TargetKind } from "../domain/targets.ts";
-import { activateElement } from "../dom/activate.ts";
-import { collectTargets, DEFAULT_SELECTORS } from "../dom/collect.ts";
+import type { Rect, TargetKind } from "../domain/targets.ts";
+import { activateElement, focusForTyping } from "../dom/activate.ts";
+import { collectTargets, DEFAULT_SELECTORS, type DocumentPlacement } from "../dom/collect.ts";
 import { frameTree } from "../dom/frames.ts";
+import { inputFields, TEXT_INPUT_SELECTOR } from "../dom/inputs.ts";
+import { isScrollable, scroll, scrollSurfaces } from "../dom/scroll.ts";
 
 export interface BridgeOptions {
   /** The frame's window. Defaults to the global one. */
@@ -38,6 +41,8 @@ export interface BridgeOptions {
    */
   readonly parentOrigins: ReadonlyArray<string>;
   readonly selectors?: ReadonlyArray<string>;
+  /** The inputs an `inputs` collect reports; defaults to every text input. */
+  readonly inputSelector?: string;
   /** How long key forwarding outlives the parent's last renewal. */
   readonly modeTtlMs?: number;
 }
@@ -59,6 +64,16 @@ export interface BridgeCore {
   readonly dispose: () => void;
 }
 
+type Chord = Extract<ParentMessage, { readonly type: "chords" }>["chords"][number];
+
+/** A target of one picker in one document, as the frame reports it. */
+interface Found {
+  readonly element: Element;
+  readonly rect: Rect;
+  readonly kind?: TargetKind;
+  readonly faded?: boolean;
+}
+
 /** A keydown as the protocol's `key` message. */
 export function keyMessage(event: KeyboardEvent): FrameMessage {
   const { key, code, ctrlKey, altKey, metaKey, shiftKey } = event;
@@ -77,16 +92,18 @@ export function keyMessage(event: KeyboardEvent): FrameMessage {
 }
 
 /**
- * The bridge itself, over any transport: it collects and activates targets
- * and forwards keys while asked to. The transport decodes requests, decides
- * who may send which (installBbimBridge: origins), and carries the replies.
- * The native-page requests (`labels`, `typed`, `chords`) are the page
- * transport's (page-bridge.ts); here they do nothing.
+ * The bridge itself, over any transport: it collects and activates each
+ * picker's targets, scrolls the surface picked here, passes the parent's
+ * chords back and forwards keys while asked to. The transport decodes
+ * requests, decides who may send which (installBbimBridge: origins), and
+ * carries the replies. The native-page requests (`labels`, `typed`) are the
+ * page transport's (page-bridge.ts); here they do nothing.
  */
 export function bridgeCore(
   win: Window,
   options: {
     readonly selectors?: ReadonlyArray<string>;
+    readonly inputSelector?: string;
     readonly modeTtlMs?: number;
     /**
      * Forward only keys the browser marks as a person's (`isTrusted`), so a
@@ -98,7 +115,11 @@ export function bridgeCore(
   reply: BridgeReply,
 ): BridgeCore {
   const ttl = options.modeTtlMs ?? MODE_TTL_MS;
-  const targets = new Map<number, { readonly element: Element; readonly kind: TargetKind }>();
+  /** The last collect's targets, by id, and the picker they were for. */
+  const targets = new Map<number, Found>();
+  let picked: PickerName = "hints";
+  /** The surface the person picked here (`gs`): the only thing `scroll` moves. */
+  let scrollFocus: Element | undefined;
   let forwarding:
     | {
         readonly onKey: (event: KeyboardEvent) => void;
@@ -113,6 +134,92 @@ export function bridgeCore(
   /** The session whose forwarding the parent last turned off: a late `mode` on for it is stale. */
   let ended: string | undefined;
   const counts = (event: Event) => options.trustedOnly !== true || event.isTrusted;
+
+  /** What each picker labels in one document. */
+  const collectors: Readonly<Record<PickerName, (placement: DocumentPlacement) => ReadonlyArray<Found>>> = {
+    hints: (placement) => collectTargets(placement, { selectors: options.selectors ?? DEFAULT_SELECTORS }),
+    inputs: (placement) => inputFields(placement, options.inputSelector ?? TEXT_INPUT_SELECTOR),
+    scroll: (placement) => scrollSurfaces(placement, () => false),
+  };
+
+  /** What picking a target does, by the picker it was collected for. */
+  const pick = (target: Found, newTab: boolean, requestId: string, from: string) => {
+    switch (picked) {
+      case "hints":
+        if (target.kind === undefined) return;
+        activateElement(target.element, target.kind, {
+          newTab,
+          openUrl: (url) => {
+            if (!isOpenableUrl(url)) return false;
+            reply({ bbim: BRIDGE_PROTOCOL, type: "open", requestId, url }, from);
+            return true;
+          },
+        });
+        return;
+      case "inputs":
+        focusForTyping(target.element);
+        return;
+      case "scroll":
+        scrollFocus = target.element;
+    }
+  };
+
+  // ---- chords: the parent's own commands, typed here -----------------------
+
+  let chords: { readonly list: ReadonlyArray<Chord>; readonly from: string } = { list: [], from: "" };
+  /** The bubble-phase listener waiting for the end of one chord's dispatch, on its window. */
+  let pending: { readonly view: Window; readonly listener: (event: KeyboardEvent) => void } | undefined;
+  const dropPending = () => {
+    pending?.view.removeEventListener("keydown", pending.listener);
+    pending = undefined;
+  };
+  /**
+   * A keydown that is one of the parent's chords goes back to it, unless the
+   * page took it: the page's own bindings win. Whether it did is known only
+   * once its listeners ran, so the decision waits in a bubble-phase listener
+   * added now, which runs after every window listener the page had.
+   */
+  const onChordKey = (event: KeyboardEvent) => {
+    dropPending();
+    // While forwarding, every key goes to the parent anyway; held and made-up keys are never a chord.
+    if (forwarding !== undefined || !counts(event) || event.repeat) return;
+    const chord = chords.list.some(
+      (each) =>
+        each.code === event.code &&
+        each.ctrlKey === event.ctrlKey &&
+        each.altKey === event.altKey &&
+        each.metaKey === event.metaKey &&
+        each.shiftKey === event.shiftKey,
+    );
+    const view = event.currentTarget as Window | null;
+    if (!chord || view === null) return;
+    const from = chords.from;
+    const listener = (late: KeyboardEvent) => {
+      if (late !== event) return;
+      dropPending();
+      if (event.defaultPrevented) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      reply(keyMessage(event), from);
+    };
+    pending = { view, listener };
+    view.addEventListener("keydown", listener);
+  };
+  /** Windows the chord listener is on: this one and every same-origin frame's (keys typed in a frame stay there). */
+  const chordWindows = new Set<Window>();
+  const listenForChords = () => {
+    for (const placement of frameTree(win.document).documents) {
+      const each = placement.doc.defaultView;
+      if (each === null || chordWindows.has(each)) continue;
+      chordWindows.add(each);
+      each.addEventListener("keydown", onChordKey, { capture: true });
+    }
+  };
+  const stopChords = () => {
+    dropPending();
+    for (const each of chordWindows) each.removeEventListener("keydown", onChordKey, { capture: true });
+    chordWindows.clear();
+  };
 
   /** Stop forwarding; `told` names why when the parent should hear of it. */
   const stopForwarding = (told?: "pointer" | "lapsed") => {
@@ -169,22 +276,21 @@ export function bridgeCore(
   const receive = (message: ParentMessage, from: string) => {
     switch (message.type) {
       case "collect": {
-        const found = frameTree(win.document).documents.flatMap((placement) =>
-          collectTargets(placement, { selectors: options.selectors ?? DEFAULT_SELECTORS }),
-        );
+        picked = message.picker ?? "hints";
+        const found = frameTree(win.document).documents.flatMap(collectors[picked]);
         targets.clear();
-        found.forEach((target, id) => targets.set(id, { element: target.element, kind: target.kind }));
+        found.forEach((target, id) => targets.set(id, target));
         reply(
           {
             bbim: BRIDGE_PROTOCOL,
             type: "targets",
             requestId: message.requestId,
-            // `faded` is optional in the protocol: sent only when true.
+            // `kind` and `faded` are optional in the protocol: sent only when they say something.
             targets: found.map((target, id) => ({
               id,
-              kind: target.kind,
               ...target.rect,
-              ...(target.faded ? { faded: true } : {}),
+              ...(target.kind === undefined ? {} : { kind: target.kind }),
+              ...(target.faded === true ? { faded: true } : {}),
             })),
           },
           from,
@@ -194,16 +300,21 @@ export function bridgeCore(
       case "activate": {
         const target = targets.get(message.targetId);
         if (target === undefined || !target.element.isConnected) return;
-        activateElement(target.element, target.kind, {
-          newTab: message.newTab,
-          openUrl: (url) => {
-            if (!isOpenableUrl(url)) return false;
-            reply({ bbim: BRIDGE_PROTOCOL, type: "open", requestId: message.requestId, url }, from);
-            return true;
-          },
-        });
+        pick(target, message.newTab, message.requestId, from);
         return;
       }
+      case "scroll": {
+        const surface = scrollFocus;
+        if (surface === undefined || !surface.isConnected || !isScrollable(surface)) return;
+        scroll(surface, message.action, message.step, message.repeat);
+        return;
+      }
+      case "chords":
+        chords = { list: message.chords, from };
+        if (message.chords.length === 0) stopChords();
+        // Repeated by the parent: frames loaded since get listened on too.
+        else listenForChords();
+        return;
       case "mode":
         if (message.active) {
           startForwarding(from, message.requestId);
@@ -217,7 +328,6 @@ export function bridgeCore(
         return;
       case "labels":
       case "typed":
-      case "chords":
         return;
     }
   };
@@ -228,7 +338,9 @@ export function bridgeCore(
     forwarding: () => forwarding !== undefined,
     dispose: () => {
       stopForwarding();
+      stopChords();
       targets.clear();
+      scrollFocus = undefined;
     },
   };
 }

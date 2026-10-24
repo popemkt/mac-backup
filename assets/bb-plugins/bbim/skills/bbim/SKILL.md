@@ -75,19 +75,30 @@ Same-origin iframes get hints directly. A cross-origin frame (or one sandboxed w
 <script src="bbim-bridge.js" data-parent-origins="https://parent.example"></script>
 ```
 
-The file is `core/bridge/bbim-bridge.js` in the plugin folder
+bb serves it at `<bb origin>/api/v1/plugins/bbim/http/bridge.js` (always the bridge that matches
+the running bbim; prefer it). The file is `core/bridge/bbim-bridge.js` in the plugin folder
 (`~/.dotfiles/assets/bb-plugins/bbim/`), a self-contained classic script; ES-module code can
-call `installBbimBridge({ parentOrigins })` from `@popemkt/bbim-core/bridge` instead.
+call `installBbimBridge({ parentOrigins })` from `@popemkt/bbim-core/bridge` instead. kb loads
+it in its bb panel with `kb ui --embed-script <that URL>` (hosts/shared-server/default.nix).
+
+In a bridge frame, hints (`f`), `gi` and `gs` all reach its targets; a scroll surface picked
+there takes `j`/`k`/`d`/`u`/`gg`/`G` (focus leaves the frame) until a click outside it. With
+focus inside the frame, bare keys are the page's, and bb's chords (alt+f, alt+shift+f, alt+s)
+come back to bb unless the page handles that key itself (kb's canvas binds alt+s to align
+bottom and swallows it even with nothing selected, so on a canvas alt+s stays kb's: use
+alt+f there, or gs with focus in bb).
 `data-parent-origins` (space-separated) is required: without it the bridge stays off. List
 bb's own origin. An opaque `"null"` parent may only ask for targets, never forward keys or
 click.
 
 Protocol `bbim-bridge/1`: `postMessage` objects with `bbim: "bbim-bridge/1"`, both sides
-decoded by exact checks, anything else dropped. Parent → frame: `collect {requestId}`,
-`activate {requestId, targetId, newTab}`, `mode {active, requestId}` (only to the focused
+decoded by exact checks, anything else dropped. Parent → frame: `collect {requestId, picker?:
+hints | inputs | scroll}`, `activate {requestId, targetId, newTab}` (as the collect's picker
+does), `scroll {action, step, repeat}` (the surface picked there), `chords {chords[]}` (to the
+frame focus is in; passed back as `key` unless the page took it), `mode {active, requestId}` (only to the focused
 frame, renewed every 1 s; the frame stops forwarding after 3 s without renewal, and ignores a
 late `active` for a session already turned off). Frame → parent:
-`targets {requestId, targets[{id, kind, left, top, width, height, faded?}]}` (frame-viewport px,
+`targets {requestId, targets[{id, kind?, left, top, width, height, faded?}]}` (frame-viewport px,
 ≤ 2000), `key {key, code, ctrlKey, altKey, metaKey, shiftKey, repeat, isComposing}` (from the
 focused frame only; picks, narrows or takes back only that frame's labels; held and IME keys
 ignored), `leave {reason: pointer | lapsed}` (a click in the frame or lapsed forwarding ends
@@ -97,8 +108,8 @@ decoding; Esc and `leave` always get through, and a key past the budget ends the
 Only a person's click (`isTrusted`) in a frame ends hints. The page's labels show at once; each frame's join as it answers, until a letter is
 typed, and frames that do not answer within 1 s are skipped. A frame reports its own target boxes, so embed
 bridge frames only from origins you trust. A Browser tab's page speaks the same protocol over
-bb's script channel instead of `postMessage`, with three requests only it handles (`labels`,
-`typed`, `chords`) and one reply (`ready {document}`, a nonce per document, which `mode` then
+bb's script channel instead of `postMessage`, with two requests only it handles (`labels`,
+`typed`) and one reply (`ready {document}`, a nonce per document, which `mode` then
 names): bbim injects that page bridge itself, again after a navigation or reload. Full tables: `core/README.md`.
 
 ## Constraints

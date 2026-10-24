@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 // @ts-expect-error -- a plain .mjs build script without declarations
 import { BRIDGE_BUDGET_BYTES, bridgeProblems, bundleBridge, bundlePage, PAGE_BUDGET_BYTES } from "../scripts/build-bridge.mjs";
+import { BBIM_BRIDGE_SCRIPT } from "../bridge/bbim-bridge-script.ts";
 import { BBIM_PAGE_SCRIPT } from "../bridge/bbim-page.ts";
 import { BRIDGE_PROTOCOL } from "../src/domain/protocol.ts";
 import { page } from "./harness.ts";
@@ -13,6 +14,10 @@ const built = new URL("../bridge/bbim-bridge.js", import.meta.url);
 test("bridge build: the committed bridge/bbim-bridge.js matches its sources", async () => {
   const committed = await readFile(built, "utf8");
   assert.equal(committed, await (bundleBridge as () => Promise<string>)(), "run npm run build:bridge");
+});
+
+test("bridge build: the string module a host serves is the classic script, byte for byte", async () => {
+  assert.equal(BBIM_BRIDGE_SCRIPT, await readFile(built, "utf8"), "run npm run build:bridge");
 });
 
 test("bridge build: the committed native-page bridge (bridge/bbim-page.ts) is fresh and within its budget", async () => {

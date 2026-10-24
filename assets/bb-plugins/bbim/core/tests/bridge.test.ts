@@ -29,8 +29,8 @@ afterEach(() => {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** A frame page whose `parent` is a recorder standing in for the embedding window. */
-function framed(): { frame: Page; parent: { postMessage: (message: unknown, origin: string) => void }; posted: Array<Posted> } {
-  const frame = page(FRAME);
+function framed(html = FRAME): { frame: Page; parent: { postMessage: (message: unknown, origin: string) => void }; posted: Array<Posted> } {
+  const frame = page(html);
   const posted: Array<Posted> = [];
   const parent = { postMessage: (message: unknown, origin: string) => posted.push({ message, origin }) };
   Object.defineProperty(frame.win, "parent", { value: parent, configurable: true });
@@ -219,6 +219,110 @@ test("bridge (frame): a late `mode` on for a session already turned off is ignor
   assert.equal(frame.key("s").defaultPrevented, true, "turning an older session off leaves the new one on");
   deliver(frame, mode(false, "r2"), parent);
   assert.equal(frame.key("s").defaultPrevented, false);
+  uninstall();
+});
+
+const PANES = `
+  <input id="search" data-rect="10,10,200,24">
+  <div id="outline" style="overflow-y:auto" data-rect="0,50,400,300"><p data-rect="0,50,400,900">rows</p></div>
+  <button id="go" data-rect="10,400,60,24">Go</button>`;
+
+const collectFor = (picker: string, requestId = "r1") => ({ bbim: BRIDGE_PROTOCOL, type: "collect", requestId, picker });
+const activate = (targetId: number, requestId = "r1") => ({ bbim: BRIDGE_PROTOCOL, type: "activate", requestId, targetId, newTab: false });
+const scrollBy = (action: string) => ({ bbim: BRIDGE_PROTOCOL, type: "scroll", action, step: 70, repeat: true });
+
+/** Give `element` a scroll box happy-dom does not lay out, and record its scrolls. */
+function scrollable(element: Element, height: number, scrolled: Array<number>) {
+  Object.defineProperty(element, "scrollHeight", { value: height, configurable: true });
+  Object.defineProperty(element, "clientHeight", { value: 300, configurable: true });
+  (element as HTMLElement).scrollBy = ((options: ScrollToOptions) => scrolled.push(options.top ?? 0)) as HTMLElement["scrollBy"];
+}
+
+test("bridge (frame): an inputs collect reports the text inputs only, and activating one focuses it", () => {
+  const { frame, parent, posted } = framed(PANES);
+  const uninstall = installBbimBridge({ window: frame.win, parentOrigins: [BB] });
+  deliver(frame, collectFor("inputs"), parent);
+  const reply = posted[0]?.message as { targets: Array<{ id: number; kind?: string; left: number }> };
+  assert.deepEqual(
+    reply.targets.map((target) => [target.id, target.kind, target.left]),
+    [[0, undefined, 10]],
+    "one input, with no kind: picking it focuses it",
+  );
+  deliver(frame, activate(0), parent);
+  assert.equal(frame.doc.activeElement?.id, "search");
+  uninstall();
+});
+
+test("bridge (frame): a scroll collect reports its panes; scroll moves only the one picked", () => {
+  const { frame, parent, posted } = framed(PANES);
+  const outline = frame.doc.getElementById("outline") as Element;
+  const scrolled: Array<number> = [];
+  scrollable(outline, 900, scrolled);
+  const uninstall = installBbimBridge({ window: frame.win, parentOrigins: [BB] });
+  deliver(frame, scrollBy("scrollDown"), parent);
+  assert.deepEqual(scrolled, [], "nothing picked: nothing scrolls");
+  deliver(frame, collectFor("scroll"), parent);
+  const reply = posted[0]?.message as { targets: Array<{ id: number; kind?: string; top: number }> };
+  assert.deepEqual(reply.targets.map((target) => [target.id, target.kind, target.top]), [[0, undefined, 50]]);
+  deliver(frame, activate(0), parent);
+  deliver(frame, scrollBy("scrollDown"), parent);
+  deliver(frame, scrollBy("scrollUp"), parent);
+  assert.deepEqual(scrolled, [70, -70]);
+  deliver(frame, { ...scrollBy("scrollDown"), action: "explode" }, parent);
+  deliver(frame, scrollBy("scrollDown"), parent, "null");
+  assert.deepEqual(scrolled, [70, -70], "unknown actions and an opaque parent scroll nothing");
+  uninstall();
+});
+
+test("bridge (frame): a hints collect after a scroll pick activates as hints again", () => {
+  const { frame, parent } = framed(PANES);
+  let clicked = 0;
+  frame.doc.getElementById("go")?.addEventListener("click", () => (clicked += 1));
+  const uninstall = installBbimBridge({ window: frame.win, parentOrigins: [BB] });
+  deliver(frame, collectFor("scroll"), parent);
+  deliver(frame, collect("r2"), parent);
+  deliver(frame, activate(1, "r2"), parent);
+  assert.equal(clicked, 1, "the second target of the hints collect is the button");
+  uninstall();
+});
+
+const chordsMessage = (list: Array<Record<string, unknown>>) => ({ bbim: BRIDGE_PROTOCOL, type: "chords", chords: list });
+const ALT_F = { code: "KeyF", ctrlKey: false, altKey: true, metaKey: false, shiftKey: false };
+
+test("bridge (frame): the parent's chords typed here go back to it, unless the page took the key", () => {
+  const { frame, parent, posted } = framed();
+  const uninstall = installBbimBridge({ window: frame.win, parentOrigins: [BB] });
+  const altF = () => frame.key("ƒ", { altKey: true, code: "KeyF" });
+  assert.equal(altF().defaultPrevented, false, "no chords yet: the key is the page's");
+  deliver(frame, chordsMessage([ALT_F]), parent);
+  const passed = altF();
+  assert.equal(passed.defaultPrevented, true, "a chord nobody here took is swallowed");
+  assert.deepEqual(posted.at(-1), {
+    message: { bbim: BRIDGE_PROTOCOL, type: "key", key: "ƒ", code: "KeyF", ctrlKey: false, altKey: true, metaKey: false, shiftKey: false, repeat: false, isComposing: false },
+    origin: BB,
+  });
+  assert.equal(frame.key("f", { code: "KeyF" }).defaultPrevented, false, "a plain key stays the page's");
+  const count = posted.length;
+  // The page binds alt+f itself (registered after the bridge, as an app's keymap is): its binding wins.
+  const own = (event: KeyboardEvent) => {
+    if (event.altKey) event.preventDefault();
+  };
+  frame.win.addEventListener("keydown", own);
+  altF();
+  assert.equal(posted.length, count, "a key the page handled is not passed back");
+  frame.win.removeEventListener("keydown", own);
+  // A page that stops the key before it reaches the window keeps it too, and nothing lingers for the next one.
+  const stopper = (event: Event) => event.stopPropagation();
+  frame.doc.body.addEventListener("keydown", stopper);
+  altF();
+  frame.doc.body.removeEventListener("keydown", stopper);
+  assert.equal(posted.length, count);
+  altF();
+  assert.equal(posted.length, count + 1, "the next chord goes back as before");
+  deliver(frame, chordsMessage([]), parent);
+  assert.equal(altF().defaultPrevented, false, "cleared chords pass nothing back");
+  deliver(frame, chordsMessage([ALT_F]), parent, "null");
+  assert.equal(altF().defaultPrevented, false, "an opaque parent cannot set chords");
   uninstall();
 });
 

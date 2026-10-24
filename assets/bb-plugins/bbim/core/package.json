@@ -11,6 +11,7 @@
     "./domain": "./src/domain/index.ts",
     "./bridge": "./src/bridge/bbim-bridge.ts",
     "./bridge.js": "./bridge/bbim-bridge.js",
+    "./bridge-script": "./bridge/bbim-bridge-script.ts",
     "./page": "./src/bridge/page-request.ts"
   },
   "peerDependencies": {
