@@ -15,8 +15,10 @@ DESIGN.md → Action registry → A call made in a tab session, and → Surfaces
    inert otherwise. A frame is never moved in the DOM, which would reload it. Coming back to a thread finds
    its kb tab as it was left: route, scroll, selection.
 2. The framed page posts `{type: "kb.session", session}` to bb's origin. The window takes it only from that
-   thread's frame and kb's origin, and reports `{threadId, session}` to the backend over RPC, every 30 s while
-   the frame lives, shown or hidden, and `null` when the frame goes.
+   thread's frame and kb's origin. Only a shown frame is its thread's tab: the window reports
+   `{threadId, session}` to the backend over RPC when the frame is shown, every 30 s while it stays shown, and
+   `null` when it is hidden (a thread switched away from) or goes. A thread whose frame is hidden has no tab,
+   so its agent acts tabless rather than in a tab nobody sees.
 3. The agent tools call kb's `POST /api/action` with that `session` in the envelope. A report not repeated for
    90 s lapses, so with no panel open the same tools make calls in no session: every input must be passed.
 
@@ -48,7 +50,7 @@ says the links may be incomplete.
 | `lib/kb.ts` | Pure: the thread → session registry with its lapse, the frame message, tool answer text. Tested. |
 | `server.ts` | Settings, the `config` and `reportSession` RPC, the kb transport, `kb_call`, `kb_screen`, `kb_manifest`. |
 | `lib/frames.ts` | Pure: which threads keep a kb frame, and which goes past the limit. Tested. |
-| `frames.tsx` | The window's kb frames (an app overlay): config, preconnect, positioning, session reports. |
+| `frames.tsx` | The window's kb frames (an app overlay): config, preconnect, positioning and clipping, the shown frames' session reports. |
 | `app.tsx` | The `kb` thread panel tab (the place its thread's frame is drawn) and the header button that opens it. |
 | `lib/links.ts` | Pure: the `via` a thread's writes carry, reading `graph.changes`, which changes link what, an item as a row. Tested. |
 | `lib/link-book.ts` | The links database over any SQL: the cursor, reading the log in pages, links, scopes, pruning. Tested on `node:sqlite` with a fake kb. |
