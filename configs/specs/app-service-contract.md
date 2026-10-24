@@ -108,11 +108,12 @@ module refuses an app that says neither:
   calls the hook with what it changed; it never names an app.
 
 An app made of several processes declares the others as `companions.<name>`
-(a command, environment, and its own `idleCheck`), each its own unit
+(a command, its own environment, and its own `idleCheck`), each its own unit
 `app-<app>-<name>`, so each process restarts only for its own reasons; an
-upgrade restarts all of them together. An `idleCheck` on a unit defers its
-restarts until the app reports idle (bb's host daemon, where agent threads
-run, while bb's server restarts freely).
+upgrade restarts all of them together, and an npm app's units run one pinned
+copy of the package until then. An `idleCheck` on a unit defers its restarts
+until the app reports idle (bb's host daemon, where agent threads run, while
+bb's server restarts for its own changes at once).
 
 An app that can listen on a Unix socket sets `socket = "/run/<dir>/<file>"`
 instead of `port`. It gets no HOST or PORT; its arguments name the socket. The

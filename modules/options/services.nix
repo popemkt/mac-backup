@@ -133,6 +133,10 @@ in
                 For an app installed outside Nix: the installer and the tool it
                 upgrades. After upgrading that tool, the installer restarts the
                 app through `restart-apps-updated-by`. Set `command` with it.
+                An npm global's units run a copy of the package taken when the
+                app's own unit starts with none of its companions running, so
+                every unit runs one version until the whole app restarts, and
+                none loads files npm rewrote under it.
               '';
             };
             command = mkOption {
@@ -191,8 +195,10 @@ in
                       type = types.attrsOf types.str;
                       default = { };
                       description = ''
-                        Its environment on top of the app's `environment`.
-                        It gets no HOST or PORT: those are the app's address.
+                        Its environment. It inherits none of the app's
+                        `environment` (so a change there restarts only the
+                        app's unit) and gets no HOST or PORT, which are the
+                        app's address.
                       '';
                     };
                     idleCheck = idleCheckOption "app-<app>-<name>";

@@ -94,6 +94,12 @@ if [[ "$(uname -s)" == Linux ]] && systemctl cat tailscale-services.service >/de
   sudo systemctl restart tailscale-services.service
 fi
 
+# my.services restarts still pending (an app waiting for idle), companions
+# not running beside their app, and waiters that gave up.
+if [[ "$(uname -s)" == Linux ]] && command -v restart-app >/dev/null; then
+  restart-app --status || true
+fi
+
 if [[ "$skip_checks" == true ]]; then
   exit 0
 fi

@@ -83,8 +83,11 @@ A rebuild there never restarts a unit with an `idleCheck` (bb's host daemon
 `app-bb-daemon`, which runs every agent thread): it prints
 `<unit>: restart pending until idle`, and the unit restarts once the app
 reports idle (`sudo systemctl restart <unit>` forces it;
-`journalctl -u app-<app>-restart-when-idle` shows the wait). bb's server,
-`app-bb`, restarts freely: threads survive that. An agent there still runs
+`journalctl -u app-<app>-restart-when-idle` shows the wait; rebuild ends
+with `restart-app --status`, which lists what is still pending). bb's
+server, `app-bb`, restarts for its own changes at once: threads survive
+that. A bb upgrade waits for idle and restarts both; until then both run the
+pinned old copy, even across `sudo systemctl restart app-bb`. An agent there still runs
 `rebuild` detached, e.g. `nohup rebuild >~/rebuild.log 2>&1 &`, then reads
 the log: a foreground rebuild dies with its thread if anything does restart
 the daemon.

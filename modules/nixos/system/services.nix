@@ -19,36 +19,45 @@
 # restarted by its installer through `restart-apps-updated-by`, which reads
 # the table below and restarts every unit of the app; polkit lets each owner
 # restart their own `app-*` units, so the installer needs no sudo. Every such
-# restart goes through one command, `restart-app <unit>`.
+# restart goes through one command, `restart-app <unit>`; `restart-app
+# --status` lists what is still pending (rebuild prints it).
+#
+# An `updatedBy.npmGlobal` app runs a copy of the package (app-npm-pin), not
+# the installed one, which npm rewrites in place: all its units run the same
+# version until the whole app restarts. Only its own unit, starting with none
+# of its companions running, moves the copy to the installed version.
 #
 # An app with an `idleCheck` on any of its units is never restarted mid-work.
-# A switch leaves all its units running (restartIfChanged = false). Instead
-# each unit records, in /run/app-restart/<unit key>/, a hash of the definition
-# it started with (what the app declares, not the generated unit, which
-# changes with every nixpkgs bump), and `free` when it started without an
-# idleCheck; an activation script that finds a different hash runs
-# restart-app, which prints "app-<…>: restart pending until idle". For such
-# an app restart-app marks the unit's restart requested and starts
+# A switch leaves all its units running (restartIfChanged = false), and a
+# switch that drops them, or a rollback to before them, leaves them running
+# too (X-StopOnRemoval = false; stop them by hand once idle). Instead each
+# unit records, in /run/app-restart/<unit key>/, a hash of the definition it
+# started with (what the app declares, not the generated unit, which changes
+# with every nixpkgs bump), and `free` when it started without an idleCheck;
+# an activation script that finds a different hash runs restart-app. For
+# such an app restart-app marks the unit's restart requested and starts
 # `app-<app>-restart-when-idle`, a waiter unit run as the owner. It restarts
 # all of the app's pending units in one try-restart: at once when none of
 # them needs to wait, otherwise once every idleCheck of the app passes
-# (checked every 30 s; it gives up after 24 h). A unit needs to wait when its
-# new definition has an idleCheck or its running process started under one,
-# so a process that runs others' work is never cut off by a definition that
-# no longer says so. Being a unit, the waiter runs once per app (starting an
-# active unit is a no-op), logs to the journal, and lives outside the app's
-# cgroups, so the restart it causes does not kill it. It restarts a unit only
-# once the switch's daemon-reload has loaded the new definition, never onto
-# the old one. The unit's next start records its new hash and clears the
-# request. multi-user.target also wants the waiter, so a switch that first
-# adds it, and a boot, check for a pending restart too.
-# `sudo systemctl restart app-<…>` forces one.
+# (checked every 30 s). A unit needs to wait when its new definition has an
+# idleCheck or its running process started under one, so a process that runs
+# others' work is never cut off by a definition that no longer says so.
+# Being a unit, the waiter runs once per app (starting an active unit is a
+# no-op), logs to the journal, and lives outside the app's cgroups, so the
+# restart it causes does not kill it. It restarts a unit only once the
+# switch's daemon-reload has loaded the new definition, never onto the old
+# one. The unit's next start records its new hash and clears the request.
+# multi-user.target also wants the waiter, so a switch that first adds it,
+# and a boot, check for a pending restart too; it gives up after 24 h (a
+# failed unit) and a timer starts it again hourly.
+# `sudo systemctl restart <unit>` forces a restart.
 #
 # A companion starts only beside an app process that was started with it
-# declared (its record lists the companions). A process from before the
-# companion existed may still be doing the companion's work itself (bb's
-# launcher ran its host daemon in-process), so the companion waits for that
-# process's idle-gated restart rather than running a second copy beside it.
+# declared (its record lists the companions): a process from before the
+# companion existed may still do the companion's work itself, so the
+# companion waits for that process's restart rather than running a second
+# copy beside it. Adding a companion changes the app unit's definition, so
+# that restart follows.
 let
   cfg = config.my.services;
   exposed = lib.filterAttrs (_: app: app.expose) cfg;
@@ -90,6 +99,15 @@ let
   ownerPath =
     app:
     "${homeOf app}/.local/bin:/etc/profiles/per-user/${app.owner}/bin:/run/wrappers/bin:/run/current-system/sw/bin";
+  # The npm prefix update-npm-globals installs into
+  # (modules/common/home-manager/npm-global.nix).
+  npmPrefix = app: "${homeOf app}/.local";
+  npmPackage = app: if app.updatedBy != null then app.updatedBy.npmGlobal or null else null;
+
+  scripts = import ./app-restart/scripts.nix {
+    inherit pkgs;
+    systemctl = config.systemd.package;
+  };
 
   # Every unit an app runs: its own, then one per companion. `key` names the
   # unit's restart state and definition; the app's own is the app's name.
@@ -121,12 +139,15 @@ let
       inherit companion;
       description = "${name}'s ${companion}, run as ${app.owner}";
       inherit (c) idleCheck;
-      environment = app.environment // c.environment;
+      inherit (c) environment;
       run = c.command;
     }) app.companions
   ) cfg;
   # Apps whose restarts wait for idle: an idleCheck on any of their units.
   idleApps = lib.filterAttrs (name: _: lib.any (u: u.idleCheck != null) unitsOf.${name}) cfg;
+  allUnitNames =
+    lib.concatMap (name: map (u: u.unit) unitsOf.${name}) (lib.attrNames cfg)
+    ++ map (name: "app-${name}-restart-when-idle") (lib.attrNames idleApps);
 
   # What each installer `updatedBy` can name declares: its own channel.
   installerTools = {
@@ -149,8 +170,7 @@ let
   );
   restartStateDirectory = "/run/app-restart";
   waiterUnit = name: "app-${name}-restart-when-idle.service";
-  # What restart-app knows of each app unit: its waiter, if its app waits for
-  # idle.
+  # What restart-app knows of each app unit (scripts.nix restartApp).
   restartTable = lib.listToAttrs (
     lib.concatLists (
       lib.mapAttrsToList (
@@ -160,72 +180,17 @@ let
           lib.nameValuePair "${u.unit}.service" (
             lib.optionalAttrs (idleApps ? ${name}) {
               inherit (u) key;
+              checked = u.idleCheck != null;
               waiter = waiterUnit name;
             }
+            // lib.optionalAttrs (u.companion != null) { main = "app-${name}.service"; }
           )
         ) unitsOf.${name}
       ) cfg
     )
   );
-  restartApp = pkgs.writeShellApplication {
-    name = "restart-app";
-    runtimeInputs = [
-      pkgs.jq
-      pkgs.coreutils
-      config.systemd.package
-    ];
-    text = ''
-      # restart-app <unit>: restart a running my.services unit now or, when
-      # its app waits for idle, through the app's waiter.
-      [ "$#" -eq 1 ] || { echo "usage: restart-app app-<name>.service" >&2; exit 2; }
-      unit="$1"
-      entry="$(jq -c --arg u "$unit" '.[$u] // empty' ${pkgs.writeText "app-restarts.json" (builtins.toJSON restartTable)})"
-      [ -n "$entry" ] || { echo "restart-app: $unit is not a my.services app" >&2; exit 2; }
-      key="$(jq -r '.key // empty' <<<"$entry")"
-      if [ -z "$key" ]; then
-        echo "Restarting $unit"
-        systemctl try-restart "$unit" \
-          || { echo "warning: could not restart $unit; run: sudo systemctl restart $unit" >&2; exit 1; }
-        exit 0
-      fi
-      waiter="$(jq -r '.waiter' <<<"$entry")"
-      requested="${restartStateDirectory}/$key/requested"
-      [ -e "$requested" ] || : >"$requested" \
-        || echo "warning: could not write $requested" >&2
-      echo "$unit: restart pending until idle (or: sudo systemctl restart $unit)"
-      # A waiter this very switch adds is not loaded before its daemon-reload;
-      # the switch starts it then, since multi-user.target wants it.
-      if [ "$(systemctl show -P LoadState "$waiter")" = loaded ]; then
-        systemctl start --no-block "$waiter" \
-          || echo "warning: could not start $waiter; run: sudo systemctl start $waiter" >&2
-      fi
-    '';
-  };
-  restartAppsUpdatedBy = pkgs.writeShellApplication {
-    name = "restart-apps-updated-by";
-    runtimeInputs = [
-      pkgs.jq
-      pkgs.coreutils
-      restartApp
-    ];
-    text = ''
-      # restart-apps-updated-by <installer> <tool>...: restart every unit of
-      # the caller's my.services apps that declared `updatedBy.<installer> =
-      # <tool>`.
-      [ "$#" -ge 1 ] || { echo "usage: restart-apps-updated-by <installer> <tool>..." >&2; exit 2; }
-      installer="$1"
-      shift
-      user="$(id -un)"
-      for tool in "$@"; do
-        jq -r --arg i "$installer" --arg t "$tool" --arg u "$user" \
-          '.[] | select(.installer == $i and .tool == $t and .owner == $u) | .unit' \
-          ${pkgs.writeText "apps-updated-by.json" (builtins.toJSON updatedApps)}
-      done | sort -u | while read -r unit; do
-        echo "$unit: $installer upgraded what it runs"
-        restart-app "$unit" || true
-      done
-    '';
-  };
+  restartApp = scripts.restartApp restartTable;
+  restartAppsUpdatedBy = scripts.restartAppsUpdatedBy restartApp updatedApps;
 
   # A unit of the app, before what waiting for idle adds.
   appUnit = name: app: u: {
@@ -250,12 +215,30 @@ let
       coreutils
     ];
     # A package app runs its own program by store path; its companions find
-    # the package's other programs first on PATH.
+    # the package's other programs first on PATH. An npm app's units find
+    # the pinned copy's programs first.
     script = ''
       export PATH="${
         lib.optionalString (u.companion != null && app.package != null) "${lib.getBin app.package}/bin:"
       }${ownerPath app}:$PATH"
-      ${u.run}
+      ${
+        lib.optionalString (npmPackage app != null) ''
+          pinned="$(${lib.getExe scripts.npmPin} ${
+            lib.escapeShellArgs (
+              [
+                name
+                (npmPackage app)
+                (npmPrefix app)
+                (if u.companion == null then "1" else "0")
+              ]
+              ++ lib.optionals (u.companion == null) (
+                map (c: "app-${name}-${c}.service") (lib.attrNames app.companions)
+              )
+            )
+          })"
+          export PATH="$pinned:$PATH"
+        ''
+      }${u.run}
     '';
     serviceConfig = {
       User = app.owner;
@@ -271,101 +254,29 @@ let
   # What the unit was declared to run, as one hash: a switch that changes it
   # leaves a restart pending. Only the declaration, not the generated unit,
   # whose script and PATH name bash and coreutils by store path and so change
-  # with every nixpkgs bump without changing what the app does.
+  # with every nixpkgs bump without changing what the app does. The app's own
+  # unit also hashes its companions' names, so adding one restarts it, and
+  # its restart starts the companion.
   definitionHash =
     app: u:
     builtins.hashString "sha256" (
       builtins.unsafeDiscardStringContext (
-        builtins.toJSON {
-          inherit (app)
-            owner
-            port
-            socket
-            workingDirectory
-            ;
-          inherit (u) run environment;
-          package = if app.package == null then null else lib.getExe app.package;
-        }
+        builtins.toJSON (
+          {
+            inherit (app)
+              owner
+              port
+              socket
+              workingDirectory
+              updatedBy
+              ;
+            inherit (u) run environment;
+            package = if app.package == null then null else lib.getExe app.package;
+          }
+          // lib.optionalAttrs (u.companion == null) { companions = lib.attrNames app.companions; }
+        )
       )
     );
-  # Run by each unit, as its owner, once it has started.
-  recordStart = pkgs.writeShellScript "app-restart-record" ''
-    # app-restart-record <key> <hash> <gated|free> <companion>...: the
-    # definition the unit started with, whether it started under an
-    # idleCheck, and the companions it started with; the start also fulfils
-    # any requested restart.
-    dir="${restartStateDirectory}/$1"
-    printf '%s\n' "$2" >"$dir/started"
-    if [ "$3" = free ]; then : >"$dir/free"; else rm -f "$dir/free"; fi
-    shift 3
-    printf '%s\n' "$@" >"$dir/companions"
-    rm -f "$dir/requested"
-  '';
-  # A companion's ExecCondition: its app's running process declared it.
-  companionCondition = pkgs.writeShellScript "app-companion-condition" ''
-    # app-companion-condition <app> <companion>
-    if ! ${pkgs.gnugrep}/bin/grep -qxF -- "$2" "${restartStateDirectory}/$1/companions" 2>/dev/null; then
-      echo "app-$1 still runs a process from before its $2 companion; starting with its next restart"
-      exit 1
-    fi
-  '';
-  # Waits until the app's pending units may restart, then restarts them.
-  waiterScript = name: app: ''
-    export PATH="${ownerPath app}:$PATH"
-    dir=${restartStateDirectory}
-    # <unit> <key> <1 when its definition has an idleCheck>
-    units=(${
-      lib.concatMapStringsSep " " (
-        u: lib.escapeShellArg "${u.unit}.service ${u.key} ${if u.idleCheck != null then "1" else "0"}"
-      ) unitsOf.${name}
-    })
-    idle() {
-      ${lib.concatMapStringsSep " && " (u: "bash -c ${lib.escapeShellArg u.idleCheck}") (
-        lib.filter (u: u.idleCheck != null) unitsOf.${name}
-      )}
-    }
-    announced=
-    while [ "$SECONDS" -lt 86400 ]; do
-      pending=()
-      gated=
-      loaded=1
-      for entry in "''${units[@]}"; do
-        read -r unit key checked <<<"$entry"
-        systemctl is-active -q "$unit" || continue
-        definition="$(cat "/etc/app-restart/$key.definition")"
-        [ -e "$dir/$key/requested" ] || [ "$(cat "$dir/$key/started" 2>/dev/null)" != "$definition" ] || continue
-        pending+=("$unit")
-        # Its new definition, or the process running now, waits for idle.
-        if [ "$checked" = 1 ] || [ ! -e "$dir/$key/free" ]; then gated=1; fi
-        # Until the switch's daemon-reload, a restart would start the old
-        # definition.
-        systemctl show -P ExecStartPost "$unit" | grep -qF -- "$definition" || loaded=
-      done
-      if [ "''${#pending[@]}" -eq 0 ]; then
-        echo "app-${name}: no restart pending"
-        exit 0
-      fi
-      if [ -z "$loaded" ]; then
-        sleep 5
-        continue
-      fi
-      if [ -z "$gated" ]; then
-        echo "Restarting ''${pending[*]}"
-        exec systemctl try-restart "''${pending[@]}"
-      fi
-      if idle; then
-        echo "app-${name} is idle; restarting ''${pending[*]}"
-        exec systemctl try-restart "''${pending[@]}"
-      fi
-      if [ -z "$announced" ]; then
-        echo "app-${name} is busy; restarting ''${pending[*]} once it is idle (or: sudo systemctl restart <unit>)"
-        announced=1
-      fi
-      sleep 30
-    done
-    echo "app-${name}: still busy after 24 h; giving up. Restart its units with: sudo systemctl restart <unit>" >&2
-    exit 1
-  '';
 in
 {
   config = lib.mkIf (cfg != { }) {
@@ -377,6 +288,12 @@ in
       {
         assertion = exposed == { } || config.my.stacks.vpn.enable;
         message = "my.services: an exposed app needs my.stacks.vpn.enable.";
+      }
+      {
+        assertion = lib.length (lib.unique allUnitNames) == lib.length allUnitNames;
+        message = "my.services: two apps, companions or waiters share a unit name: ${
+          toString (lib.unique (lib.filter (n: lib.count (m: m == n) allUnitNames > 1) allUnitNames))
+        }.";
       }
     ]
     ++ lib.concatLists (
@@ -424,17 +341,19 @@ in
             message = "my.services.${name}.port ${toString app.port} is already used by a T3 Code server or a Tailscale Service target on this host.";
           }
         ]
-        ++ lib.concatMap (companion: [
-          {
-            assertion =
-              builtins.match "[a-z0-9][a-z0-9-]*" companion != null && companion != "restart-when-idle";
-            message = "my.services.${name}.companions.${companion}: companion names may contain only lowercase letters, digits, and hyphens, and are not restart-when-idle.";
-          }
-          {
-            assertion = !(cfg ? "${name}-${companion}");
-            message = "my.services.${name}.companions.${companion}: its unit app-${name}-${companion} is also the app ${name}-${companion}'s.";
-          }
-        ]) (lib.attrNames app.companions)
+        ++ map (companion: {
+          assertion = builtins.match "[a-z0-9][a-z0-9-]*" companion != null;
+          message = "my.services.${name}.companions.${companion}: companion names may contain only lowercase letters, digits, and hyphens.";
+        }) (lib.attrNames app.companions)
+        # A switch that drops a unit of an app that waits for idle must not
+        # stop it: switch-to-configuration stops a removed unit unless its
+        # running definition says X-StopOnRemoval=false.
+        ++ lib.optionals (idleApps ? ${name}) (
+          map (u: {
+            assertion = (config.systemd.services.${u.unit}.unitConfig."X-StopOnRemoval" or null) == false;
+            message = "my.services.${name}: ${u.unit} waits for idle, so it must keep X-StopOnRemoval = false; a switch that removes it would stop it mid-work.";
+          }) unitsOf.${name}
+        )
       ) cfg
     );
 
@@ -454,14 +373,16 @@ in
                 else
                   unit
                   // {
-                    # A switch never stops or restarts it, changed or not; the
-                    # activation script below leaves the restart to the waiter.
+                    # A switch never stops or restarts it, changed, removed
+                    # or not; the activation script below leaves the restart
+                    # to the waiter.
                     restartIfChanged = false;
                     stopIfChanged = false;
+                    unitConfig."X-StopOnRemoval" = false;
                     serviceConfig =
                       unit.serviceConfig
                       // {
-                        ExecStartPost = "-${recordStart} ${
+                        ExecStartPost = "-${scripts.recordStart} ${
                           lib.escapeShellArgs (
                             [
                               u.key
@@ -473,7 +394,7 @@ in
                         }";
                       }
                       // lib.optionalAttrs (u.companion != null) {
-                        ExecCondition = "${companionCondition} ${name} ${u.companion}";
+                        ExecCondition = "${scripts.companionCondition} ${name} ${u.companion}";
                       };
                   }
               )
@@ -497,13 +418,38 @@ in
             pkgs.jq
             config.systemd.package
           ];
-          script = waiterScript name app;
+          script = "exec ${
+            scripts.waiter {
+              inherit name;
+              units = map (u: {
+                unit = "${u.unit}.service";
+                inherit (u) key;
+                checked = u.idleCheck != null;
+              }) unitsOf.${name};
+              idleChecks = lib.concatMap (u: lib.optional (u.idleCheck != null) u.idleCheck) unitsOf.${name};
+              path = ownerPath app;
+              pinned = if npmPackage app != null then name else null;
+            }
+          }";
           serviceConfig = {
             User = app.owner;
             WorkingDirectory = homeOf app;
           };
         }
       ) idleApps;
+
+    # A waiter that gave up (24 h busy) or was never started looks again.
+    systemd.timers = lib.mapAttrs' (
+      name: _:
+      lib.nameValuePair "app-${name}-restart-when-idle" {
+        description = "Look for app-${name}'s pending restarts hourly";
+        wantedBy = [ "timers.target" ];
+        timerConfig = {
+          OnBootSec = "1h";
+          OnUnitInactiveSec = "1h";
+        };
+      }
+    ) idleApps;
 
     environment.etc = lib.listToAttrs (
       lib.concatLists (
@@ -515,14 +461,18 @@ in
         ) idleApps
       )
     );
-    systemd.tmpfiles.rules = lib.optionals (idleApps != { }) (
-      [ "d ${restartStateDirectory} 0755 root root -" ]
-      ++ lib.concatLists (
-        lib.mapAttrsToList (
-          name: app: map (u: "d ${restartStateDirectory}/${u.key} 0755 ${app.owner} - -") unitsOf.${name}
-        ) idleApps
+    systemd.tmpfiles.rules =
+      lib.optionals (idleApps != { }) (
+        [ "d ${restartStateDirectory} 0755 root root -" ]
+        ++ lib.concatLists (
+          lib.mapAttrsToList (
+            name: app: map (u: "d ${restartStateDirectory}/${u.key} 0755 ${app.owner} - -") unitsOf.${name}
+          ) idleApps
+        )
       )
-    );
+      ++ lib.mapAttrsToList (name: app: "d /var/lib/app-pins/${name} 0755 ${app.owner} - -") (
+        lib.filterAttrs (_: app: npmPackage app != null) cfg
+      );
     # A switch that changed a running unit's definition, in an app that waits
     # for idle, leaves its restart to the waiter. Not at boot: no unit runs yet.
     system.activationScripts.app-restart = lib.mkIf (idleApps != { }) {

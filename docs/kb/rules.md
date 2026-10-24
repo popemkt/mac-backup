@@ -30,8 +30,8 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: bb's idle gate cannot see past a daemon cut off from the server
 
 - **expected** — app-bb-daemon's idle-gated restart happens once its threads finish, even while the daemon cannot reach the server
-- **current** — The idleCheck asks the server (bb thread list). A daemon that is down, or that the server rejects for a protocol mismatch (a crash restart of app-bb onto a newly upgraded bb before the idle-gated lockstep restart), leaves its threads active in the server's database, so the check never passes and the waiter gives up after 24 h
-- **impact** — The daemon restart waits until someone runs sudo systemctl restart app-bb-daemon; meanwhile that machine's threads are invisible to the server
+- **current** — The idleCheck asks the server (bb thread list). A daemon the server cannot see (the daemon down, or the server down for long) leaves its threads active in the server's database, so the check never passes. A protocol mismatch no longer causes this: both units run one pinned bb-app copy (app-npm-pin). The waiter gives up after 24 h and a timer retries hourly; restart-app --status, which rebuild prints, lists the pending restart
+- **impact** — The daemon's restart waits until someone runs sudo systemctl restart app-bb-daemon
 - **closes** — An idle check that also asks the daemon itself (its local API on 127.0.0.1:38887) or treats a disconnected daemon as idle; or an upstream bb way to list a daemon's running work
 - **node** — `01M5P0D3VP9RXH16D7VJV282BT`
 

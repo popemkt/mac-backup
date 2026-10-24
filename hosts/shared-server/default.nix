@@ -157,36 +157,50 @@
   # everyone in my.people here is already root through sudo. BB_APP_URL is
   # the browser origin bb allows and links to.
   #
-  # bb runs as two units, so that only bb's own upgrades interrupt a thread:
-  # app-bb, the server alone, and app-bb-daemon, this machine's host daemon
-  # on loopback 38887, which every agent thread here runs under. A thread
-  # survives a server restart: the daemon keeps it running, queues its
-  # events and reconnects, and the server keeps a thread active across a
-  # reconnect from the same daemon process. So the server restarts whenever
-  # its definition changes. The daemon shares the data directory ~/.bb, and
-  # with it the machine's identity (host-id and auth.json), and restarts only
-  # once bb is idle.
+  # bb runs as two units, so that a server restart never interrupts a
+  # thread: app-bb, the server alone, and the companion app-bb-daemon, this
+  # machine's host daemon on loopback 38887, which every agent thread here
+  # runs under. A thread survives a server restart: the daemon keeps it
+  # running, queues its events and reconnects, and the server keeps a thread
+  # active across a reconnect from the same daemon process (bb 0.46.1,
+  # start-server.js handleHostSessionOpened). So a change to the server's own
+  # definition (its command or environment) restarts it within seconds; one
+  # to the daemon's waits for idle. The daemon shares the data directory
+  # ~/.bb, and with it the machine's identity (host-id and auth.json), so it
+  # needs no enrolment. bb-app's launcher used to run both in one process
+  # tree; the first switch to this left that running until bb was idle, then
+  # started the two units (the companion rule in services.nix).
+  #
+  # The server accepts only a daemon of its own protocol version, which most
+  # bb releases bump. Both units run one pinned copy of bb-app
+  # (app-npm-pin), so an npm upgrade, a server crash, or
+  # `sudo systemctl restart app-bb` alone keeps the server on the daemon's
+  # version. update-npm-globals restarts both together once bb is idle,
+  # which moves the copy to the new version. To take an upgrade at once,
+  # restart both in one command, which interrupts every thread:
+  # `sudo systemctl restart app-bb app-bb-daemon`.
   my.services.bb = {
     owner = "popemkt";
     port = 38886;
-    # bb-app tracks npm's latest release. The server accepts only a daemon
-    # of its own protocol version, which most bb releases bump, so
-    # update-npm-globals restarts both units together, once bb is idle.
     updatedBy.npmGlobal = "bb-app";
     # bb-server has no in-app updates to turn off.
     command = "bb-server --server-port 38886";
     companions.daemon = {
-      # Without --auto-update the daemon never reinstalls bb itself over a
+      # bb-host-daemon hands the daemon process what bb-app's launcher did
+      # (NODE_ENV, BB_APP_VERSION, BB_CLI_DIR, BB_BRIDGE_DIR, BB_DATA_DIR,
+      # BB_HOST_DAEMON_PORT, BB_SERVER_URL: bb-host-daemon.js
+      # createDaemonEnv). Without --auto-update it never reinstalls bb over a
       # protocol mismatch; it logs one and keeps retrying.
       command = "bb-host-daemon --server-url ${config.my.services.bb.listenOrigin} --host-daemon-port 38887";
+      # The daemon links threads to the app's origin.
+      environment.BB_APP_URL = config.my.stacks.vpn.services.bb-popemkt.publicOrigin;
       # A daemon restart cuts every thread on this machine off ("host daemon
       # disconnected"). Neither a rebuild nor an upgrade restarts it until no
       # thread, hidden ones included, is running a turn, a background agent,
       # a background command, or a workflow. If bb cannot answer, it counts
       # as busy.
       # GAP [[01M5P0D3VP9RXH16D7VJV282BT]]: it asks the server, so a daemon
-      # the server cannot see (down, or rejected for its protocol) never
-      # counts as idle.
+      # the server cannot see (down) never counts as idle.
       idleCheck = ''
         bb thread list --include-hidden --json | jq -e '
           type == "array" and all(.[];
@@ -195,15 +209,15 @@
         ' >/dev/null
       '';
     };
-    # Both units' environment (the daemon also reads BB_APP_URL); the
-    # companion gets no HOST or PORT.
+    # The server's environment; the daemon inherits none of it.
     environment = {
       BB_APP_URL = config.my.stacks.vpn.services.bb-popemkt.publicOrigin;
       # The address bb gives the machines it enrolls (Settings → Machines →
       # Server URL overrides it when set): the same Service, since bb itself
       # listens only on loopback.
       BB_EXTERNAL_URL = config.my.stacks.vpn.services.bb-popemkt.publicOrigin;
-      # The kb plugin's defaults (assets/bb-plugins/kb): the kb page its
+      # The kb plugin's defaults (assets/bb-plugins/kb, read by its server
+      # side): the kb page its
       # thread panel frames, and kb's owner-only socket, which its agent
       # tools call as popemkt, who owns both servers.
       KB_URL = config.my.stacks.vpn.services.kb-popemkt.publicOrigin;
