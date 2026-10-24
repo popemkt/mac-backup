@@ -32,7 +32,8 @@ v1 ships:
    chat; a **Compose context** thread-panel action that is only a shortcut into the page; `bb composer` for agents.
 5. **Trajectory side chat**: a hidden advisor thread on the basis thread's provider, briefed with the composition,
    the manifest, the levers and the thread's last 12 messages. It answers with `composer-proposal` JSON blocks; an
-   **Apply proposal** action on its messages applies one with one click.
+   **Apply proposal** action on its messages previews the exact change (drops, adds, and the verbatim text it would add
+   to every spawned agent's instructions), and one click on **Apply** applies it.
 6. **The pi adapter's first slice** (`pi/extension.ts`, experimental): enforces skills, tools, context files and MCP
    servers inside pi and writes a report of what pi really sends.
 
@@ -63,23 +64,34 @@ shapes it depends on, so it merges cleanly. Once that work lands, the composer c
 | Change | bb Claude Code | bb Codex | bb pi | bb other (ACP) | `claude` CLI | `codex` CLI |
 |---|---|---|---|---|---|---|
 | Add instruction text | enforced (`agents.configure`, appended, max 4096 chars) | enforced (developer instructions) | enforced | enforced | enforced (`--append-system-prompt`) | prepended to the prompt |
-| Drop all CLAUDE.md + MEMORY.md | enforced, `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1` [measured] | n/a | n/a | n/a | enforced (env) | n/a |
-| Drop auto memory only | enforced, `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` [measured] | advisory | advisory | advisory | enforced | advisory |
-| Drop bundled skills | enforced, `CLAUDE_CODE_DISABLE_BUNDLED_SKILLS=1` [measured] | advisory | n/a | advisory | enforced | advisory |
-| Drop everything the provider loads | enforced*, `CLAUDE_CODE_SAFE_MODE=1` [measured outside bb] | advisory | n/a | advisory | enforced | `CODEX_HOME` (see 4) |
-| Drop one skill, MCP server, hook, subagent | advisory | advisory | enforced* (pi extension) | advisory | MCP: `--disallowedTools mcp__<server>` enforced; subagent `Agent(name)`* | MCP: `-c mcp_servers.<n>.enabled=false`* |
-| Drop one instruction file | advisory | advisory | enforced* (context files) | advisory | advisory | all AGENTS.md: `-c project_doc_max_bytes=0`* |
+| Drop all CLAUDE.md + MEMORY.md | enforced*, `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1` [measured outside bb] | n/a | n/a | n/a | enforced (env) | n/a |
+| Drop auto memory only | enforced*, `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` [measured outside bb] | advisory | advisory | advisory | enforced | advisory |
+| Drop built-in (bundled) skills | enforced*, `CLAUDE_CODE_DISABLE_BUNDLED_SKILLS=1` [measured outside bb] | advisory | n/a | advisory | enforced | advisory |
+| Drop everything the provider loads except built-in skills | enforced*, `CLAUDE_CODE_SAFE_MODE=1` [measured outside bb; may drop bb's bridge] | advisory | n/a | advisory | enforced* | `CODEX_HOME` (see 4) |
+| Drop one skill, MCP server, hook, subagent | advisory | advisory | enforced* (pi extension, when no kept artifact has the same name) | advisory | MCP: `--disallowedTools mcp__<server>` enforced; subagent `Agent(name)`* | MCP: `-c mcp_servers.<n>.enabled=false`* |
+| Drop one instruction file | advisory | advisory | enforced* (context files, by exact path) | advisory | advisory | all AGENTS.md: `-c project_doc_max_bytes=0`* |
 | Drop a bb plugin's tool or skill | advisory | advisory | enforced* (tools by name) | advisory | n/a | n/a |
 | Drop bb's own AGENTS.md | advisory | advisory | advisory | advisory | n/a | n/a |
 | Conversation | a fresh spawn drops it, a fork keeps it | same | same | same | n/a | n/a |
 
-`*` experimental: measured outside bb, or read in source only. The table is the data in `core/targets.ts`; the tests
-pin it. Group switches apply only when every member of the group is excluded; otherwise the members fall back to
-advisory, so a switch never removes something the manifest keeps.
+`*` experimental: measured outside bb, or read in source only. Every bb Claude Code switch is `*`: the switches were
+measured on Claude Code directly, but contributed env has not been seen reaching a live bb thread. The meanings of
+enforced, advisory and none are defined once, as `ENFORCEMENT` in `core/targets.ts`. The table is the data in
+`core/targets.ts`; the tests pin it, per artifact. Group switches apply only when every member of the group is
+excluded; otherwise the members fall back to advisory, so a switch never removes something the manifest keeps. Safe
+mode keeps the built-in skills, so it never claims them; the bundled-skills switch does. Safe mode may also drop what bb
+injects into Claude Code (its bb-bridge MCP server and skill plugin), so a plan that uses it carries that warning.
+
+The pi extension matches skills, tools and MCP servers by name, so a name filter would drop every artifact with that
+name. `compile()` sends one only when no kept artifact of the same kind shares it (dropping the user `tdd` while
+keeping the project `tdd` is therefore advisory), and it matches context files by exact path only.
 
 How the bb levers reach the agent:
 - **Instructions**: `agents.configure` reads the spawned thread's `pluginMetadata` (the compiled text). Applied at
-  session start, appended, truncated by bb at 4096 characters; `compile()` summarises names to stay under it.
+  session start, appended, truncated by bb at 4096 characters. Within the limit `compile()` gives the exclusions their
+  room first, summarising names per kind, and the person's additions take what is left (cut with a warning). A drop
+  whose name no longer fits is not told to the agent, so it shows as `none`, not advisory. Names are inventory text, so
+  each is flattened to one line and capped before it enters a system prompt.
 - **Env**: `bb.providers.experimental_contributeEnv("claude-code" | "pi", resolver)`. The resolver gets the thread id,
   reads the thread's own record and passes on only the env names the record's target compiles. Metadata is writable by
   anyone, including the thread's agent, so a forged `ANTHROPIC_BASE_URL` in it is dropped (tested). [code: contributed
@@ -215,9 +227,11 @@ gap node records it.
 **Export (shipped)**: `core/kb.ts` emits a Tana-Paste outline (one `#ctx-composition` node, `#ctx-source` nodes, one
 `#ctx-artifact` node per artifact with fields `ctx-kind`, `ctx-tokens` (number), `ctx-source-of` (ref to its source),
 `ctx-decision`, `ctx-lever`) and the idempotent schema commands (`kb tag define`, `kb field define/type/target`).
-Tags and fields are never minted implicitly by `kb add --outline`, hence the commands. The page's **Copy for kb** and
-`bb composer --kb` produce both; paste into `kb add --outline` (or `kb --root <scratch>` for a separate store). Every
-ref resolves to a source item in the same outline (tested). kb's outline, graph and canvas views then apply as they
+Tags and fields are never minted implicitly by `kb add --outline`, hence the commands. Shell commands and outline
+text are kept apart: **Copy kb schema** and `bb composer --kb-schema` give the commands, to run once per store;
+**Copy kb outline** and `bb composer --kb` give the outline, for `kb add --outline` (or `kb --root <scratch>` for a
+separate store). Inventory names are escaped so none can start a tag, ref, field or new item. Every ref resolves to a
+source item in the same outline (tested). kb's outline, graph and canvas views then apply as they
 do to any node.
 
 Re-exporting appends (`node.addTree` has no replace), so a re-export makes a second composition node: version by
@@ -248,6 +262,11 @@ title for now.
 - **Does the trajectory chat help?** Count proposals applied versus ignored, and whether a composed thread's first
   turns go where the advisor said. The brief is about 15k tokens for this thread (61k characters); trim descriptions
   if the advisor's answers get generic.
+- **The advisor's privileges**: bb's spawn offers `accept-edits`, `auto` and `full`, and `accept-edits` is the least
+  of them. It still lets the advisor edit files in the basis thread's workspace without asking; only its instructions
+  tell it not to, and its brief carries untrusted inventory text and thread messages. That is why a proposal never
+  applies without the preview. A read-only mode, or an advisor with no workspace, would close it; neither exists in
+  SDK 0.6.49.
 - **Safe mode in bb**: does a `CLAUDE_CODE_SAFE_MODE=1` thread keep bb's tools? If not, never offer it without a
   warning.
 - **Weights**: MCP tools are deferred behind tool search, so they weigh 0 at session start and their full weight is
