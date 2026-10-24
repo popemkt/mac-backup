@@ -153,6 +153,12 @@
       # Embedding the page). No other page may frame it.
       "--embed-origin"
       config.my.stacks.vpn.services.bb-popemkt.publicOrigin
+      # Framed by bb, the page loads bbim's hint bridge from bb itself, so
+      # bb's keyboard hints, gi, gs and j/k reach into it and bb's chords
+      # typed in it come back (assets/bb-plugins/bbim/core/README.md →
+      # Iframes). Needs kb with `--embed-script`.
+      "--embed-script"
+      "${config.my.stacks.vpn.services.bb-popemkt.publicOrigin}/api/v1/plugins/bbim/http/bridge.js"
     ];
   };
 
