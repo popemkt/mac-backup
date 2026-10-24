@@ -2,7 +2,7 @@
   "name": "bb-plugin-bb-lively",
   "version": "0.1.0",
   "private": true,
-  "description": "bb plugin: a lively palette theme and a motion layer of quick, subtle micro-interactions for bb, honouring reduced motion.",
+  "description": "bb plugin: a motion layer of micro-interactions for bb at three intensities, honouring reduced motion, plus Lively palette themes.",
   "type": "module",
   "engines": {
     "bb": ">=0.46",
@@ -10,7 +10,7 @@
   },
   "bb": {
     "name": "Lively [Experimental]",
-    "description": "Quick, subtle motion for bb (presses, new messages rising in, menu springs, send and status pulses) on any theme, plus optional Lively palettes. Follows your OS reduced-motion setting.",
+    "description": "Motion for bb on any theme, from subtle to bold: springy presses, new messages rising in, menu springs, a send burst, status rings, breathing glows. One intensity setting; follows your OS reduced-motion setting. Plus optional Lively palettes.",
     "branding": {
       "icon": "Palette"
     },
@@ -28,6 +28,18 @@
         "name": "Lively Dracula",
         "description": "bb's Dracula palette with Lively's corners, elevation and transition timing",
         "css": "./themes/lively-dracula.css"
+      },
+      {
+        "id": "lively-bold",
+        "name": "Lively Bold",
+        "description": "Lively with the accent turned up: tinted selection, accent focus and glowing elevation",
+        "css": "./themes/lively-bold.css"
+      },
+      {
+        "id": "lively-dracula-bold",
+        "name": "Lively Dracula Bold",
+        "description": "Lively Dracula with the accent turned up: tinted selection, accent focus and glowing elevation",
+        "css": "./themes/lively-dracula-bold.css"
       }
     ]
   },

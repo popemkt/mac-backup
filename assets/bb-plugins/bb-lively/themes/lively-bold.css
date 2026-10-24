@@ -1,0 +1,72 @@
+/*
+ * Lively Bold: Lively with the accent turned up for the Bold intensity.
+ * The palette is lively.css's, copied (one theme is active at a time, so it
+ * cannot import it): keep the two in step. The Bold block is at the end.
+ */
+:root, .light {
+  --canvas: #faf8f5;
+  --ink: #1f1d24;
+  --primary: #5b4bd1;
+  --primary-foreground: #ffffff;
+  --timeline-accent: #0f7a6c;
+  --file-accent: var(--timeline-accent);
+  --destructive: #c4323f;
+  --destructive-text: #a92633;
+  --warning: #b26a12;
+  --warning-text: #8a500b;
+  --attention: #8c6a00;
+  --success: #1f7a4d;
+  --diff-added: #1f7a4d;
+  --diff-removed: #c4323f;
+  --pr-merged: #5b4bd1;
+  --ring: color-mix(in oklch, var(--primary) 70%, transparent);
+
+  --radius: 0.625rem;
+  --shadow-lift: 0px -6px 18px -8px #2a1f4a1f;
+  --default-transition-duration: 160ms;
+  --default-transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dark {
+  --canvas: #1a1920;
+  --ink: #d8d4df;
+  --primary: #a99bff;
+  --primary-foreground: #1a1920;
+  --timeline-accent: #5fd4c0;
+  --file-accent: var(--timeline-accent);
+  --destructive: #ff6b78;
+  --destructive-text: #ff8a94;
+  --warning: #f0a35e;
+  --warning-text: #f0a35e;
+  --attention: #ecd06f;
+  --success: #5fd99a;
+  --diff-added: #5fd99a;
+  --diff-removed: #ff6b78;
+  --pr-merged: #a99bff;
+  --ring: color-mix(in oklch, var(--primary) 70%, transparent);
+  --shadow-lift: 0px -6px 18px -8px #00000059;
+}
+
+/* Bold: the accent carries further — selection, the open row, focus and
+   elevation take its tint, and corners round a little more. Pair it with the
+   motion layer's Bold intensity. */
+:root, .light {
+  --ring: var(--primary);
+  --radius: 0.75rem;
+  --surface-selected: color-mix(in oklch, var(--primary) 12%, var(--canvas));
+  --state-active: color-mix(in oklch, var(--primary) 14%, var(--canvas));
+  --sidebar-accent: color-mix(in oklch, var(--primary) 9%, var(--canvas));
+  --shadow-color: color-mix(in oklch, var(--primary) 22%, #0000001a);
+  --shadow-lift: 0px -8px 24px -8px color-mix(in oklch, var(--primary) 30%, transparent);
+  --default-transition-duration: 200ms;
+  --default-transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dark {
+  --ring: var(--primary);
+  --surface-selected: color-mix(in oklch, var(--primary) 18%, var(--canvas));
+  --state-active: color-mix(in oklch, var(--primary) 20%, var(--canvas));
+  --sidebar-accent: color-mix(in oklch, var(--primary) 12%, var(--canvas));
+  --shadow-color: color-mix(in oklch, var(--primary) 30%, #00000066);
+  --shadow-lift: 0px -8px 28px -8px color-mix(in oklch, var(--primary) 38%, transparent);
+}

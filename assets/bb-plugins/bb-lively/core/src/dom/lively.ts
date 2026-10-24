@@ -2,7 +2,7 @@
 // root attributes, a reduced-motion listener, the row watcher and the
 // one-shot pulses, and removes every one of them when its signal aborts.
 import { type EffectId, effectAttribute } from "../domain/effects.ts";
-import { MAX_CONCURRENT_ENTERS, type MotionPolicy, resolveMotion } from "../domain/policy.ts";
+import { MAX_CONCURRENT_ENTERS, type MotionPolicy, resolveMotion, tokensFor } from "../domain/policy.ts";
 import { decodeSettings, type Settings, type SettingsInput, type SettingsProblem } from "../domain/settings.ts";
 import { createPulser } from "./pulser.ts";
 import { createRowWatcher } from "./rows.ts";
@@ -38,8 +38,8 @@ function elementOf(target: EventTarget | null): Element | null {
   return target !== null && "closest" in target ? (target as Element) : null;
 }
 
-/** Deadline for one pulse: its CSS duration at the slowest speed, plus slack. */
-const deadline = (ms: number) => ms * 1.25 + 200;
+/** Deadline for one pulse: its CSS duration (the policy's tokens, speed applied), plus slack. */
+const deadline = (ms: number) => ms + 200;
 
 const REDUCED_QUERY = "(prefers-reduced-motion: reduce)";
 
@@ -64,12 +64,15 @@ export function createLively(options: CreateLivelyOptions): Lively {
   /** Another layer is measuring (bbim's hints): start nothing. The stylesheet stops what runs. */
   const suspended = () => targets.suspendOn.some((attribute) => root.hasAttribute(attribute));
   const may = (effect: EffectId) => !disposed && enabled(effect) && !suspended();
+  const tokens = () => tokensFor(current);
 
   const write = () => {
     for (const name of ROOT_ATTRIBUTES) root.removeAttribute(name);
     if (current.level === "off") return;
     root.setAttribute(ROOT.level, current.level);
     root.setAttribute(ROOT.source, current.source);
+    root.setAttribute(ROOT.intensity, current.intensity);
+    root.setAttribute(ROOT.style, current.style);
     root.setAttribute(ROOT.speed, current.speed);
     for (const effect of current.effects) root.setAttribute(effectAttribute(effect), "");
   };
@@ -88,7 +91,7 @@ export function createLively(options: CreateLivelyOptions): Lively {
       let stagger = 0;
       for (const row of arriving) {
         if (pulser.running(CLASSES.enter) >= MAX_CONCURRENT_ENTERS) return;
-        if (pulser.pulse(row, CLASSES.enter, deadline(220 + 90), { "data-lively-stagger": String(stagger) })) stagger += 1;
+        if (pulser.pulse(row, CLASSES.enter, deadline(tokens().enterMs + 3 * tokens().stagger), { "data-lively-stagger": String(stagger) })) stagger += 1;
       }
     },
   });
@@ -99,7 +102,7 @@ export function createLively(options: CreateLivelyOptions): Lively {
     if (!may("press") || target === null) return;
     const pressed = target.closest(targets.pressable);
     if (pressed === null || pressed.closest(targets.pressExclude) !== null) return;
-    pulser.pulse(pressed, CLASSES.pressOut, deadline(160));
+    pulser.pulse(pressed, CLASSES.pressOut, deadline(tokens().releaseMs));
   };
   // toggles: a checkbox pops when it becomes checked.
   const clicked = (event: MouseEvent) => {
@@ -110,7 +113,7 @@ export function createLively(options: CreateLivelyOptions): Lively {
     // The host flips its state in its own click handler, after this capture listener.
     win.requestAnimationFrame(() => {
       if (box.getAttribute("aria-checked") === "true" || box.getAttribute("data-state") === "checked") {
-        pulser.pulse(box, CLASSES.check, deadline(160));
+        pulser.pulse(box, CLASSES.check, deadline(tokens().releaseMs));
       }
     });
   };
@@ -129,9 +132,9 @@ export function createLively(options: CreateLivelyOptions): Lively {
       if (disposed) return;
       rows.armSend();
       if (!may("sendPulse")) return;
-      for (const button of doc.querySelectorAll(targets.sendButton)) pulser.pulse(button, CLASSES.send, deadline(220));
+      for (const button of doc.querySelectorAll(targets.sendButton)) pulser.pulse(button, CLASSES.send, deadline(tokens().pulseMs));
     },
-    pulseStatus: (row, tone) => may("statusPulse") && pulser.pulse(row, CLASSES.pulse, deadline(600), { "data-lively-tone": tone }),
+    pulseStatus: (row, tone) => may("statusPulse") && pulser.pulse(row, CLASSES.pulse, deadline(2 * tokens().pulseMs), { "data-lively-tone": tone }),
     dispose: () => {
       if (disposed) return;
       disposed = true;

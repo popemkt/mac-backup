@@ -62,6 +62,8 @@ export const TARGETS: Targets = {
   overlayClosed: '[role=menu][data-state="closed"]',
   switchThumb: "[role=switch] > span",
   checkbox: "[role=checkbox]",
+  pageView: ".page",
+  working: ".working",
   hostAnimation: ".animate-in",
   suspendOn: ["data-measuring"],
 };

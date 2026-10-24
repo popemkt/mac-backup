@@ -1,7 +1,7 @@
 # @popemkt/bb-lively-core
 
 A motion layer for any web app: presses, list arrivals, overlay springs, send and status
-pulses, a focus glow. It knows no host: the host passes a `Targets` object (one CSS
+pulses, a focus glow, page entrances, a working-state glow, at three intensities. It knows no host: the host passes a `Targets` object (one CSS
 selector per role, plus the attributes that pause it). The bb plugin next door
 (`../adapter`) is one host.
 
@@ -9,7 +9,7 @@ selector per role, plus the attributes that pause it). The bb plugin next door
 
 | Layer | Path | What it is |
 |---|---|---|
-| Domain | `src/domain/` (`effect` only, no DOM types) | the effects table, settings and their decoder, the motion policy (`resolveMotion(settings, systemReduced)` → level, source, speed, running effects), the budget constants |
+| Domain | `src/domain/` (`effect` only, no DOM types) | the effects table, settings and their decoder, the motion policy (`resolveMotion(settings, systemReduced)` → level, source, speed, running effects), the motion tokens per intensity and the spring easing family (`motion.ts`), the budget constants |
 | DOM | `src/dom/` | `createLively`, the stylesheet builder, the row watcher, the one-shot pulser, the selector canary |
 
 ## Use

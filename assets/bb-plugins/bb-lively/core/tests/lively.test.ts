@@ -40,6 +40,8 @@ test("mount: one stylesheet and the root attributes of the default policy", () =
   assert.equal(p.root.getAttribute("data-lively"), "full");
   assert.equal(p.root.getAttribute("data-lively-source"), "system");
   assert.equal(p.root.getAttribute("data-lively-speed"), "normal");
+  assert.equal(p.root.getAttribute("data-lively-intensity"), "bold");
+  assert.equal(p.root.getAttribute("data-lively-style"), "clean");
   assert.ok(p.root.hasAttribute(effectAttribute("press")));
   assert.ok(!p.root.hasAttribute(effectAttribute("typingGlow")), "off by default");
 });
@@ -57,7 +59,8 @@ test("settings: off clears the root; an effect switched off loses its attribute;
   const { p, lively } = mounted();
   lively.setSettings({ motion: "off" });
   for (const name of ROOT_ATTRIBUTES) assert.ok(!p.root.hasAttribute(name), name);
-  lively.setSettings({ speed: "snappy", effects: { press: false } });
+  lively.setSettings({ speed: "snappy", intensity: "subtle", effects: { press: false } });
+  assert.equal(p.root.getAttribute("data-lively-intensity"), "subtle");
   assert.equal(p.root.getAttribute("data-lively-speed"), "snappy");
   assert.ok(!p.root.hasAttribute(effectAttribute("press")));
   assert.ok(p.root.hasAttribute(effectAttribute("hoverLift")));
