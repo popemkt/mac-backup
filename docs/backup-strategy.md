@@ -237,6 +237,7 @@ a kb root of its own, the home store ([kb's DESIGN.md](https://github.com/popemk
 `${XDG_DATA_HOME:-~/.local/share}/kb/home` on Linux. `kb ui` and `kb init`
 register the root they open there.
 
+<!-- GAP [[01M5QJFWFYAKE90KSRNPN4EX78]]: shared-server's home store has no backup. -->
 Decision: **state, and a regular backup concern (Time Machine).** The list is
 produced by use, not declared, so Nix never writes it: activation does not
 register this repository's stores, which register themselves the first time

@@ -16,6 +16,7 @@ import type { rpcContract } from "./server";
 import { originOf, SESSION_HEARTBEAT_MS, sessionOfMessage } from "./lib/kb";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import { LINKED_PANEL, LINKED_TITLE, LinkedPanel } from "./linked-panel";
 
 const PANEL_ACTION = "kb";
 const PANEL_TITLE = "kb";
@@ -166,6 +167,16 @@ export default definePluginApp(app => {
     component: KbPanel,
     run: ({ openPanel }) => {
       openPanel({ title: PANEL_TITLE });
+    },
+  });
+  app.slots.threadPanelAction({
+    id: LINKED_PANEL,
+    title: LINKED_TITLE,
+    icon: "Shapes",
+    layout: "flush",
+    component: LinkedPanel,
+    run: ({ openPanel }) => {
+      openPanel({ title: LINKED_TITLE });
     },
   });
   app.slots.experimental_threadHeaderAction({

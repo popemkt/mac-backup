@@ -17,6 +17,24 @@ DESIGN.md → Action registry → A call made in a tab session, and → Surfaces
 The tools reach kb as a local program: through kb ui's owner-only Unix socket when one is set, else through
 the page URL. Nothing but the session crosses the frame.
 
+## Linked items
+
+The plugin keeps which kb things each thread wrote or linked: canvases now, more kinds later
+([docs/research/2026-10-25-kb-topology.md](../../../docs/research/2026-10-25-kb-topology.md) says why the link
+lives here and not in kb). kb records the caller's `via` label on every write and reads its log back with
+`graph.changes` (kb DESIGN.md → Action registry → The caller's via). The plugin labels a thread's writes
+`bb:<thread>`: `kb_call` states it on the envelope, and every provider gets `KB_VIA=bb:<thread>`, so the
+thread's own kb CLI and kb MCP label theirs. A background loop reads kb's log of `bb:` writes every 10 s (and
+on each list) and records a link for every canvas one touched, in the plugin's database, with the thread's bb
+project and machine; it keeps the newest 5000 links. Each list asks kb once for the canvases it has now, so
+renames and deletions show whoever made them. The **kb canvases** panel lists them: Thread | Project | All,
+drawn by the same row as the Canvases panel (`../linked-items/`).
+
+`via` is advisory: a caller states it, kb records it unchecked, so any caller could claim `bb:<thread>`. The
+panel shows a link a write made as *claimed by* the thread (a dashed chip, "claimed by this thread"), and a
+link made with **Link open canvas** as plain. If kb compacts its log past what the loop had read, the panel
+says the links may be incomplete.
+
 ## Layout
 
 | File | Role |
@@ -24,6 +42,10 @@ the page URL. Nothing but the session crosses the frame.
 | `lib/kb.ts` | Pure: the thread → session registry with its lapse, the frame message, tool answer text. Tested. |
 | `server.ts` | Settings, the `config` and `reportSession` RPC, the kb transport, `kb_call`, `kb_screen`, `kb_manifest`. |
 | `app.tsx` | The `kb` thread panel tab (the frame) and the header button that opens it, or opens it by itself. |
+| `lib/links.ts` | Pure: the `via` a thread's writes carry, reading `graph.changes`, which changes link what, an item as a row. Tested. |
+| `lib/link-book.ts` | The links database over any SQL: the cursor, reading the log in pages, links, scopes, pruning. Tested on `node:sqlite` with a fake kb. |
+| `links.ts` | Linked items wired to bb: KB_VIA for every provider, the loop, the `links`, `linkOpen`, `openItem` RPC. |
+| `linked-panel.tsx` | The `kb canvases` thread panel tab, the Canvases panel's twin. |
 | `skills/kb/` | Tells agents how to use the tools. |
 
 ## Settings

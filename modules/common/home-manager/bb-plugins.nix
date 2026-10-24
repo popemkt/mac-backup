@@ -117,8 +117,15 @@ let
           continue
         fi
         key="$(printf '%s' "$rel" | tr '/' '_')"
-        # What an install is built from: every tracked file, plus uncommitted edits.
-        stamp="$(cd "$dir" && { git ls-files -s .; git diff HEAD -- .; } | sha256sum | cut -d' ' -f1)"
+        # What an install is built from: every tracked file, plus uncommitted edits,
+        # of the plugin and of the shared code beside it: a sibling folder with no
+        # package.json is no plugin, and plugins import it by relative path
+        # (assets/bb-plugins/linked-items).
+        shared=()
+        for sibling in "$dir"/../*/; do
+          [ -f "$sibling/package.json" ] || shared+=("$sibling")
+        done
+        stamp="$(cd "$dir" && { git ls-files -s . "''${shared[@]}"; git diff HEAD -- . "''${shared[@]}"; } | sha256sum | cut -d' ' -f1)"
         # A here-string, not a pipe: under pipefail, grep -q exiting at the
         # first match SIGPIPEs printf on a long listing and reads as "absent".
         if grep -qF "path:$dir\"" <<<"$listing" \

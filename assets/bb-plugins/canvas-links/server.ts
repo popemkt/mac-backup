@@ -4,7 +4,8 @@
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { hostContract, type Run } from "./contract";
-import { elsewhereHost, parseListing, SCOPES, threadIds, type Listing } from "./lib/canvases";
+import { SCOPES, threadIds } from "../linked-items/rows";
+import { elsewhereHost, parseListing, rowOf, type Listing } from "./lib/canvases";
 
 const threadInput = z.object({ threadId: z.string().min(1) });
 const outcome = z.object({ ok: z.boolean(), message: z.string() });
@@ -59,7 +60,7 @@ export default async function plugin(bb: BbPluginApi) {
   }
 
   async function titles(listing: Listing): Promise<Record<string, ThreadRef>> {
-    const ids = [...new Set(listing.canvases.flatMap(threadIds))].slice(0, THREAD_TITLES_MAX);
+    const ids = [...new Set(listing.canvases.flatMap(c => threadIds(rowOf(c))))].slice(0, THREAD_TITLES_MAX);
     const pairs = await Promise.all(
       ids.map(async id => {
         try {

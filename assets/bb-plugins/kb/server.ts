@@ -6,6 +6,8 @@ import { request } from "node:http";
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { manifestAnswer, originOf, receiptAnswer, ThreadSessions, type ToolAnswer } from "./lib/kb";
+import { viaOfThread } from "./lib/links";
+import { registerLinks, type KbAccess } from "./links";
 
 export const rpcContract = defineRpcContract({
   /** What the panel frames, and whether a thread opens it by itself. */
@@ -136,10 +138,32 @@ export default async function plugin(bb: BbPluginApi) {
 
   const asContent = ({ text, isError }: ToolAnswer) => ({ content: [{ type: "text" as const, text }], isError });
 
+  // Linked items (links.ts): what the thread's agent wrote in kb, read back from kb's log.
+  const kb: KbAccess = {
+    async call(id, input, options = {}) {
+      const at = await address();
+      if (at === null) return { ok: false, message: "kb is not configured" };
+      const res = await callKb(at, "POST", "/api/action", { id, input, ...options });
+      const body = res.body as { status?: unknown; output?: unknown; message?: unknown };
+      return body?.status === "succeeded"
+        ? { ok: true, output: body.output }
+        : { ok: false, message: typeof body?.message === "string" ? body.message : `kb answered HTTP ${res.status}` };
+    },
+    async root() {
+      const at = await address();
+      if (at === null) return null;
+      const body = (await callKb(at, "GET", "/api/identity")).body as { root?: unknown };
+      return typeof body?.root === "string" ? body.root : null;
+    },
+    session: threadId => sessions.live(threadId, Date.now()),
+  };
+  const links = registerLinks(bb, kb);
+
   bb.rpc.register(rpcContract, {
     config: async () => ({ url: await pageUrl(), autoOpen: (await settings.get()).autoOpen }),
     reportSession: async ({ threadId, session }) => {
       sessions.report(threadId, session, Date.now());
+      links.onSession(threadId, session);
       return { ok: true as const };
     },
   });
@@ -161,6 +185,7 @@ export default async function plugin(bb: BbPluginApi) {
           id,
           input: input ?? {},
           ...(session === undefined ? {} : { session }),
+          via: viaOfThread(threadId),
         });
         return receiptAnswer(res.body, res.status);
       });

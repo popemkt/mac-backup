@@ -11,11 +11,11 @@ log, resolves canvases through tldraw, and opens them. This plugin only runs it 
 
 | File | Role |
 |---|---|
-| `lib/canvases.ts` | The shape of `canvas-link ls --json`, parsed at the boundary; search, thread chips, relative time. Pure, tested. |
+| `lib/canvases.ts` | The shape of `canvas-link ls --json`, parsed at the boundary, and a canvas as a row. Pure, tested. |
 | `contract.ts` | The server ↔ host RPC contract: run `canvas-link ls\|add\|open`, read the hostname. |
 | `host.ts` | Host entry: finds `canvas-link` (PATH, then Home Manager's profile) and runs it as the thread (`BB_THREAD_ID`) in its workspace. |
 | `server.ts` | Resolves the thread's workspace machine and path, serves `list`, `linkFocused`, `open` over RPC; `open` runs on the machine that holds the canvas. |
-| `app.tsx` | The `Canvases` `threadPanelAction` tab. |
+| `app.tsx` | The `Canvases` `threadPanelAction` tab. Its tabs, rows, search and relative times are `../linked-items/`, shared with the kb plugin's kb canvases tab. |
 | `tests/` | `npm test` (node:test over plain data). |
 
 ## Develop

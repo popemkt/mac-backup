@@ -36,3 +36,7 @@ Calls are made in no tab: pass every input, and nothing on the person's screen c
 - Writes are real and immediate; `node.delete` deletes. Read with `node.get`, `graph.search` or
   `graph.query` before changing what you have not seen.
 - Answers are cut at 40,000 characters; narrow the call (a smaller `depth`, a more specific query) when cut.
+- Canvases you create or edit link themselves to this thread (the person's **kb canvases** tab lists them):
+  every `kb_call` write, and your own `kb` CLI or kb MCP writes, carry this thread's label (`KB_VIA`). Nothing
+  to record by hand. Writes to a kb other than the person's (a repository's `.kb`, a Mac's own) are not
+  listed there.

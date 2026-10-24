@@ -1,12 +1,15 @@
 // bb-plugin-canvas-links — the frontend. A thread side-panel tab, "Canvases": the tldraw canvases this thread, its
 // project, or anyone linked, a search box, "Link focused canvas", and a click to open one. All data comes from
-// server.ts over RPC (which runs canvas-link); the row rules live in lib/canvases.ts.
+// server.ts over RPC (which runs canvas-link); a canvas becomes a row in lib/canvases.ts, and the tabs, rows and
+// search are shared with the kb canvases panel (assets/bb-plugins/linked-items).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { definePluginApp, useBbNavigate, useRpc, type PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
-import type { ListAnswer, rpcContract, ThreadRef } from "./server";
-import { matches, otherHarnesses, threadIds, timeLabel, type Canvas, type Scope } from "./lib/canvases";
+import type { ListAnswer, rpcContract } from "./server";
+import { LinkedRow, ScopeTabs } from "../linked-items/row";
+import { matches } from "../linked-items/rows";
+import { rowOf, type Scope } from "./lib/canvases";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
@@ -14,7 +17,6 @@ import { cn } from "@/lib/utils";
 
 const PANEL_ACTION = "canvases";
 const PANEL_TITLE = "Canvases";
-const SCOPE_LABELS: Record<Scope, string> = { session: "Thread", project: "Project", all: "All" };
 const EMPTY: Record<Scope, string> = {
   session: "No canvases linked from this thread yet. Agents link the boards they touch; or focus one in tldraw and link it.",
   project: "No canvases linked from this project.",
@@ -51,110 +53,9 @@ function useListing(threadId: string, scope: Scope) {
   return { answer, error, loading, refresh: load };
 }
 
-function ScopeTab({ scope, current, onSelect }: { scope: Scope; current: Scope; onSelect: (s: Scope) => void }) {
-  const isOn = scope === current;
-  return (
-    <button
-      type="button"
-      aria-pressed={isOn}
-      onClick={() => onSelect(scope)}
-      className={cn(
-        "flex-1 cursor-pointer rounded-md px-2 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-        isOn ? "bg-state-active text-foreground" : "text-muted-foreground hover:bg-state-hover hover:text-foreground",
-      )}
-    >
-      {SCOPE_LABELS[scope]}
-    </button>
-  );
-}
-
-function ThreadChip({ id, thread, isCurrent }: { id: string; thread: ThreadRef | undefined; isCurrent: boolean }) {
-  const navigate = useBbNavigate();
-  const label = isCurrent ? "this thread" : (thread?.title ?? id);
-  return (
-    <button
-      type="button"
-      title={isCurrent ? id : `Go to ${thread?.title ?? id}`}
-      disabled={isCurrent}
-      onClick={event => {
-        event.stopPropagation();
-        navigate.toThread(id);
-      }}
-      className={cn(
-        "max-w-40 truncate rounded border border-border px-1.5 py-px text-[11px] leading-4",
-        isCurrent ? "text-muted-foreground" : "cursor-pointer text-foreground hover:bg-state-hover",
-      )}
-    >
-      {label}
-    </button>
-  );
-}
-
-function Row({
-  canvas,
-  scope,
-  threadId,
-  threads,
-  now,
-  onOpen,
-}: {
-  canvas: Canvas;
-  scope: Scope;
-  threadId: string;
-  threads: Record<string, ThreadRef>;
-  now: number;
-  onOpen: (c: Canvas) => void;
-}) {
-  const ids = threadIds(canvas);
-  const others = otherHarnesses(canvas);
-  const missing = canvas.local && canvas.exists === false;
-  return (
-    <li>
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={() => onOpen(canvas)}
-        onKeyDown={event => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            onOpen(canvas);
-          }
-        }}
-        title={canvas.path ?? canvas.key}
-        className="group cursor-pointer space-y-1 rounded-md px-2 py-1.5 hover:bg-state-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-      >
-        <div className="flex min-w-0 items-center gap-2">
-          <span
-            aria-label={canvas.open ? "open now" : undefined}
-            className={cn("size-2 shrink-0 rounded-full", canvas.open ? "bg-success" : "bg-transparent")}
-          />
-          <span className={cn("min-w-0 flex-1 truncate text-sm", missing && "text-muted-foreground line-through")}>{canvas.name}</span>
-          <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">{timeLabel(canvas, now)}</span>
-        </div>
-        <div className="flex min-w-0 items-center gap-1.5 pl-4 text-xs text-muted-foreground">
-          <span className="min-w-0 truncate">{canvas.local ? (canvas.folder ?? "") : `on ${canvas.host}`}</span>
-          {missing ? <span className="shrink-0 text-warning">file gone</span> : null}
-        </div>
-        {scope !== "session" && (ids.length > 0 || others.length > 0) ? (
-          <div className="flex flex-wrap items-center gap-1 pl-4">
-            {ids.slice(0, 3).map(id => (
-              <ThreadChip key={id} id={id} thread={threads[id]} isCurrent={id === threadId} />
-            ))}
-            {ids.length > 3 ? <span className="text-[11px] text-muted-foreground">+{ids.length - 3} threads</span> : null}
-            {others.map(h => (
-              <span key={h} className="rounded bg-muted px-1.5 py-px text-[11px] leading-4 text-muted-foreground">
-                {h}
-              </span>
-            ))}
-          </div>
-        ) : null}
-      </div>
-    </li>
-  );
-}
-
 function CanvasesPanel({ threadId }: PluginThreadPanelProps) {
   const rpc = useRpc<typeof rpcContract>();
+  const navigate = useBbNavigate();
   const [scope, setScope] = useState<Scope>("session");
   const [query, setQuery] = useState("");
   const [linking, setLinking] = useState(false);
@@ -162,7 +63,14 @@ function CanvasesPanel({ threadId }: PluginThreadPanelProps) {
   const search = useRef<HTMLInputElement>(null);
   const now = Date.now();
 
-  const canvases = useMemo(() => (answer?.listing?.canvases ?? []).filter(c => matches(c, query)), [answer, query]);
+  const titles = useMemo(
+    () => Object.fromEntries(Object.entries(answer?.threads ?? {}).map(([id, t]) => [id, t.title ?? null])),
+    [answer],
+  );
+  const canvases = useMemo(() => {
+    const listed = answer?.listing?.canvases ?? [];
+    return listed.map(c => ({ canvas: c, row: rowOf(c) })).filter(({ row }) => matches(row, query, titles));
+  }, [answer, query, titles]);
 
   const linkFocused = () => {
     setLinking(true);
@@ -180,7 +88,7 @@ function CanvasesPanel({ threadId }: PluginThreadPanelProps) {
       .finally(() => setLinking(false));
   };
 
-  const open = (c: Canvas) => {
+  const open = (c: { key: string; host: string }) => {
     rpc.call("open", { threadId, key: c.key, host: c.host }).then(
       r => (r.ok ? refresh() : toast.error(r.message)),
       cause => toast.error(message(cause)),
@@ -201,11 +109,7 @@ function CanvasesPanel({ threadId }: PluginThreadPanelProps) {
     <div className="flex h-full min-h-0 flex-col" onKeyDown={onKeyDown}>
       <div className="space-y-2 border-b border-border px-3 py-2">
         <div className="flex items-center gap-1.5">
-          <div className="flex flex-1 items-center gap-0.5 rounded-lg bg-muted/50 p-0.5" role="toolbar" aria-label="Scope">
-            {(["session", "project", "all"] as const).map(s => (
-              <ScopeTab key={s} scope={s} current={scope} onSelect={setScope} />
-            ))}
-          </div>
+          <ScopeTabs current={scope} onSelect={setScope} />
           <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={refresh} disabled={loading} aria-label="Refresh">
             <Icon name="RotateCcw" className={cn("size-4", loading && "animate-spin")} />
           </Button>
@@ -248,8 +152,17 @@ function CanvasesPanel({ threadId }: PluginThreadPanelProps) {
           <p className="px-3 py-6 text-center text-sm text-muted-foreground">{query === "" ? EMPTY[scope] : "No canvas matches."}</p>
         ) : (
           <ul className="space-y-0.5">
-            {canvases.map(c => (
-              <Row key={c.key} canvas={c} scope={scope} threadId={threadId} threads={answer.threads} now={now} onOpen={open} />
+            {canvases.map(({ canvas, row }) => (
+              <LinkedRow
+                key={row.key}
+                row={row}
+                scope={scope}
+                threadId={threadId}
+                titles={titles}
+                now={now}
+                onOpen={() => open(canvas)}
+                onThread={id => navigate.toThread(id)}
+              />
             ))}
           </ul>
         )}
