@@ -4,7 +4,12 @@
 // a listing is searched and dated. Threads, projects and machines are bb's, so they live here, never in kb.
 // No bb and no network here, so tests run on plain data. A row is drawn as the Canvases panel draws its own
 // (assets/bb-plugins/linked-items).
-import type { LinkRow } from "../../linked-items/rows.ts";
+import type { LinkRow, Scope } from "../../linked-items/rows.ts";
+
+// GAP [[01M5QJFW217ZNBXHEX74VG7VYP]]: bb's server build rejects a runtime import from outside the plugin folder
+// ("server source import escapes the plugin directory"), so server code imports ../linked-items for types only
+// (erased before bundling) and keeps its own copy of the scope list. The client build bundles it fine.
+export const SCOPES = ["session", "project", "all"] as const satisfies readonly Scope[];
 
 /** The kinds of kb thing a thread can be linked to. Canvases first; a kind is its tag and how a row names it. */
 export const KINDS = { canvas: { tag: "sys.tag.canvas", route: (id: string) => `/canvas/${encodeURIComponent(id)}` } } as const;

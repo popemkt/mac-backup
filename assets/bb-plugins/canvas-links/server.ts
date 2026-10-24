@@ -4,8 +4,7 @@
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { hostContract, type Run } from "./contract";
-import { SCOPES, threadIds } from "../linked-items/rows";
-import { elsewhereHost, parseListing, rowOf, type Listing } from "./lib/canvases";
+import { SCOPES, elsewhereHost, parseListing, rowOf, type Listing } from "./lib/canvases";
 
 const threadInput = z.object({ threadId: z.string().min(1) });
 const outcome = z.object({ ok: z.boolean(), message: z.string() });
@@ -21,7 +20,7 @@ export type ListAnswer = {
 export const rpcContract = defineRpcContract({
   /** `canvas-link ls --<scope> --json` for the thread, plus the titles of the bb threads its rows link to. */
   list: {
-    input: threadInput.extend({ scope: z.enum(SCOPES as [string, ...string[]]) }),
+    input: threadInput.extend({ scope: z.enum(SCOPES) }),
     output: z.custom<ListAnswer>(v => typeof v === "object" && v !== null, "not a listing"),
   },
   /** `canvas-link add --focused` as the thread. */
@@ -60,7 +59,7 @@ export default async function plugin(bb: BbPluginApi) {
   }
 
   async function titles(listing: Listing): Promise<Record<string, ThreadRef>> {
-    const ids = [...new Set(listing.canvases.flatMap(c => threadIds(rowOf(c))))].slice(0, THREAD_TITLES_MAX);
+    const ids = [...new Set(listing.canvases.flatMap(c => rowOf(c).threads.map(t => t.id)))].slice(0, THREAD_TITLES_MAX);
     const pairs = await Promise.all(
       ids.map(async id => {
         try {

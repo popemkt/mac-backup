@@ -10,9 +10,9 @@
 import { basename } from "node:path";
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
-import { SCOPES, type Scope } from "../linked-items/rows";
+import type { Scope } from "../linked-items/rows";
 import { MIGRATIONS, linkBook, type Listing, type Where } from "./lib/link-book";
-import { KINDS, openCanvasOf, viaOfThread } from "./lib/links";
+import { KINDS, SCOPES, openCanvasOf, viaOfThread } from "./lib/links";
 
 /** What the links need of kb: one action, the root it serves, and the tab session a thread's panel shows. */
 export interface KbAccess {
@@ -36,7 +36,7 @@ const outcome = z.object({ ok: z.boolean(), message: z.string() });
 export const linksContract = defineRpcContract({
   /** The items a scope shows for the thread, after reading kb's log up to now. */
   links: {
-    input: threadInput.extend({ scope: z.enum(SCOPES as [Scope, ...Scope[]]) }),
+    input: threadInput.extend({ scope: z.enum(SCOPES) }),
     output: z.custom<LinksAnswer>(v => typeof v === "object" && v !== null, "not a listing"),
   },
   /** Link the canvas the thread's kb tab shows to the thread. */

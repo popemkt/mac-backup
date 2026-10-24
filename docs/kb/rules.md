@@ -204,8 +204,8 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: the kb canvases panel copies the Canvases panel's shell (header, search, link button, empty and error states)
 
 - **expected** — One linked-items panel for the kb canvases panel and the Canvases (tldraw) panel: the row, tabs and search are already shared in assets/bb-plugins/linked-items; the shell should be too.
-- **current** — assets/bb-plugins/linked-items (rows.ts, row.tsx) is shared and bundled into both plugins. Each panel's shell (header, search box, link button, empty and error states) is still copied: it draws with the plugin's own vendored Button, Input and Icon, which import @/... and @get-bb/plugin-sdk/app, and those resolve only inside a plugin's root, not from the shared folder (tsc fails there).
-- **impact** — A change to the panel shell (not to a row) must be made in both plugins by hand.
+- **current** — assets/bb-plugins/linked-items (rows.ts, row.tsx) is shared, and bb's client build bundles it into both plugins. bb's server build does not: it rejects a runtime import from outside the plugin folder ('server source import escapes the plugin directory', bb 0.46.1), so server code imports it for types only and each plugin's lib keeps its own SCOPES list. Each panel's shell (header, search box, link button, empty and error states) is still copied: it draws with the plugin's own vendored Button, Input and Icon, which import @/... and @get-bb/plugin-sdk/app, and those resolve only inside a plugin's root (tsc fails there).
+- **impact** — A change to the panel shell, or to the scope list, must be made in both plugins by hand.
 - **closes** — A shell that takes Button, Input and Icon as props from each plugin, or tldraw canvases folded into the kb plugin as a second kind; either once the owner settles the panel UX after daily use.
 - **node** — `01M5QJFW217ZNBXHEX74VG7VYP`
 

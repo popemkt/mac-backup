@@ -154,8 +154,10 @@ that log. It is kept on disk only because kb compacts its log after 2048 entries
   `LinkRow` model, scopes, search, threads, "edited 3h ago", claimed links) and `row.tsx` (the scope tabs and
   the row with its thread chips, React only). Each plugin maps its own item to a `LinkRow` (`rowOf` in
   `canvas-links/lib/canvases.ts` and in `kb/lib/links.ts`) and imports both by relative path.
-- `bb plugin build` bundles that folder into each plugin, and `bb-plugins-sync` counts every sibling folder
-  with no `package.json` as shared code in its change stamp, so editing it reinstalls both plugins.
+- bb's client build bundles that folder into each plugin; its server build rejects a runtime import from
+  outside the plugin folder, so server code imports it for types only and keeps its own scope list.
+- `bb-plugins-sync` counts every sibling folder with no `package.json` as shared code in its change stamp,
+  so editing it reinstalls both plugins.
 - The panel shell is still copied (gap `01M5QJFW217ZNBXHEX74VG7VYP`): the header, search box, link button,
   and empty and error states. They are drawn with each plugin's own `Button`, `Input` and `Icon`, which import
   `@/…` and `@get-bb/plugin-sdk/app`. Those resolve only inside a plugin's root, not from the shared folder.
