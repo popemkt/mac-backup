@@ -5,7 +5,7 @@ import { afterEach, test } from "node:test";
 import { Effect, Fiber, Option } from "effect";
 import { installBbimBridge } from "../src/bridge/bbim-bridge.ts";
 import { BRIDGE_PROTOCOL, FRAME_MESSAGE_BUDGET } from "../src/domain/protocol.ts";
-import { awaitOpen, collectRemote, frameBudget, listenForwarded } from "../src/dom/bridge-client.ts";
+import { awaitOpen, collectRemote, frameBudget, iframeRemote, listenForwarded } from "../src/dom/bridge-client.ts";
 import type { OpaqueFrame } from "../src/dom/frames.ts";
 import { openScope } from "../src/dom/runtime.ts";
 import { page, type Page } from "./harness.ts";
@@ -207,14 +207,14 @@ function parentWithFrame() {
   const sent: Array<unknown> = [];
   const child = { postMessage: (message: unknown) => sent.push(message) };
   const element = { contentWindow: child } as unknown as HTMLIFrameElement;
-  const frame: OpaqueFrame = {
+  const opaque: OpaqueFrame = {
     element,
     host: parentPage.win,
     box: { left: 100, top: 100, width: 300, height: 200 },
     offsetX: 100,
     offsetY: 100,
   };
-  return { parentPage, child, frame, sent };
+  return { parentPage, child, frame: iframeRemote(opaque), sent };
 }
 
 const targets = (requestId: string, left: number) => ({

@@ -150,8 +150,11 @@ export function liveRect(place: Placements, element: Element): Rect | undefined 
   );
 }
 
-/** An opaque frame's placement now (its page may have scrolled since collection). */
-export function liveFrame(place: Placements, frame: OpaqueFrame): OpaqueFrame | undefined {
+/** A frame's placement now (its page may have scrolled since collection). */
+export function liveFrame<F extends Pick<OpaqueFrame, "box" | "offsetX" | "offsetY"> & { readonly element: Element }>(
+  place: Placements,
+  frame: F,
+): F | undefined {
   const placement = place(frame.element.ownerDocument);
   if (placement === undefined) return undefined;
   const { box, x, y } = contentBox(frame.element, placement.offsetX, placement.offsetY);

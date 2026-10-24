@@ -18,6 +18,7 @@ import {
   BRIDGE_PROTOCOL,
   decodeParentMessage,
   type FrameMessage,
+  type ParentMessage,
   isOpenableUrl,
   MODE_TTL_MS,
 } from "../domain/protocol.ts";
@@ -44,27 +45,26 @@ export interface BridgeOptions {
 const INSTALLED = Symbol.for("bbim.bridge.installed");
 const NOTHING = () => {};
 
-/** Install the bridge; the returned function removes it. Refuses (and warns) without origins or when one is already installed. */
-export function installBbimBridge(options: BridgeOptions): () => void {
-  const win = options.window ?? window;
-  const origins = new Set(options.parentOrigins.filter((origin) => origin !== "" && origin !== "*"));
-  if (origins.size === 0) {
-    // The frame side has no Effect runtime (see the header): a plain warning for the embedder.
-    // @effect-diagnostics-next-line globalConsole:off
-    console.warn("bbim bridge: not installed; name the parent origins it may answer");
-    return NOTHING;
-  }
-  if (INSTALLED in win) {
-    // The frame side has no Effect runtime (see the header): a plain warning for the embedder.
-    // @effect-diagnostics-next-line globalConsole:off
-    console.warn("bbim bridge: already installed in this window");
-    return NOTHING;
-  }
-  const parent = win.parent;
-  if (parent === win) return NOTHING;
-  Object.defineProperty(win, INSTALLED, { value: true, configurable: true });
+/** Where a bridge's replies go: a transport, and who asked (an origin, passed back as is). */
+export type BridgeReply = (message: FrameMessage, to: string) => void;
 
-  let installed = true;
+export interface BridgeCore {
+  /** Handle one decoded request from `from` (passed back to the reply). */
+  readonly receive: (message: ParentMessage, from: string) => void;
+  /** Stop forwarding and forget the targets. */
+  readonly dispose: () => void;
+}
+
+/**
+ * The bridge itself, over any transport: it collects and activates targets
+ * and forwards keys while asked to. The transport decodes requests, decides
+ * who may send which (installBbimBridge: origins), and carries the replies.
+ */
+export function bridgeCore(
+  win: Window,
+  options: { readonly selectors?: ReadonlyArray<string>; readonly modeTtlMs?: number },
+  reply: BridgeReply,
+): BridgeCore {
   const ttl = options.modeTtlMs ?? MODE_TTL_MS;
   const targets = new Map<number, { readonly element: Element; readonly kind: TargetKind }>();
   let forwarding:
@@ -75,10 +75,6 @@ export function installBbimBridge(options: BridgeOptions): () => void {
         timer: number;
       }
     | undefined;
-
-  const reply = (message: FrameMessage, origin: string) => {
-    parent.postMessage(message, origin === "null" ? "*" : origin);
-  };
 
   /** Stop forwarding; `told` names why when the parent should hear of it. */
   const stopForwarding = (told?: "pointer" | "lapsed") => {
@@ -133,11 +129,7 @@ export function installBbimBridge(options: BridgeOptions): () => void {
     win.addEventListener("pointerdown", onPointer, { capture: true });
   };
 
-  const onMessage = (event: MessageEvent) => {
-    if (event.source !== parent || !origins.has(event.origin)) return;
-    const message = decodeParentMessage(event.data);
-    if (message === undefined) return;
-    if (message.type !== "collect" && event.origin === "null") return;
+  const receive = (message: ParentMessage, from: string) => {
     switch (message.type) {
       case "collect": {
         const found = frameTree(win.document).documents.flatMap((placement) =>
@@ -158,7 +150,7 @@ export function installBbimBridge(options: BridgeOptions): () => void {
               ...(target.faded ? { faded: true } : {}),
             })),
           },
-          event.origin,
+          from,
         );
         return;
       }
@@ -169,26 +161,66 @@ export function installBbimBridge(options: BridgeOptions): () => void {
           newTab: message.newTab,
           openUrl: (url) => {
             if (!isOpenableUrl(url)) return false;
-            reply({ bbim: BRIDGE_PROTOCOL, type: "open", requestId: message.requestId, url }, event.origin);
+            reply({ bbim: BRIDGE_PROTOCOL, type: "open", requestId: message.requestId, url }, from);
             return true;
           },
         });
         return;
       }
       case "mode":
-        if (message.active) startForwarding(event.origin);
+        if (message.active) startForwarding(from);
         else stopForwarding();
         return;
     }
   };
 
+  return {
+    receive,
+    dispose: () => {
+      stopForwarding();
+      targets.clear();
+    },
+  };
+}
+
+/** Install the bridge; the returned function removes it. Refuses (and warns) without origins or when one is already installed. */
+export function installBbimBridge(options: BridgeOptions): () => void {
+  const win = options.window ?? window;
+  const origins = new Set(options.parentOrigins.filter((origin) => origin !== "" && origin !== "*"));
+  if (origins.size === 0) {
+    // The frame side has no Effect runtime (see the header): a plain warning for the embedder.
+    // @effect-diagnostics-next-line globalConsole:off
+    console.warn("bbim bridge: not installed; name the parent origins it may answer");
+    return NOTHING;
+  }
+  if (INSTALLED in win) {
+    // The frame side has no Effect runtime (see the header): a plain warning for the embedder.
+    // @effect-diagnostics-next-line globalConsole:off
+    console.warn("bbim bridge: already installed in this window");
+    return NOTHING;
+  }
+  const parent = win.parent;
+  if (parent === win) return NOTHING;
+  Object.defineProperty(win, INSTALLED, { value: true, configurable: true });
+
+  const core = bridgeCore(win, options, (message, origin) => {
+    parent.postMessage(message, origin === "null" ? "*" : origin);
+  });
+  const onMessage = (event: MessageEvent) => {
+    if (event.source !== parent || !origins.has(event.origin)) return;
+    const message = decodeParentMessage(event.data);
+    if (message === undefined) return;
+    // An opaque origin can be anyone: it may only ask for targets.
+    if (message.type !== "collect" && event.origin === "null") return;
+    core.receive(message, event.origin);
+  };
+  let installed = true;
   win.addEventListener("message", onMessage);
   return () => {
     if (!installed) return;
     installed = false;
     win.removeEventListener("message", onMessage);
-    stopForwarding();
-    targets.clear();
+    core.dispose();
     Reflect.deleteProperty(win, INSTALLED);
   };
 }

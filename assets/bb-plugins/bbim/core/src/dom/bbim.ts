@@ -46,7 +46,9 @@ import {
   collectRemote,
   type FrameBudget,
   frameBudget,
+  iframeRemote,
   listenForwarded,
+  type RemoteFrame,
   type RemoteTarget,
   setRemoteMode,
 } from "./bridge-client.ts";
@@ -60,7 +62,7 @@ import {
   visibleBox,
 } from "./collect.ts";
 import { deepActiveElement, editableGuard, type FocusGuard, focusState, isEditable } from "./focus.ts";
-import { frameTree, liveFrame, liveRect, type OpaqueFrame, placementCache } from "./frames.ts";
+import { frameTree, liveFrame, liveRect, placementCache } from "./frames.ts";
 import { type HelpModel, type HelpSection, mountOverlay, type Overlay, type Theme } from "./overlay.ts";
 import { inputFields, preferredInput, TEXT_INPUT_SELECTOR } from "./inputs.ts";
 import { frameThrottle, listen, timers } from "./resources.ts";
@@ -152,11 +154,11 @@ interface PickSession {
   readonly scope: ScopeHandle;
   readonly newTab: boolean;
   readonly requestId: string;
-  readonly frames: ReadonlyArray<OpaqueFrame>;
+  readonly frames: ReadonlyArray<RemoteFrame>;
   /** The frame element that had focus when hints started, if any. */
   readonly startFrame: Element | null;
   /** The bridge frame that had focus: the only one asked to forward keys. */
-  readonly focusedFrame: OpaqueFrame | undefined;
+  readonly focusedFrame: RemoteFrame | undefined;
   /** How many more messages each bridge frame may send this session, for targets and for keys. */
   readonly collectBudget: FrameBudget;
   readonly keyBudget: FrameBudget;
@@ -171,7 +173,7 @@ interface PickSession {
   /** Whether Enter picks the first label (the picker named one). */
   enterPicks: boolean;
   /** Keys typed before the labels showed up, replayed when they do. */
-  readonly queued: Array<{ readonly event: KeyEventLike; readonly from: OpaqueFrame | undefined }>;
+  readonly queued: Array<{ readonly event: KeyEventLike; readonly from: RemoteFrame | undefined }>;
 }
 
 const HINT_KEYS_LIMIT = 16;
@@ -405,7 +407,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
   };
 
   /** A key typed in hint mode; `from` is the bridge frame it was typed in, if any. */
-  const hintKey = (event: KeyEventLike, from?: OpaqueFrame) => {
+  const hintKey = (event: KeyEventLike, from?: RemoteFrame) => {
     const active = session;
     if (active === undefined) return;
     if (event.key === "Escape") {
@@ -481,7 +483,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     // Each document's and frame's placement once per reposition (one per animation
     // frame), not once per label; a document scrolled away hides all its labels.
     const place = placementCache(doc);
-    const frames = new Map<OpaqueFrame, OpaqueFrame | undefined>();
+    const frames = new Map<RemoteFrame, RemoteFrame | undefined>();
     active.drawn = active.assigned.map(({ target }) => {
       if (target.source === "local") return liveRect(place, target.element);
       const before = target.remote.frame;
@@ -514,14 +516,15 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       picker.pick(only, { newTab, requestId: `bbim-${requests}` });
       return;
     }
+    const remotes = tree.opaque.map(iframeRemote);
     const active: PickSession = {
       picker,
       scope: root.child(),
       newTab,
       requestId: `bbim-${requests}`,
-      frames: picker.remote ? tree.opaque : [],
+      frames: picker.remote ? remotes : [],
       startFrame: frameElement(doc.activeElement),
-      focusedFrame: tree.opaque.find((frame) => deepActiveElement(doc) === frame.element),
+      focusedFrame: remotes.find((frame) => deepActiveElement(doc) === frame.element),
       collectBudget: frameBudget(),
       keyBudget: frameBudget(),
       assigned: undefined,
