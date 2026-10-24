@@ -295,6 +295,9 @@
         inherit systemSetupCheck;
         reconcile-scripts-check = reconcileScriptsCheck;
         audit-lib-check = auditLibCheck;
+        # my.services' restart scripts, built as the NixOS module builds
+        # them and run against a fake systemctl.
+        app-restart-check = import ./modules/nixos/system/app-restart/tests.nix { inherit pkgs; };
         canvas-links-check = canvasLinksCheck;
         github-sources-check = githubSourcesCheck;
         system-setup-manifest-personal = systemSetupManifestCheck "popemkt-personal";

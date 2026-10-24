@@ -27,6 +27,12 @@
 # `idleCheck`, a command that says when it may restart; then neither kind of
 # upgrade restarts it mid-work, only once it is idle.
 #
+# An app made of more than one process declares the others as `companions`,
+# each its own unit `app-<app>-<name>` with its own command, environment and
+# idleCheck, so each restarts only for its own reasons (bb: a server that may
+# restart at any time, and a host daemon, where the threads run, that waits
+# for idle). An upgrade restarts all of an app's units together.
+#
 # An app that can listen on a Unix socket sets `socket` instead of `port`:
 # the socket's directory is the unit's own, owned by the owner with mode
 # 0700, so only they and root (tailscaled, which proxies the Service) can
@@ -37,6 +43,32 @@
 # configs/tailscale/policy.hujson, which CI checks.
 let
   inherit (lib) mkOption types;
+  # One meaning for an app's unit and each companion's: what may restart it.
+  idleCheckOption =
+    unit:
+    mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      example = "bb thread list --json | jq -e 'all(.[]; .status != \"active\")' >/dev/null";
+      description = ''
+        Shell command, run under bash as the owner with their installed
+        packages and jq on PATH, that exits 0 when `${unit}` may be restarted
+        now, e.g. when no work of anyone's is running in it. When any unit of
+        an app sets one, nothing restarts that unit while the app is busy (the
+        app is idle once every idleCheck it declares passes): a switch that
+        changes the unit's definition, and the installer's upgrade, each leave
+        a restart pending that a waiter unit, `app-<app>-restart-when-idle`,
+        carries out (checking every 30 s, for up to 24 h). The app's other
+        units restart through that waiter too. It restarts all the units
+        pending at the time together: at once when none of them needs to
+        wait, otherwise once the app is idle; so a change to an unchecked
+        unit alone applies within seconds, and an upgrade, which restarts
+        them all, waits. A process started under an idleCheck keeps waiting
+        for idle even if the new definition drops it. `sudo systemctl restart
+        ${unit}` restarts it at once. Null on every unit of an app restarts
+        each as soon as something changes it.
+      '';
+    };
 in
 {
   options.my.services = mkOption {
@@ -101,6 +133,10 @@ in
                 For an app installed outside Nix: the installer and the tool it
                 upgrades. After upgrading that tool, the installer restarts the
                 app through `restart-apps-updated-by`. Set `command` with it.
+                An npm global's units run a copy of the package taken when the
+                app's own unit starts with none of its companions running, so
+                every unit runs one version until the whole app restarts, and
+                none loads files npm rewrote under it.
               '';
             };
             command = mkOption {
@@ -123,22 +159,52 @@ in
                 their interactive shell configuration.
               '';
             };
-            idleCheck = mkOption {
-              type = types.nullOr types.str;
-              default = null;
-              example = "bb thread list --json | jq -e 'all(.[]; .status != \"active\")' >/dev/null";
+            idleCheck = idleCheckOption "app-<app>";
+            companions = mkOption {
+              default = { };
+              example = {
+                daemon = {
+                  command = "bb-host-daemon --server-url http://127.0.0.1:38886";
+                  idleCheck = "bb thread list --json | jq -e 'all(.[]; .status != \"active\")' >/dev/null";
+                };
+              };
               description = ''
-                Shell command, run under bash as the owner with their
-                installed packages and jq on PATH, that exits 0 when the app
-                may be restarted now, e.g. when no work of anyone's is running
-                in it. When set, nothing restarts the app while it is busy: a
-                switch that changes its unit, and its installer's upgrade, each
-                leave a restart pending that a waiter unit,
-                `app-<app>-restart-when-idle`, carries out once the check
-                passes (checking every 30 s, for up to 24 h).
-                `sudo systemctl restart app-<app>` restarts it at once. Null
-                restarts the app as soon as something changes it.
+                The app's other processes, each run as the owner in its own
+                unit `app-<app>-<name>`, started with the app (which Wants it;
+                it starts After it, and nothing stops or restarts one because
+                the other did). Its own command, environment and idleCheck
+                decide when it restarts. An upgrade by `updatedBy` restarts
+                all of the app's units together, so they never run different
+                versions; when any of them has an idleCheck, every one waits
+                until the app is idle.
               '';
+              type = types.attrsOf (
+                types.submodule {
+                  options = {
+                    command = mkOption {
+                      type = types.str;
+                      example = "bb-host-daemon --host-daemon-port 38887";
+                      description = ''
+                        Shell command that starts the companion in the
+                        foreground, run like the app's (bash, the owner's
+                        installed packages on PATH, after a `package` app's
+                        own programs).
+                      '';
+                    };
+                    environment = mkOption {
+                      type = types.attrsOf types.str;
+                      default = { };
+                      description = ''
+                        Its environment. It inherits none of the app's
+                        `environment` (so a change there restarts only the
+                        app's unit) and gets no HOST or PORT, which are the
+                        app's address.
+                      '';
+                    };
+                    idleCheck = idleCheckOption "app-<app>-<name>";
+                  };
+                }
+              );
             };
             environment = mkOption {
               type = types.attrsOf types.str;

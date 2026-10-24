@@ -79,13 +79,18 @@ exists), always apply with `rebuild`, never a bare `nixos-rebuild`: it switches
 only from a clean checkout at `origin/main` and otherwise refuses, telling you
 to pull, push, or commit first. A stale or uncommitted tree would roll back
 what someone else applied. `REBUILD_LOCAL=1` overrides, for emergencies only.
-A rebuild there never restarts an app with an `idleCheck` (bb, which runs
-every agent thread): it prints `app-<app>: restart pending until idle`, and
-the app restarts once it reports idle (`sudo systemctl restart app-<app>`
-forces it; `journalctl -u app-<app>-restart-when-idle` shows the wait). An
-agent there still runs `rebuild` detached, e.g.
-`nohup rebuild >~/rebuild.log 2>&1 &`, then reads the log: a foreground
-rebuild dies with its thread if anything does restart bb.
+A rebuild there never restarts a unit with an `idleCheck` (bb's host daemon
+`app-bb-daemon`, which runs every agent thread): it prints
+`<unit>: restart pending until idle`, and the unit restarts once the app
+reports idle (`sudo systemctl restart <unit>` forces it;
+`journalctl -u app-<app>-restart-when-idle` shows the wait; rebuild ends
+with `restart-app --status`, which lists what is still pending). bb's
+server, `app-bb`, restarts for its own changes at once: threads survive
+that. A bb upgrade waits for idle and restarts both; until then both run the
+pinned old copy, even across `sudo systemctl restart app-bb`. An agent there still runs
+`rebuild` detached, e.g. `nohup rebuild >~/rebuild.log 2>&1 &`, then reads
+the log: a foreground rebuild dies with its thread if anything does restart
+the daemon.
 
 ## kb — repo knowledge base
 

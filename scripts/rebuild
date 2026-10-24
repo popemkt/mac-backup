@@ -60,7 +60,7 @@ if [[ -n "${REBUILD_DRY_RUN:-}" ]]; then
 fi
 
 # A rebuild started from inside a my.services app (an agent working in a bb
-# thread runs under app-bb.service) dies when the switch restarts that app:
+# thread runs under app-bb-daemon.service) dies when the switch restarts that app:
 # the stop kills the caller, the pipe to switch-to-configuration closes, and
 # switch-to-configuration panics (exit 101) after stopping the changed units and
 # before starting them, leaving them down. Rerun detached in a transient unit
@@ -92,6 +92,12 @@ fi
 # rebuild once CI is done fixes it.
 if [[ "$(uname -s)" == Linux ]] && systemctl cat tailscale-services.service >/dev/null 2>&1; then
   sudo systemctl restart tailscale-services.service
+fi
+
+# my.services restarts still pending (an app waiting for idle), companions
+# not running beside their app, and waiters that gave up.
+if [[ "$(uname -s)" == Linux ]] && command -v restart-app >/dev/null; then
+  restart-app --status || true
 fi
 
 if [[ "$skip_checks" == true ]]; then
