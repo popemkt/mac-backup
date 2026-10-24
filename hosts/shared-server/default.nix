@@ -39,8 +39,12 @@
   # Set once at install time; it is a compatibility marker, never an upgrade knob.
   system.stateVersion = "26.05";
 
-  # A laptop serving as a server: closing the lid never suspends it.
+  # A laptop serving as a server: closing the lid never suspends it, and a
+  # short power-key press suspends instead of powering off (a press at
+  # 2026-10-24 10:09 shut it down mid-rebuild). Holding the key still forces
+  # power-off in firmware.
   services.logind.settings.Login = {
+    HandlePowerKey = "suspend";
     HandleLidSwitch = "ignore";
     HandleLidSwitchExternalPower = "ignore";
     HandleLidSwitchDocked = "ignore";
