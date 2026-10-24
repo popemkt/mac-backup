@@ -119,7 +119,9 @@ let
         key="$(printf '%s' "$rel" | tr '/' '_')"
         # What an install is built from: every tracked file, plus uncommitted edits.
         stamp="$(cd "$dir" && { git ls-files -s .; git diff HEAD -- .; } | sha256sum | cut -d' ' -f1)"
-        if printf '%s' "$listing" | grep -qF "path:$dir\"" \
+        # A here-string, not a pipe: under pipefail, grep -q exiting at the
+        # first match SIGPIPEs printf on a long listing and reads as "absent".
+        if grep -qF "path:$dir\"" <<<"$listing" \
           && [ "$(cat "$state/$key" 2>/dev/null)" = "$stamp" ]; then
           continue
         fi
