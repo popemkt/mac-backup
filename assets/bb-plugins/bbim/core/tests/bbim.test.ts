@@ -553,7 +553,7 @@ function opaqueFrame(p: Page, rect: string) {
       throw new Error("cross-origin");
     },
   });
-  const sent: Array<{ type: string; requestId?: string; active?: boolean }> = [];
+  const sent: Array<{ type: string; requestId?: string; active?: boolean; picker?: string }> = [];
   const child = { postMessage: (message: { type: string }) => sent.push(message) };
   Object.defineProperty(frame, "contentWindow", { value: child });
   return { frame, child, sent };
@@ -785,4 +785,90 @@ test("dispose: aborting the signal disposes", () => {
   assert.notEqual(p.overlayHost(), null);
   controller.abort();
   assert.equal(p.overlayHost(), null);
+});
+
+test("bridge frames: gi asks frames for their inputs, and picking a frame's focuses it there", async () => {
+  const { p, bbim } = start({ settings: { hintAlphabet: "ab" }, bridgeTimeoutMs: 200 });
+  const kb = opaqueFrame(p, "600,100,200,200");
+  bbim.run("focusInput");
+  const collect = kb.sent.find((message) => message.type === "collect");
+  assert.equal(collect?.picker, "inputs");
+  assert.equal(bbim.mode(), "hint", "a frame could add an input: the page's one composer gets a label, not focus");
+  fromFrame(p, kb.child, {
+    bbim: BRIDGE_PROTOCOL,
+    type: "targets",
+    requestId: collect.requestId ?? "",
+    targets: [{ id: 0, left: 10, top: 10, width: 120, height: 24 }],
+  });
+  await later(10);
+  const labels = p.labels();
+  assert.equal(labels.length, 2);
+  for (const char of labels[1] ?? "") p.key(char);
+  assert.deepEqual(
+    kb.sent.filter((message) => message.type === "activate").map((message) => (message as { targetId?: number }).targetId),
+    [0],
+  );
+  assert.notEqual(p.doc.activeElement?.id, "composer", "the page's composer was not the pick");
+});
+
+test("bridge frames: gs labels a frame's panes; picking one sends it the scroll keys until a click here", async () => {
+  const { p, bbim } = start({ settings: { hintAlphabet: "ab" }, bridgeTimeoutMs: 200 });
+  const kb = opaqueFrame(p, "600,100,200,200");
+  const blurred: Array<boolean> = [];
+  kb.frame.blur = () => blurred.push(true);
+  Object.defineProperty(p.doc, "activeElement", { value: kb.frame, configurable: true });
+  bbim.run("pickScroll");
+  const collect = kb.sent.find((message) => message.type === "collect");
+  assert.equal(collect?.picker, "scroll");
+  fromFrame(p, kb.child, {
+    bbim: BRIDGE_PROTOCOL,
+    type: "targets",
+    requestId: collect.requestId ?? "",
+    targets: [{ id: 4, left: 0, top: 0, width: 200, height: 200 }],
+  });
+  await later(10);
+  const label = p.labels().at(-1) ?? "";
+  for (const char of label) fromFrame(p, kb.child, key(char));
+  assert.deepEqual(
+    kb.sent.filter((message) => message.type === "activate").map((message) => (message as { targetId?: number }).targetId),
+    [4],
+  );
+  assert.deepEqual(blurred, [true], "focus leaves the frame, so the scroll keys typed next reach the page");
+  Object.defineProperty(p.doc, "activeElement", { value: p.doc.body, configurable: true });
+  p.key("j");
+  p.key("G", { shiftKey: true });
+  assert.deepEqual(
+    kb.sent.filter((message) => message.type === "scroll").map((message) => (message as { action?: string }).action),
+    ["scrollDown", "scrollBottom"],
+  );
+  p.doc.getElementById("save")?.dispatchEvent(new p.win.PointerEvent("pointerdown", { bubbles: true, composed: true }));
+  p.key("j");
+  assert.equal(kb.sent.filter((message) => message.type === "scroll").length, 2, "a click outside the frame takes the keys back");
+});
+
+test("bridge frames: focus in a frame tells it the host's chords; a chord it passes back runs there only", async () => {
+  const { p, bbim } = start({ settings: { hintAlphabet: "ab" }, bridgeTimeoutMs: 200, hostChords: [{ keys: "<A-f>", action: "hints" }] });
+  const kb = opaqueFrame(p, "600,100,200,200");
+  const altF = { ...key("ƒ"), code: "KeyF", altKey: true };
+  fromFrame(p, kb.child, altF);
+  assert.equal(bbim.mode(), "normal", "a frame focus is not in cannot start hints");
+  Object.defineProperty(p.doc, "activeElement", { value: kb.frame, configurable: true });
+  p.doc.hasFocus = () => true;
+  p.win.dispatchEvent(new p.win.Event("blur"));
+  await later(10);
+  const chords = kb.sent.filter((message) => message.type === "chords") as Array<{ chords?: Array<{ code: string }> }>;
+  assert.deepEqual(chords.at(-1)?.chords?.map((chord) => chord.code), ["KeyF"]);
+  fromFrame(p, kb.child, { ...altF, repeat: true });
+  assert.equal(bbim.mode(), "normal", "a held chord is not one");
+  fromFrame(p, kb.child, altF);
+  assert.equal(bbim.mode(), "hint");
+  assert.ok(kb.sent.some((message) => message.type === "mode" && message.active === true), "the frame with focus forwards the keys typed next");
+  p.key("Escape");
+  Object.defineProperty(p.doc, "activeElement", { value: p.doc.body, configurable: true });
+  p.win.dispatchEvent(new p.win.Event("focus"));
+  await later(10);
+  const last = kb.sent.findLast((message) => message.type === "chords") as { chords?: Array<unknown> } | undefined;
+  assert.deepEqual(last?.chords, [], "focus back here: the frame forgets the chords");
+  fromFrame(p, kb.child, altF);
+  assert.equal(bbim.mode(), "normal");
 });

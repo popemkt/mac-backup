@@ -22,8 +22,10 @@ import {
   isBridgeMessage,
   isOpenableUrl,
   type ParentMessage,
+  type PickerName,
 } from "../domain/protocol.ts";
 import type { KeyEventLike } from "../domain/keys.ts";
+import type { ScrollAction } from "../domain/scroll.ts";
 import { intersect, type Rect, type TargetKind } from "../domain/targets.ts";
 import type { OpaqueFrame } from "./frames.ts";
 
@@ -112,7 +114,8 @@ export function iframeRemote(frame: OpaqueFrame): RemoteFrame {
 export interface RemoteTarget {
   readonly frame: RemoteFrame;
   readonly id: number;
-  readonly kind: TargetKind;
+  /** What activating it does, for a hint target; undefined for the other pickers'. */
+  readonly kind: TargetKind | undefined;
   /** In top-level coordinates, clipped to the frame's box. */
   readonly rect: Rect;
   /** The frame reports it transparent until hovered. */
@@ -200,10 +203,10 @@ function untilAnswered<A>(
 }
 
 /**
- * Ask every remote frame for its targets and wait up to `timeoutMs` for the
- * replies. A frame without the bridge never answers and contributes nothing.
- * `onReply` sees every target so far each time a frame answers, so a caller
- * can show them before the slowest frame is in.
+ * Ask every remote frame for its targets of `picker` and wait up to
+ * `timeoutMs` for the replies. A frame without the bridge never answers and
+ * contributes nothing. `onReply` sees every target so far each time a frame
+ * answers, so a caller can show them before the slowest frame is in.
  */
 export const collectRemote = Effect.fn("collectRemote")(function* (
   frames: ReadonlyArray<RemoteFrame>,
@@ -211,6 +214,7 @@ export const collectRemote = Effect.fn("collectRemote")(function* (
   timeoutMs: number,
   budget: FrameBudget = frameBudget(),
   onReply: (sofar: ReadonlyArray<RemoteTarget>) => void = NOTHING,
+  picker: PickerName = "hints",
 ) {
   if (frames.length === 0) return [] as ReadonlyArray<RemoteTarget>;
   const replies = new Map<RemoteFrame, ReadonlyArray<RemoteTarget>>();
@@ -226,7 +230,12 @@ export const collectRemote = Effect.fn("collectRemote")(function* (
       else onReply(frames.flatMap((each) => replies.get(each) ?? []));
     },
     () => {
-      for (const frame of frames) frame.post({ bbim: BRIDGE_PROTOCOL, type: "collect", requestId });
+      // `hints` goes unnamed, so a frame from before pickers still answers it.
+      const request: ParentMessage =
+        picker === "hints"
+          ? { bbim: BRIDGE_PROTOCOL, type: "collect", requestId }
+          : { bbim: BRIDGE_PROTOCOL, type: "collect", requestId, picker };
+      for (const frame of frames) frame.post(request);
     },
   );
   return frames.flatMap((frame) => replies.get(frame) ?? []);
@@ -234,6 +243,19 @@ export const collectRemote = Effect.fn("collectRemote")(function* (
 
 export function activateRemote(target: RemoteTarget, requestId: string, newTab: boolean): void {
   target.frame.post({ bbim: BRIDGE_PROTOCOL, type: "activate", requestId, targetId: target.id, newTab });
+}
+
+/** Scroll the surface picked in `frame` (a `scroll` target of it, activated) by one scroll key. */
+export function scrollRemote(frame: RemoteFrame, action: ScrollAction, step: number, repeat: boolean): void {
+  frame.post({ bbim: BRIDGE_PROTOCOL, type: "scroll", action, step, repeat });
+}
+
+/** A host chord as a bridge matches it: by physical key and modifiers. */
+export type ChordCode = Extract<ParentMessage, { readonly type: "chords" }>["chords"][number];
+
+/** Tell `frame` the host's chords, which it passes back when typed in it; `[]` clears them. */
+export function sendChords(frame: Pick<RemoteFrame, "post">, chords: ReadonlyArray<ChordCode>): void {
+  frame.post({ bbim: BRIDGE_PROTOCOL, type: "chords", chords: [...chords] });
 }
 
 /**

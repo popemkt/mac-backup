@@ -8,6 +8,7 @@
 // file, and Schema alone would cost it over 200 KB. Each message is written
 // once, as a spec of field checks; its type is derived from that spec, so the
 // checks and the types cannot drift apart.
+import { SCROLL_ACTIONS } from "./scroll.ts";
 import { TARGET_KINDS } from "./targets.ts";
 
 /** Every bbim bridge message carries this marker and version. */
@@ -87,11 +88,30 @@ const coordinate = number(-100_000, 100_000);
 const size = number(0, 100_000);
 const id = number(0, Number.MAX_SAFE_INTEGER, true);
 
+/**
+ * What a pick session labels, and so what a frame reports and what picking
+ * one of its targets does there: `hints` every clickable thing (activating
+ * follows, clicks or focuses it), `inputs` the text inputs `gi` offers
+ * (focusing one), `scroll` the surfaces `gs` offers (picking one makes it
+ * what the parent's scroll keys move in that frame).
+ */
+export const PICKERS = ["hints", "inputs", "scroll"] as const;
+export type PickerName = (typeof PICKERS)[number];
+
 // ---- parent -> frame -------------------------------------------------------
 
 const parentMessages = {
-  collect: message("collect", { requestId }),
+  /** Report the targets of `picker`; absent means `hints`, so a frame from before pickers still answers hints. */
+  collect: struct({ bbim: oneOf([BRIDGE_PROTOCOL]), type: oneOf(["collect"]), requestId }, { picker: oneOf(PICKERS) }),
+  /** Activate a target of the last collect, as its picker does. */
   activate: message("activate", { requestId, targetId: id, newTab: flag }),
+  /**
+   * Scroll the surface the person picked in this frame (a `scroll` collect,
+   * then its activation) by one scroll key's `action`; `step` is the
+   * parent's scroll step in CSS px, `repeat` a held key. Sent only to the
+   * frame whose surface was picked; with none picked the frame does nothing.
+   */
+  scroll: message("scroll", { action: oneOf(SCROLL_ACTIONS), step: number(1, 100_000), repeat: flag }),
   /**
    * While `active`, the frame forwards every keydown to the parent and
    * swallows it. The parent sends it only to the frame that has focus, and
@@ -117,9 +137,11 @@ const parentMessages = {
   /** Native pages only: narrow the drawn labels to those starting with `typed`. */
   typed: message("typed", { typed: text(16) }),
   /**
-   * Native pages only: chords the parent binds (its host's commands). A
-   * native page keeps every key typed in it, so it passes these back as
-   * `key` messages, matched by physical `code` and modifiers.
+   * Chords the parent binds (its host's commands). Keys typed in a frame or
+   * a native page never reach the parent, so the bridge passes these back as
+   * `key` messages, matched by physical `code` and modifiers, unless the page
+   * handled the key itself (its own bindings win). The parent sends them to
+   * a native page it attached and to the iframe focus is in; `[]` clears them.
    */
   chords: message("chords", {
     chords: listOf(struct({ code: text(32), ctrlKey: flag, altKey: flag, metaKey: flag, shiftKey: flag }), 32),
@@ -128,18 +150,21 @@ const parentMessages = {
 
 // ---- frame -> parent -------------------------------------------------------
 
-/** A target box in the frame's own viewport coordinates; `faded` when it shows only on hover. */
+/**
+ * A target box in the frame's own viewport coordinates; `faded` when it shows
+ * only on hover. `kind` (what activating it does) only for a hint target.
+ */
 const frameTarget = struct(
-  { id, kind: oneOf(TARGET_KINDS), left: coordinate, top: coordinate, width: size, height: size },
-  { faded: flag },
+  { id, left: coordinate, top: coordinate, width: size, height: size },
+  { kind: oneOf(TARGET_KINDS), faded: flag },
 );
 export type FrameTarget = Checked<typeof frameTarget>;
 
 const frameMessages = {
   targets: message("targets", { requestId, targets: listOf(frameTarget, MAX_FRAME_TARGETS) }),
   /**
-   * A keydown inside the frame while the parent's hint mode is up (or, from a
-   * native page, one of the parent's `chords`). `repeat` and `isComposing`
+   * A keydown inside the frame while the parent's hint mode is up, or one of
+   * the parent's `chords` typed there. `repeat` and `isComposing`
    * travel so the parent can drop held and IME keys too.
    */
   key: message("key", {

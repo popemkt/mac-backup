@@ -2,16 +2,12 @@
 // list: the keymap, the settings, the help overlay and every host's command
 // list derive from it.
 import { Schema } from "effect";
+import { SCROLL_ACTIONS } from "./scroll.ts";
 
 export const ACTIONS = [
   "hints",
   "hintsNewTab",
-  "scrollDown",
-  "scrollUp",
-  "halfPageDown",
-  "halfPageUp",
-  "scrollTop",
-  "scrollBottom",
+  ...SCROLL_ACTIONS,
   "pickScroll",
   "focusInput",
   "help",

@@ -186,9 +186,30 @@ over `postMessage`. A frame takes part by loading the bridge:
 <script src="bbim-bridge.js" data-parent-origins="https://app.example"></script>
 ```
 
-(`bridge/bbim-bridge.js` is a self-contained classic script; or call
-`installBbimBridge({ parentOrigins })` from `@popemkt/bbim-core/bridge`.)
-Frames without the bridge simply get no hints.
+(`bridge/bbim-bridge.js` is a self-contained classic script, also exported as
+a string by `@popemkt/bbim-core/bridge-script` for a host that serves it; or
+call `installBbimBridge({ parentOrigins })` from `@popemkt/bbim-core/bridge`.)
+Frames without the bridge simply get no hints. The bb plugin serves it at
+`/api/v1/plugins/bbim/http/bridge.js`, so a page bb frames can load the
+bridge that matches the bb it is in.
+
+What reaches into a bridge frame:
+
+- **Every picker.** `f`/`F` hints, `gi` inputs and `gs` scroll surfaces all
+  ask the frame for its targets of that kind (`collect` with `picker`).
+  Picking an input focuses it in the frame. Picking a surface makes it what
+  the scroll keys move: focus leaves the frame, so `j`/`k`/`d`/`u`/`gg`/`G`
+  typed next reach the parent, which sends them on (`scroll`) until a click
+  outside the frame.
+- **The host's chords, typed in the frame.** Keys typed inside a frame never
+  reach the parent, so the parent tells the frame focus is in its chords
+  (`hostChords`, bb's `alt+f`, `alt+shift+f`, `alt+s`) and the frame passes
+  them back. The page's own bindings win: a chord the page handled
+  (`preventDefault`, or stopped before the window) stays the page's. Bare
+  keys (`f`, `j`, `gi`) typed in a frame are always the page's; they reach
+  bbim only while focus is outside it.
+- **Hint keys.** While hints show, the focused frame forwards every key (see
+  below); otherwise the bridge takes no key but those chords.
 
 The bridge fails closed:
 
@@ -235,12 +256,13 @@ Parent → frame (the bridge only accepts messages whose `source` is its own
 
 | `type` | Fields | Frame does |
 |---|---|---|
-| `collect` | `requestId` (≤ 64 chars) | replies `targets` |
-| `activate` | `requestId`, `targetId` (int ≥ 0), `newTab` | activates that target from the last `collect`; a new-tab link becomes an `open` request carrying this `requestId` |
+| `collect` | `requestId` (≤ 64 chars), `picker?` (`hints`, `inputs` or `scroll`; absent: `hints`) | replies `targets` of that picker |
+| `activate` | `requestId`, `targetId` (int ≥ 0), `newTab` | activates that target from the last `collect` as its picker does: a hint follows, clicks or focuses (a new-tab link becomes an `open` request carrying this `requestId`), an input is focused, a scroll surface becomes the picked one |
+| `scroll` | `action` (a scroll action: `scrollDown` … `scrollBottom`), `step` (px, 1–100000), `repeat` | scrolls the surface picked in this frame; nothing when none is |
 | `mode` | `active`, `requestId` (the session), `document?` (native pages only) | while active, forwards every keydown as `key` and swallows it; sent only to the focused frame, renewed every `MODE_HEARTBEAT_MS` (1 s), dropped by the frame after `MODE_TTL_MS` (3 s) of silence. A late `active` for a session already turned off is ignored; `requestId: ""` turns off any. A native page forwards only for its own `document` |
 | `labels` | `labels: {id, label}[]` (≤ 2000, label ≤ 16 chars) | native pages only: draws these labels on the last `collect`'s targets; `[]` removes them. An iframe bridge ignores it |
 | `typed` | `typed` (≤ 16 chars) | native pages only: narrows the drawn labels |
-| `chords` | `chords: {code, ctrlKey, altKey, metaKey, shiftKey}[]` (≤ 32) | native pages only: a person's keydown matching one (by physical `code`) is swallowed and passed back as `key` |
+| `chords` | `chords: {code, ctrlKey, altKey, metaKey, shiftKey}[]` (≤ 32) | a keydown matching one (by physical `code`) that the page did not handle itself is swallowed and passed back as `key` (a native page: only a person's); `[]` clears them. Sent to each attached native page and to the iframe focus is in, every 2 s while it is |
 
 Frame → parent (the parent only accepts messages whose `source` is the
 frame's own `contentWindow`, at most `FRAME_MESSAGE_BUDGET` (256) per frame per
@@ -250,8 +272,8 @@ frame never goes on swallowing keys nobody reads):
 
 | `type` | Fields | Parent does |
 |---|---|---|
-| `targets` | `requestId`, `targets: {id, kind, left, top, width, height, faded?}[]` (≤ 2000, frame-viewport px; `faded: true` for a hover-only control) | places them inside the frame's box and labels them as they arrive (until a letter is typed); frames that miss `bridgeTimeoutMs` are skipped |
-| `key` | `key`, `code` (≤ 64 chars), `ctrlKey`, `altKey`, `metaKey`, `shiftKey`, `repeat`, `isComposing` | from the focused frame only: feeds the key to the hint session, where it can pick, narrow or take back only that frame's labels; held and IME keys are ignored |
+| `targets` | `requestId`, `targets: {id, kind?, left, top, width, height, faded?}[]` (≤ 2000, frame-viewport px; `kind` for a hint target only; `faded: true` for a hover-only control) | places them inside the frame's box and labels them as they arrive (until a letter is typed); frames that miss `bridgeTimeoutMs` are skipped |
+| `key` | `key`, `code` (≤ 64 chars), `ctrlKey`, `altKey`, `metaKey`, `shiftKey`, `repeat`, `isComposing` | from the focused frame only: feeds the key to the hint session, where it can pick, narrow or take back only that frame's labels; outside one, a host chord runs its action (at most 64 read per frame every 2 s); held and IME keys are ignored |
 | `leave` | `reason`: `pointer` (a click in the frame) or `lapsed` (forwarding timed out) | ends hint mode |
 | `open` | `requestId`, `url` (≤ 8192 chars) | only as the answer to its `activate` with `newTab` (same `requestId`, within 1 s): opens it in a new tab, http(s) only |
 | `ready` | `document` (≤ 64 chars) | native pages only, on install and in answer to each `chords`: names the page's document (a nonce fresh in each). A new one ends a session the page was in; `mode` names it from then on |
@@ -285,8 +307,10 @@ only), and the page passes those back when a person types them there, which
 starts a session with that page as the focused frame. Its forwarded keys may
 pick any label, the host's too: the page bridge is the host's own script and
 forwards only `isTrusted` keys, so a page script cannot type into a label,
-and only a person's click ends hints. Scroll keys and the scroll picker do
-not reach into a native page.
+and only a person's click ends hints. The scroll picker labels a native
+page's surfaces too, and the scroll keys reach a picked one while focus is
+in the host; focus cannot be taken out of a native view, so they do not
+while it is in the page.
 
 A navigation drops the page bridge. The parent repeats `chords` every 2 s to
 each attached page (at most 64 messages read from a page between repeats), so

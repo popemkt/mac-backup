@@ -46,11 +46,13 @@ import {
   isBridgeMessage,
   MODE_HEARTBEAT_MS,
   MODE_TTL_MS,
-  type ParentMessage,
+  type PickerName,
 } from "../domain/protocol.ts";
+import { isScrollAction } from "../domain/scroll.ts";
 import {
   activateRemote,
   awaitOpen,
+  type ChordCode,
   collectRemote,
   type FrameBudget,
   frameBudget,
@@ -60,6 +62,8 @@ import {
   pageRemote,
   type RemoteFrame,
   type RemoteTarget,
+  scrollRemote,
+  sendChords,
   setRemoteMode,
 } from "./bridge-client.ts";
 import {
@@ -150,7 +154,7 @@ type Target =
   | {
       readonly source: "remote";
       readonly remote: RemoteTarget;
-      readonly kind: TargetKind;
+      readonly kind: TargetKind | undefined;
       readonly rect: Rect;
       readonly faded: boolean;
     };
@@ -163,10 +167,10 @@ type LocalTarget = Extract<Target, { readonly source: "local" }>;
  * session, so a picker is only these decisions.
  */
 interface Picker {
+  /** Which picker it is: bridge frames are asked for their targets of the same name. */
+  readonly name: PickerName;
   /** The page candidates in one document; same-origin frames are documents too. */
   readonly collect: (placement: DocumentPlacement) => ReadonlyArray<LocalTarget>;
-  /** Whether bridge frames are asked for their targets as well. */
-  readonly remote: boolean;
   /** Outline each target and put its label inside the top-left corner (a pane, not a control). */
   readonly outline: boolean;
   /** With exactly one target and no frames to ask, pick it without showing labels. */
@@ -261,12 +265,10 @@ function regionOf(doc: Document, start: Element | null): Element | null {
 
 /** Leave nothing behind in a page let go of: no chords, no labels, no forwarding. */
 function releasePage(view: PageView): void {
-  view.send({ bbim: BRIDGE_PROTOCOL, type: "chords", chords: [] });
+  sendChords({ post: view.send }, []);
   view.send({ bbim: BRIDGE_PROTOCOL, type: "labels", labels: [] });
   view.send({ bbim: BRIDGE_PROTOCOL, type: "mode", active: false, requestId: "" });
 }
-
-type ChordCode = Extract<ParentMessage, { readonly type: "chords" }>["chords"][number];
 
 /**
  * A host chord as a native page matches it (by physical key, as alt chords
@@ -340,8 +342,12 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
   let session: PickSession | undefined;
   let lastPointer: Element | null = null;
   let lastEditable: Element | null = null;
-  /** The surface `gs` picked: j/k/d/u/gg/G scroll it until a click lands outside it. */
-  let scrollFocus: Element | undefined;
+  /**
+   * The surface `gs` picked: j/k/d/u/gg/G scroll it until a click lands
+   * outside `element`. One in a bridge frame is scrolled by that `frame`,
+   * and `element` is the frame's.
+   */
+  let scrollFocus: { readonly element: Element; readonly frame?: RemoteFrame } | undefined;
   let requests = 0;
   /** Native pages the host attached (attachPage): remote frames over its own window. */
   const pages = new Map<
@@ -448,11 +454,11 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
   };
 
   const linkHints: Picker = {
+    name: "hints",
     collect: (placement) =>
       collectTargets(placement, { selectors, exclude: (element) => element === overlay.host }).map(
         (target): LocalTarget => ({ source: "local", ...target }),
       ),
-    remote: true,
     outline: false,
     pickSingle: false,
     pick: activate,
@@ -460,29 +466,39 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
 
   const isOverlay = (element: Element) => element === overlay.host || element.getRootNode() === overlay.host.shadowRoot;
 
-  /** Scroll surfaces: picking one makes it what the scroll keys move. */
+  /**
+   * Scroll surfaces: picking one makes it what the scroll keys move. One in a
+   * bridge frame is told it was picked, and focus leaves that frame, so the
+   * scroll keys typed next reach this page and go to the frame from here.
+   */
   const scrollPicker: Picker = {
+    name: "scroll",
     collect: (placement) =>
       scrollSurfaces(placement, isOverlay).map(
         ({ element, rect }): LocalTarget => ({ source: "local", element, kind: undefined, rect, faded: false }),
       ),
-    remote: false,
     outline: true,
     pickSingle: true,
-    pick: (target) => {
-      if (target.source !== "local") return;
-      scrollFocus = target.element;
+    pick: (target, { requestId }) => {
       overlay.flash(target.rect);
+      if (target.source === "local") {
+        scrollFocus = { element: target.element };
+        return;
+      }
+      const { frame } = target.remote;
+      activateRemote(target.remote, requestId, false);
+      scrollFocus = { element: frame.element, frame };
+      if (deepActiveElement(doc) === frame.element && "blur" in frame.element) (frame.element as HTMLElement).blur();
     },
   };
 
-  /** Text inputs: the one `gi` means by default gets the first label, and Enter. */
+  /** Text inputs: the one `gi` means by default gets the first label, and Enter. A bridge frame's focus there. */
   const inputPicker: Picker = {
+    name: "inputs",
     collect: (placement) =>
       inputFields(placement, inputSelector).map(
         ({ element, rect }): LocalTarget => ({ source: "local", element, kind: undefined, rect, faded: false }),
       ),
-    remote: false,
     outline: false,
     pickSingle: true,
     first: (targets) => {
@@ -495,8 +511,9 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       const index = targets.findIndex((target) => target.source === "local" && target.element === preferred);
       return index < 0 ? undefined : index;
     },
-    pick: (target) => {
+    pick: (target, { requestId }) => {
       if (target.source === "local") focusForTyping(target.element);
+      else activateRemote(target.remote, requestId, false);
     },
   };
 
@@ -634,23 +651,24 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     const tree = frameTree(doc);
     const local: Array<Target> = tree.documents.flatMap((placement) => picker.collect(placement).filter(shows));
     requests += 1;
-    const only = local[0];
-    if (picker.pickSingle && !picker.remote && local.length === 1 && only !== undefined) {
-      picker.pick(only, { newTab, requestId: `bbim-${requests}` });
-      return;
-    }
     const remotes = tree.opaque.map(iframeRemote);
     const shownPages = [...pages].flatMap(([view, page]) => {
       const frame = pageRemote(view, () => page.document);
       return frame === undefined ? [] : [{ view, frame }];
     });
+    const only = local[0];
+    // One target and no frame that could add another: pick it without labels.
+    if (picker.pickSingle && remotes.length === 0 && shownPages.length === 0 && local.length === 1 && only !== undefined) {
+      picker.pick(only, { newTab, requestId: `bbim-${requests}` });
+      return;
+    }
     const startPage = shownPages.find(({ view }) => view === fromPage)?.frame;
     const active: PickSession = {
       picker,
       scope: root.child(),
       newTab,
       requestId: `bbim-${requests}`,
-      frames: picker.remote ? [...remotes, ...shownPages.map(({ frame }) => frame)] : [],
+      frames: [...remotes, ...shownPages.map(({ frame }) => frame)],
       pages: shownPages.map(({ view }) => view),
       fromPage,
       startFrame: frameElement(doc.activeElement),
@@ -733,8 +751,13 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     relabel(local);
     active.scope.fork(
       Effect.map(
-        collectRemote(active.frames, active.requestId, bridgeTimeoutMs, active.collectBudget, (sofar) =>
-          relabel(withRemote(sofar)),
+        collectRemote(
+          active.frames,
+          active.requestId,
+          bridgeTimeoutMs,
+          active.collectBudget,
+          (sofar) => relabel(withRemote(sofar)),
+          picker.name,
         ),
         (remote) => {
           if (active.assigned === undefined) showLabels(active, withRemote(remote));
@@ -759,18 +782,19 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
   // ---- actions -----------------------------------------------------------
 
   const run = (action: Action, repeat = false, fromPage?: PageView) => {
-    switch (action) {
-      case "scrollDown":
-      case "scrollUp":
-      case "halfPageDown":
-      case "halfPageUp":
-      case "scrollTop":
-      case "scrollBottom": {
-        const picked = scrollFocus?.isConnected === true && isScrollable(scrollFocus) ? scrollFocus : undefined;
-        const target = picked ?? scrollTarget(doc, [lastPointer, deepActiveElement(doc)], regionRect());
-        if (target !== undefined) scroll(target, action, settings.scrollStep, repeat);
+    if (isScrollAction(action)) {
+      const picked = scrollFocus;
+      if (picked?.frame !== undefined && picked.element.isConnected) {
+        // A surface picked in a bridge frame: that frame scrolls it.
+        scrollRemote(picked.frame, action, settings.scrollStep, repeat);
         return;
       }
+      const surface = picked?.element.isConnected === true && isScrollable(picked.element) ? picked.element : undefined;
+      const target = surface ?? scrollTarget(doc, [lastPointer, deepActiveElement(doc)], regionRect());
+      if (target !== undefined) scroll(target, action, settings.scrollStep, repeat);
+      return;
+    }
+    switch (action) {
       case "hints":
       case "hintsNewTab":
         startPick(linkHints, action === "hintsNewTab", fromPage);
@@ -858,7 +882,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
         (event) => {
           lastPointer = composedTarget(event);
           // A click outside the picked surface hands scrolling back to where the click was.
-          if (scrollFocus !== undefined && (lastPointer === null || !containsAcrossShadow(scrollFocus, lastPointer))) {
+          if (scrollFocus !== undefined && (lastPointer === null || !containsAcrossShadow(scrollFocus.element, lastPointer))) {
             scrollFocus = undefined;
           }
           keyState = EMPTY_STATE;
@@ -884,8 +908,11 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
         schedule(0, () => {
           const frame = frameElement(doc.activeElement);
           if (!doc.hasFocus() || (frame !== null && frame !== session?.startFrame)) endHints();
+          followFocus();
         });
       });
+      // Focus coming back from a frame: it no longer needs the host's chords.
+      yield* listen(win, "focus", () => schedule(0, followFocus));
     }),
   );
 
@@ -893,19 +920,81 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
 
   // ---- native pages --------------------------------------------------------
 
-  const sendChords = (view: PageView) =>
-    view.send({ bbim: BRIDGE_PROTOCOL, type: "chords", chords: hostChords.map(({ code }) => code) });
+  const chordCodes = hostChords.map(({ code }) => code);
 
+  /** The host chord a key a bridge passed back is, if any. */
+  const chordAction = (message: KeyEventLike): Action | undefined => {
+    const pressed = strokeFromEvent(message);
+    return pressed === undefined ? undefined : hostChords.find(({ id }) => id === strokeId(pressed))?.action;
+  };
+
+  // ---- the bridge frame focus is in ----------------------------------------
+
+  /**
+   * Focus inside a bridge frame keeps the host's chords from this page, as a
+   * native page's does: that frame is told them and passes them back. Only
+   * the frame focus is in is told, only while it is, and only its keys are
+   * heard, within a budget per keep-alive period.
+   */
+  let inFrame: { readonly frame: RemoteFrame; readonly stop: () => void; spent: number } | undefined;
+
+  const leaveFrame = () => {
+    if (inFrame === undefined) return;
+    inFrame.stop();
+    sendChords(inFrame.frame, []);
+    inFrame = undefined;
+  };
+
+  const frameChord = (data: unknown) => {
+    const at = inFrame;
+    if (at === undefined || !isBridgeMessage(data, ["key"]) || at.spent >= PAGE_MESSAGE_BUDGET) return;
+    at.spent += 1;
+    const message = decodeFrameMessage(data);
+    if (message?.type !== "key" || message.repeat || message.isComposing) return;
+    // A frame focus has left since cannot start anything.
+    if (deepActiveElement(doc) !== at.frame.element) return;
+    const action = chordAction(message);
+    if (action !== undefined) run(action);
+  };
+
+  /** Tell the bridge frame focus is in the host's chords, and stop telling one focus left. */
+  const followFocus = () => {
+    const focused = doc.hasFocus() ? deepActiveElement(doc) : null;
+    const opaque = focused === null ? undefined : frameTree(doc).opaque.find((frame) => frame.element === focused);
+    if (opaque !== undefined && opaque.element === inFrame?.frame.element) return;
+    leaveFrame();
+    if (opaque === undefined || chordCodes.length === 0) return;
+    const frame = iframeRemote(opaque);
+    inFrame = { frame, stop: frame.listen(frameChord), spent: 0 };
+    sendChords(frame, chordCodes);
+    keepAliveSoon();
+  };
+
+  /**
+   * Every PAGE_KEEPALIVE_MS while a native page is attached or focus is in a
+   * bridge frame, each is told the chords again: a reload or navigation drops
+   * a page bridge, and a frame's bridge may install after focus went in.
+   */
   let keepingAlive = false;
   const keepAlive = () => {
-    if (pages.size === 0) {
+    followFocus();
+    if (pages.size === 0 && inFrame === undefined) {
       keepingAlive = false;
       return;
     }
     for (const [view, page] of pages) {
       page.spent = 0;
-      if (view.element.isConnected) sendChords(view);
+      if (view.element.isConnected) sendChords({ post: view.send }, chordCodes);
     }
+    if (inFrame !== undefined) {
+      inFrame.spent = 0;
+      sendChords(inFrame.frame, chordCodes);
+    }
+    schedule(PAGE_KEEPALIVE_MS, keepAlive);
+  };
+  const keepAliveSoon = () => {
+    if (keepingAlive) return;
+    keepingAlive = true;
     schedule(PAGE_KEEPALIVE_MS, keepAlive);
   };
 
@@ -925,9 +1014,8 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       return;
     }
     if (message?.type !== "key" || message.repeat || message.isComposing) return;
-    const pressed = strokeFromEvent(message);
-    const chord = pressed === undefined ? undefined : hostChords.find(({ id }) => id === strokeId(pressed));
-    if (chord !== undefined) run(chord.action, false, view);
+    const action = chordAction(message);
+    if (action !== undefined) run(action, false, view);
   };
 
   const attachPage = (view: PageView) => {
@@ -936,11 +1024,8 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     const stop = view.listen((data) => pageMessage(view, data));
     const page = { stop, document: undefined, spent: 0 };
     pages.set(view, page);
-    sendChords(view);
-    if (!keepingAlive) {
-      keepingAlive = true;
-      schedule(PAGE_KEEPALIVE_MS, keepAlive);
-    }
+    sendChords({ post: view.send }, chordCodes);
+    keepAliveSoon();
     return () => {
       if (pages.get(view) !== page) return;
       pages.delete(view);
@@ -961,6 +1046,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
         releasePage(view);
       }
       pages.clear();
+      leaveFrame();
       session = undefined;
       // A disposed engine shows nothing: the host hears it is back to normal.
       moveTo(INITIAL_STACK);

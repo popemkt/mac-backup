@@ -5,11 +5,10 @@
 // (last click, else focus); else the scrollable element under the middle of
 // the focus region (or viewport): apps like bb keep the page itself fixed and
 // scroll panes inside it.
+import type { ScrollAction } from "../domain/scroll.ts";
 import { intersect, type Rect } from "../domain/targets.ts";
 import { type DocumentPlacement, isRendered, isUncovered, viewportOf, visibleBox } from "./collect.ts";
 import { containsAcrossShadow, parentAcrossShadow, querySelectorAllDeep } from "./tree.ts";
-
-export type ScrollAction = "scrollDown" | "scrollUp" | "halfPageDown" | "halfPageUp" | "scrollTop" | "scrollBottom";
 
 /** Whether the element scrolls vertically and has somewhere to go. */
 export function isScrollable(element: Element): boolean {
