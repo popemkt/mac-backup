@@ -3,7 +3,9 @@
 // pi provider does not pass --no-extensions, so pi loads it for bb threads too.
 //
 // In:  PI_COMPOSER_MANIFEST, JSON {"skills": [names], "tools": [names], "mcpServers": [names], "contextFiles": [paths]},
-//      set per thread by the context-composer bb plugin through contributed env (core/targets.ts, bb:pi).
+//      set per thread by the context-composer bb plugin through contributed env (core/targets.ts, bb:pi). Skills,
+//      tools and MCP servers match by exact name, context files by exact path; the plugin sends a name only when no
+//      kept artifact shares it, so a filter never removes something the manifest keeps.
 // Out: $PI_COMPOSER_REPORT_DIR (default ~/.pi/agent/composer-reports)/<BB_THREAD_ID or pid>.json, the exact system
 //      prompt size, skills and tools before and after filtering, and the serialized payload's size per request.
 //
@@ -12,7 +14,7 @@
 // GAP [[01M5QKD8SDR9TX6Y5G2DM220HP]] measured in a local pi run only; not yet loaded by a bb pi thread.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, join } from "node:path";
+import { join } from "node:path";
 
 /** The slice of pi's ExtensionAPI this file uses, so it needs no pi types to typecheck. */
 type Named = { name?: string; path?: string };
@@ -36,14 +38,19 @@ function filters(raw: string | undefined): Filters | null {
   }
 }
 
-const matches = (item: Named, names: Set<string>) =>
-  (item.name !== undefined && names.has(item.name)) || (item.path !== undefined && (names.has(item.path) || names.has(basename(item.path))));
+const byName = (item: Named, names: Set<string>) => item.name !== undefined && names.has(item.name);
+const byPath = (item: Named, paths: Set<string>) => item.path !== undefined && paths.has(item.path);
+
+/** A thread id safe to use as a file name; anything else reports under the process id. */
+export const reportName = (threadId: string | undefined, pid: number): string =>
+  threadId !== undefined && /^[A-Za-z0-9_-]{1,128}$/.test(threadId) ? threadId : `pid-${pid}`;
 
 export default function composer(pi: Pi) {
   const f = filters(process.env.PI_COMPOSER_MANIFEST);
   const dir = process.env.PI_COMPOSER_REPORT_DIR ?? join(homedir(), ".pi", "agent", "composer-reports");
-  const file = join(dir, `${process.env.BB_THREAD_ID ?? `pid-${process.pid}`}.json`);
-  const report: Record<string, unknown> = { threadId: process.env.BB_THREAD_ID ?? null, filters: f, requests: [] as unknown[] };
+  const threadId = process.env.BB_THREAD_ID;
+  const file = join(dir, `${reportName(threadId, process.pid)}.json`);
+  const report: Record<string, unknown> = { threadId: threadId !== undefined && reportName(threadId, 0) === threadId ? threadId : null, filters: f, requests: [] as unknown[] };
   const save = () => {
     try {
       mkdirSync(dir, { recursive: true });
@@ -73,8 +80,8 @@ export default function composer(pi: Pi) {
     if (f !== null) {
       const skills = new Set(f.skills);
       const files = new Set(f.contextFiles);
-      o.skills = skillsBefore.filter(s => !matches(s, skills));
-      o.contextFiles = filesBefore.filter(c => !matches(c, files));
+      o.skills = skillsBefore.filter(s => !byName(s, skills));
+      o.contextFiles = filesBefore.filter(c => !byPath(c, files));
       const tools = new Set(f.tools);
       if (tools.size > 0) pi.setActiveTools(pi.getActiveTools().filter(t => !tools.has(t)));
     }

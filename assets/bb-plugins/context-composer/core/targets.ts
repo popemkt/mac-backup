@@ -1,11 +1,26 @@
 // Compile targets: how a manifest's decisions reach a real agent on one host, and how far each one is honoured.
 // A target knows its levers; compile() turns a manifest into the env, arguments and instruction text a launch on that
 // host takes, and labels every change `enforced` (the host removes or adds it), `advisory` (the agent is only told)
-// or `none` (nothing can change it). The facts behind each lever are cited in
-// docs/research/2026-10-25-context-composer-v1.md ("Levers per provider"); the tests pin the rules.
-import { diff, isRemovable, KIND_LABELS, type Artifact, type ArtifactKind, type Composition, type Manifest, type Source } from "./model.ts";
+// or `none` (nothing can change it); ENFORCEMENT below is the one statement of what those mean. The facts behind
+// each lever are cited in docs/research/2026-10-25-context-composer-v1.md ("Levers per provider"); the tests pin them.
+import { diff, isIncluded, isRemovable, KIND_LABELS, type Artifact, type ArtifactKind, type Composition, type Manifest, type Source } from "./model.ts";
+import { clip, inline } from "./strings.ts";
 
 export type Enforcement = "enforced" | "advisory" | "none";
+
+/** What each enforcement level means: the canonical statement. The CLI help, the app and the brief all quote it. */
+export const ENFORCEMENT: Record<Enforcement, string> = {
+  enforced: "the host removes (or adds) it",
+  advisory: "it stays loaded; the agent is only told not to use it",
+  none: "nothing changes it here",
+};
+
+/** Marked `*`: measured outside the host, or read in source, but not seen working in a live bb thread. */
+export const EXPERIMENTAL = "measured outside bb or read in source only, not yet seen in a live bb thread";
+
+/** ENFORCEMENT as one line, for text surfaces. */
+export const enforcementLegend = (): string =>
+  `${(Object.keys(ENFORCEMENT) as Enforcement[]).map(e => `${e} = ${ENFORCEMENT[e]}`).join("; ")}; * = ${EXPERIMENTAL}`;
 
 export type Lever = {
   enforcement: Enforcement;
@@ -22,10 +37,16 @@ type GroupLever = {
   env?: Record<string, string>;
   args?: string[];
   lever: Lever;
+  /** Shown with the plan whenever the group applies. */
+  warning?: string;
 };
 
-/** An item lever may carry the env and arguments it needs. */
-type ItemLever = Lever & { env?: Record<string, string>; args?: string[]; tag?: string };
+/**
+ * An item lever may carry the env and arguments it needs, or a filter entry: `key` goes into the target's
+ * `filterEnv` JSON under `list`. A filter matches by key alone, so compile() only uses it when no kept artifact
+ * shares the key.
+ */
+type ItemLever = Lever & { env?: Record<string, string>; args?: string[]; filter?: { list: string; key: string } };
 
 export type TargetId = "bb:claude-code" | "bb:codex" | "bb:pi" | "bb:other" | "cli:claude-code" | "cli:codex";
 
@@ -43,6 +64,10 @@ export type Target = {
   additions: Lever;
   /** Standing caveats shown with every plan. */
   notes: string[];
+  /** The env var an adapter that filters by key (the composer's pi extension) reads its filters from, as JSON. */
+  filterEnv?: string;
+  /** Outside bb: the program, and the arguments that carry the instruction text; without them the text leads the prompt. */
+  cli?: { program: string; instructionArgs?: (text: string) => string[] };
 };
 
 // ------------------------------------------------------------------ the levers
@@ -52,33 +77,42 @@ const ADVISORY_TEXT: Lever = { enforcement: "advisory", via: "named in the compo
 const providerSide = (s: Source) => s.injector === "provider";
 const isContext = (k: ArtifactKind) => k === "instruction" || k === "memory";
 
-/** Claude Code's env switches. Measured on Claude Code 2.1.310 with a session that never got a prompt. */
-const CLAUDE_ENV_GROUPS = (via: string): GroupLever[] => [
-  {
-    id: "claude-safe-mode",
-    covers: (a, s) => providerSide(s) && isRemovable(a),
-    env: { CLAUDE_CODE_SAFE_MODE: "1" },
-    lever: { enforcement: "enforced", via: `CLAUDE_CODE_SAFE_MODE=1 (${via}): no CLAUDE.md, skills beyond built-ins, plugins, hooks, MCP or subagents`, experimental: true },
-  },
-  {
-    id: "claude-no-claude-mds",
-    covers: (a, s) => providerSide(s) && isContext(a.kind),
-    env: { CLAUDE_CODE_DISABLE_CLAUDE_MDS: "1" },
-    lever: { enforcement: "enforced", via: `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1 (${via}): every CLAUDE.md and MEMORY.md` },
-  },
-  {
-    id: "claude-no-auto-memory",
-    covers: (a, s) => providerSide(s) && a.kind === "memory",
-    env: { CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" },
-    lever: { enforcement: "enforced", via: `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 (${via})` },
-  },
-  {
-    id: "claude-no-bundled-skills",
-    covers: (a, s) => providerSide(s) && a.kind === "skill" && s.scope === "builtin",
-    env: { CLAUDE_CODE_DISABLE_BUNDLED_SKILLS: "1" },
-    lever: { enforcement: "enforced", via: `CLAUDE_CODE_DISABLE_BUNDLED_SKILLS=1 (${via})` },
-  },
-];
+/**
+ * Claude Code's env switches. Measured on Claude Code 2.1.310 with a session that never got a prompt. Safe mode keeps
+ * the built-in skills, so it never covers them; the bundled-skills switch owns those. In bb the switches travel as
+ * plugin-contributed env, which has not been seen reaching a live thread, so there every one is experimental.
+ */
+// GAP [[01M5QKD89DMW3BR5RS6SYZD3RJ]] contributed env has not been seen reaching a live bb Claude Code thread.
+const CLAUDE_ENV_GROUPS = (via: string, inBb: boolean): GroupLever[] => {
+  const lever = (how: string, measuredDirectly: boolean): Lever => ({ enforcement: "enforced", via: `${how} (${via})`, ...(inBb || !measuredDirectly ? { experimental: true } : {}) });
+  return [
+    {
+      id: "claude-safe-mode",
+      covers: (a, s) => providerSide(s) && isRemovable(a) && s.scope !== "builtin",
+      env: { CLAUDE_CODE_SAFE_MODE: "1" },
+      lever: lever("CLAUDE_CODE_SAFE_MODE=1: no CLAUDE.md, user or project skills, plugins, hooks, MCP or subagents; built-in skills stay", false),
+      ...(inBb ? { warning: "CLAUDE_CODE_SAFE_MODE may also drop what bb injects into Claude Code (its bb-bridge MCP server and skill plugin), which would leave the thread without bb's tools. Unverified." } : {}),
+    },
+    {
+      id: "claude-no-claude-mds",
+      covers: (a, s) => providerSide(s) && isContext(a.kind),
+      env: { CLAUDE_CODE_DISABLE_CLAUDE_MDS: "1" },
+      lever: lever("CLAUDE_CODE_DISABLE_CLAUDE_MDS=1: every CLAUDE.md and MEMORY.md", true),
+    },
+    {
+      id: "claude-no-auto-memory",
+      covers: (a, s) => providerSide(s) && a.kind === "memory",
+      env: { CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" },
+      lever: lever("CLAUDE_CODE_DISABLE_AUTO_MEMORY=1", true),
+    },
+    {
+      id: "claude-no-bundled-skills",
+      covers: (a, s) => providerSide(s) && a.kind === "skill" && s.scope === "builtin",
+      env: { CLAUDE_CODE_DISABLE_BUNDLED_SKILLS: "1" },
+      lever: lever("CLAUDE_CODE_DISABLE_BUNDLED_SKILLS=1", true),
+    },
+  ];
+};
 
 const BB_HOST_ITEM: ItemLever = {
   ...ADVISORY_TEXT,
@@ -91,7 +125,7 @@ const bbClaude: Target = {
   providerId: "claude-code",
   surface: "bb",
   instructionLimit: 4096,
-  groups: CLAUDE_ENV_GROUPS("plugin-contributed env"),
+  groups: CLAUDE_ENV_GROUPS("plugin-contributed env", true),
   item: (_a, s) =>
     s.injector === "host"
       ? BB_HOST_ITEM
@@ -116,12 +150,16 @@ const bbCodex: Target = {
   notes: ["A fresh spawn starts without the conversation; only a fork carries it."],
 };
 
-/** The names the composer's pi extension filters, by kind. See pi/extension.ts. */
-const PI_FILTERS: Partial<Record<ArtifactKind, string>> = {
-  skill: "skills",
-  tool: "tools",
-  "mcp-server": "mcpServers",
-  instruction: "contextFiles",
+/** The env var the composer's pi extension reads its filters from. */
+export const PI_MANIFEST_ENV = "PI_COMPOSER_MANIFEST";
+
+/** The lists the composer's pi extension filters, by kind, and the key each matches on. See pi/extension.ts. */
+const PI_FILTERS: Partial<Record<ArtifactKind, { list: string; key: (a: Artifact) => string | undefined }>> = {
+  skill: { list: "skills", key: a => a.name },
+  tool: { list: "tools", key: a => a.name },
+  "mcp-server": { list: "mcpServers", key: a => a.name },
+  // Context files match by path only: a bare `AGENTS.md` would match every directory's.
+  instruction: { list: "contextFiles", key: a => a.path },
 };
 
 const bbPi: Target = {
@@ -133,11 +171,13 @@ const bbPi: Target = {
   groups: [],
   item: (a, s) => {
     const filter = PI_FILTERS[a.kind];
-    if (filter !== undefined && !(a.kind === "instruction" && s.injector === "host")) {
-      return { enforcement: "enforced", via: `composer pi extension drops it before each request (${filter})`, experimental: true, tag: filter };
+    const key = filter?.key(a);
+    if (filter !== undefined && key !== undefined && !(a.kind === "instruction" && s.injector === "host")) {
+      return { enforcement: "enforced", via: `composer pi extension drops it before each request (${filter.list})`, experimental: true, filter: { list: filter.list, key } };
     }
     return s.injector === "host" ? BB_HOST_ITEM : ADVISORY_TEXT;
   },
+  filterEnv: PI_MANIFEST_ENV,
   additions: { enforcement: "enforced", via: "agents.configure instructions, appended to pi's system prompt" },
   notes: [
     "Enforcement needs the composer pi extension in ~/.pi/agent/extensions on the machine that runs pi; it reads PI_COMPOSER_MANIFEST.",
@@ -163,7 +203,7 @@ const cliClaude: Target = {
   providerId: "claude-code",
   surface: "cli",
   instructionLimit: null,
-  groups: CLAUDE_ENV_GROUPS("env"),
+  groups: CLAUDE_ENV_GROUPS("env", false),
   item: (a, s) => {
     if (a.kind === "mcp-server" && s.injector === "provider") {
       return { enforcement: "enforced", via: `--disallowedTools mcp__${mcpRuleName(a.name)}`, args: ["--disallowedTools", `mcp__${mcpRuleName(a.name)}`] };
@@ -174,6 +214,7 @@ const cliClaude: Target = {
     return ADVISORY_TEXT;
   },
   additions: { enforcement: "enforced", via: "--append-system-prompt" },
+  cli: { program: "claude", instructionArgs: text => ["--append-system-prompt", text] },
   notes: ["`--setting-sources` and `--strict-mcp-config --mcp-config` give a blank slate a bb thread cannot have; see the research doc."],
 };
 
@@ -198,6 +239,7 @@ const cliCodex: Target = {
     return ADVISORY_TEXT;
   },
   additions: { enforcement: "enforced", via: "prepended to the first prompt" },
+  cli: { program: "codex" },
   notes: ["A clean CODEX_HOME drops ~/.codex/AGENTS.md, skills and MCP config, but has no login until auth.json is copied in."],
 };
 
@@ -213,13 +255,10 @@ export function bbTargetFor(providerId: string): Target {
 
 export const targetById = (id: string): Target | undefined => TARGETS.find(t => t.id === id);
 
-/** The env var the composer's pi extension reads its filters from. */
-export const PI_MANIFEST_ENV = "PI_COMPOSER_MANIFEST";
-
 /** Every env name a target's plan can carry: what a host adapter may pass on for it, and nothing else. */
 export function envNames(t: Target): string[] {
   const names = new Set(t.groups.flatMap(g => Object.keys(g.env ?? {})));
-  if (t.id === "bb:pi") names.add(PI_MANIFEST_ENV);
+  if (t.filterEnv !== undefined) names.add(t.filterEnv);
   return [...names];
 }
 
@@ -242,16 +281,44 @@ export type Plan = {
   warnings: string[];
 };
 
-/** The lever that takes one artifact out, ignoring groups: what the UI shows before a decision is made. */
-export function itemLever(t: Target, a: Artifact, s: Source): Lever {
+const FALLBACK_SOURCE = (id: string): Source => ({ id, label: id, injector: "provider", scope: "user" });
+
+/** What decides whether a filter lever is safe: the composition's artifacts and which of them are kept. */
+type Peers = { artifacts: readonly Artifact[]; sourceOf: (a: Artifact) => Source; kept: (a: Artifact) => boolean };
+
+/** The target's item lever, downgraded to advisory when its filter key would also catch a kept artifact. */
+function resolveItem(t: Target, a: Artifact, s: Source, peers: Peers | null): ItemLever {
+  const lever = t.item(a, s);
+  const f = lever.filter;
+  if (f === undefined || peers === null) return lever;
+  const clash = peers.artifacts.some(b => {
+    if (b.id === a.id || b.kind !== a.kind || !peers.kept(b)) return false;
+    const g = t.item(b, peers.sourceOf(b)).filter;
+    return g !== undefined && g.list === f.list && g.key === f.key;
+  });
+  return clash ? { ...ADVISORY_TEXT, via: `advisory: a kept ${KIND_LABELS[a.kind].toLowerCase()} entry is also called "${inline(f.key, 60)}", and the filter matches by name` } : lever;
+}
+
+const asLever = ({ enforcement, via, experimental }: Lever): Lever => ({ enforcement, via, ...(experimental === true ? { experimental } : {}) });
+
+/**
+ * The lever that takes one artifact out, ignoring groups: what the UI shows before a decision is made. Pass the
+ * composition (and the manifest) so a filter lever whose key a kept artifact shares is shown as the advisory it is.
+ */
+export function itemLever(t: Target, a: Artifact, s: Source, scope?: { composition: Composition; manifest?: Manifest }): Lever {
   if (!isRemovable(a)) return { enforcement: "none", via: a.kind === "conversation" ? "a fresh spawn drops it; a fork keeps it" : "the provider's own prompt and tools" };
-  const { enforcement, via, experimental } = t.item(a, s);
-  return { enforcement, via, ...(experimental === true ? { experimental } : {}) };
+  const peers = scope === undefined ? null : peersOf(scope.composition, scope.manifest);
+  return asLever(resolveItem(t, a, s, peers));
+}
+
+function peersOf(c: Composition, m: Manifest | undefined): Peers {
+  const sources = new Map(c.sources.map(s => [s.id, s]));
+  return { artifacts: c.artifacts, sourceOf: a => sources.get(a.sourceId) ?? FALLBACK_SOURCE(a.sourceId), kept: b => (m === undefined ? b.active : isIncluded(b, m)) };
 }
 
 export function compile(t: Target, c: Composition, m: Manifest): Plan {
-  const sources = new Map(c.sources.map(s => [s.id, s]));
-  const sourceOf = (a: Artifact): Source => sources.get(a.sourceId) ?? { id: a.sourceId, label: a.sourceId, injector: "provider", scope: "user" };
+  const peers = peersOf(c, m);
+  const { sourceOf } = peers;
   const d = diff(c, m);
   const removed = new Set(d.removed.map(a => a.id));
   const env: Record<string, string> = {};
@@ -267,6 +334,7 @@ export function compile(t: Target, c: Composition, m: Manifest): Plan {
     if (members.length === 0 || !members.every(a => removed.has(a.id))) continue;
     Object.assign(env, g.env ?? {});
     args.push(...(g.args ?? []));
+    if (g.warning !== undefined) warnings.push(g.warning);
     for (const a of members) {
       covered.add(a.id);
       steps.push({ artifact: a, change: "remove", lever: g.lever, group: g.id });
@@ -276,17 +344,12 @@ export function compile(t: Target, c: Composition, m: Manifest): Plan {
   const advisory: Artifact[] = [];
   for (const a of d.removed) {
     if (covered.has(a.id)) continue;
-    const lever = t.item(a, sourceOf(a));
-    if (!isRemovable(a)) {
-      steps.push({ artifact: a, change: "remove", lever: itemLever(t, a, sourceOf(a)) });
-      continue;
-    }
+    const lever = resolveItem(t, a, sourceOf(a), peers);
     Object.assign(env, lever.env ?? {});
     args.push(...(lever.args ?? []));
-    if (lever.tag !== undefined) (piFilters[lever.tag] ??= []).push(a.kind === "instruction" ? (a.path ?? a.name) : a.name);
+    if (lever.filter !== undefined) (piFilters[lever.filter.list] ??= []).push(lever.filter.key);
     if (lever.enforcement === "advisory") advisory.push(a);
-    const { enforcement, via, experimental } = lever;
-    steps.push({ artifact: a, change: "remove", lever: { enforcement, via, ...(experimental === true ? { experimental } : {}) } });
+    steps.push({ artifact: a, change: "remove", lever: asLever(lever) });
   }
 
   const toRead: Artifact[] = [];
@@ -294,62 +357,87 @@ export function compile(t: Target, c: Composition, m: Manifest): Plan {
     const lever: Lever =
       a.path === undefined
         ? { enforcement: "none", via: "inactive here and no file to point the agent at" }
-        : { enforcement: "advisory", via: `the agent is pointed at ${a.path}` };
+        : { enforcement: "advisory", via: `the agent is pointed at ${inline(a.path, 300)}` };
     if (a.path !== undefined) toRead.push(a);
     steps.push({ artifact: a, change: "add", lever });
   }
 
-  if (Object.keys(piFilters).length > 0) env[PI_MANIFEST_ENV] = JSON.stringify(piFilters);
+  if (t.filterEnv !== undefined && Object.keys(piFilters).length > 0) env[t.filterEnv] = JSON.stringify(piFilters);
   if (d.unknown.length > 0) warnings.push(`${d.unknown.length} decision(s) name artifacts this workspace no longer has; they are ignored.`);
-  if (steps.some(s => s.lever.experimental === true)) warnings.push("Some levers are experimental: measured outside bb or read in source only.");
 
   const text = instructionText(m.additions.instructions, advisory, toRead, t.instructionLimit);
-  if (text.truncated) warnings.push(`The instruction text was cut to ${t.instructionLimit} characters; some names are summarised.`);
-  if (t.instructionLimit === null && text.text !== "" && t.id === "cli:claude-code") args.push("--append-system-prompt", text.text);
+  // An advisory step whose name did not fit is not told to the agent at all: say so instead of claiming advice.
+  if (text.omitted.length > 0) {
+    const omitted = new Set(text.omitted.map(a => a.id));
+    for (const st of steps) {
+      if (omitted.has(st.artifact.id)) st.lever = { enforcement: "none", via: `not named to the agent: no room in the ${t.instructionLimit}-character instruction text` };
+    }
+    warnings.push(`${text.omitted.length} change(s) did not fit in the ${t.instructionLimit}-character instruction text, so the agent is not told about them; they show as none.`);
+  }
+  if (text.additionsCut) warnings.push(`The added instructions were cut to fit ${t.instructionLimit} characters after the exclusions; shorten them.`);
+  if (steps.some(st => st.lever.experimental === true)) warnings.push(`Some levers are experimental (*): ${EXPERIMENTAL}.`);
+  if (t.cli?.instructionArgs !== undefined && text.text !== "") args.push(...t.cli.instructionArgs(text.text));
 
   const counts: Record<Enforcement, number> = { enforced: 0, advisory: 0, none: 0 };
-  for (const s of steps) counts[s.lever.enforcement] += 1;
-  return { targetId: t.id, steps, env, args, piFilters, instructions: text.text, instructionsTruncated: text.truncated, counts, warnings };
+  for (const st of steps) counts[st.lever.enforcement] += 1;
+  return { targetId: t.id, steps, env, args, piFilters, instructions: text.text, instructionsTruncated: text.omitted.length > 0 || text.additionsCut, counts, warnings };
 }
 
-/** The instruction text: additions, then the advisory exclusions by kind, then files to read; cut to the limit. */
-export function instructionText(additions: string, avoid: Artifact[], read: Artifact[], limit: number | null): { text: string; truncated: boolean } {
+export type InstructionText = {
+  text: string;
+  /** Artifacts the text has no room to name: a summary line counts them, but the agent is not told which. */
+  omitted: Artifact[];
+  /** Whether the person's additions were cut to leave room for the exclusions. */
+  additionsCut: boolean;
+};
+
+/**
+ * The instruction text: the person's additions, then what the agent is asked to leave alone, then files to read.
+ * Within a limit, the exclusions get their room first (names summarised per kind if they must be), and the additions
+ * take what is left. Names are inventory text, so each is flattened to one line and capped.
+ */
+export function instructionText(additions: string, avoid: Artifact[], read: Artifact[], limit: number | null): InstructionText {
   const head = additions.trim();
-  const byKind = new Map<ArtifactKind, string[]>();
-  for (const a of avoid) byKind.set(a.kind, [...(byKind.get(a.kind) ?? []), a.name]);
-  const build = (cap: number): string => {
+  const byKind = new Map<ArtifactKind, Artifact[]>();
+  for (const a of avoid) byKind.set(a.kind, [...(byKind.get(a.kind) ?? []), a]);
+  const blocks = (cap: number): { text: string; omitted: Artifact[] } => {
     const parts: string[] = [];
-    if (head !== "") parts.push(head);
+    const omitted: Artifact[] = [];
     if (byKind.size > 0) {
-      const lines = [...byKind].map(([k, names]) => {
-        const shown = names.slice(0, cap);
-        const more = names.length - shown.length;
-        return `- ${KIND_LABELS[k]}: ${shown.join(", ")}${more > 0 ? `, and ${more} more` : ""}`;
+      const lines = [...byKind].map(([k, items]) => {
+        const shown = items.slice(0, cap);
+        omitted.push(...items.slice(shown.length));
+        const more = items.length - shown.length;
+        const names = shown.map(a => inline(a.name, 80)).join(", ");
+        return `- ${KIND_LABELS[k]}: ${names}${more > 0 ? `${names === "" ? "" : ","} and ${more} more not named here` : ""}`;
       });
       parts.push(
         ["Context composition: the person composing this session asked that you do not use the following, although they are still loaded. Treat them as unavailable unless the person asks for one by name.", ...lines].join("\n"),
       );
     }
     if (read.length > 0) {
-      parts.push(["Also part of this session's context; read each when its subject comes up:", ...read.slice(0, cap).map(a => `- ${a.name}: ${a.path}`)].join("\n"));
+      const shown = read.slice(0, cap);
+      omitted.push(...read.slice(shown.length));
+      parts.push(["Also part of this session's context; read each when its subject comes up:", ...shown.map(a => `- ${inline(a.name, 80)}: ${inline(a.path ?? "", 300)}`)].join("\n"));
     }
-    return parts.join("\n\n");
+    return { text: parts.join("\n\n"), omitted };
   };
-  const full = build(Number.MAX_SAFE_INTEGER);
-  if (limit === null || full.length <= limit) return { text: full, truncated: false };
-  for (let cap = 40; cap >= 0; cap = cap > 10 ? cap - 10 : cap - 1) {
-    const t = build(cap);
-    if (t.length <= limit) return { text: t, truncated: true };
-  }
-  return { text: full.slice(0, limit), truncated: true };
+  const join = (h: string, b: string) => [h, b].filter(x => x !== "").join("\n\n");
+  let b = blocks(Number.MAX_SAFE_INTEGER);
+  if (limit === null || join(head, b.text).length <= limit) return { text: join(head, b.text), omitted: [], additionsCut: false };
+  // The exclusions first: the most names per kind whose blocks fit on their own.
+  for (let cap = 40; b.text.length > limit && cap >= 0; cap = cap > 10 ? cap - 10 : cap - 1) b = blocks(cap);
+  if (b.text.length > limit) b = { text: clip(b.text, limit), omitted: [...avoid, ...read] };
+  const room = limit - b.text.length - (b.text === "" ? 0 : 2);
+  if (head.length <= room) return { text: join(head, b.text), omitted: b.omitted, additionsCut: false };
+  return { text: join(room > 1 ? clip(head, room) : "", b.text), omitted: b.omitted, additionsCut: head !== "" };
 }
 
 /** A shell line for a CLI target: env prefix, the program, its arguments. */
 export function commandLine(t: Target, p: Plan, prompt: string): string | null {
-  if (t.surface !== "cli") return null;
+  if (t.cli === undefined) return null;
   const q = (s: string) => (/^[A-Za-z0-9_./:=@%+-]+$/.test(s) ? s : `'${s.replace(/'/g, `'\\''`)}'`);
   const env = Object.entries(p.env).map(([k, v]) => `${k}=${q(v)}`);
-  const program = t.id === "cli:claude-code" ? "claude" : "codex";
-  const first = t.id === "cli:codex" && p.instructions !== "" ? `${p.instructions}\n\n${prompt}` : prompt;
-  return [...env, program, ...p.args.map(q), q(first)].join(" ");
+  const first = t.cli.instructionArgs === undefined && p.instructions !== "" ? `${p.instructions}\n\n${prompt}` : prompt;
+  return [...env, t.cli.program, ...p.args.map(q), q(first)].join(" ");
 }

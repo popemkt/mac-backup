@@ -7,7 +7,7 @@ import { emptyManifest, type Composition, type Manifest } from "../core/model.ts
 import plugin from "../server.ts";
 import { claude, inventory } from "./bb-fixtures.ts";
 
-async function host(providerId = "claude-code", metadata: Record<string, unknown> = {}) {
+async function host(providerId = "claude-code", metadata: Record<string, unknown> = {}, opts: { archiveFails?: () => boolean } = {}) {
   const spawned: Record<string, unknown>[] = [];
   const { bb, harness } = createFakePluginHost({
     pluginId: "context-composer",
@@ -20,7 +20,10 @@ async function host(providerId = "claude-code", metadata: Record<string, unknown
         spawn: async (args: Record<string, unknown>) => (spawned.push(args), makeThreadResponse({ id: `thr_new${spawned.length}` })),
         getPluginMetadata: async ({ threadId }: { threadId: string }) => metadata[threadId] ?? {},
         timeline: async () => ({ rows: [{ kind: "turn", children: [{ kind: "conversation", role: "user", text: "make the build green" }] }] }),
-        archive: async () => ({ ok: true }),
+        archive: async () => {
+          if (opts.archiveFails?.() === true) throw new Error("archive failed");
+          return { ok: true };
+        },
         stop: async () => ({ ok: true }),
       },
     },
@@ -93,11 +96,31 @@ test("the advisor is a hidden, least-privileged thread owned by the basis thread
   assert.equal(harness.inspection.sdk.callsTo("threads.stop").length, 1);
 });
 
+test("advisors are serialized per basis thread, and a failed archive keeps the pointer for a retry", async () => {
+  let failing = false;
+  const { harness, spawned } = await host("claude-code", {}, { archiveFails: () => failing });
+  const m = emptyManifest({ id: "m", title: "t", basisThreadId: "thr_1", now: 1 });
+  const ask = () => harness.behavior.callRpc("advisor", { basisThreadId: "thr_1", manifest: m, goal: "" }) as Promise<{ threadId: string }>;
+  const [a, b] = await Promise.all([ask(), ask()]);
+  assert.equal(spawned.length, 1, "two concurrent asks start one advisor");
+  assert.equal(a.threadId, b.threadId);
+  failing = true;
+  await assert.rejects(harness.behavior.callRpc("closeAdvisor", { basisThreadId: "thr_1" }));
+  assert.equal((await ask()).threadId, a.threadId, "the pointer survives a failed close");
+  failing = false;
+  await harness.behavior.callRpc("closeAdvisor", { basisThreadId: "thr_1" });
+  await ask();
+  assert.equal(spawned.length, 2, "after a clean close, a new advisor starts");
+});
+
 test("bb composer prints the levers for the thread's target, and a kb outline", async () => {
   const { harness } = await host();
   const md = await harness.behavior.runCli(["thr_1"]);
   assert.equal(md.exitCode, 0, String(md.stderr));
   assert.match(String(md.stdout), /## MCP servers[\s\S]*kb \(Claude Code user\) 5,000 tok, advisory/);
   const kb = await harness.behavior.runCli(["thr_1", "--kb"]);
-  assert.match(String(kb.stdout), /kb tag define ctx-composition[\s\S]*%%tana%%/);
+  assert.match(String(kb.stdout), /^%%tana%%/, "the outline alone: no shell commands mixed in");
+  assert.doesNotMatch(String(kb.stdout), /kb tag define/);
+  const schema = await harness.behavior.runCli(["--kb-schema"]);
+  assert.match(String(schema.stdout), /^kb tag define ctx-composition/);
 });

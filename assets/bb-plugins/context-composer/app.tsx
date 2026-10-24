@@ -14,8 +14,8 @@ import {
 } from "@get-bb/plugin-sdk/app";
 import type { BasisInfo, rpcContract } from "./server";
 import { kbOutline, kbSchemaCommands } from "./core/kb.ts";
-import { decide, decideSource, diff, emptyManifest, totals, type Artifact, type Composition, type Manifest } from "./core/model.ts";
-import { bbTargetFor, commandLine, compile, itemLever, TARGETS, type Lever, type Plan, type Target } from "./core/targets.ts";
+import { decide, decideSource, diff, diffManifests, emptyManifest, totals, type Artifact, type Composition, type Manifest } from "./core/model.ts";
+import { bbTargetFor, commandLine, compile, enforcementLegend, itemLever, TARGETS, type Lever, type Plan, type Target } from "./core/targets.ts";
 import { applyProposal, parseProposals } from "./core/trajectory.ts";
 import { VIEWS } from "./views/index.ts";
 import { LeverBadge } from "./views/parts.tsx";
@@ -176,7 +176,8 @@ function Workspace({ threadId, manifestId }: { threadId: string; manifestId: str
   if (error !== null && c === null) return <p className="p-6 text-sm text-destructive">{error}</p>;
   if (c === null || target === null || plan === null) return <p className="p-6 text-sm text-muted-foreground">Reading what feeds this thread…</p>;
 
-  const leverOf = (a: Artifact): Lever => planned.get(a.id) ?? itemLever(target, a, sources.get(a.sourceId) ?? { id: a.sourceId, label: a.sourceId, injector: "provider", scope: "user" });
+  const leverOf = (a: Artifact): Lever =>
+    planned.get(a.id) ?? itemLever(target, a, sources.get(a.sourceId) ?? { id: a.sourceId, label: a.sourceId, injector: "provider", scope: "user" }, { composition: c, manifest });
   const now = () => Date.now();
   const View = VIEWS.find(v => v.id === viewId)!.component;
   const t = totals(c, manifest);
@@ -220,8 +221,11 @@ function Workspace({ threadId, manifestId }: { threadId: string; manifestId: str
           <button type="button" className="rounded px-2 py-1 hover:bg-state-hover" onClick={() => setManifest({ ...manifest, decisions: {}, updatedAt: now() })}>
             Reset
           </button>
-          <button type="button" className="rounded px-2 py-1 hover:bg-state-hover" onClick={() => copy([...kbSchemaCommands(), "", kbOutline(c, manifest, target, manifest.title)].join("\n"), "kb outline and schema")}>
-            Copy for kb
+          <button type="button" className="rounded px-2 py-1 hover:bg-state-hover" title="Tana Paste for kb add --outline" onClick={() => copy(kbOutline(c, manifest, target, manifest.title), "kb outline")}>
+            Copy kb outline
+          </button>
+          <button type="button" className="rounded px-2 py-1 hover:bg-state-hover" title="Shell commands that define the outline's tags and fields; run once per kb store" onClick={() => copy(kbSchemaCommands().join("\n"), "kb schema commands")}>
+            Copy kb schema
           </button>
           <button type="button" className="rounded bg-foreground px-2 py-1 text-background hover:bg-foreground/90" onClick={save}>
             Save
@@ -281,9 +285,10 @@ function PlanCard({ plan, target, removed, added, copy }: { plan: Plan; target: 
     <section className="flex flex-col gap-2 rounded-md border border-border p-3 text-xs">
       <h3 className="font-medium">On {target.label}</h3>
       <p className="text-muted-foreground">
-        {removed} dropped, {added} added: {plan.counts.enforced} enforced, {plan.counts.advisory} advisory, {plan.counts.none} cannot change. Additions: {target.additions.enforcement}{" "}
+        {removed} dropped, {added} added: {plan.counts.enforced} enforced, {plan.counts.advisory} advisory, {plan.counts.none} none. Additions: {target.additions.enforcement}{" "}
         ({target.additions.via}).
       </p>
+      <p className="text-muted-foreground">{enforcementLegend()}.</p>
       {Object.keys(plan.env).length > 0 ? (
         <div>
           <div className="text-muted-foreground">Env {target.surface === "bb" ? "the plugin contributes to the thread" : "for the command"}:</div>
@@ -367,8 +372,49 @@ function SpawnCard({ rpc, basis, manifest, onSpawned, setNotice }: { rpc: Rpc; b
 }
 
 /** The trajectory side chat: a hidden advisor thread, briefed with the composition and the thread's recent messages. */
+type Pending = { base: Manifest; next: Manifest; ignored: string[]; addedText: string; textRefused: boolean; count: number };
+
+/**
+ * A proposal's exact effect before it is applied: the advisor reads untrusted text (inventory, thread messages), and
+ * what it proposes to add becomes the next agent's system prompt, so nothing applies without the person seeing it.
+ */
+function ProposalPreview({ pending, composition, confirm, discard }: { pending: Pending; composition: Composition; confirm: () => void; discard: () => void }) {
+  const names = new Map(composition.artifacts.map(a => [a.id, a.name]));
+  const changes = diffManifests(pending.base, pending.next);
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-amber-500/40 p-2">
+      <div className="font-medium">Apply {pending.count} proposal(s)?</div>
+      {changes.length === 0 ? <p className="text-muted-foreground">No keep or drop changes.</p> : null}
+      <ul className="max-h-32 overflow-auto">
+        {changes.map(ch => (
+          <li key={ch.id} className="truncate">
+            {ch.to === "exclude" ? "− drop" : ch.to === "include" ? "+ add" : "↺ back to default"} {names.get(ch.id) ?? ch.id}
+          </li>
+        ))}
+      </ul>
+      {pending.addedText !== "" ? (
+        <div>
+          <div className="text-muted-foreground">Adds this text to the instructions every spawned agent gets:</div>
+          <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded bg-state-hover p-1">{pending.addedText}</pre>
+        </div>
+      ) : null}
+      {pending.textRefused ? <p className="text-amber-600 dark:text-amber-400">Its text is not added: the instructions would pass their limit.</p> : null}
+      {pending.ignored.length > 0 ? <p className="text-muted-foreground">Ignored {pending.ignored.length} unknown or fixed id(s).</p> : null}
+      <div className="flex gap-2">
+        <button type="button" className="rounded bg-foreground px-2 py-1 text-background" onClick={confirm}>
+          Apply
+        </button>
+        <button type="button" className="rounded px-2 py-1 text-muted-foreground hover:bg-state-hover" onClick={discard}>
+          Discard
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function Advisor({ rpc, threadId, manifest, composition, apply, setNotice }: { rpc: Rpc; threadId: string; manifest: Manifest; composition: Composition; apply: (m: Manifest) => void; setNotice: (s: string) => void }) {
   const [advisorId, setAdvisorId] = useState<string | null>(null);
+  const [pending, setPending] = useState<Pending | null>(null);
   const [goal, setGoal] = useState("");
   const [busy, setBusy] = useState(false);
   const start = (restart: boolean) => {
@@ -386,7 +432,7 @@ function Advisor({ rpc, threadId, manifest, composition, apply, setNotice }: { r
         <>
           <p className="text-muted-foreground">
             A side chat (a hidden thread on this thread's provider) gets the composition, the manifest and the thread's recent messages. Ask what this context will do to the
-            trajectory, or describe the trajectory you want; apply its proposals with one click.
+            trajectory, or describe the trajectory you want. Its proposals are previewed exactly, and apply with one click once you confirm.
           </p>
           <textarea className="min-h-12 rounded-md border border-input bg-transparent p-2" placeholder="Optional: the trajectory you want" value={goal} onChange={e => setGoal(e.target.value)} />
           <button type="button" disabled={busy} className="self-start rounded border border-border px-2 py-1 hover:bg-state-hover disabled:opacity-50" onClick={() => start(false)}>
@@ -395,6 +441,19 @@ function Advisor({ rpc, threadId, manifest, composition, apply, setNotice }: { r
         </>
       ) : (
         <>
+          {pending !== null ? (
+            <ProposalPreview
+              pending={pending}
+              composition={composition}
+              discard={() => setPending(null)}
+              confirm={() => {
+                if (pending.base !== manifest) return setNotice("The manifest changed since this preview; apply the proposal again to see its effect now.");
+                apply(pending.next);
+                setPending(null);
+                setNotice(`Applied ${pending.count} proposal(s).`);
+              }}
+            />
+          ) : null}
           <div className="h-[460px] min-h-0">
             <ThreadChat
               threadId={advisorId}
@@ -408,15 +467,18 @@ function Advisor({ rpc, threadId, manifest, composition, apply, setNotice }: { r
                   run: msg => {
                     const proposals = parseProposals(msg.text);
                     if (proposals.length === 0) return setNotice("No composer-proposal block in that message.");
-                    let m = manifest;
+                    let next = manifest;
                     const ignored: string[] = [];
+                    const texts: string[] = [];
+                    let textRefused = false;
                     for (const p of proposals) {
-                      const r = applyProposal(m, composition, p, Date.now());
-                      m = r.manifest;
+                      const r = applyProposal(next, composition, p, Date.now());
+                      next = r.manifest;
                       ignored.push(...r.ignored);
+                      if (r.addedText !== "") texts.push(r.addedText);
+                      textRefused ||= r.textRefused;
                     }
-                    apply(m);
-                    setNotice(`Applied ${proposals.length} proposal(s)${ignored.length > 0 ? `; ignored ${ignored.length} unknown or fixed id(s)` : ""}.`);
+                    setPending({ base: manifest, next, ignored, addedText: texts.join("\n\n"), textRefused, count: proposals.length });
                   },
                 },
               ]}

@@ -1,6 +1,7 @@
 // A composition as kb nodes, so kb's outline, graph and canvas views render it: a Tana-Paste outline for
 // `kb add --outline` (or the kb_call `node.addTree` action), and the schema it needs, defined once per store.
 import { isIncluded, isRemovable, KIND_LABELS, type Composition, type Manifest } from "./model.ts";
+import { inline } from "./strings.ts";
 import { compile, itemLever, type Target } from "./targets.ts";
 
 /** Tags and fields the outline uses. Prefixed so they do not collide with a store's own `source` or `kind`. */
@@ -9,7 +10,10 @@ export const KB_SCHEMA = {
   fields: { kind: "ctx-kind", tokens: "ctx-tokens", source: "ctx-source-of", decision: "ctx-decision", lever: "ctx-lever" },
 } as const;
 
-/** The kb commands that define the schema, safe to run again. `kb --root <store>` selects another store. */
+/**
+ * The kb commands that define the schema, safe to run again. `kb --root <store>` selects another store. Shell
+ * commands, kept apart from the outline: the app copies them with their own button, `bb composer --kb-schema` prints them.
+ */
 export function kbSchemaCommands(kb = "kb"): string[] {
   const { tags, fields } = KB_SCHEMA;
   return [
@@ -23,8 +27,17 @@ export function kbSchemaCommands(kb = "kb"): string[] {
   ];
 }
 
-/** Outline items must not start a tag or a ref by accident, and refs resolve by exact text. */
-const text = (s: string) => s.replace(/[\n\r]+/g, " ").replace(/(^|\s)#/g, "$1＃").replace(/\[\[/g, "[ [").trim();
+/**
+ * Inventory text as one outline item: one line, capped, and unable to start a tag (`#`), a ref (`[[`, `]]`), a field
+ * (`::`) or a paste header (`%%`). Refs resolve by exact text, so a source's label goes through here at both ends.
+ */
+export const kbText = (s: string): string =>
+  inline(s, 200)
+    .replace(/(^|\s)#/g, "$1＃")
+    .replace(/\[\[/g, "[ [")
+    .replace(/\]\]/g, "] ]")
+    .replace(/::/g, ": :")
+    .replace(/%%/g, "% %");
 
 /** The composition under one #ctx-composition node, sources as #ctx-source nodes the artifacts reference. */
 export function kbOutline(c: Composition, m: Manifest, t: Target, title: string): string {
@@ -33,8 +46,8 @@ export function kbOutline(c: Composition, m: Manifest, t: Target, title: string)
   const planned = new Map(plan.steps.map(s => [s.artifact.id, s.lever]));
   const sources = new Map(c.sources.map(s => [s.id, s]));
   const used = c.sources.filter(s => c.artifacts.some(a => a.sourceId === s.id && (a.active || m.decisions[a.id] !== undefined)));
-  const label = (id: string) => `${text(sources.get(id)?.label ?? id)} (${t.label})`;
-  const lines = ["%%tana%%", `- ${text(title)} #${tags.composition}`];
+  const label = (id: string) => `${kbText(sources.get(id)?.label ?? id)} (${t.label})`;
+  const lines = ["%%tana%%", `- ${kbText(title)} #${tags.composition}`];
   lines.push("  - Sources");
   for (const s of used) lines.push(`    - ${label(s.id)} #${tags.source}`);
   const names = new Map<string, number>();
@@ -45,8 +58,8 @@ export function kbOutline(c: Composition, m: Manifest, t: Target, title: string)
     lines.push(`  - ${title}`);
     for (const a of items) {
       const name = (names.get(a.name) ?? 0) > 1 ? `${a.name} (${sources.get(a.sourceId)?.label ?? a.sourceId})` : a.name;
-      const lever = planned.get(a.id) ?? itemLever(t, a, sources.get(a.sourceId) ?? { id: a.sourceId, label: a.sourceId, injector: "provider", scope: "user" });
-      lines.push(`    - ${text(name)} #${tags.artifact}`);
+      const lever = planned.get(a.id) ?? itemLever(t, a, sources.get(a.sourceId) ?? { id: a.sourceId, label: a.sourceId, injector: "provider", scope: "user" }, { composition: c, manifest: m });
+      lines.push(`    - ${kbText(name)} #${tags.artifact}`);
       lines.push(`      - ${fields.kind}:: ${a.kind}`);
       if (a.tokens.value !== null) lines.push(`      - ${fields.tokens}:: ${a.tokens.value}`);
       lines.push(`      - ${fields.source}:: [[${label(a.sourceId)}]]`);

@@ -12,15 +12,19 @@ import type { Inventory } from "../agent-artifacts/lib/inventory";
 import { compositionFrom } from "./adapter/inventory.ts";
 import { kbOutline, kbSchemaCommands } from "./core/kb.ts";
 import { diff, emptyManifest, parseManifest, type Composition, type Manifest } from "./core/model.ts";
-import { bbTargetFor, compile, envNames, targetById, type Plan } from "./core/targets.ts";
+import { bbTargetFor, compile, enforcementLegend, envNames, targetById, type Plan } from "./core/targets.ts";
 import { compositionMarkdown } from "./core/text.ts";
-import { trajectoryBrief, type Message } from "./core/trajectory.ts";
-import { ADVISOR_INSTRUCTIONS, parseThreadRecord, type ThreadRecord } from "./adapter/records.ts";
+import { ADVISOR_RULES, trajectoryBrief, type Message } from "./core/trajectory.ts";
+import { parseThreadRecord, type ThreadRecord } from "./adapter/records.ts";
 
 const INVENTORY_PLUGIN = "agent-artifacts";
 const CACHE_MS = 60_000;
 
-const manifestSchema = z.custom<Manifest>(v => parseManifest(v) !== null, "not a manifest");
+/** Limits live in core (MANIFEST_LIMITS); parseManifest refuses anything over them. */
+const manifestSchema = z.custom<Manifest>(v => parseManifest(v) !== null, "not a manifest, or over the manifest limits");
+/** Rows Home lists, and manifests the store keeps. */
+const LIST_LIMIT = 100;
+const STORE_LIMIT = 1000;
 const compositionSchema = z.custom<Composition>(v => typeof v === "object" && v !== null, "not a composition");
 
 export const rpcContract = defineRpcContract({
@@ -87,15 +91,17 @@ function messagesOf(rows: readonly Row[]): Message[] {
 }
 
 const HELP = [
-  "Usage: bb composer [thread-id] [--target <id>] [--kb] [--json]",
+  "Usage: bb composer [thread-id] [--target <id>] [--kb | --kb-schema | --json]",
   "",
   "The composed context of a thread: every artifact that feeds its agent, grouped",
-  "by kind with token weights, and for each what removing it does on the target:",
-  "enforced (the host takes it out), advisory (the agent is only told), or none.",
+  "by kind with token weights, and for each what removing it does on the target.",
   "Defaults to the calling thread and the target for its provider.",
   "",
+  `Levers: ${enforcementLegend()}.`,
+  "",
   "  --target <id>  bb:claude-code, bb:codex, bb:pi, bb:other, cli:claude-code, cli:codex",
-  "  --kb           the composition as a kb outline (Tana Paste), and the schema commands",
+  "  --kb           the composition as a kb outline (Tana Paste), for kb add --outline",
+  "  --kb-schema    the kb commands that define the outline's tags and fields (run once per store)",
   "  --json         the composition as JSON",
 ].join("\n");
 
@@ -135,13 +141,17 @@ export default async function plugin(bb: BbPluginApi) {
   // ---------------------------------------------------------------- manifests
 
   const listManifests = (): Manifest[] =>
-    (db.prepare("SELECT body FROM manifests ORDER BY updated_at DESC").all() as { body: string }[]).flatMap(r => {
+    (db.prepare("SELECT body FROM manifests ORDER BY updated_at DESC LIMIT ?").all(LIST_LIMIT) as { body: string }[]).flatMap(r => {
       const m = parseManifest(JSON.parse(r.body));
       return m === null ? [] : [m];
     });
 
   function saveManifest(m: Manifest): Manifest {
-    const clean = parseManifest(m)!;
+    const clean = parseManifest(m);
+    if (clean === null) throw new Error("not a manifest, or over the manifest limits");
+    const exists = db.prepare("SELECT 1 FROM manifests WHERE id=?").get(clean.id) !== undefined;
+    const count = (db.prepare("SELECT COUNT(*) AS n FROM manifests").get() as { n: number }).n;
+    if (!exists && count >= STORE_LIMIT) throw new Error(`The composer keeps at most ${STORE_LIMIT} manifests; delete some first.`);
     db.prepare(
       `INSERT INTO manifests (id, title, basis_thread_id, body, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET title=excluded.title, basis_thread_id=excluded.basis_thread_id, body=excluded.body, updated_at=excluded.updated_at`,
@@ -164,7 +174,7 @@ export default async function plugin(bb: BbPluginApi) {
   bb.agents.configure(context => {
     const record = parseThreadRecord(context.pluginMetadata);
     if (record?.role === "composed" && record.instructions !== "") return { tools: [], skills: [], instructions: record.instructions };
-    if (record?.role === "advisor") return { tools: [], skills: [], instructions: ADVISOR_INSTRUCTIONS };
+    if (record?.role === "advisor") return { tools: [], skills: [], instructions: ADVISOR_RULES };
     return { tools: [], skills: [] };
   });
 
@@ -220,6 +230,19 @@ export default async function plugin(bb: BbPluginApi) {
     return { threadId: thread.id, plan };
   }
 
+  // One advisor change at a time per basis thread, so two clicks cannot start two advisors and orphan one.
+  const advisorLocks = new Map<string, Promise<unknown>>();
+  function serialized<T>(basisThreadId: string, run: () => Promise<T>): Promise<T> {
+    const prev = advisorLocks.get(basisThreadId) ?? Promise.resolve();
+    const next = prev.then(run, run);
+    const tail = next.catch(() => undefined);
+    advisorLocks.set(basisThreadId, tail);
+    void tail.then(() => {
+      if (advisorLocks.get(basisThreadId) === tail) advisorLocks.delete(basisThreadId);
+    });
+    return next;
+  }
+
   async function advisor(input: z.infer<(typeof rpcContract)["advisor"]["input"]>) {
     const key = `advisor:${input.basisThreadId}`;
     const open = await bb.storage.kv.get(key);
@@ -227,7 +250,7 @@ export default async function plugin(bb: BbPluginApi) {
       const t = await bb.sdk.threads.get({ threadId: open }).catch(() => null);
       if (t !== null && t.archivedAt === null) return { threadId: open, resumed: true };
     }
-    if (typeof open === "string") await closeAdvisor(input.basisThreadId);
+    if (typeof open === "string") await closeAdvisorNow(input.basisThreadId);
     const basis = await bb.sdk.threads.get({ threadId: input.basisThreadId });
     const [c, timeline] = await Promise.all([
       composition(input.basisThreadId, true),
@@ -251,14 +274,25 @@ export default async function plugin(bb: BbPluginApi) {
     return { threadId: thread.id, resumed: false };
   }
 
-  async function closeAdvisor(basisThreadId: string) {
+  /**
+   * Archive and stop the open advisor, then clear the pointer. The pointer goes only once the thread is archived, so
+   * a failure leaves it for the next close to retry instead of orphaning a hidden thread.
+   */
+  async function closeAdvisorNow(basisThreadId: string) {
     const key = `advisor:${basisThreadId}`;
     const open = await bb.storage.kv.get(key);
-    await bb.storage.kv.delete(key);
     if (typeof open !== "string") return;
-    // Hidden worker threads must not keep an agent process: archive, then stop, whatever fails.
-    await bb.sdk.threads.archive({ threadId: open }).catch(err => bb.log.warn(`archive advisor ${open}: ${String(err)}`));
+    const archived = await bb.sdk.threads.archive({ threadId: open }).then(
+      () => true,
+      async err => {
+        const gone = (await bb.sdk.threads.get({ threadId: open }).catch(() => null)) === null;
+        if (!gone) bb.log.warn(`archive advisor ${open}: ${String(err)}`);
+        return gone;
+      },
+    );
     await bb.sdk.threads.stop({ threadId: open }).catch(err => bb.log.warn(`stop advisor ${open}: ${String(err)}`));
+    if (archived) await bb.storage.kv.delete(key);
+    else throw new Error(`Could not archive the advisor thread ${open}; try closing it again.`);
   }
 
   bb.rpc.register(rpcContract, {
@@ -289,20 +323,18 @@ export default async function plugin(bb: BbPluginApi) {
       return { ok: true as const };
     },
     spawn,
-    advisor,
-    closeAdvisor: async ({ basisThreadId }) => {
-      await closeAdvisor(basisThreadId);
-      return { ok: true as const };
-    },
+    advisor: input => serialized(input.basisThreadId, () => advisor(input)),
+    closeAdvisor: ({ basisThreadId }) => serialized(basisThreadId, () => closeAdvisorNow(basisThreadId)).then(() => ({ ok: true as const })),
   });
 
   // ---------------------------------------------------------------- CLI
 
   bb.cli.register({
     name: "composer",
-    summary: "The composed context of a thread: artifacts by kind with token weights, and what removing each does on a target (bb composer [thread-id] [--target <id>] [--kb] [--json])",
+    summary: "The composed context of a thread: artifacts by kind with token weights, and what removing each does on a target (bb composer [thread-id] [--target <id>] [--kb | --kb-schema | --json])",
     async run(argv, ctx) {
       if (argv.includes("--help") || argv.includes("-h")) return { exitCode: 0, stdout: HELP };
+      if (argv.includes("--kb-schema")) return { exitCode: 0, stdout: kbSchemaCommands().join("\n") };
       const at = argv.indexOf("--target");
       const targetArg = at === -1 ? undefined : argv[at + 1];
       const positionals = argv.filter((a, i) => !a.startsWith("--") && (at === -1 || i !== at + 1));
@@ -314,7 +346,7 @@ export default async function plugin(bb: BbPluginApi) {
         if (target === undefined) return { exitCode: 2, stderr: `Unknown target ${targetArg}.\n\n${HELP}` };
         if (argv.includes("--json")) return { exitCode: 0, stdout: JSON.stringify(c) };
         const m = emptyManifest({ id: "cli", title: `Composition of ${threadId}`, basisThreadId: threadId, now: Date.now() });
-        if (argv.includes("--kb")) return { exitCode: 0, stdout: [...kbSchemaCommands(), "", kbOutline(c, m, target, m.title)].join("\n") };
+        if (argv.includes("--kb")) return { exitCode: 0, stdout: kbOutline(c, m, target, m.title) };
         return { exitCode: 0, stdout: compositionMarkdown(c, target.id) };
       } catch (err) {
         return { exitCode: 1, stderr: `Could not compose thread ${threadId}: ${err instanceof Error ? err.message : String(err)}` };

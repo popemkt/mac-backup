@@ -1,7 +1,7 @@
 // The composition model: what feeds an agent (sources and the artifacts they define), and a manifest of decisions
 // over it. Pure data and pure functions. No host imports: nothing here knows bb, pi, Claude Code or Codex; adapters
-// map a host's inventory in (adapter/) and targets compile decisions out (targets.ts). tests/core-purity.test.ts
-// keeps it that way.
+// map a host's inventory in (adapter/) and targets compile decisions out (targets.ts). tests/core.test.ts ("core imports
+// no host") keeps it that way.
 
 /** What an artifact is, by the role it plays in an agent's context. */
 export type ArtifactKind =
@@ -25,19 +25,6 @@ export type ArtifactKind =
   | "system"
   /** The thread's conversation so far: carried by a fork, dropped by a fresh spawn. */
   | "conversation";
-
-export const ARTIFACT_KINDS: readonly ArtifactKind[] = [
-  "instruction",
-  "memory",
-  "skill",
-  "mcp-server",
-  "tool",
-  "hook",
-  "subagent",
-  "output-style",
-  "system",
-  "conversation",
-];
 
 export const KIND_LABELS: Record<ArtifactKind, string> = {
   instruction: "Instructions",
@@ -134,8 +121,9 @@ export const artifactId = (kind: ArtifactKind, source: string, name: string): st
 
 // ------------------------------------------------------------------ resolving decisions
 
-/** Whether an artifact reaches the agent under a manifest. */
+/** Whether an artifact reaches the agent under a manifest. Decisions on what no lever removes are ignored. */
 export function isIncluded(a: Artifact, m: Manifest): boolean {
+  if (!isRemovable(a)) return a.active;
   const d = m.decisions[a.id];
   return d === undefined ? a.active : d === "include";
 }
@@ -145,10 +133,13 @@ export function isChange(a: Artifact, d: Decision | undefined): boolean {
   return d !== undefined && (d === "include") !== a.active;
 }
 
-/** Set one decision; a decision equal to the current state is dropped, so manifests stay minimal. */
+/**
+ * Set one decision; a decision equal to the current state is dropped, so manifests stay minimal. What no lever removes
+ * (the system prompt, the conversation) takes no decision.
+ */
 export function decide(m: Manifest, a: Artifact, d: Decision, now: number): Manifest {
   const decisions = { ...m.decisions };
-  if (isChange(a, d)) decisions[a.id] = d;
+  if (isChange(a, d) && isRemovable(a)) decisions[a.id] = d;
   else delete decisions[a.id];
   return { ...m, decisions, updatedAt: now };
 }
@@ -193,14 +184,14 @@ export function diff(c: Composition, m: Manifest): Diff {
       unknown.push(id);
       continue;
     }
-    if (!isChange(a, d)) continue;
+    if (!isChange(a, d) || !isRemovable(a)) continue;
     (d === "exclude" ? removed : added).push(a);
   }
   const sum = (xs: Artifact[]) => xs.reduce((n, a) => n + tokensOf(a), 0);
   return { removed, added, tokensRemoved: sum(removed), tokensAdded: sum(added), unknown };
 }
 
-/** How two manifests differ, per artifact: for previewing a proposal before applying it. */
+/** How two manifests differ, per artifact: the advisor's proposal preview lists these before it is applied. */
 export function diffManifests(a: Manifest, b: Manifest): { id: string; from: Decision | undefined; to: Decision | undefined }[] {
   const ids = new Set([...Object.keys(a.decisions), ...Object.keys(b.decisions)]);
   return [...ids].filter(id => a.decisions[id] !== b.decisions[id]).map(id => ({ id, from: a.decisions[id], to: b.decisions[id] }));
@@ -228,16 +219,24 @@ export function totals(c: Composition, m: Manifest): { included: number; exclude
   return { included, excluded, onDemand, unknownWeight };
 }
 
-/** A manifest read from storage or an RPC: checked field by field, unknown fields dropped. */
+/** The most a manifest may hold. Larger ones are refused, not cut: a cut manifest would mean something else. */
+export const MANIFEST_LIMITS = { id: 200, title: 200, decisions: 5000, decisionKey: 1000, instructions: 16_000 } as const;
+
+/** A manifest read from storage or an RPC: checked field by field, unknown fields dropped, over-limit ones refused. */
 export function parseManifest(v: unknown): Manifest | null {
   if (typeof v !== "object" || v === null) return null;
   const o = v as Record<string, unknown>;
+  const L = MANIFEST_LIMITS;
   if (o.version !== 1 || typeof o.id !== "string" || typeof o.title !== "string") return null;
+  if (o.id === "" || o.id.length > L.id || o.title.length > L.title) return null;
   const decisions: Record<string, Decision> = {};
   if (typeof o.decisions === "object" && o.decisions !== null) {
-    for (const [k, d] of Object.entries(o.decisions as Record<string, unknown>)) if (d === "include" || d === "exclude") decisions[k] = d;
+    const entries = Object.entries(o.decisions as Record<string, unknown>);
+    if (entries.length > L.decisions) return null;
+    for (const [k, d] of entries) if (k.length <= L.decisionKey && (d === "include" || d === "exclude")) decisions[k] = d;
   }
   const add = (typeof o.additions === "object" && o.additions !== null ? o.additions : {}) as Record<string, unknown>;
+  if (typeof add.instructions === "string" && add.instructions.length > L.instructions) return null;
   const num = (x: unknown) => (typeof x === "number" && Number.isFinite(x) ? x : 0);
   return {
     version: 1,

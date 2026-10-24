@@ -2,7 +2,7 @@
 
 See everything that feeds a bb thread's agent, compose it (keep, drop, add), ask a side chat what the composition
 does to the thread's trajectory, and start a thread with it. Every change says how far the host honours it:
-`enforced`, `advisory` or `none`. Design and spike results:
+`enforced`, `advisory` or `none`, defined once as `ENFORCEMENT` in [core/targets.ts](core/targets.ts). Design and spike results:
 [docs/research/2026-10-25-context-composer-v1.md](../../../docs/research/2026-10-25-context-composer-v1.md).
 
 ## Layout: a pure core, thin adapters
@@ -15,6 +15,7 @@ does to the thread's trajectory, and start a thread with it. Every change says h
 | `core/views.ts` | View models: the weight tree and a squarified treemap. |
 | `core/kb.ts` | The composition as a kb outline (Tana Paste) plus the schema commands, so kb's views render it. |
 | `core/text.ts` | Markdown for `bb composer`. |
+| `core/strings.ts` | Inventory text made safe to embed (one line, capped). |
 | `adapter/inventory.ts` | bb adapter in: agent-artifacts' inventory (and Claude Code's own view) mapped to a composition. |
 | `adapter/records.ts` | bb adapter: what the plugin keeps on a thread it starts (plugin metadata), parsed defensively. |
 | `server.ts` | bb adapter: RPC, SQLite manifests, spawn, the advisor thread, `agents.configure`, contributed env, `bb composer`. |

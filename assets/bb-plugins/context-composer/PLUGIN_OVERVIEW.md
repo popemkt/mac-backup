@@ -7,12 +7,12 @@ token weights, as a list or a treemap.
 - **Keep or drop** each artifact, or a whole source at once, and add instruction text. Each change is labelled for
   the target provider: `enforced` (the host removes it), `advisory` (the agent is only told) or `none`.
 - **Trajectory**: a side chat briefed with the composition and the thread's recent messages. Ask what this context
-  will do to the thread, or describe the trajectory you want; apply its proposals with one click.
+  will do to the thread, or describe the trajectory you want; each proposal shows its exact effect, and applies once you confirm.
 - **Spawn** a thread with the composition, on any provider and model, in the same workspace.
 - **Save** compositions, and see which threads were started from which.
-- **Copy for kb**: the composition as a kb outline, for kb's outline, graph and canvas views.
+- **Copy kb outline** and **Copy kb schema**: the composition as a kb outline for kb's outline, graph and canvas views, and the commands that define its tags and fields.
 - **Compose context** in a thread's panel menu opens the page on that thread.
-- `bb composer [thread-id]` prints the composition with its levers; `--kb` prints the kb outline.
+- `bb composer [thread-id]` prints the composition with its levers; `--kb` prints the kb outline, `--kb-schema` its schema commands.
 
 ## What is honoured
 

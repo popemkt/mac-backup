@@ -22,10 +22,6 @@ export type AdvisorRecord = { role: "advisor"; basisThreadId: string };
 
 export type ThreadRecord = ComposedRecord | AdvisorRecord;
 
-/** The advisor's standing rules, added to its system prompt by agents.configure. */
-export const ADVISOR_INSTRUCTIONS =
-  "You are the trajectory advisor of a context composer, in a side chat. Answer from the brief and the conversation; do not edit files, run commands or call tools. End every answer that recommends changes with one fenced `composer-proposal` JSON block, as the brief describes.";
-
 const str = (v: unknown, max = 4096): string | null => (typeof v === "string" && v.length <= max ? v : null);
 const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
 
