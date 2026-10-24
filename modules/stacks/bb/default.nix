@@ -30,6 +30,11 @@ in
       # project, or everything, read through each machine's `canvas-link`
       # (modules/stacks/ai-agents/canvas-links).
       "assets/bb-plugins/canvas-links"
+      # The Context composer page: what feeds a thread's agent, with
+      # token weights; keep, drop or add, a trajectory side chat, and
+      # spawn with the composition. Reads the inventory through
+      # agent-artifacts; `bb composer`.
+      "assets/bb-plugins/context-composer"
       # The person's kb beside a thread, and agent tools (kb_call,
       # kb_screen, kb_manifest) that act in that kb tab. Its page URL and
       # socket come from the bb server's KB_URL and KB_SOCKET, set where

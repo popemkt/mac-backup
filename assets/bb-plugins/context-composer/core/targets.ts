@@ -100,6 +100,7 @@ const bbClaude: Target = {
   notes: ["A fresh spawn starts without the conversation; only a fork carries it.", "Env switches apply from the session's next start, so they shape new threads, not running ones."],
 };
 
+// GAP [[01M5QKD7E3SR1DT4Z39TY3ZTGF]] per-item drops on bb Claude Code and Codex stay advisory until a forked provider.
 const bbCodex: Target = {
   id: "bb:codex",
   label: "bb thread, Codex",
