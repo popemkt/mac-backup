@@ -1,6 +1,7 @@
 // The resume loop over a port: read a thread's facts, ask the policy, claim the interruption, send.
 // Every trigger (server start, host reconnect, a thread failing) lands here, so there is one path
-// that resumes and one place that makes it idempotent.
+// that resumes and one place that makes it idempotent. It also answers why a thread stopped
+// (`stop`), from the same facts and records, for the frontend's indicator.
 import {
   anyTurnCompleted,
   boundaryOf,
@@ -10,12 +11,22 @@ import {
   type EventRow,
   INTERACTION_TYPES,
   parentCovers,
+  RESTART_REASON,
   type ResumeRecord,
   type Settings,
   type SkipReason,
   TURN_BOUNDARY_TYPES,
   wasWaitingOnUser,
 } from "./policy.ts";
+import {
+  type ResumeState,
+  resumeStateOf,
+  standingInterruption,
+  STOP_EVENT_LIMIT,
+  STOP_EVENT_TYPES,
+  stopView,
+  type StopView,
+} from "./stops.ts";
 
 /** A thread as the resumer reads it. Times are epoch ms. */
 export interface ThreadSummary {
@@ -54,6 +65,11 @@ export interface Resumer {
   consider(thread: ThreadSummary): Promise<Decision | null>;
   /** Consider every thread that failed inside the window. */
   sweep(): Promise<void>;
+  /**
+   * Why the thread's latest turn stopped, if an interruption no later turn superseded ends it:
+   * the interruption, and for a restart what this resumer did or would do about it. Read only.
+   */
+  stop(threadId: string): Promise<StopView | null>;
 }
 
 /** How far up a thread tree a child looks for a covering ancestor. */
@@ -170,6 +186,20 @@ export function createResumer(port: ResumePort): Resumer {
   return {
     async consider(thread) {
       return considerWith(thread, await port.settings());
+    },
+    async stop(threadId) {
+      const rows = await port.events(threadId, { types: STOP_EVENT_TYPES, order: "desc", limit: STOP_EVENT_LIMIT });
+      const interruption = standingInterruption(rows);
+      if (interruption === null) return null;
+      let resume: ResumeState = { kind: "none" };
+      if (interruption.reason === RESTART_REASON) {
+        const [settings, thread] = await Promise.all([port.settings(), port.thread(threadId)]);
+        if (thread !== null) {
+          const { decision, record } = await decideFor(thread, settings);
+          resume = resumeStateOf(interruption, record, decision, settings.maxConsecutive);
+        }
+      }
+      return stopView(threadId, interruption, resume);
     },
     async sweep() {
       const settings = await port.settings();

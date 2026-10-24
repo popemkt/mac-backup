@@ -120,6 +120,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The live test in assets/bb-plugins/restart-resume/README.md, run on shared-server when the owner allows a daemon restart
 - **node** — `01M5P0X2VEQBNFPQ2GKKP316MN`
 
+### GAP: restart-resume's why-this-thread-stopped indicator is not yet checked in a live bb
+
+- **expected** — A thread whose latest turn ended with an interruption shows a sidebar row status and a thread header pill (Stopped, Daemon restart → resumed n/3, Connection lost, Host removed, Turn idle) with reason, actor, time and auto-resume state, refreshed by the stops realtime signal and cleared when a later turn completes
+- **current** — Unit-tested only (core/stops.ts and resumer.stop against an in-memory bb) and built with bb plugin build; experimental_setThreadRowStatus, experimental_appOverlay, experimental_threadHeaderAction and the icon names were read from SDK 0.6.49 types and the bb 0.46.1 app bundle, never seen rendering
+- **impact** — A wrong assumption about the row-status setter, the overlay mount, realtime delivery or an icon name would leave the badge missing or blank; resuming itself is unaffected
+- **closes** — Steps 10-12 of the live test in assets/bb-plugins/restart-resume/README.md, on shared-server after the plugin is installed
+- **node** — `01M5P8BFR6B06ZFTDBP616QQPX`
+
 ### GAP: retire Homebrew Bun after switching to Nix
 
 - **expected** — The flake-pinned Nix Bun is the only installed Bun runtime.
@@ -145,6 +153,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Generalise the relink to any declared package whose bin links are missing (or move it to the owning stack), and add || warn to the install. The marker could not be placed: npm-global.nix had uncommitted user edits.
 - **rule** — Module boundaries
 - **node** — `01M3E9V5JS5VS5ZRT14510BN4D`
+
+### GAP: the stop indicator cannot tell a stop by the person from a stop by another agent
+
+- **expected** — The why-this-thread-stopped badge says 'stopped by you' or 'stopped by another agent' (naming the agent's thread)
+- **current** — bb 0.46.1 records a manual stop as system/thread/interrupted {reason: manual-stop} with no actor (start-server.js:18051-18054, events table :38133-38150), and POST /threads/:id/stop ignores the caller (:188417-188425), so the badge says 'you or an agent (bb does not record which)'
+- **impact** — The owner cannot see at a glance whether a thread was stopped by hand or by an orchestrating agent
+- **closes** — bb recording the stop's initiator (person, or the calling thread) on system/thread/interrupted or the stop route, then actorOf in assets/bb-plugins/restart-resume/core/stops.ts reading it
+- **node** — `01M5P8BKXY41S86WZ468GS0109`
 
 ### GAP: the two pin tools use different could-not-run exit codes and no shared test holds them to one contract
 

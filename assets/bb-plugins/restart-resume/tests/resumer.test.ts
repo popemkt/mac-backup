@@ -203,3 +203,33 @@ describe("a parent and its child", () => {
     assert.deepEqual(bb.sent.map((s) => s.threadId), ["thr_p"]);
   });
 });
+
+describe("why a thread stopped", () => {
+  test("a restart reads as resumed once the resumer claimed it, and clears when a turn completes", async () => {
+    const events: Record<string, EventRow[]> = { thr_a: interruptedLog("host-daemon-restarted") };
+    const bb = fakeBb({ threads: [thread("thr_a")], events });
+    const resumer = createResumer(bb.port);
+    assert.deepEqual((await resumer.stop("thr_a"))?.resume, { kind: "due" });
+    await resumer.sweep();
+    assert.deepEqual((await resumer.stop("thr_a"))?.resume, { kind: "resumed", chain: 1, max: 3, at: NOW });
+    assert.equal(bb.sent.length, 1, "reading a stop never sends");
+    events.thr_a!.push({ seq: 20, type: "turn/completed", createdAt: NOW, data: { status: "completed" } });
+    assert.equal(await resumer.stop("thr_a"), null);
+  });
+
+  test("a manual stop is shown without asking the resume policy", async () => {
+    const bb = fakeBb({ threads: [thread("thr_m", "idle")], events: { thr_m: interruptedLog("manual-stop") } });
+    const stop = await createResumer(bb.port).stop("thr_m");
+    assert.equal(stop?.kind, "stopped");
+    assert.equal(stop?.actor, "person-or-agent");
+    assert.deepEqual(stop?.resume, { kind: "none" });
+  });
+
+  test("a thread never interrupted has no stop", async () => {
+    const bb = fakeBb({
+      threads: [thread("thr_n", "idle")],
+      events: { thr_n: [{ seq: 3, type: "turn/completed", createdAt: NOW, data: { status: "completed" } }] },
+    });
+    assert.equal(await createResumer(bb.port).stop("thr_n"), null);
+  });
+});
