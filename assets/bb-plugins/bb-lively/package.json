@@ -1,0 +1,51 @@
+{
+  "name": "bb-plugin-bb-lively",
+  "version": "0.1.0",
+  "private": true,
+  "description": "bb plugin: a lively palette theme and a motion layer of quick, subtle micro-interactions for bb, honouring reduced motion.",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.46",
+    "bbPluginSdk": ">=0.6.49"
+  },
+  "bb": {
+    "name": "Lively [Experimental]",
+    "description": "Quick, subtle motion for bb (presses, new messages rising in, menu springs, send and status pulses) on any theme, plus optional Lively palettes. Follows your OS reduced-motion setting.",
+    "branding": {
+      "icon": "Palette"
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx",
+    "themes": [
+      {
+        "id": "lively",
+        "name": "Lively",
+        "description": "Warm neutrals, a soft violet accent, rounder corners and springier transitions",
+        "css": "./themes/lively.css"
+      },
+      {
+        "id": "lively-dracula",
+        "name": "Lively Dracula",
+        "description": "bb's Dracula palette with Lively's corners, elevation and transition timing",
+        "css": "./themes/lively-dracula.css"
+      }
+    ]
+  },
+  "workspaces": [
+    "core"
+  ],
+  "dependencies": {
+    "@popemkt/bb-lively-core": "0.1.0",
+    "effect": "4.0.0-rc.112"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.49",
+    "@types/react": "^19.0.0"
+  },
+  "scripts": {
+    "typecheck": "npm run typecheck --workspace core && tsc -p .",
+    "test": "npm test --workspace core && node --test tests/*.test.ts",
+    "lint": "npm run lint --workspace core && oxlint --config core/.oxlintrc.json --type-aware app.tsx server.ts adapter tests",
+    "verify": "npm run typecheck && npm run lint && npm test && bb plugin build"
+  }
+}

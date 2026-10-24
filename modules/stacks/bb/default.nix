@@ -19,6 +19,10 @@ in
       # What shapes a thread's agent, and Claude Code's own view of its
       # workspace: the `Agent artifacts` panel tab and `bb artifacts`.
       "assets/bb-plugins/agent-artifacts"
+      # Quick, subtle motion for bb on any theme (press, rows rising in,
+      # menu springs, send and status pulses), honouring reduced motion,
+      # plus the optional Lively palettes.
+      "assets/bb-plugins/bb-lively"
       # Vim-style keyboard navigation of bb: link hints (alt+f, f),
       # j/k/gg/G scrolling, gi to the composer.
       "assets/bb-plugins/bbim"

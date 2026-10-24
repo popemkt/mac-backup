@@ -1,7 +1,7 @@
 // The bb adapter over a happy-dom page shaped like bb: mounting, guards, gi.
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { attachBrowserPage, commandAvailable, mountBbim, runAction, syncSettings } from "../adapter/bb.ts";
+import { ACTIVE_ATTRIBUTE, attachBrowserPage, commandAvailable, mountBbim, runAction, syncSettings } from "../adapter/bb.ts";
 import { hostSettings } from "../adapter/settings.ts";
 import { page, type Page } from "../core/tests/harness.ts";
 
@@ -169,4 +169,28 @@ test("gi: labels every input; the composer of the pane you are in takes the firs
   assert.equal(p.labels().length, 3, "both composers and the search box");
   p.key("Enter");
   assert.equal(p.doc.activeElement?.id, "left-composer", "the bigger search box does not win the default");
+});
+
+test("data-bbim-active: on <html> while hints or a picker (gi) show, gone when they end", () => {
+  const { p } = mounted();
+  const active = () => p.doc.documentElement.hasAttribute(ACTIVE_ATTRIBUTE);
+  assert.equal(active(), false);
+  runAction("hints");
+  assert.equal(active(), true, "hints are up");
+  p.key("Escape");
+  assert.equal(active(), false, "Esc ends hints");
+  runAction("focusInput");
+  assert.equal(active(), true, "gi's input picker is a pick session too");
+  p.key("Escape");
+  assert.equal(active(), false);
+  runAction("help");
+  assert.equal(active(), false, "help places no labels on bb's elements");
+});
+
+test("data-bbim-active: unmounting mid-hints leaves no stale mark", () => {
+  const { p, controller } = mounted();
+  runAction("hints");
+  assert.equal(p.doc.documentElement.hasAttribute(ACTIVE_ATTRIBUTE), true);
+  controller.abort();
+  assert.equal(p.doc.documentElement.hasAttribute(ACTIVE_ATTRIBUTE), false);
 });

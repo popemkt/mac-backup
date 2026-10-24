@@ -106,3 +106,5 @@ names): bbim injects that page bridge itself, again after a navigation or reload
 - Hints cover what is on screen and not covered by something else; scroll to reach the rest.
   Controls shown only on hover are included, with dimmed dashed labels after the visible ones.
 - Digit keys are never bbim's.
+- While hints or a picker show, `<html>` has `data-bbim-active`: other plugins that animate bb
+  (bb-lively) pause on it so labels land on still targets.

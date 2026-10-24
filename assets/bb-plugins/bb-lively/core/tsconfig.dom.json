@@ -1,0 +1,5 @@
+{
+  // Everything in src on the browser preset.
+  "extends": "./tsconfig.browser.json",
+  "include": ["src"]
+}

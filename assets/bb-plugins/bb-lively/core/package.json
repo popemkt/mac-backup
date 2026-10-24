@@ -1,0 +1,29 @@
+{
+  "name": "@popemkt/bb-lively-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A motion layer for any web app: presses, list arrivals, overlay springs, status pulses, driven by root attributes and a reduced-motion policy. Framework-agnostic: DOM plus Effect Schema.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./domain": "./src/domain/index.ts"
+  },
+  "peerDependencies": {
+    "effect": "4.0.0-rc.112"
+  },
+  "devDependencies": {
+    "@effect/tsgo": "^0.40.0",
+    "@types/node": "^22.0.0",
+    "happy-dom": "^20.11.2",
+    "oxlint": "1.83.0",
+    "oxlint-tsgolint": "^7.0.2002",
+    "typescript": "~7.0.2"
+  },
+  "scripts": {
+    "typecheck": "effect-tsgo patch >/dev/null && tsc -p tsconfig.domain.json && tsc -p tsconfig.dom.json && tsc -p tests/tsconfig.json",
+    "test": "node --test tests/*.test.ts",
+    "lint": "oxlint --config .oxlintrc.json --type-aware src tests"
+  }
+}

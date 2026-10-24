@@ -87,6 +87,12 @@ export interface BbimHooks {
   readonly openUrl?: (url: string, options: { readonly newTab: boolean }) => boolean;
   /** Extra sections for the help overlay, such as host-owned chords. */
   readonly help?: () => ReadonlyArray<HelpSection>;
+  /**
+   * The mode on top changed (`hint` while hints or a picker show, `help`,
+   * back to `normal`). bb's adapter marks the document with it, so other
+   * plugins can hold their motion still while labels are placed.
+   */
+  readonly onModeChange?: (mode: Mode) => void;
 }
 
 export interface CreateBbimOptions {
@@ -324,6 +330,13 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
   let keymap: Keymap<Action> = compileKeymap(keyBindings(settings));
   let keyState: MatchState = EMPTY_STATE;
   let stack: ModeStack = INITIAL_STACK;
+  /** Every move of the mode stack goes through here, so the host hears each change of the top mode once. */
+  const moveTo = (next: ModeStack) => {
+    const before = current(stack);
+    stack = next;
+    const after = current(stack);
+    if (after !== before) hooks.onModeChange?.(after);
+  };
   let session: PickSession | undefined;
   let lastPointer: Element | null = null;
   let lastEditable: Element | null = null;
@@ -390,7 +403,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
     const ending = session;
     if (ending === undefined) return;
     session = undefined;
-    stack = leave(stack, "hint");
+    moveTo(leave(stack, "hint"));
     overlay.hideHints();
     for (const frame of nativeFrames(ending)) frame.post({ bbim: BRIDGE_PROTOCOL, type: "labels", labels: [] });
     ending.scope.close();
@@ -616,7 +629,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       endHints();
       return;
     }
-    stack = leave(stack, "help");
+    moveTo(leave(stack, "help"));
     overlay.hideHelp();
     const tree = frameTree(doc);
     const local: Array<Target> = tree.documents.flatMap((placement) => picker.collect(placement).filter(shows));
@@ -653,7 +666,7 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       queued: [],
     };
     session = active;
-    stack = push(stack, "hint");
+    moveTo(push(stack, "hint"));
     const onScroll = active.scope.run(frameThrottle(win, reposition));
     active.scope.run(
       Effect.gen(function* () {
@@ -735,11 +748,11 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
 
   const toggleHelp = () => {
     if (current(stack) === "help") {
-      stack = leave(stack, "help");
+      moveTo(leave(stack, "help"));
       overlay.hideHelp();
       return;
     }
-    stack = push(stack, "help");
+    moveTo(push(stack, "help"));
     overlay.showHelp(helpModel(settings, problems, hooks.help?.() ?? []));
   };
 
@@ -949,6 +962,8 @@ export function createBbim(options: CreateBbimOptions = {}): Bbim {
       }
       pages.clear();
       session = undefined;
+      // A disposed engine shows nothing: the host hears it is back to normal.
+      moveTo(INITIAL_STACK);
       // Let go of the page's elements: a disposed engine may outlive its page.
       lastPointer = null;
       lastEditable = null;
