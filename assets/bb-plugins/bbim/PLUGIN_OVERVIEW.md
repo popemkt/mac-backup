@@ -18,7 +18,7 @@ Drive bb from the keyboard, the way Vimium drives a browser.
   gets the first label, so `gi` then Enter goes back to it.
 - **`?`** shows every key, including the ones you rebound, and any setting that did not take.
 
-Single keys only work while no text field, terminal, browser tab or dialog has focus, so
+Single keys only work while no text field, terminal, Browser tab or dialog has focus, so
 they never eat what you type; turn them off entirely in the plugin's settings and keep
 just the chords. The chords work in a terminal too (`alt+f` there shows hints instead of
 moving a word forward); the "Chords in the terminal" setting gives them back to the shell. Digits are never taken: bb uses them to answer agent questions.
@@ -31,5 +31,11 @@ themselves are bb commands: rebind them in Settings → Keyboard.
 
 ## Pages in frames
 
-Hints reach into same-origin frames. A cross-origin page joins in by loading the
-`bbim-bridge.js` script that ships with the plugin (see the plugin's skill).
+Hints reach into same-origin frames and plugin panes. A cross-origin page joins in by loading
+the `bbim-bridge.js` script that ships with the plugin (see the plugin's skill).
+
+## Browser tabs
+
+In the desktop app, the page open in a Browser tab is hintable too: `alt+f` from anywhere in
+bb, or typed inside the page, labels the page's links and buttons alongside bb's own, and a
+pick clicks them in the page. Inside the page the chords work at their default keys.

@@ -40,6 +40,43 @@ export interface RemoteFrame {
   readonly post: (message: ParentMessage) => void;
   /** Hear what it sends (raw, undecoded); returns the function that stops. */
   readonly listen: (handler: (data: unknown) => void) => () => void;
+  /**
+   * A page in a native view over this window: it covers the overlay, so it
+   * draws its own labels (sent `labels` and `typed`); and its bridge is the
+   * host's own script forwarding only keys a person typed, so those keys may
+   * pick any label, not just its own.
+   */
+  readonly native: boolean;
+}
+
+/**
+ * A page a host shows in a native view over `element` and reaches by script
+ * (bb's desktop Browser tab). `send` delivers a request to its page bridge;
+ * `listen` hears what that bridge posts back.
+ */
+export interface PageView {
+  readonly element: Element;
+  readonly send: (message: ParentMessage) => void;
+  readonly listen: (handler: (data: unknown) => void) => () => void;
+}
+
+/** A page view as a remote frame where its element is now; undefined while it shows nothing. */
+export function pageRemote(view: PageView): RemoteFrame | undefined {
+  if (!view.element.isConnected) return undefined;
+  const win = view.element.ownerDocument.defaultView;
+  const box = view.element.getBoundingClientRect();
+  const screen = { left: 0, top: 0, width: win?.innerWidth ?? 0, height: win?.innerHeight ?? 0 };
+  const shown = intersect({ left: box.left, top: box.top, width: box.width, height: box.height }, screen);
+  if (shown === undefined) return undefined;
+  return {
+    element: view.element,
+    box: shown,
+    offsetX: box.left,
+    offsetY: box.top,
+    post: view.send,
+    listen: view.listen,
+    native: true,
+  };
 }
 
 /** An opaque iframe as a remote frame: postMessage to it, its own messages from its host window. */
@@ -59,6 +96,7 @@ export function iframeRemote(frame: OpaqueFrame): RemoteFrame {
       frame.host.addEventListener("message", onMessage);
       return () => frame.host.removeEventListener("message", onMessage);
     },
+    native: false,
   };
 }
 

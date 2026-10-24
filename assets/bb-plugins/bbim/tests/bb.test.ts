@@ -1,7 +1,7 @@
 // The bb adapter over a happy-dom page shaped like bb: mounting, guards, gi.
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { commandAvailable, mountBbim, runAction, syncSettings } from "../adapter/bb.ts";
+import { attachBrowserPage, commandAvailable, mountBbim, runAction, syncSettings } from "../adapter/bb.ts";
 import { hostSettings } from "../adapter/settings.ts";
 import { page, type Page } from "../core/tests/harness.ts";
 
@@ -84,6 +84,76 @@ test("terminal: bare keys stay off; hints from a terminal swallow keys and Esc l
   assert.deepEqual(p.labels(), []);
   assert.deepEqual(shell, ["f"], "nothing typed in hint mode reached the shell, Esc included");
   assert.equal((xterm.getRootNode() as ShadowRoot).activeElement, xterm, "the terminal keeps focus and its caret");
+});
+
+/** bb's Browser view: its toolbar (where the plugin's toolbar action renders) and the box the native page covers. */
+function browserTab(p: Page): Element {
+  const browser = p.doc.createElement("div");
+  browser.setAttribute("data-app-browser", "");
+  browser.setAttribute("data-rect", "500,0,500,800");
+  browser.innerHTML = `<div class="toolbar" data-rect="500,0,500,40"><span id="anchor"></span></div><div id="viewport" data-rect="500,40,500,760"></div>`;
+  p.doc.body.append(browser);
+  return browser.querySelector("#anchor") as Element;
+}
+
+/** A fake `experimental_page`: evaluates in a happy-dom window standing in for the tab's isolated world. */
+function fakeExperimentalPage(site: Page) {
+  const listeners = new Set<(data: unknown) => void>();
+  Object.defineProperty(site.win, "bb", {
+    value: { postMessage: (data: unknown) => listeners.forEach((listener) => listener(JSON.parse(JSON.stringify(data)))) },
+    configurable: true,
+  });
+  const worlds: Array<string | undefined> = [];
+  return {
+    evaluate: (expression: string, options?: { readonly world?: "isolated" | "main" }) => {
+      worlds.push(options?.world);
+      return Promise.resolve(site.win.eval(expression) as unknown);
+    },
+    onMessage: (listener: (data: unknown) => void) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    worlds,
+  };
+}
+
+test("browser tab: alt+f (the bb command) labels the tab's page inside it; a pick clicks there", async () => {
+  const { p } = mounted();
+  const site = page(`<button id="buy" data-rect="10,10,80,30">Buy</button>`);
+  cleanup.push(() => site.close());
+  const tab = fakeExperimentalPage(site);
+  const detach = attachBrowserPage(browserTab(p), tab);
+  cleanup.push(detach);
+  let bought = 0;
+  site.doc.getElementById("buy")?.addEventListener("click", () => (bought += 1));
+  p.doc.getElementById("search")?.focus();
+  assert.equal(commandAvailable(), true);
+  runAction("hints");
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  const inPage = site.labels();
+  assert.equal(inPage.length, 1, "the page draws its own label");
+  assert.ok(tab.worlds.every((world) => world === "isolated"), "only ever the isolated world");
+  for (const char of inPage[0] ?? "") p.key(char);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(bought, 1);
+});
+
+test("browser tab: outside the desktop app (no experimental_page) the tab quietly gets no hints", () => {
+  const { p } = mounted();
+  const detach = attachBrowserPage(browserTab(p), null);
+  detach();
+  runAction("hints");
+  assert.ok(p.labels().length > 0, "the rest of bb still gets hints");
+});
+
+test("browser tab: the address bar keeps the chords, not the bare keys", () => {
+  const { p } = mounted();
+  const anchor = browserTab(p);
+  const address = p.doc.createElement("input");
+  anchor.parentElement?.append(address);
+  address.focus();
+  assert.equal(commandAvailable(), true);
+  assert.equal(p.key("f").defaultPrevented, false, "f types into the address bar");
 });
 
 test("settings: chordsInTerminal decodes, a bad stored value is its default", () => {

@@ -12,7 +12,7 @@ bridge for iframes it cannot reach into. The bb plugin next door
 |---|---|---|---|
 | Domain | `src/domain/` | `effect` only (iso preset, no DOM types); the bridge protocol and target rules import nothing | key notation and the one key matcher, label generation, target classification and ordering, modes, settings schema, the bridge protocol decoders |
 | DOM | `src/dom/` | domain + the DOM (browser preset) | `createBbim`, hint collection, frames, overlay, activation, scrolling, focus guards, the single Effect runtime adapter (`runtime.ts`) |
-| Bridge | `src/bridge/` | protocol + DOM collection, no `effect` | `installBbimBridge` for the inside of a frame; `bridge/bbim-bridge.js` is its standalone build (~11 KB; the build fails if it bundles any `effect` module or passes 20 KB) |
+| Bridge | `src/bridge/` | protocol + DOM collection, no `effect` | `installBbimBridge` for the inside of a frame (`bridge/bbim-bridge.js` is its standalone build, ~12 KB) and the native-page bridge (`bridge/bbim-page.ts`, ~16 KB); the build fails if either bundles any `effect` module or passes its budget (20 KB, 24 KB) |
 
 One mechanism per concept: chords, bare keys, multi-key sequences (`gg`) and
 hint typing all run through the same trie matcher (`domain/matcher.ts`), so
@@ -36,13 +36,15 @@ window and returns a `Bbim`:
 | `run(action)` | run an action as if its key was pressed (wire your own shortcuts to it) |
 | `setSettings(input)` | replace settings, keys included; returns what was invalid and fell back |
 | `mode()` | `"normal" \| "hint" \| "help"` |
+| `attachPage(view)` | hint a page shown in a native view over the window (see Native pages); returns the detach |
 | `dispose()` | remove everything; aborting `signal` does the same |
 
 Options: `window`, `settings`, `hooks`, `theme` (CSS custom properties; point
 them at your own tokens with `var(...)` and they follow theme switches),
 `selectors` (hint candidates, default `DEFAULT_SELECTORS`), `inputSelector`
 (what `gi` labels, default `TEXT_INPUT_SELECTOR`), `preferInput` (the inputs
-`gi` means by default when none was used last, e.g. a composer), `signal`,
+`gi` means by default when none was used last, e.g. a composer), `hostChords`
+(the host's own command chords, which a native page passes back), `signal`,
 `bridgeTimeoutMs` (default 1000: how long bridge frames have to answer; the
 page's own labels do not wait for them).
 
@@ -111,7 +113,8 @@ a frame, a resize or a hidden tab leaves. Shift on the last letter, or
 `hintsNewTab`, opens links in a new tab. Every key is swallowed while hints
 show, so nothing leaks into the page; held keys and IME composition never
 type a label. Links follow, buttons click, text fields focus with the caret
-at the end, selects open their picker. A target must be rendered (not
+at the end, selects open their picker. Targets inside open shadow roots (a
+component-built pane) count like any other. A target must be rendered (not
 `display: none`, `visibility: hidden` or `content-visibility: hidden`) and
 hit-testable; opacity does not exclude it. A control at opacity ≈ 0 (its own
 or an ancestor's: `opacity-0 group-hover:opacity-100`) is *faded*: labeled
@@ -229,6 +232,9 @@ Parent → frame (the bridge only accepts messages whose `source` is its own
 | `collect` | `requestId` (≤ 64 chars) | replies `targets` |
 | `activate` | `requestId`, `targetId` (int ≥ 0), `newTab` | activates that target from the last `collect`; a new-tab link becomes an `open` request carrying this `requestId` |
 | `mode` | `active` | while active, forwards every keydown as `key` and swallows it; sent only to the focused frame, renewed every `MODE_HEARTBEAT_MS` (1 s), dropped by the frame after `MODE_TTL_MS` (3 s) of silence |
+| `labels` | `labels: {id, label}[]` (≤ 2000, label ≤ 16 chars) | native pages only: draws these labels on the last `collect`'s targets; `[]` removes them. An iframe bridge ignores it |
+| `typed` | `typed` (≤ 16 chars) | native pages only: narrows the drawn labels |
+| `chords` | `chords: {code, ctrlKey, altKey, metaKey, shiftKey}[]` (≤ 32) | native pages only: a person's keydown matching one (by physical `code`) is swallowed and passed back as `key` |
 
 Frame → parent (the parent only accepts messages whose `source` is the
 frame's own `contentWindow`, at most `FRAME_MESSAGE_BUDGET` (256) per frame per
@@ -245,13 +251,36 @@ session for each listener: target replies and keys are counted apart):
 to the requester's origin (`"*"` only when that origin is opaque, as with a
 sandboxed parent).
 
+## Native pages: a page in a native view
+
+A host may show a page in a native view laid over its own window (bb's
+desktop Browser tab), where the overlay cannot draw and the page's keys never
+reach the window. `bbim.attachPage({ element, send, listen })` adds such a
+page as one more remote frame, speaking the same protocol over the host's
+script channel: `element` is the box the view covers, `send(message)`
+delivers a request to the page bridge, `listen(handler)` hears what it posts.
+`pageRequest(message)` from `@popemkt/bbim-core/page` is the script that does
+the delivering: the page bridge (`bridge/bbim-page.ts`, generated from
+`src/bridge/page-entry.ts`, ~16 KB, no `effect`) installed if the document has
+none yet, then the request. Evaluate it in an isolated world that binds
+`bb.postMessage`.
+
+The page's targets join every hint session; the parent sends it `labels` and
+`typed`, and the page draws them itself. The parent sends `chords` (the
+`hostChords` option: the host's own command chords, letters and digits
+only), and the page passes those back when a person types them there, which
+starts a session with that page as the focused frame. Its forwarded keys may
+pick any label, the host's too: the page bridge is the host's own script and
+forwards only `isTrusted` keys, so a page script cannot type into a label.
+Scroll keys and the scroll picker do not reach into a native page.
+
 ## Develop
 
 ```sh
 npm run typecheck      # domain on the iso preset, src on the browser preset, tests
 npm test               # node --test: happy-dom pages + fast-check properties
 npm run lint           # oxlint, type-aware
-npm run build:bridge   # rebuild bridge/bbim-bridge.js (a test fails when it is stale)
+npm run build:bridge   # rebuild bridge/bbim-bridge.js and bridge/bbim-page.ts (a test fails when stale)
 ```
 
 Effect runs in one place, `src/dom/runtime.ts`: each bbim instance and hint

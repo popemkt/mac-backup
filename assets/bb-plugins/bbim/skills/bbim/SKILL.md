@@ -1,6 +1,6 @@
 ---
 name: bbim
-description: bbim, the bb plugin for vim-style keyboard navigation of bb itself — link hints (alt+f / f), j/k/d/u/gg/G scrolling, picking the pane to scroll (alt+s / gs), gi to pick a text input, ? for help. Use when asked how to drive bb from the keyboard, to change or explain bbim's keys and settings, why a bbim key does nothing somewhere, or how to make a page shown in a frame inside bb hintable (the bbim-bridge script and its postMessage protocol).
+description: bbim, the bb plugin for vim-style keyboard navigation of bb itself — link hints (alt+f / f, reaching into Browser tab pages on desktop), j/k/d/u/gg/G scrolling, picking the pane to scroll (alt+s / gs), gi to pick a text input, ? for help. Use when asked how to drive bb from the keyboard, to change or explain bbim's keys and settings, why a bbim key does nothing somewhere, or how to make a page shown in a frame inside bb hintable (the bbim-bridge script and its postMessage protocol).
 ---
 
 # bbim
@@ -20,8 +20,17 @@ press its keys, but can explain and configure them.
 The chords work while typing in the composer and, with `chordsInTerminal` on (default), in a
 terminal: there `alt+f` shows hints instead of moving a word forward, and Esc leaves focus and
 the caret in the terminal. Turn it off to give the chords back to the shell. They are
-unavailable in a browser tab and while a dialog is open. Nothing in bb binds `ctrl+f`
-(`cmd+f` is find), so in a terminal it stays the shell's forward-char.
+unavailable while a dialog is open. Nothing in bb binds `ctrl+f` (`cmd+f` is find), so in a
+terminal it stays the shell's forward-char.
+
+## Browser tabs (desktop app)
+
+The page in a Browser tab joins hints: `alt+f` anywhere in bb, or typed inside the page, labels
+the page's links and controls (drawn inside the page) along with bb's own, and a pick clicks,
+follows or focuses in the page. Inside the page `alt+f`, `alt+shift+f` and `alt+s` work at their
+default shortcuts only (the page keeps its keys, so bbim's own script in it passes these back;
+a chord rebound in Settings → Keyboard works only outside the page). Scroll keys and the scroll
+picker do not reach into the page. Outside the desktop app (web, mobile) the tab gets no hints.
 
 ## Bare keys
 
@@ -85,12 +94,12 @@ hints), `open {requestId, url}` (only as the answer to that activation, http(s) 
 most 256 target replies and 256 keys per frame per hint session are read, counted before
 decoding. The page's labels show at once; each frame's join as it answers, until a letter is
 typed, and frames that do not answer within 1 s are skipped. A frame reports its own target boxes, so embed
-bridge frames only from origins you trust. Full tables: `core/README.md`.
+bridge frames only from origins you trust. A Browser tab's page speaks the same protocol over
+bb's script channel instead of `postMessage`, with three requests only it handles (`labels`,
+`typed`, `chords`): bbim injects that page bridge itself. Full tables: `core/README.md`.
 
 ## Constraints
 
-- No hints inside bb's browser tabs yet (kb gap `01M5KBVSMZ39HBDVBG4CA5TEH0`): bbim stands aside
-  there.
 - Hints cover what is on screen and not covered by something else; scroll to reach the rest.
   Controls shown only on hover are included, with dimmed dashed labels after the visible ones.
 - Digit keys are never bbim's.

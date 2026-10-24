@@ -11,11 +11,13 @@ import {
   focusState,
   MENU_SELECTOR,
   MODAL_SELECTOR,
+  type PageView,
   presenceGuard,
   type SettingsInput,
   type Theme,
   withinGuard,
 } from "@popemkt/bbim-core";
+import { pageRequest } from "@popemkt/bbim-core/page";
 import type { HostSettings } from "./settings.ts";
 
 /** bb's tokens (its Tailwind theme variables), so hints follow light, dark and custom palettes. */
@@ -42,9 +44,9 @@ function guards(doc: Document): ReadonlyArray<FocusGuard> {
     // A terminal is typing: the chords work there unless `chordsInTerminal`
     // is off (then alt+f is the shell's again); bare keys never do.
     withinGuard(TERMINAL, () => (live.chordsInTerminal ? "typing" : "blocked")),
-    // GAP [[01M5KBVSMZ39HBDVBG4CA5TEH0]] a browser tab's page gets no hints:
-    // bbim stands aside there until it injects into the tab (experimental_page).
-    withinGuard(BROWSER),
+    // The Browser chrome (address bar, toolbar) is typing: the chords work and
+    // reach into the page (attachBrowserPage); bare keys stay off.
+    withinGuard(BROWSER, "typing"),
     // bb's own `modalOpen` gate, the same selector.
     presenceGuard(doc, MODAL_SELECTOR, "blocked"),
     presenceGuard(doc, MENU_SELECTOR, "typing"),
@@ -101,9 +103,15 @@ export function mountBbim(signal: AbortSignal, win: Window = window): void {
     // gi labels every input; the first label (and Enter) is the last one used,
     // else the composer in the pane you are in.
     preferInput: COMPOSER,
+    hostChords: HOST_CHORDS,
   });
   engine = mounted;
   engineWindow = win;
+  // Browser tabs that mounted before this engine join it now.
+  for (const [view, attached] of browserPages) {
+    attached.detach();
+    browserPages.set(view, { detach: mounted.attachPage(view) });
+  }
   signal.addEventListener(
     "abort",
     () => {
@@ -113,6 +121,54 @@ export function mountBbim(signal: AbortSignal, win: Window = window): void {
     },
     { once: true },
   );
+}
+
+/**
+ * The bb command chords at their default shortcuts (app.tsx). A Browser
+ * page keeps the keys typed in it, so the page passes these back. A chord
+ * rebound in bb's Keyboard settings is not seen here: the default still
+ * works inside a page, the new one only outside it.
+ */
+const HOST_CHORDS: ReadonlyArray<{ readonly keys: string; readonly action: Action }> = [
+  { keys: "<A-f>", action: "hints" },
+  { keys: "<A-F>", action: "hintsNewTab" },
+  { keys: "<A-s>", action: "pickScroll" },
+];
+
+/** bb's `experimental_page`: script access to one Browser tab (desktop only). */
+export interface BrowserPage {
+  readonly evaluate: (expression: string, options?: { readonly world?: "isolated" | "main" }) => Promise<unknown>;
+  readonly onMessage: (listener: (data: unknown) => void) => () => void;
+}
+
+/** Every attached Browser tab, so a remounted engine picks them up. */
+const browserPages = new Map<PageView, { detach: () => void }>();
+
+const NOTHING = () => {};
+
+/**
+ * Hint the Browser tab whose toolbar holds `anchor`: its page joins every
+ * hint session (labels drawn inside it, picks activated there), and the
+ * chords typed in it come back. bb lays the native page view over the last
+ * child of `[data-app-browser]`, so that element is where the page is.
+ * Returns the detach; a missing page (not desktop) or browser view is a no-op.
+ */
+export function attachBrowserPage(anchor: Element, page: BrowserPage | null): () => void {
+  const viewport = anchor.closest(BROWSER)?.lastElementChild ?? null;
+  if (page === null || viewport === null) return NOTHING;
+  const view: PageView = {
+    element: viewport,
+    // The page bridge rides along with every request: a navigation drops whatever was installed.
+    send: (message) => {
+      page.evaluate(pageRequest(message), { world: "isolated" }).catch(NOTHING);
+    },
+    listen: (handler) => page.onMessage(handler),
+  };
+  browserPages.set(view, { detach: engine?.attachPage(view) ?? NOTHING });
+  return () => {
+    browserPages.get(view)?.detach();
+    browserPages.delete(view);
+  };
 }
 
 export function syncSettings(input: SettingsInput, host: HostSettings = { chordsInTerminal: true }): void {
@@ -130,9 +186,11 @@ export function runAction(action: Action): void {
 }
 
 /**
- * Whether a bb command may run now. Inside a Browser tab, or a terminal with
- * `chordsInTerminal` off, the chord stays theirs (alt+f is forward-word in a
- * shell), so the command declines and bb lets the key through.
+ * Whether a bb command may run now. In a terminal with `chordsInTerminal`
+ * off, or while a dialog is open, the chord is not bbim's (alt+f is
+ * forward-word in a shell), so the command declines and bb lets the key
+ * through. Focus inside a Browser page never reaches here: the page passes
+ * the chords back itself (attachBrowserPage).
  */
 export function commandAvailable(): boolean {
   return engine !== undefined && engineWindow !== undefined && focusState(engineGuards, deepActiveElement(engineWindow.document)) !== "blocked";

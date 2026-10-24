@@ -51,18 +51,46 @@ export type BridgeReply = (message: FrameMessage, to: string) => void;
 export interface BridgeCore {
   /** Handle one decoded request from `from` (passed back to the reply). */
   readonly receive: (message: ParentMessage, from: string) => void;
+  /** The element the last collect reported as `id`. */
+  readonly target: (id: number) => Element | undefined;
+  /** Whether keys are being forwarded now. */
+  readonly forwarding: () => boolean;
   /** Stop forwarding and forget the targets. */
   readonly dispose: () => void;
+}
+
+/** A keydown as the protocol's `key` message. */
+export function keyMessage(event: KeyboardEvent): FrameMessage {
+  const { key, code, ctrlKey, altKey, metaKey, shiftKey } = event;
+  return {
+    bbim: BRIDGE_PROTOCOL,
+    type: "key",
+    key: key.slice(0, 64),
+    code: code.slice(0, 64),
+    ctrlKey,
+    altKey,
+    metaKey,
+    shiftKey,
+    repeat: false,
+    isComposing: false,
+  };
 }
 
 /**
  * The bridge itself, over any transport: it collects and activates targets
  * and forwards keys while asked to. The transport decodes requests, decides
  * who may send which (installBbimBridge: origins), and carries the replies.
+ * The native-page requests (`labels`, `typed`, `chords`) are the page
+ * transport's (page-bridge.ts); here they do nothing.
  */
 export function bridgeCore(
   win: Window,
-  options: { readonly selectors?: ReadonlyArray<string>; readonly modeTtlMs?: number },
+  options: {
+    readonly selectors?: ReadonlyArray<string>;
+    readonly modeTtlMs?: number;
+    /** Forward only keys the browser marks as typed by a person (`isTrusted`). */
+    readonly trustedKeysOnly?: boolean;
+  },
   reply: BridgeReply,
 ): BridgeCore {
   const ttl = options.modeTtlMs ?? MODE_TTL_MS;
@@ -97,30 +125,17 @@ export function bridgeCore(
       return;
     }
     const onKey = (event: KeyboardEvent) => {
+      // A native page's keys count as a person's: one its own scripts made up is not forwarded.
+      if (options.trustedKeysOnly === true && !event.isTrusted) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       // Held keys and IME composition are swallowed but never typed into a label.
       // oxlint-disable-next-line typescript/no-deprecated -- keyCode 229 is how Safari marks IME keys.
       const composing = event.isComposing || event.key === "Process" || event.keyCode === 229;
       if (event.repeat || composing) return;
-      const { key, code, ctrlKey, altKey, metaKey, shiftKey } = event;
-      reply(
-        {
-          bbim: BRIDGE_PROTOCOL,
-          type: "key",
-          key: key.slice(0, 64),
-          code: code.slice(0, 64),
-          ctrlKey,
-          altKey,
-          metaKey,
-          shiftKey,
-          repeat: false,
-          isComposing: false,
-        },
-        origin,
-      );
+      reply(keyMessage(event), origin);
       // Escape ends the parent's hint mode, which ends forwarding; do not wait for it.
-      if (key === "Escape") stopForwarding();
+      if (event.key === "Escape") stopForwarding();
     };
     // A click inside the frame ends hints, as a click on the page does.
     const onPointer = () => stopForwarding("pointer");
@@ -171,11 +186,17 @@ export function bridgeCore(
         if (message.active) startForwarding(from);
         else stopForwarding();
         return;
+      case "labels":
+      case "typed":
+      case "chords":
+        return;
     }
   };
 
   return {
     receive,
+    target: (id) => targets.get(id)?.element,
+    forwarding: () => forwarding !== undefined,
     dispose: () => {
       stopForwarding();
       targets.clear();

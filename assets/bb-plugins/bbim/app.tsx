@@ -1,9 +1,14 @@
 // bbim's frontend: the core engine mounted as a content script, bb commands
 // for the chords, and a headless overlay that feeds it settings and bb's URL
 // opener (content scripts have no hooks).
-import { useEffect } from "react";
-import { definePluginApp, useBbNavigate, useSettings } from "@get-bb/plugin-sdk/app";
-import { commandAvailable, mountBbim, runAction, syncOpenUrl, syncSettings } from "./adapter/bb.ts";
+import { useEffect, useRef } from "react";
+import {
+  definePluginApp,
+  type ExperimentalPluginBrowserToolbarActionProps,
+  useBbNavigate,
+  useSettings,
+} from "@get-bb/plugin-sdk/app";
+import { attachBrowserPage, commandAvailable, mountBbim, runAction, syncOpenUrl, syncSettings } from "./adapter/bb.ts";
 import { hostSettings, settingsInput } from "./adapter/settings.ts";
 
 function SettingsSync() {
@@ -16,6 +21,21 @@ function SettingsSync() {
     syncOpenUrl((url) => navigate.openUrl(url));
   }, [navigate]);
   return null;
+}
+
+/**
+ * Renders nothing beside a Browser tab's address bar; it is how bbim gets
+ * the tab's page (`experimental_page`, desktop only: null elsewhere, and
+ * then the tab simply gets no hints). Re-attached when the tab navigates.
+ */
+function BrowserPageHints({ url, experimental_page: page }: ExperimentalPluginBrowserToolbarActionProps) {
+  const anchor = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const element = anchor.current;
+    if (element === null) return undefined;
+    return attachBrowserPage(element, page);
+  }, [page, url]);
+  return <span ref={anchor} hidden />;
 }
 
 export default definePluginApp((app) => {
@@ -53,4 +73,5 @@ export default definePluginApp((app) => {
     run: () => runAction("help"),
   });
   app.slots.experimental_appOverlay({ id: "settings-sync", component: SettingsSync });
+  app.slots.experimental_browserToolbarAction({ id: "page-hints", title: "bbim hints", component: BrowserPageHints });
 });

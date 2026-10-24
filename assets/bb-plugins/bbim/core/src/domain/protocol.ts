@@ -99,6 +99,23 @@ const parentMessages = {
    * of silence.
    */
   mode: message("mode", { active: flag }),
+  /**
+   * Native pages only (a page a host shows in a native view over its own
+   * window, which covers the parent's overlay): draw these labels on the
+   * targets of the last `collect`, by id. An empty list removes them. A
+   * postMessage bridge ignores it: the parent draws over an iframe itself.
+   */
+  labels: message("labels", { labels: listOf(struct({ id, label: text(16) }), MAX_FRAME_TARGETS) }),
+  /** Native pages only: narrow the drawn labels to those starting with `typed`. */
+  typed: message("typed", { typed: text(16) }),
+  /**
+   * Native pages only: chords the parent binds (its host's commands). A
+   * native page keeps every key typed in it, so it passes these back as
+   * `key` messages, matched by physical `code` and modifiers.
+   */
+  chords: message("chords", {
+    chords: listOf(struct({ code: text(32), ctrlKey: flag, altKey: flag, metaKey: flag, shiftKey: flag }), 32),
+  }),
 };
 
 // ---- frame -> parent -------------------------------------------------------
@@ -113,8 +130,9 @@ export type FrameTarget = Checked<typeof frameTarget>;
 const frameMessages = {
   targets: message("targets", { requestId, targets: listOf(frameTarget, MAX_FRAME_TARGETS) }),
   /**
-   * A keydown inside the frame while the parent's hint mode is up. `repeat`
-   * and `isComposing` travel so the parent can drop held and IME keys too.
+   * A keydown inside the frame while the parent's hint mode is up (or, from a
+   * native page, one of the parent's `chords`). `repeat` and `isComposing`
+   * travel so the parent can drop held and IME keys too.
    */
   key: message("key", {
     key: text(64),
