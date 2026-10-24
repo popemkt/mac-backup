@@ -1,7 +1,8 @@
 // The panel's rules over plain data. Run: npm test
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ago, elsewhereHost, matches, otherHarnesses, parseListing, threadIds, timeLabel, type Canvas } from "../lib/canvases.ts";
+import { ago, matches, threadIds, timeLabel } from "../../linked-items/rows.ts";
+import { elsewhereHost, otherHarnesses, parseListing, rowOf, type Canvas } from "../lib/canvases.ts";
 
 function canvas(over: Partial<Canvas>): Canvas {
   return {
@@ -46,7 +47,7 @@ test("a listing is parsed field by field; a broken row is dropped, not the listi
 });
 
 test("search needs every word somewhere in name, folder, host or sessions", () => {
-  const c = canvas({ sessions: [{ harness: "codex", id: "x1", ts: 1 }] });
+  const c = rowOf(canvas({ sessions: [{ harness: "codex", id: "x1", ts: 1 }] }));
   assert.ok(matches(c, ""));
   assert.ok(matches(c, "design documents"));
   assert.ok(matches(c, "CODEX"));
@@ -64,8 +65,20 @@ test("thread chips: bb sessions, newest first, once each; other harnesses counte
       { harness: "codex", id: "y", ts: 4 },
     ],
   });
-  assert.deepEqual(threadIds(c), ["thr_new", "thr_old"]);
+  assert.deepEqual(threadIds(rowOf(c)), ["thr_new", "thr_old"]);
   assert.deepEqual(otherHarnesses(c), ["claude-code", "codex · 2"]);
+  assert.deepEqual(rowOf(c).tags, ["claude-code", "codex · 2"]);
+});
+
+test("a row: a missing local file is gone, a canvas elsewhere names its host, links are never claimed", () => {
+  const gone = rowOf(canvas({ exists: false, open: true, sessions: [{ harness: "bb", id: "thr_1", ts: 1 }] }));
+  assert.equal(gone.gone, "file gone");
+  assert.equal(gone.open, "open now");
+  assert.equal(gone.where, "~/Documents");
+  assert.deepEqual(gone.threads, [{ id: "thr_1", at: 1, claimed: false }]);
+  const away = rowOf(canvas({ local: false, host: "shared-server", exists: null }));
+  assert.equal(away.where, "on shared-server");
+  assert.equal(away.gone, null);
 });
 
 test("relative times", () => {
@@ -76,8 +89,8 @@ test("relative times", () => {
   assert.equal(ago(now - 2 * 86_400_000, now), "2d ago");
   assert.equal(ago(now - 14 * 86_400_000, now), "2w ago");
   assert.equal(ago(Date.UTC(2026, 0, 2), now), "2026-01-02");
-  assert.equal(timeLabel(canvas({ editedAt: now - 3_600_000, linkedAt: now }), now), "edited 1h ago");
-  assert.equal(timeLabel(canvas({ editedAt: null, linkedAt: now }), now), "linked just now");
+  assert.equal(timeLabel(rowOf(canvas({ editedAt: now - 3_600_000, linkedAt: now })), now), "edited 1h ago");
+  assert.equal(timeLabel(rowOf(canvas({ editedAt: null, linkedAt: now })), now), "linked just now");
 });
 
 test("open on another machine is exit 3 with 'on <host>'", () => {

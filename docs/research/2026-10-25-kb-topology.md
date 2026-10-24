@@ -135,22 +135,30 @@ Triggers for steps 3 and 4:
   from `KB_VIA` by the CLI and by `kb mcp`. kb records it on the transaction the call commits, next to
   `actor` and `session`, and never reads it. Any harness, job or script can later ask "what did my run
   change". It follows the pattern `session` already established, down to the SQLite column migration.
-- **`graph.changes {since, viaPrefix?, limit?}`:** the transactions committed after a revision. For each one
-  it returns who made it, and the ids, text and tags of the nodes it wrote or deleted. `complete: false` means
-  the log no longer reaches back that far. Any program that follows kb can use it.
+  **`via` is advisory:** a caller states it about itself and kb checks nothing, so any caller can claim any
+  label. That is why the panel shows a link a write made as *claimed by* its thread, and a link made by hand
+  as plain.
+- **`graph.changes {since, viaPrefix?, limit?}`:** the transactions committed after a revision, read from the
+  store's own tail one page at a time (by count and by bytes). For each one it returns who made it, and the
+  ids, text and tags of the nodes it wrote or deleted. `viaPrefix` matches on a separator (`bb:` matches
+  `bb:thr_1`, not `bbx:`). `through` is the last revision read, matched or not, and the next page starts after
+  it. `complete: false` means the log no longer reaches back that far. Any program that follows kb can use it.
 
 This keeps one record of which write happened: kb's own log. The plugin's database is an index derived from
 that log. It is kept on disk only because kb compacts its log after 2048 entries.
 
-**Should both panels share one contract or one component?** Not yet.
+**Should both panels share one contract or one component?** Two panels, one row.
 
-- The rows share an anatomy and their field names. `LinkedItem` in `assets/bb-plugins/kb/lib/links.ts`
-  mirrors `Canvas` in `canvas-links/lib/canvases.ts` wherever a field applies.
-- They do not share code. A bb plugin is installed from its own folder, so importing across plugins is not a
-  seam that exists.
-- The owner wants to use both panels every day and let the UX differences show.
-- The duplication is a named gap (`01M5QJFW217ZNBXHEX74VG7VYP`). It closes in one of two ways: a single
-  linked-items row, or tldraw links becoming a second kind inside the kb plugin.
+- The owner wants to use both panels every day and compare them, so each plugin keeps its own panel.
+- What a row is and how it is drawn is stated once, in `assets/bb-plugins/linked-items/`: `rows.ts` (the
+  `LinkRow` model, scopes, search, threads, "edited 3h ago", claimed links) and `row.tsx` (the scope tabs and
+  the row with its thread chips, React only). Each plugin maps its own item to a `LinkRow` (`rowOf` in
+  `canvas-links/lib/canvases.ts` and in `kb/lib/links.ts`) and imports both by relative path.
+- `bb plugin build` bundles that folder into each plugin, and `bb-plugins-sync` counts every sibling folder
+  with no `package.json` as shared code in its change stamp, so editing it reinstalls both plugins.
+- The panel shell is still copied (gap `01M5QJFW217ZNBXHEX74VG7VYP`): the header, search box, link button,
+  and empty and error states. They are drawn with each plugin's own `Button`, `Input` and `Icon`, which import
+  `@/…` and `@get-bb/plugin-sdk/app`. Those resolve only inside a plugin's root, not from the shared folder.
 
 ### The boundary
 
@@ -167,9 +175,10 @@ that log. It is kept on disk only because kb compacts its log after 2048 entries
 agent in thread T ──kb_call {via: bb:T}──────────────▶ kb (shared-server home store)
 agent's kb CLI / kb MCP (env KB_VIA=bb:T) ──────────────▶ same store, if it is the one written
                                                          │ tx log records via
-bb kb plugin: loop every 10 s, and on each list ◀── graph.changes since cursor
+bb kb plugin: loop every 10 s, and on each list ◀── graph.changes {since: cursor, viaPrefix: "bb:"}
   → canvases written by a bb:* change: links(store, canvas, thread, project, host, how, first, last)
-  → any change to a canvas: items(name, edited_at, gone)
+    and items(name, edited_at, gone), for linked canvases only; newest 5000 links kept
+  → on each list, one graph.query for the canvases kb has now: renames and deletions by anyone
 kb canvases panel ◀── RPC links {thread, scope}  ·  linkOpen  ·  openItem → ui.navigate in the thread's tab
 ```
 
@@ -177,8 +186,12 @@ kb canvases panel ◀── RPC links {thread, scope}  ·  linkOpen  ·  openIte
   one entry, plus a row label if it needs one.
 - **Seams for more kb integration.** The plugin is meant to become bb's home for kb integration in general,
   and links are its first capability. Each capability is one module (`links.ts`, `linked-panel.tsx`,
-  `lib/links.ts`) that `server.ts` and `app.tsx` register in a line each. It reaches kb only through the
-  `KbAccess` interface: one action, the root, and a thread's tab session.
+  `lib/links.ts`, `lib/link-book.ts`) that `server.ts` and `app.tsx` register in a line each. It reaches kb
+  only through the `KbAccess` interface: one action, the root, and a thread's tab session.
+- **A log that skipped ahead.** If kb compacted its log past the cursor, the book carries on from kb's head,
+  remembers when, and the panel says the links "may be incomplete". A first read is never a gap.
+- **"edited"** is the last write a thread made: the loop reads only `bb:` writes, so an edit in kb's own UI
+  does not move it (renames and deletions do show, through the list's query).
 - **Open.** If the thread's kb tab is live, open calls `ui.navigate /canvas/<id>` in that tab session. If not,
   the route waits until the panel reports a session, then navigates. Either way the panel opens the kb tab.
 - **Link open canvas.** This is the twin of "Link focused canvas". It links the canvas that the thread's kb
@@ -189,8 +202,9 @@ kb canvases panel ◀── RPC links {thread, scope}  ·  linkOpen  ·  openIte
 | Canvases (tldraw) | kb canvases |
 |---|---|
 | Tabs: Thread / Project / All | Same. Project means the same bb project, where canvas-link uses the same git remote. |
-| Row: dot, name, "edited 3h ago" | Same. The green dot means "open in this thread's kb tab". |
-| Second line: folder, or "on <host>" | "kb · <store>", plus "linked by hand" when it applies |
+| Row: dot, name, "edited 3h ago" | Same row, drawn by the same code. The green dot means "open in this thread's kb tab". |
+| Second line: folder, or "on <host>" | "kb · <store>", plus "linked by hand" or "claimed by this thread" |
+| Thread chips | Same; a chip with a dashed border is a claimed link |
 | "file gone", struck through | "deleted", struck through |
 | Thread chips in Project and All | Same |
 | Search `/`, Escape clears it | Same |
@@ -200,11 +214,13 @@ kb canvases panel ◀── RPC links {thread, scope}  ·  linkOpen  ·  openIte
 
 ### Built
 
-- **kb PR:** `via` on calls and on the log (SQLite schema 6), `KB_VIA` for the CLI and MCP, `graph.changes`,
-  DESIGN.md, and tests.
+- **kb PR:** `via` on calls and on the log (SQLite schema 6, JSONL, memory), `KB_VIA` for the CLI and MCP,
+  `graph.changes` over a paged `TxTail.since` read, DESIGN.md, and tests (a tail contract every adapter runs,
+  and a log-contract case for a second writer).
 - **Dotfiles PR:**
-  - in the kb plugin: `lib/links.ts`, `links.ts`, `linked-panel.tsx`, the label added to `kb_call`, the
-    panel slot, and tests;
+  - in the kb plugin: `lib/links.ts`, `lib/link-book.ts`, `links.ts`, `linked-panel.tsx`, the label added
+    to `kb_call`, the panel slot, and tests (the book runs on `node:sqlite` against a fake kb);
+  - the shared `assets/bb-plugins/linked-items/` row, which the Canvases panel now draws with too;
   - the README, overview and skill;
   - three gap nodes;
   - this document and its `#research` node.
@@ -224,7 +240,7 @@ kb canvases panel ◀── RPC links {thread, scope}  ·  linkOpen  ·  openIte
   (`nix run .#github-sources -- update kb`). Until then the panel says the kb has no `graph.changes`.
 - The panel has not yet been seen in a live bb. That needs a deploy.
 - Gap `01M5QJFVQ61E19BAB2KXC0FA4M`: only the served kb is read.
-- Gap `01M5QJFW217ZNBXHEX74VG7VYP`: the row is copied between the two panels.
+- Gap `01M5QJFW217ZNBXHEX74VG7VYP`: the panel shell (not the row) is copied between the two panels.
 - Gap `01M5QJFWFYAKE90KSRNPN4EX78`: there is no backup.
 
 ### What to watch (v1 is an experiment)
@@ -236,6 +252,9 @@ kb canvases panel ◀── RPC links {thread, scope}  ·  linkOpen  ·  openIte
 - **Project scope.** Does the bb project match the owner's notion of a project better or worse than
   canvas-link's git remote?
 - **Link open canvas.** Is it ever used? If not, drop it.
+- **Claimed links.** Does a dashed chip ever turn out wrong (a label some other caller stated)? If so, the
+  plugin needs a label kb can check, not a stated one.
+- **"May be incomplete".** How often does it show? Often means the 10 s loop falls behind kb's compaction.
 - **Open in tab.** Does the queued open feel instant, or does the tab's reload make it lag?
 - **Which panel the owner reaches for.** The two panels, or kb's own Canvases list? That decides whether to
   merge the panels (gap `…VYP`), fold tldraw in as a kind, or let kb's list replace the panel.

@@ -1,14 +1,19 @@
 // bb-plugin-kb — linked items, the frontend half: the "kb canvases" thread side-panel tab. The kb canvases this
 // thread, its project, or any thread wrote or linked, a search box, "Link open canvas", and a click that shows
-// one in the kb tab. Deliberately the Canvases panel's twin (assets/bb-plugins/canvas-links/app.tsx): same
-// tabs, same row anatomy, same actions where they apply, so the two can be compared day to day. Data comes
-// from links.ts over RPC; the row rules are lib/links.ts.
+// one in the kb tab. Deliberately the Canvases panel's twin (assets/bb-plugins/canvas-links/app.tsx), so the two
+// can be compared day to day: the tabs, rows and search are one shared module (assets/bb-plugins/linked-items).
+// Data comes from links.ts over RPC.
+// GAP [[01M5QJFW217ZNBXHEX74VG7VYP]]: this shell (header, search box, link button, empty and error states) is
+// still the Canvases panel's, copied: it is drawn with each plugin's own Button, Input and Icon, which import
+// "@/…" and "@get-bb/plugin-sdk/app", and those resolve only inside a plugin's root, not in the shared folder.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { useBbNavigate, useRpc, type PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 import type { LinksAnswer, linksContract } from "./links";
-import { matches, threadIds, timeLabel, type LinkedItem, type Scope } from "./lib/links";
+import { LinkedRow, ScopeTabs } from "../linked-items/row";
+import { ago, matches, type LinkRow, type Scope } from "../linked-items/rows";
+import { rowOf } from "./lib/links";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
@@ -19,7 +24,6 @@ export const LINKED_TITLE = "kb canvases";
 /** The kb tab (app.tsx) an item opens in. */
 const KB_PANEL = { actionId: "kb", title: "kb" };
 
-const SCOPE_LABELS: Record<Scope, string> = { session: "Thread", project: "Project", all: "All" };
 const EMPTY: Record<Scope, string> = {
   session: "No kb canvases linked from this thread yet. Canvases its agent writes link themselves; or open one in the kb tab and link it.",
   project: "No kb canvases linked from this project.",
@@ -56,103 +60,6 @@ function useLinks(threadId: string, scope: Scope) {
   return { answer, error, loading, refresh: load };
 }
 
-function ScopeTab({ scope, current, onSelect }: { scope: Scope; current: Scope; onSelect: (s: Scope) => void }) {
-  const isOn = scope === current;
-  return (
-    <button
-      type="button"
-      aria-pressed={isOn}
-      onClick={() => onSelect(scope)}
-      className={cn(
-        "flex-1 cursor-pointer rounded-md px-2 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-        isOn ? "bg-state-active text-foreground" : "text-muted-foreground hover:bg-state-hover hover:text-foreground",
-      )}
-    >
-      {SCOPE_LABELS[scope]}
-    </button>
-  );
-}
-
-function ThreadChip({ id, title, isCurrent }: { id: string; title: string | null | undefined; isCurrent: boolean }) {
-  const navigate = useBbNavigate();
-  const label = isCurrent ? "this thread" : (title ?? id);
-  return (
-    <button
-      type="button"
-      title={isCurrent ? id : `Go to ${title ?? id}`}
-      disabled={isCurrent}
-      onClick={event => {
-        event.stopPropagation();
-        navigate.toThread(id);
-      }}
-      className={cn(
-        "max-w-40 truncate rounded border border-border px-1.5 py-px text-[11px] leading-4",
-        isCurrent ? "text-muted-foreground" : "cursor-pointer text-foreground hover:bg-state-hover",
-      )}
-    >
-      {label}
-    </button>
-  );
-}
-
-function Row({
-  item,
-  scope,
-  threadId,
-  titles,
-  now,
-  onOpen,
-}: {
-  item: LinkedItem;
-  scope: Scope;
-  threadId: string;
-  titles: Record<string, string | null>;
-  now: number;
-  onOpen: (item: LinkedItem) => void;
-}) {
-  const ids = threadIds(item);
-  const linkedByHand = item.threads.some(t => t.id === threadId && t.how === "linked");
-  return (
-    <li>
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={() => onOpen(item)}
-        onKeyDown={event => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            onOpen(item);
-          }
-        }}
-        title={item.id}
-        className="group cursor-pointer space-y-1 rounded-md px-2 py-1.5 hover:bg-state-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-      >
-        <div className="flex min-w-0 items-center gap-2">
-          <span
-            aria-label={item.open ? "open in the kb tab" : undefined}
-            className={cn("size-2 shrink-0 rounded-full", item.open ? "bg-success" : "bg-transparent")}
-          />
-          <span className={cn("min-w-0 flex-1 truncate text-sm", item.gone && "text-muted-foreground line-through")}>{item.name}</span>
-          <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">{timeLabel(item, now)}</span>
-        </div>
-        <div className="flex min-w-0 items-center gap-1.5 pl-4 text-xs text-muted-foreground">
-          <span className="min-w-0 truncate">kb · {item.store}</span>
-          {linkedByHand ? <span className="shrink-0">· linked by hand</span> : null}
-          {item.gone ? <span className="shrink-0 text-warning">deleted</span> : null}
-        </div>
-        {scope !== "session" && ids.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-1 pl-4">
-            {ids.slice(0, 3).map(id => (
-              <ThreadChip key={id} id={id} title={titles[id]} isCurrent={id === threadId} />
-            ))}
-            {ids.length > 3 ? <span className="text-[11px] text-muted-foreground">+{ids.length - 3} threads</span> : null}
-          </div>
-        ) : null}
-      </div>
-    </li>
-  );
-}
-
 export function LinkedPanel({ threadId }: PluginThreadPanelProps) {
   const rpc = useRpc<typeof linksContract>();
   const navigate = useBbNavigate();
@@ -163,7 +70,10 @@ export function LinkedPanel({ threadId }: PluginThreadPanelProps) {
   const search = useRef<HTMLInputElement>(null);
   const now = Date.now();
 
-  const items = useMemo(() => (answer?.items ?? []).filter(i => matches(i, query, answer?.titles)), [answer, query]);
+  const rows = useMemo(
+    () => (answer?.items ?? []).map(i => rowOf(i, threadId)).filter(r => matches(r, query, answer?.titles)),
+    [answer, query, threadId],
+  );
 
   const linkOpen = () => {
     setLinking(true);
@@ -181,12 +91,12 @@ export function LinkedPanel({ threadId }: PluginThreadPanelProps) {
       .finally(() => setLinking(false));
   };
 
-  const open = (item: LinkedItem) => {
-    if (item.gone) {
-      toast.error(`${item.name} was deleted in kb.`);
+  const open = (row: LinkRow) => {
+    if (row.gone !== null) {
+      toast.error(`${row.name} was deleted in kb.`);
       return;
     }
-    rpc.call("openItem", { threadId, id: item.id }).then(
+    rpc.call("openItem", { threadId, id: row.key }).then(
       r => {
         if (!r.ok) {
           toast.error(r.message);
@@ -211,11 +121,7 @@ export function LinkedPanel({ threadId }: PluginThreadPanelProps) {
     <div className="flex h-full min-h-0 flex-col" onKeyDown={onKeyDown}>
       <div className="space-y-2 border-b border-border px-3 py-2">
         <div className="flex items-center gap-1.5">
-          <div className="flex flex-1 items-center gap-0.5 rounded-lg bg-muted/50 p-0.5" role="toolbar" aria-label="Scope">
-            {(["session", "project", "all"] as const).map(s => (
-              <ScopeTab key={s} scope={s} current={scope} onSelect={setScope} />
-            ))}
-          </div>
+          <ScopeTabs current={scope} onSelect={setScope} />
           <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={refresh} disabled={loading} aria-label="Refresh">
             <Icon name="RotateCcw" className={cn("size-4", loading && "animate-spin")} />
           </Button>
@@ -254,12 +160,21 @@ export function LinkedPanel({ threadId }: PluginThreadPanelProps) {
           <div className="flex items-center justify-center gap-2 p-6 text-sm text-muted-foreground">
             <Icon name="Spinner" className="size-4 animate-spin" /> Reading links…
           </div>
-        ) : items.length === 0 ? (
+        ) : rows.length === 0 ? (
           <p className="px-3 py-6 text-center text-sm text-muted-foreground">{query === "" ? EMPTY[scope] : "No kb canvas matches."}</p>
         ) : (
           <ul className="space-y-0.5">
-            {items.map(i => (
-              <Row key={i.key} item={i} scope={scope} threadId={threadId} titles={answer.titles} now={now} onOpen={open} />
+            {rows.map(r => (
+              <LinkedRow
+                key={r.key}
+                row={r}
+                scope={scope}
+                threadId={threadId}
+                titles={answer.titles}
+                now={now}
+                onOpen={open}
+                onThread={id => navigate.toThread(id)}
+              />
             ))}
           </ul>
         )}
@@ -267,6 +182,10 @@ export function LinkedPanel({ threadId }: PluginThreadPanelProps) {
 
       {error !== null && answer !== null && answer.items.length > 0 ? (
         <p className="border-t border-border px-3 py-1.5 text-[11px] text-muted-foreground">kb unreachable: links as last read.</p>
+      ) : answer?.incomplete != null ? (
+        <p className="border-t border-border px-3 py-1.5 text-[11px] text-muted-foreground" title="kb's log was compacted past writes this panel had not read">
+          May be incomplete: kb's log skipped ahead {ago(answer.incomplete, now)}.
+        </p>
       ) : null}
     </div>
   );

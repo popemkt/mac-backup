@@ -1,9 +1,10 @@
 // The panel's rules over plain data: the shape of `canvas-link ls --json`, parsing it at the boundary, search, the
 // threads a row links to, and "edited 3h ago". The link rules themselves (merge, scopes, resolution) live in the
-// canvas-link CLI (modules/stacks/ai-agents/canvas-links/cli); this file only reads its answer.
+// canvas-link CLI (modules/stacks/ai-agents/canvas-links/cli); this file only reads its answer. Rows are drawn,
+// searched and dated as the kb canvases panel's are (assets/bb-plugins/linked-items).
+import { SCOPES, type LinkRow, type Scope } from "../../linked-items/rows.ts";
 
-export type Scope = "session" | "project" | "all";
-export const SCOPES: readonly Scope[] = ["session", "project", "all"];
+export type { Scope };
 
 export type Session = { harness: string; id: string | null };
 export type Project = { remote: string | null; root: string | null };
@@ -84,20 +85,6 @@ export function parseListing(stdout: string): Listing {
   };
 }
 
-/** Every word of the query appears in the name, folder, host or a linking session. */
-export function matches(c: Canvas, query: string): boolean {
-  const words = query.toLowerCase().split(/\s+/).filter(w => w !== "");
-  if (words.length === 0) return true;
-  const hay = [c.name, c.folder ?? "", c.host, ...c.sessions.map(s => `${s.harness} ${s.id ?? ""}`)].join(" ").toLowerCase();
-  return words.every(w => hay.includes(w));
-}
-
-/** The bb threads that link a canvas, newest first, once each. */
-export function threadIds(c: Canvas): string[] {
-  const sorted = [...c.sessions].sort((a, b) => b.ts - a.ts);
-  return [...new Set(sorted.filter(s => s.harness === "bb" && s.id !== null).map(s => s.id as string))];
-}
-
 /** Sessions from other harnesses, as "claude-code", "codex · 2", ... */
 export function otherHarnesses(c: Canvas): string[] {
   const counts = new Map<string, number>();
@@ -105,23 +92,23 @@ export function otherHarnesses(c: Canvas): string[] {
   return [...counts].map(([h, n]) => (n > 1 ? `${h} · ${n}` : h));
 }
 
-/** "just now", "5m ago", "3h ago", "2d ago", "4w ago", then a date. */
-export function ago(at: number, now: number): string {
-  const s = Math.max(0, Math.round((now - at) / 1000));
-  if (s < 60) return "just now";
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  if (d < 7) return `${d}d ago`;
-  if (d < 35) return `${Math.floor(d / 7)}w ago`;
-  return new Date(at).toISOString().slice(0, 10);
-}
-
-/** The row's time line: when tldraw last saved it, else when it was linked. */
-export function timeLabel(c: Canvas, now: number): string {
-  return c.editedAt !== null ? `edited ${ago(c.editedAt, now)}` : `linked ${ago(c.linkedAt, now)}`;
+/** How a row draws a canvas. canvas-link records the session that ran it; bb threads are chips, other harnesses tags. */
+export function rowOf(c: Canvas): LinkRow {
+  const missing = c.local && c.exists === false;
+  return {
+    key: c.key,
+    name: c.name,
+    title: c.path ?? c.key,
+    where: c.local ? (c.folder ?? "") : `on ${c.host}`,
+    notes: [],
+    gone: missing ? "file gone" : null,
+    open: c.open ? "open now" : null,
+    editedAt: c.editedAt,
+    linkedAt: c.linkedAt,
+    threads: c.sessions.flatMap(s => (s.harness === "bb" && s.id !== null ? [{ id: s.id, at: s.ts, claimed: false }] : [])),
+    tags: otherHarnesses(c),
+    search: [c.folder ?? "", c.host, ...c.sessions.map(s => `${s.harness} ${s.id ?? ""}`)],
+  };
 }
 
 /** `canvas-link open` answers "on <host>" with exit 3 for a canvas on another machine. */

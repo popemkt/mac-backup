@@ -5,22 +5,14 @@
 // dotfiles). kb gives two generic things: a write carries the caller's `via` label, and `graph.changes` reads
 // the log back. Every thread's writes are labelled `bb:<thread>`: kb_call states it on the envelope, and the
 // thread's own kb CLI and kb MCP get it as KB_VIA, which this file contributes to every provider. A background
-// loop reads the log and records a link for each canvas a labelled write touched. The rules are lib/links.ts.
+// loop reads the log of those writes and records a link for each canvas one touched (lib/link-book.ts). `via`
+// is advisory: any caller may state any label, so a link it makes is shown as claimed, not proven.
 import { basename } from "node:path";
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
-import {
-  KINDS,
-  SCOPES,
-  openCanvasOf,
-  parseChangePage,
-  touches,
-  viaOfThread,
-  type How,
-  type Kind,
-  type LinkedItem,
-  type Scope,
-} from "./lib/links";
+import { SCOPES, type Scope } from "../linked-items/rows";
+import { MIGRATIONS, linkBook, type Listing, type Where } from "./lib/link-book";
+import { KINDS, openCanvasOf, viaOfThread } from "./lib/links";
 
 /** What the links need of kb: one action, the root it serves, and the tab session a thread's panel shows. */
 export interface KbAccess {
@@ -33,10 +25,7 @@ export interface KbAccess {
   session(threadId: string): string | undefined;
 }
 
-export type LinksAnswer = {
-  items: LinkedItem[];
-  /** Why the list may be stale or empty: kb unreachable, or not configured. */
-  error: string | null;
+export type LinksAnswer = Omit<Listing, "store"> & {
   /** Titles of the threads the rows link to, by id; absent for a thread bb cannot find. */
   titles: Record<string, string | null>;
 };
@@ -59,30 +48,7 @@ export const linksContract = defineRpcContract({
 /** bb's agent providers, each told KB_VIA. A provider not installed here is never started, so naming it is free. */
 const PROVIDERS = ["claude-code", "codex", "pi", "acp-omp", "acp-opencode", "acp-grok", "acp-hermes-agent", "acp-cursor"];
 const POLL_MS = 10_000;
-const PAGE = 500;
 const TITLES_MAX = 50;
-
-const MIGRATIONS = [
-  `CREATE TABLE items (store TEXT NOT NULL, id TEXT NOT NULL, kind TEXT NOT NULL, name TEXT NOT NULL,
-     edited_at INTEGER, gone INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (store, id))`,
-  `CREATE TABLE links (store TEXT NOT NULL, id TEXT NOT NULL, thread TEXT NOT NULL, project TEXT, host TEXT,
-     how TEXT NOT NULL, first_at INTEGER NOT NULL, last_at INTEGER NOT NULL, PRIMARY KEY (store, id, thread))`,
-  `CREATE TABLE cursor (store TEXT PRIMARY KEY, rev INTEGER NOT NULL)`,
-];
-
-type Row = {
-  id: string;
-  kind: string;
-  name: string;
-  edited_at: number | null;
-  gone: number;
-  thread: string;
-  host: string | null;
-  how: string;
-  last_at: number;
-};
-
-type Where = { project: string | null; host: string | null };
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
@@ -98,9 +64,13 @@ export function registerLinks(bb: BbPluginApi, kb: KbAccess): { onSession(thread
     }
   }
 
+  // Opened and migrated once per load; bb closes it on dispose.
+  let handle: ReturnType<typeof bb.storage.database> | null = null;
   const db = () => {
-    const handle = bb.storage.database();
-    bb.storage.migrate(handle, MIGRATIONS);
+    if (handle === null) {
+      handle = bb.storage.database();
+      bb.storage.migrate(handle, MIGRATIONS);
+    }
     return handle;
   };
 
@@ -122,59 +92,10 @@ export function registerLinks(bb: BbPluginApi, kb: KbAccess): { onSession(thread
     return where;
   }
 
-  function link(store: string, id: string, threadId: string, where: Where, how: How, at: number) {
-    db()
-      .prepare(
-        `INSERT INTO links (store, id, thread, project, host, how, first_at, last_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT (store, id, thread) DO UPDATE SET last_at = MAX(last_at, excluded.last_at),
-           how = CASE WHEN links.how = 'linked' THEN 'linked' ELSE excluded.how END`,
-      )
-      .run(store, id, threadId, where.project, where.host, how, at, at);
-  }
-
-  function remember(store: string, kind: Kind, id: string, name: string, at: number) {
-    db()
-      .prepare(
-        `INSERT INTO items (store, id, kind, name, edited_at, gone) VALUES (?, ?, ?, ?, ?, 0)
-         ON CONFLICT (store, id) DO UPDATE SET name = excluded.name, kind = excluded.kind, gone = 0,
-           edited_at = MAX(COALESCE(edited_at, 0), excluded.edited_at)`,
-      )
-      .run(store, id, kind, name, at);
-  }
-
   // GAP [[01M5QJFVQ61E19BAB2KXC0FA4M]]: only the kb behind KB_SOCKET is read; a Mac's own stores and repo .kb
   // stores a thread writes are not.
-  /** Read kb's log from the cursor to its head, recording every canvas a change touched. One run at a time. */
-  let running: Promise<string> | null = null;
-  function sync(): Promise<string> {
-    running ??= (async () => {
-      const root = await kb.root();
-      if (root === null) throw new Error("kb did not say which root it serves");
-      const cursor = db().prepare<[string], { rev: number }>("SELECT rev FROM cursor WHERE store = ?").get(root);
-      let since = cursor?.rev ?? 0;
-      for (;;) {
-        const answer = await kb.call("graph.changes", { since, limit: PAGE });
-        if (!answer.ok) throw new Error(answer.message);
-        const page = parseChangePage(answer.output);
-        if (page === null) throw new Error("this kb has no graph.changes yet; it needs a newer kb");
-        for (const t of touches(page.changes)) {
-          if (t.gone) {
-            db().prepare("UPDATE items SET gone = 1 WHERE store = ? AND id = ?").run(root, t.id);
-            continue;
-          }
-          remember(root, t.kind, t.id, t.name, t.at);
-          if (t.thread !== null) link(root, t.id, t.thread, await whereIs(t.thread), "wrote", t.at);
-        }
-        // A log that no longer reaches back to the cursor (compacted, or another kb): carry on from its head.
-        since = page.complete ? (page.changes.at(-1)?.rev ?? page.head) : page.head;
-        db().prepare("INSERT INTO cursor (store, rev) VALUES (?, ?) ON CONFLICT (store) DO UPDATE SET rev = excluded.rev").run(root, since);
-        if (!page.complete || page.changes.length < PAGE) return root;
-      }
-    })().finally(() => {
-      running = null;
-    });
-    return running;
-  }
+  let book: ReturnType<typeof linkBook> | null = null;
+  const links = () => (book ??= linkBook(db(), kb, whereIs));
 
   async function titles(ids: string[]): Promise<Record<string, string | null>> {
     const pairs = await Promise.all(
@@ -197,49 +118,11 @@ export function registerLinks(bb: BbPluginApi, kb: KbAccess): { onSession(thread
   }
 
   async function list(threadId: string, scope: Scope): Promise<LinksAnswer> {
-    let error: string | null = null;
-    let store: string | null = null;
-    try {
-      store = await sync();
-    } catch (err) {
-      error = `kb could not be read: ${message(err)}`;
-      store = await kb.root().catch(() => null);
-    }
-    if (store === null) return { items: [], error: error ?? "kb is not reachable", titles: {} };
-    const where = await whereIs(threadId);
-    const filter = scope === "session" ? "AND l.thread = ?" : scope === "project" ? "AND l.project = ?" : "";
-    const args: string[] = scope === "session" ? [threadId] : scope === "project" ? [where.project ?? "\u0000none"] : [];
-    const rows = db()
-      .prepare<string[], Row>(
-        `SELECT i.id, i.kind, i.name, i.edited_at, i.gone, l.thread, l.host, l.how, l.last_at
-         FROM links l JOIN items i ON i.store = l.store AND i.id = l.id
-         WHERE l.store = ? ${filter} ORDER BY l.last_at DESC`,
-      )
-      .all(store, ...args);
+    const { store, items, error, incomplete } = await links().list(threadId, scope, basename);
+    if (store === null) return { items, error, incomplete, titles: {} };
     const open = await openCanvas(threadId).catch(() => null);
-    const label = basename(store);
-    const byId = new Map<string, LinkedItem>();
-    for (const r of rows) {
-      let item = byId.get(r.id);
-      if (item === undefined) {
-        item = {
-          key: r.id,
-          kind: r.kind in KINDS ? (r.kind as Kind) : "canvas",
-          id: r.id,
-          name: r.name === "" ? r.id : r.name,
-          store: label,
-          editedAt: r.edited_at,
-          linkedAt: r.last_at,
-          gone: r.gone === 1,
-          open: r.id === open,
-          threads: [],
-        };
-        byId.set(r.id, item);
-      }
-      item.threads.push({ id: r.thread, how: r.how === "linked" ? "linked" : "wrote", at: r.last_at, host: r.host });
-    }
-    const items = [...byId.values()];
-    return { items, error, titles: await titles([...new Set(items.flatMap(i => i.threads.map(t => t.id)))]) };
+    for (const item of items) item.open = item.id === open;
+    return { items, error, incomplete, titles: await titles([...new Set(items.flatMap(i => i.threads.map(t => t.id)))]) };
   }
 
   /** Routes waiting for a thread's kb tab to say its session. */
@@ -260,9 +143,7 @@ export function registerLinks(bb: BbPluginApi, kb: KbAccess): { onSession(thread
         if (store === null) return { ok: false, message: "kb did not say which root it serves." };
         const node = await kb.call("node.get", { id, depth: 0 });
         const text = node.ok ? nodeText(node.output) : null;
-        const now = Date.now();
-        remember(store, "canvas", id, text ?? id, now);
-        link(store, id, threadId, await whereIs(threadId), "linked", now);
+        await links().link(store, "canvas", id, text ?? id, threadId, "linked", Date.now());
         return { ok: true, message: `Linked ${text ?? id}` };
       } catch (err) {
         return { ok: false, message: message(err) };
@@ -284,7 +165,9 @@ export function registerLinks(bb: BbPluginApi, kb: KbAccess): { onSession(thread
   bb.background.service("kb-links", {
     async start(signal) {
       while (!signal.aborted) {
-        await sync().catch(err => bb.log.debug(`links: ${message(err)}`));
+        await links()
+          .sync()
+          .catch(err => bb.log.debug(`links: ${message(err)}`));
         await new Promise<void>(resolve => {
           const timer = setTimeout(resolve, POLL_MS);
           signal.addEventListener("abort", () => (clearTimeout(timer), resolve()), { once: true });

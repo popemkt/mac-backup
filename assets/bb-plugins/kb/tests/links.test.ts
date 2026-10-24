@@ -2,18 +2,8 @@
 // what, the canvas a tab shows, and how rows are searched and dated.
 import { strict as assert } from "node:assert";
 import { describe, test } from "node:test";
-import {
-  ago,
-  matches,
-  openCanvasOf,
-  parseChangePage,
-  threadIds,
-  threadOfVia,
-  timeLabel,
-  touches,
-  viaOfThread,
-  type LinkedItem,
-} from "../lib/links.ts";
+import { ago, matches, threadIds, timeLabel } from "../../linked-items/rows.ts";
+import { openCanvasOf, parseChangePage, rowOf, threadOfVia, touches, viaOfThread, type LinkedItem } from "../lib/links.ts";
 
 const item = (over: Partial<LinkedItem> = {}): LinkedItem => ({
   key: "c1",
@@ -59,6 +49,8 @@ describe("kb's change log", () => {
     assert.deepEqual(page.changes[1].deleted, ["c2"]);
     assert.equal(parseChangePage({ changes: [] }), null);
     assert.equal(parseChangePage({ head: 1, complete: false, changes: [] })?.complete, false);
+    assert.equal(page.through, 9, "an older kb without through: the last change");
+    assert.equal(parseChangePage({ head: 9, through: 4, changes: [] })?.through, 4);
   });
 
   test("a canvas written links its writer's thread; anyone else's write only dates it; a deletion marks it gone", () => {
@@ -98,11 +90,11 @@ describe("the canvas a kb tab shows", () => {
 describe("a row", () => {
   test("matches every word against its name, store and linking threads, titles included", () => {
     const row = item({ threads: [{ id: "thr_a", how: "wrote", at: 1, host: null }] });
-    assert.equal(matches(row, ""), true);
-    assert.equal(matches(row, "road home"), true);
-    assert.equal(matches(row, "thr_a"), true);
-    assert.equal(matches(row, "deploy", { thr_a: "Deploy plan" }), true);
-    assert.equal(matches(row, "missing"), false);
+    assert.equal(matches(rowOf(row, "thr_x"), ""), true);
+    assert.equal(matches(rowOf(row, "thr_x"), "road home"), true);
+    assert.equal(matches(rowOf(row, "thr_x"), "thr_a"), true);
+    assert.equal(matches(rowOf(row, "thr_x"), "deploy", { thr_a: "Deploy plan" }), true);
+    assert.equal(matches(rowOf(row, "thr_x"), "missing"), false);
   });
 
   test("lists its threads newest first, once each", () => {
@@ -113,13 +105,13 @@ describe("a row", () => {
         { id: "thr_a", how: "wrote", at: 3, host: null },
       ],
     });
-    assert.deepEqual(threadIds(row), ["thr_b", "thr_a"]);
+    assert.deepEqual(threadIds(rowOf(row, "thr_a")), ["thr_b", "thr_a"]);
   });
 
   test("dates itself by its last write, else by its link", () => {
     const now = Date.parse("2026-10-25T12:00:00.000Z");
-    assert.equal(timeLabel(item({ editedAt: now - 3 * 3600_000 }), now), "edited 3h ago");
-    assert.equal(timeLabel(item({ linkedAt: now - 30_000 }), now), "linked just now");
+    assert.equal(timeLabel(rowOf(item({ editedAt: now - 3 * 3600_000 }), "thr_a"), now), "edited 3h ago");
+    assert.equal(timeLabel(rowOf(item({ linkedAt: now - 30_000 }), "thr_a"), now), "linked just now");
     assert.equal(ago(now - 40 * 86400_000, now), "2026-09-15");
   });
 });

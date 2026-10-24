@@ -201,12 +201,12 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A declared backup of the bb server's data dir on shared-server (restic), or manifests stored in kb.
 - **node** — `01M5QKD7TMB3HDV65V543HTD9M`
 
-### GAP: the kb canvases panel copies the Canvases panel's row and ago()
+### GAP: the kb canvases panel copies the Canvases panel's shell (header, search, link button, empty and error states)
 
-- **expected** — One linked-items row and list, shared by the kb canvases panel and the Canvases (tldraw) panel, or tldraw canvases as a second kind of the kb plugin's linked items.
-- **current** — assets/bb-plugins/kb/linked-panel.tsx and lib/links.ts copy canvas-links/app.tsx's Row, ScopeTab, ThreadChip and lib/canvases.ts's ago(), on purpose, so the owner can daily-drive both and let the UX differences surface.
-- **impact** — A UX fix made in one panel must be made in the other by hand.
-- **closes** — The owner settles the row UX after daily use; then extract the shared row, or fold tldraw links into the kb plugin as a kind.
+- **expected** — One linked-items panel for the kb canvases panel and the Canvases (tldraw) panel: the row, tabs and search are already shared in assets/bb-plugins/linked-items; the shell should be too.
+- **current** — assets/bb-plugins/linked-items (rows.ts, row.tsx) is shared and bundled into both plugins. Each panel's shell (header, search box, link button, empty and error states) is still copied: it draws with the plugin's own vendored Button, Input and Icon, which import @/... and @get-bb/plugin-sdk/app, and those resolve only inside a plugin's root, not from the shared folder (tsc fails there).
+- **impact** — A change to the panel shell (not to a row) must be made in both plugins by hand.
+- **closes** — A shell that takes Button, Input and Icon as props from each plugin, or tldraw canvases folded into the kb plugin as a second kind; either once the owner settles the panel UX after daily use.
 - **node** — `01M5QJFW217ZNBXHEX74VG7VYP`
 
 ### GAP: the npm executor special-cases @openai/codex and aborts activation on a failed install

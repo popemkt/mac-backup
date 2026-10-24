@@ -15,10 +15,15 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "*": [
+        "./node_modules/@types/*",
+        "./node_modules/*"
       ]
     },
     "noEmit": true,
-    "skipLibCheck": false
+    "skipLibCheck": false,
+    "allowImportingTsExtensions": true
   },
   "include": [
     "server.ts",
@@ -26,6 +31,7 @@
     "links.ts",
     "linked-panel.tsx",
     "components",
-    "lib"
+    "lib",
+    "../linked-items"
   ]
 }

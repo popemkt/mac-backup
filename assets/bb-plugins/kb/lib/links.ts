@@ -2,20 +2,19 @@
 // `via` label on every write and reads its log back with `graph.changes` (kb DESIGN.md → Action registry → The
 // caller's via); this file says what the plugin labels a thread's writes with, which changes link what, and how
 // a listing is searched and dated. Threads, projects and machines are bb's, so they live here, never in kb.
-// No bb and no network here, so tests run on plain data. The rows mirror the Canvases panel's
-// (assets/bb-plugins/canvas-links/lib/canvases.ts) field for field where a field applies.
+// No bb and no network here, so tests run on plain data. A row is drawn as the Canvases panel draws its own
+// (assets/bb-plugins/linked-items).
+import type { LinkRow } from "../../linked-items/rows.ts";
 
 /** The kinds of kb thing a thread can be linked to. Canvases first; a kind is its tag and how a row names it. */
 export const KINDS = { canvas: { tag: "sys.tag.canvas", route: (id: string) => `/canvas/${encodeURIComponent(id)}` } } as const;
 export type Kind = keyof typeof KINDS;
 
-export type Scope = "session" | "project" | "all";
-export const SCOPES: readonly Scope[] = ["session", "project", "all"];
-
 /** How a thread came to be linked: its agent wrote the item, or a person linked the one its kb tab showed. */
 export type How = "wrote" | "linked";
 
-const VIA_PREFIX = "bb:";
+/** Every thread's label starts so; `graph.changes` reads only these writes (kb matches it on a separator). */
+export const VIA_PREFIX = "bb:";
 
 /** The `via` a thread's kb writes carry: kb_call states it, and the thread's kb CLI and MCP get it as KB_VIA. */
 export const viaOfThread = (threadId: string): string => `${VIA_PREFIX}${threadId}`;
@@ -33,8 +32,11 @@ export type Change = {
   deleted: string[];
 };
 
-/** `graph.changes` output, checked field by field: a newer or older kb degrades a change, never the log. */
-export type ChangePage = { head: number; complete: boolean; changes: Change[] };
+/**
+ * `graph.changes` output, checked field by field: a newer or older kb degrades a change, never the log. `through`
+ * is the last rev kb read, matched or not: the next page starts after it.
+ */
+export type ChangePage = { head: number; through: number; complete: boolean; changes: Change[] };
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const str = (v: unknown): string | null => (typeof v === "string" ? v : null);
@@ -57,17 +59,19 @@ function change(v: unknown): Change | null {
 
 export function parseChangePage(output: unknown): ChangePage | null {
   if (!isObject(output) || typeof output.head !== "number") return null;
+  const changes = (Array.isArray(output.changes) ? output.changes : []).map(change).filter((c): c is Change => c !== null);
   return {
     head: output.head,
+    through: typeof output.through === "number" ? output.through : (changes.at(-1)?.rev ?? output.head),
     complete: output.complete !== false,
-    changes: (Array.isArray(output.changes) ? output.changes : []).map(change).filter((c): c is Change => c !== null),
+    changes,
   };
 }
 
 /** One item a change touched: what it is now, and the thread whose write it was, if a thread's. */
 export type Touch = { kind: Kind; id: string; name: string; at: number; gone: boolean; thread: string | null };
 
-/** What a page of changes did to linkable items, oldest first: every canvas written or deleted, by anyone. */
+/** What a page of changes did to linkable items, oldest first: every canvas written or deleted. */
 export function touches(changes: readonly Change[]): Touch[] {
   const out: Touch[] = [];
   for (const c of changes) {
@@ -115,37 +119,23 @@ export type LinkedItem = {
   threads: ThreadLink[];
 };
 
-/** Every word of the query appears in the name, the store or a linking thread's title or id. */
-export function matches(item: LinkedItem, query: string, titles: Readonly<Record<string, string | null>> = {}): boolean {
-  const words = query.toLowerCase().split(/\s+/).filter(w => w !== "");
-  if (words.length === 0) return true;
-  const hay = [item.name, item.store, ...item.threads.flatMap(t => [t.id, titles[t.id] ?? ""])].join(" ").toLowerCase();
-  return words.every(w => hay.includes(w));
-}
-
-/** The threads that link an item, newest first, once each. */
-export function threadIds(item: LinkedItem): string[] {
-  return [...new Set([...item.threads].sort((a, b) => b.at - a.at).map(t => t.id))];
-}
-
-// GAP [[01M5QJFW217ZNBXHEX74VG7VYP]]: `ago` and the row anatomy are copied from the Canvases panel
-// (canvas-links/lib/canvases.ts, app.tsx) while the owner compares the two; one shared linked-items row once
-// the UX settles.
-/** "just now", "5m ago", "3h ago", "2d ago", "4w ago", then a date. */
-export function ago(at: number, now: number): string {
-  const s = Math.max(0, Math.round((now - at) / 1000));
-  if (s < 60) return "just now";
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  if (d < 7) return `${d}d ago`;
-  if (d < 35) return `${Math.floor(d / 7)}w ago`;
-  return new Date(at).toISOString().slice(0, 10);
-}
-
-/** The row's time line: when it was last written, else when it was linked. */
-export function timeLabel(item: LinkedItem, now: number): string {
-  return item.editedAt !== null ? `edited ${ago(item.editedAt, now)}` : `linked ${ago(item.linkedAt, now)}`;
+/** How a row draws an item: shared with the Canvases panel (assets/bb-plugins/linked-items/rows.ts). A link a
+ * thread's writes made is only claimed: `via` is the caller's own label, which kb records but does not check. */
+export function rowOf(item: LinkedItem, threadId: string): LinkRow {
+  const mine = item.threads.filter(t => t.id === threadId);
+  const notes = mine.some(t => t.how === "linked") ? ["linked by hand"] : mine.length > 0 ? ["claimed by this thread"] : [];
+  return {
+    key: item.key,
+    name: item.name,
+    title: item.id,
+    where: `kb · ${item.store}`,
+    notes,
+    gone: item.gone ? "deleted" : null,
+    open: item.open ? "open in the kb tab" : null,
+    editedAt: item.editedAt,
+    linkedAt: item.linkedAt,
+    threads: item.threads.map(t => ({ id: t.id, at: t.at, claimed: t.how === "wrote" })),
+    tags: [],
+    search: [item.store],
+  };
 }
