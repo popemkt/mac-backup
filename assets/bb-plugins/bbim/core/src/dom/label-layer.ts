@@ -79,13 +79,64 @@ export interface LabelLayer {
 const LABEL_HEIGHT = 15;
 const CHAR_WIDTH = 8;
 
+const labelWidth = (label: string) => label.length * CHAR_WIDTH + 9;
+
 /** Where a label goes: over the top-left corner of a control, inside the corner of a surface. */
 function labelPosition(rect: Rect, label: string, win: Window, inside: boolean): { x: number; y: number } {
-  const width = label.length * CHAR_WIDTH + 9;
+  const width = labelWidth(label);
   const inset = inside ? 6 : -2;
   const x = Math.min(Math.max(0, rect.left + inset), Math.max(0, win.innerWidth - width));
   const y = Math.min(Math.max(0, rect.top + inset), Math.max(0, win.innerHeight - LABEL_HEIGHT));
   return { x: Math.round(x), y: Math.round(y) };
+}
+
+/** How much of a label another may cover before it moves aside: more and the one beneath is unreadable. */
+const CROWDED = 1 / 3;
+/** Most moves a label makes looking for room; past that it stays where the last move put it. */
+const MAX_MOVES = 6;
+
+interface LabelBox {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+}
+
+function covered(a: LabelBox, b: LabelBox): number {
+  const width = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+  const height = Math.min(a.y, b.y) + LABEL_HEIGHT - Math.max(a.y, b.y);
+  return width > 0 && height > 0 ? width * height : 0;
+}
+
+/**
+ * Every label's place, in order. A label that would sit mostly on top of an
+ * earlier one (a hover-only × drawn over its tab's corner) moves right of it,
+ * or below it at the viewport's edge, so both stay readable. Earlier labels
+ * keep their place: they are the shorter, visible targets'. `undefined` (no
+ * box, or drawn elsewhere) takes no room.
+ */
+function placeLabels(
+  entries: ReadonlyArray<{ readonly rect: Rect; readonly label: string; readonly inside: boolean } | undefined>,
+  win: Window,
+): ReadonlyArray<{ x: number; y: number } | undefined> {
+  const placed: Array<LabelBox> = [];
+  return entries.map((entry) => {
+    if (entry === undefined) return undefined;
+    const start = labelPosition(entry.rect, entry.label, win, entry.inside);
+    let box: LabelBox = { ...start, width: labelWidth(entry.label) };
+    for (let moves = 0; moves < MAX_MOVES; moves += 1) {
+      const current = box;
+      // Measured against the smaller label: a short label half under a long one is unreadable.
+      const under = placed.find((other) => covered(current, other) > CROWDED * Math.min(current.width, other.width) * LABEL_HEIGHT);
+      if (under === undefined) break;
+      const right = under.x + under.width + 1;
+      box =
+        right + box.width <= win.innerWidth
+          ? { ...box, x: right }
+          : { ...box, y: Math.min(under.y + LABEL_HEIGHT + 1, Math.max(0, win.innerHeight - LABEL_HEIGHT)) };
+    }
+    placed.push(box);
+    return { x: box.x, y: box.y };
+  });
 }
 
 export function placeBox(node: HTMLElement, rect: Rect): void {
@@ -114,7 +165,14 @@ export function labelLayer(layer: HTMLElement): LabelLayer {
   return {
     show: (views) => {
       hide();
-      labels = views.map(({ label, rect, faded = false, outline = false, elsewhere = false }) => {
+      const places =
+        win === null
+          ? []
+          : placeLabels(
+              views.map(({ label, rect, outline = false, elsewhere = false }) => (elsewhere ? undefined : { rect, label, inside: outline })),
+              win,
+            );
+      labels = views.map(({ label, rect, faded = false, outline = false, elsewhere = false }, index) => {
         const surface = outline ? element(doc, "div", "surface") : undefined;
         if (surface !== undefined) {
           placeBox(surface, rect);
@@ -122,10 +180,8 @@ export function labelLayer(layer: HTMLElement): LabelLayer {
         }
         const node = element(doc, "div", faded ? "hint faded" : "hint");
         node.append(element(doc, "span", "typed"), element(doc, "span", undefined, label));
-        if (win !== null) {
-          const { x, y } = labelPosition(rect, label, win, outline);
-          node.style.transform = `translate(${x}px, ${y}px)`;
-        }
+        const place = places[index];
+        if (place !== undefined) node.style.transform = `translate(${place.x}px, ${place.y}px)`;
         if (elsewhere) {
           node.style.visibility = "hidden";
           if (surface !== undefined) surface.style.visibility = "hidden";
@@ -146,14 +202,25 @@ export function labelLayer(layer: HTMLElement): LabelLayer {
       }
     },
     reposition: (rects) => {
-      labels.forEach(({ node, label, surface, elsewhere }, index) => {
+      const places =
+        win === null
+          ? []
+          : placeLabels(
+              labels.map(({ label, surface, elsewhere }, index) => {
+                const rect = rects[index];
+                return rect === undefined || elsewhere ? undefined : { rect, label, inside: surface !== undefined };
+              }),
+              win,
+            );
+      labels.forEach(({ node, surface }, index) => {
         const rect = rects[index];
-        if (rect === undefined || win === null || elsewhere) {
+        const place = places[index];
+        if (rect === undefined || place === undefined) {
           node.style.visibility = "hidden";
           if (surface !== undefined) surface.style.visibility = "hidden";
           return;
         }
-        const { x, y } = labelPosition(rect, label, win, surface !== undefined);
+        const { x, y } = place;
         node.style.visibility = "";
         node.style.transform = `translate(${x}px, ${y}px)`;
         if (surface !== undefined) placeBox(surface, rect);

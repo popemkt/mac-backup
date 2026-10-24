@@ -133,8 +133,22 @@ function owns(element: Element, hit: Element): boolean {
 }
 
 /**
+ * Whether hit-testing passes through `element` because it is hover-only:
+ * transparent and `pointer-events: none` until its group is hovered (bb's tab
+ * ×: `opacity-0 pointer-events-none group-hover:pointer-events-auto`). A point
+ * on it hit-tests to whatever is under it, so ownership cannot tell.
+ */
+function passesPointerThrough(element: Element): boolean {
+  const style = element.ownerDocument.defaultView?.getComputedStyle(element);
+  return style?.pointerEvents === "none" && isFaded(element);
+}
+
+/**
  * Whether some of `shown` is really visible: a point of it hit-tests to the
  * element, so no other element (a dialog, a sticky header) is painted over it.
+ * A hover-only control the pointer passes through counts as uncovered when the
+ * point hits its own group (its parent's content, the row or pill hovering
+ * reveals it in), not something painted over the group.
  */
 export function isUncovered(doc: Document, element: Element, shown: Rect): boolean {
   const points: ReadonlyArray<readonly [number, number]> = [
@@ -144,9 +158,10 @@ export function isUncovered(doc: Document, element: Element, shown: Rect): boole
     [0.5, 0.15],
     [0.5, 0.85],
   ];
+  const group = passesPointerThrough(element) ? parentAcrossShadow(element) : null;
   for (const [fx, fy] of points) {
     const hit = doc.elementFromPoint(shown.left + shown.width * fx, shown.top + shown.height * fy);
-    if (hit !== null && owns(element, hit)) return true;
+    if (hit !== null && (owns(element, hit) || (group !== null && containsAcrossShadow(group, hit)))) return true;
   }
   return false;
 }

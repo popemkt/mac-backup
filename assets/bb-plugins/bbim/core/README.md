@@ -119,7 +119,11 @@ component-built pane) count like any other. A target must be rendered (not
 hit-testable; opacity does not exclude it. A control at opacity ≈ 0 (its own
 or an ancestor's: `opacity-0 group-hover:opacity-100`) is *faded*: labeled
 after every visible target, so it never takes a short label, and drawn
-dimmed with a dashed ring. Labels are a snapshot: nothing
+dimmed with a dashed ring. A faded control that is also `pointer-events:
+none` until hovered (bb's tab ×) hit-tests to what is under it; it counts
+as uncovered when that is its own group (its parent's content). A label that
+would sit mostly on an earlier one (that × over its tab's corner) moves
+right of it. Labels are a snapshot: nothing
 watches the page while they show, and picking a target that has since left
 the page, moved or been covered labels it afresh. Bridge frames' labels join
 the page's as each frame answers, until the first letter is typed; with no
@@ -266,8 +270,10 @@ script channel: `element` is the box the view covers, `send(message)`
 delivers a request to the page bridge, `listen(handler)` hears what it posts.
 `scriptedPage(element, page, onError)` from `@popemkt/bbim-core/page` builds
 that view from script access to the page (`{evaluate, onMessage}`, what bb's
-`experimental_page` offers): each request is evaluated in the isolated world
-(which binds `bb.postMessage`) and handed to the page bridge; only when the
+`experimental_page` offers): each request is one expression evaluated in the
+isolated world (bb awaits it inside a function whose `bb` parameter carries
+`bb.postMessage`, so statements would not parse) and handed to the page
+bridge; only when the
 document has none yet (a new page, a navigation, a reload) does the bridge
 itself (`bridge/bbim-page.ts`, generated from `src/bridge/page-entry.ts`,
 ~17 KB, no `effect`) go along. `onError` hears failed evaluations.

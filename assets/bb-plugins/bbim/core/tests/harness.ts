@@ -20,13 +20,28 @@ function rectOf(element: Element) {
   return { left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}) };
 }
 
-/** Hit-test `doc` by `data-rect`: the last element in document order whose box holds the point. */
+/**
+ * Whether a browser's hit-testing skips `element`: its `pointer-events` is
+ * `none`, its own or inherited (from inline styles, nearest declaration wins).
+ */
+function passesPointerThrough(element: Element): boolean {
+  for (let at: Element | null = element; at !== null; at = at.parentElement) {
+    const value = (at as HTMLElement).style.pointerEvents;
+    if (value !== "") return value === "none";
+  }
+  return false;
+}
+
+/**
+ * Hit-test `doc` by `data-rect`: the last element in document order whose box
+ * holds the point, skipping `pointer-events: none` as a browser does.
+ */
 function hitTest(doc: Document): void {
   const hits = (x: number, y: number) =>
     [...doc.querySelectorAll("[data-rect]")]
       .filter((element) => {
         const box = rectOf(element);
-        return x >= box.left && x < box.right && y >= box.top && y < box.bottom;
+        return x >= box.left && x < box.right && y >= box.top && y < box.bottom && !passesPointerThrough(element);
       })
       .toReversed();
   doc.elementFromPoint = (x: number, y: number) => hits(x, y)[0] ?? null;
@@ -71,6 +86,46 @@ export function page(html: string): Page {
     close: () => {
       void happy.happyDOM.close();
     },
+  };
+}
+
+/**
+ * bb desktop's `experimental_page.evaluate` over `win`, to the letter of its
+ * main process (0.47, `browserPageEvaluationSource`): the expression is
+ * awaited inside an async arrow whose parameter is `bb`, so it must be one
+ * expression (statements do not parse) and `bb` is in scope lexically, never
+ * a global. The isolated world's `bb.postMessage(data)` goes through the
+ * preload's `__bbBrowserPage` to `post`; the main world gets `bb = null`.
+ * The value comes back JSON-cloned; a throw or a script that does not parse
+ * rejects.
+ */
+export function bbPageEvaluate(
+  win: Page["win"],
+  post: (data: unknown) => void,
+): (expression: string, world?: "isolated" | "main") => Promise<unknown> {
+  Object.defineProperty(win, "__bbBrowserPage", {
+    value: { postMessage: (_channel: string, data: unknown) => post(JSON.parse(JSON.stringify(data))) },
+    configurable: true,
+  });
+  return async (expression, world = "isolated") => {
+    const bridge = world === "isolated" ? '{ postMessage: (data) => globalThis["__bbBrowserPage"].postMessage("bbim", data) }' : "null";
+    const source = [
+      "(async (bb) => {",
+      "  try {",
+      `    const json = JSON.stringify(await (${expression}\n));`,
+      "    return { ok: true, value: json === undefined ? null : JSON.parse(json) };",
+      "  } catch (error) {",
+      "    return { ok: false, error: error instanceof Error ? String(error.stack || error.message) : String(error) };",
+      "  }",
+      `})(${bridge})`,
+    ].join("\n");
+    const result = (await (win as unknown as { eval: (code: string) => unknown }).eval(source)) as {
+      readonly ok: boolean;
+      readonly value?: unknown;
+      readonly error?: string;
+    };
+    if (!result.ok) throw new Error(result.error);
+    return result.value;
   };
 }
 

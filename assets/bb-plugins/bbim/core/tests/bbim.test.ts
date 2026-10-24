@@ -80,6 +80,60 @@ test("hints: a tab containing a faded × button: both labelled, × after the vis
   assert.equal(closed, 1);
 });
 
+/**
+ * bb's own tab pill, as measured live: the tab is a button, and its × a
+ * sibling drawn over the tab's icon, transparent and `pointer-events: none`
+ * until the pill is hovered. Hit-testing the × lands on the tab's icon.
+ */
+const BB_TAB_PILL = `
+  <main data-rect="0,0,1000,800">
+    <div class="group/tab-pill" data-rect="600,10,119,28">
+      <button id="tab" aria-pressed="false" data-rect="600,10,119,28"><span id="icon" data-rect="606,16,16,16"></span>Agent artifacts</button>
+      <button id="close" aria-label="Close Agent artifacts" style="opacity:0;pointer-events:none" data-rect="606,16,16,16">×</button>
+    </div>
+    <button id="save" data-rect="400,400,80,30">Save</button>
+  </main>`;
+
+/** Each shown label's text and its drawn box (from its transform and estimated size). */
+function labelBoxes(p: Page) {
+  const views = [...(p.doc.querySelector("[data-bbim-overlay]")?.shadowRoot?.querySelectorAll(".hint") ?? [])] as Array<HTMLElement>;
+  return views.map((view) => {
+    const [x = 0, y = 0] = (/translate\(([-\d.]+)px, ([-\d.]+)px\)/u.exec(view.style.transform) ?? []).slice(1).map(Number);
+    const label = view.textContent;
+    return { label, faded: view.classList.contains("faded"), left: x, top: y, width: label.length * 8 + 9, height: 15 };
+  });
+}
+
+test("hints: a hover-only × that lets the pointer through (bb's tab pill) is labelled apart from its tab and closes it", () => {
+  // Labels of one length, and (as live) a one-letter tab label under a two-letter × label.
+  for (const hintAlphabet of [undefined, "ab"]) {
+    const p = page(BB_TAB_PILL);
+    const bbim = createBbim({ window: p.win, settings: hintAlphabet === undefined ? {} : { hintAlphabet } });
+    current = { page: p, bbim };
+    const clicks: Array<string> = [];
+    for (const id of ["tab", "close"]) p.doc.getElementById(id)?.addEventListener("click", () => clicks.push(id));
+    p.key("f");
+    const boxes = labelBoxes(p);
+    assert.equal(boxes.length, 3, "tab, ×, save: the × is a target though hit-testing passes through it");
+    const close = boxes.find((box) => box.faded);
+    const others = boxes.filter((box) => !box.faded);
+    assert.ok(close !== undefined, "the × is labelled as hover-only");
+    for (const other of others) {
+      const apart =
+        close.left >= other.left + other.width ||
+        other.left >= close.left + close.width ||
+        close.top >= other.top + other.height ||
+        other.top >= close.top + close.height;
+      assert.ok(apart, `the ×'s label ${JSON.stringify(close)} is not drawn over ${JSON.stringify(other)}`);
+    }
+    for (const char of close.label) p.key(char);
+    assert.deepEqual(clicks, ["close"], "picking the ×'s label clicks the ×, not the tab");
+    bbim.dispose();
+    p.close();
+    current = undefined;
+  }
+});
+
 test("settings: fadedTargets hide leaves hover-only controls out", () => {
   const p = page(TABS);
   const bbim = createBbim({ window: p.win, settings: { fadedTargets: "hide" } });
