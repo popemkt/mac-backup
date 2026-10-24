@@ -7,8 +7,10 @@ import {
   continuationText,
   decide,
   DEFAULTS,
+  parentCovers,
   parseRecord,
   parseSettings,
+  wasWaitingOnUser,
   type ResumeRecord,
   type Settings,
   type ThreadFacts,
@@ -30,6 +32,8 @@ const facts = (over: Partial<ThreadFacts> = {}): ThreadFacts => ({
   archived: false,
   boundary: interrupted(),
   completedSinceRecord: false,
+  waitingOnUser: false,
+  parentCovers: false,
   ...over,
 });
 
@@ -102,6 +106,77 @@ describe("dedup and the cap", () => {
   test("the cap is a setting", () => {
     const one = parseSettings({ maxConsecutive: 1 });
     assert.equal(decide(facts({ boundary: interrupted({ seq: 60 }) }), record(1, 40), one, NOW).action, "skip");
+  });
+});
+
+describe("a thread that was waiting on the person", () => {
+  const lifecycle = (seq: number, id: string, status: string) => ({
+    seq,
+    type: "system/interaction/lifecycle",
+    createdAt: seq,
+    data: { interaction: { id, status, statusReason: null } },
+  });
+
+  test("is not resumed", () => {
+    assert.deepEqual(decide(facts({ waitingOnUser: true }), null, settings, NOW), {
+      action: "skip",
+      reason: "waiting-on-user",
+    });
+  });
+
+  test("an interaction cut open counts; one answered before the cut does not", () => {
+    assert.equal(wasWaitingOnUser([lifecycle(1, "pi_1", "pending"), lifecycle(5, "pi_1", "interrupted")]), true);
+    assert.equal(wasWaitingOnUser([lifecycle(1, "pi_1", "pending")]), true);
+    assert.equal(wasWaitingOnUser([lifecycle(1, "pi_1", "pending"), lifecycle(3, "pi_1", "resolved")]), false);
+    assert.equal(
+      wasWaitingOnUser([lifecycle(1, "pi_1", "resolved"), lifecycle(4, "pi_2", "pending"), lifecycle(6, "pi_2", "interrupted")]),
+      true,
+    );
+    assert.equal(wasWaitingOnUser([]), false);
+  });
+
+  test("the older per-kind lifecycle events are read too, in any order", () => {
+    const question = (seq: number, status: string) => ({
+      seq,
+      type: "system/userQuestion/lifecycle",
+      createdAt: seq,
+      data: { interactionId: "pi_q", status },
+    });
+    assert.equal(wasWaitingOnUser([question(9, "interrupted"), question(2, "pending")]), true);
+    assert.equal(wasWaitingOnUser([question(9, "resolved"), question(2, "pending")]), false);
+  });
+});
+
+describe("a child and its parent", () => {
+  const resume = decide(facts(), null, settings, NOW);
+
+  test("a child whose parent covers it is not resumed; the parent re-drives it", () => {
+    assert.deepEqual(decide(facts({ parentCovers: true }), null, settings, NOW), {
+      action: "skip",
+      reason: "parent-resumes",
+    });
+  });
+
+  test("a parent covers when it is resumed now, was resumed inside the window, or is covered itself", () => {
+    assert.equal(parentCovers(resume, null, settings, NOW), true);
+    assert.equal(parentCovers({ action: "skip", reason: "parent-resumes" }, null, settings, NOW), true);
+    const recent: ResumeRecord = { chain: 1, interruptionSeq: 40, resumedAt: NOW - 5 * MIN };
+    assert.equal(parentCovers({ action: "skip", reason: "already-resumed" }, recent, settings, NOW), true);
+  });
+
+  test("a parent that is not resumed leaves the child to be resumed", () => {
+    for (const reason of ["not-failed", "not-a-restart", "stale", "cap-reached", "waiting-on-user", "archived"] as const) {
+      assert.equal(parentCovers({ action: "skip", reason }, null, settings, NOW), false, reason);
+    }
+    const old: ResumeRecord = { chain: 1, interruptionSeq: 40, resumedAt: NOW - 31 * MIN };
+    assert.equal(parentCovers({ action: "skip", reason: "already-resumed" }, old, settings, NOW), false);
+  });
+
+  test("an otherwise skipped child keeps its own reason", () => {
+    assert.deepEqual(decide(facts({ parentCovers: true, waitingOnUser: true }), null, settings, NOW), {
+      action: "skip",
+      reason: "waiting-on-user",
+    });
   });
 });
 

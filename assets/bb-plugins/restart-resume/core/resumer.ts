@@ -8,9 +8,13 @@ import {
   decide,
   type Decision,
   type EventRow,
+  INTERACTION_TYPES,
+  parentCovers,
   type ResumeRecord,
   type Settings,
+  type SkipReason,
   TURN_BOUNDARY_TYPES,
+  wasWaitingOnUser,
 } from "./policy.ts";
 
 /** A thread as the resumer reads it. Times are epoch ms. */
@@ -19,6 +23,7 @@ export interface ThreadSummary {
   readonly status: string;
   readonly archivedAt: number | null;
   readonly updatedAt: number;
+  readonly parentThreadId: string | null;
 }
 
 export interface EventQuery {
@@ -26,6 +31,7 @@ export interface EventQuery {
   readonly order: "asc" | "desc";
   readonly limit: number;
   readonly afterSeq?: number;
+  readonly beforeSeq?: number;
 }
 
 /** What the resumer needs from bb. server.ts binds it to the plugin SDK; tests bind a fake. */
@@ -33,6 +39,8 @@ export interface ResumePort {
   settings(): Promise<Settings>;
   /** Threads updated at or after `since`, hidden ones included. */
   recentThreads(since: number): Promise<readonly ThreadSummary[]>;
+  /** One thread, or null when it is gone. */
+  thread(threadId: string): Promise<ThreadSummary | null>;
   events(threadId: string, query: EventQuery): Promise<readonly EventRow[]>;
   loadRecord(threadId: string): Promise<ResumeRecord | null>;
   saveRecord(threadId: string, record: ResumeRecord): Promise<void>;
@@ -48,54 +56,95 @@ export interface Resumer {
   sweep(): Promise<void>;
 }
 
+/** How far up a thread tree a child looks for a covering ancestor. */
+const MAX_ANCESTORS = 8;
+
+/** Skips worth a line in the plugin log: the person may wonder why this thread stayed stopped. */
+const LOGGED_SKIPS: Partial<Record<SkipReason, (settings: Settings) => string>> = {
+  "waiting-on-user": () => "not resumed: was waiting on user",
+  "cap-reached": (settings) =>
+    `not resumed: ${settings.maxConsecutive} resumes in a row without a completed turn`,
+  "parent-resumes": () => "not resumed: its parent is resumed and re-drives it",
+};
+
 export function createResumer(port: ResumePort): Resumer {
   // Two triggers can name the same thread at once (a failure event during a sweep): one wins,
   // the other sees `null`. Across reloads the stored claim (interruptionSeq) is the guard.
   const inFlight = new Set<string>();
 
-  async function decideFor(thread: ThreadSummary, settings: Settings): Promise<Decision> {
-    const record = await port.loadRecord(thread.id);
-    const [newest] = await port.events(thread.id, {
-      types: TURN_BOUNDARY_TYPES,
+  /** The cut turn's interaction events: everything after the newest `turn/started` before `seq`. */
+  async function waitingOnUser(threadId: string, interruptionSeq: number): Promise<boolean> {
+    const [cutTurn] = await port.events(threadId, {
+      types: ["turn/started"],
       order: "desc",
       limit: 1,
+      beforeSeq: interruptionSeq,
     });
-    const completedSinceRecord =
-      record === null
-        ? false
-        : anyTurnCompleted(
-            await port.events(thread.id, {
-              types: ["turn/completed"],
-              order: "asc",
-              limit: 200,
-              afterSeq: record.interruptionSeq,
-            }),
-          );
-    return decide(
-      {
-        status: thread.status,
-        archived: thread.archivedAt !== null,
-        boundary: boundaryOf(newest),
-        completedSinceRecord,
-      },
-      record,
-      settings,
-      port.now(),
+    return wasWaitingOnUser(
+      await port.events(threadId, {
+        types: INTERACTION_TYPES,
+        order: "asc",
+        limit: 200,
+        ...(cutTurn === undefined ? {} : { afterSeq: cutTurn.seq }),
+      }),
     );
+  }
+
+  async function covered(parentId: string | null, settings: Settings, depth: number): Promise<boolean> {
+    if (parentId === null || depth >= MAX_ANCESTORS) return false;
+    const parent = await port.thread(parentId);
+    if (parent === null) return false;
+    const { decision, record } = await decideFor(parent, settings, depth + 1);
+    return parentCovers(decision, record, settings, port.now());
+  }
+
+  async function decideFor(
+    thread: ThreadSummary,
+    settings: Settings,
+    depth = 0,
+  ): Promise<{ decision: Decision; record: ResumeRecord | null }> {
+    const record = await port.loadRecord(thread.id);
+    const [newest] = await port.events(thread.id, { types: TURN_BOUNDARY_TYPES, order: "desc", limit: 1 });
+    const boundary = boundaryOf(newest);
+    const base = {
+      status: thread.status,
+      archived: thread.archivedAt !== null,
+      boundary,
+      completedSinceRecord: false,
+      waitingOnUser: false,
+      parentCovers: false,
+    };
+    // Cheap facts first: most threads are settled by them, before any further reads. Only the
+    // cap depends on a fact not read yet (a completed turn resets it).
+    const first = decide(base, record, settings, port.now());
+    if (first.action === "skip" && first.reason !== "cap-reached") return { decision: first, record };
+    const interruptionSeq = boundary?.seq ?? 0;
+    const facts = {
+      ...base,
+      completedSinceRecord:
+        record !== null &&
+        anyTurnCompleted(
+          await port.events(thread.id, {
+            types: ["turn/completed"],
+            order: "asc",
+            limit: 200,
+            afterSeq: record.interruptionSeq,
+          }),
+        ),
+      waitingOnUser: await waitingOnUser(thread.id, interruptionSeq),
+      parentCovers: await covered(thread.parentThreadId, settings, depth),
+    };
+    return { decision: decide(facts, record, settings, port.now()), record };
   }
 
   async function considerWith(thread: ThreadSummary, settings: Settings): Promise<Decision | null> {
     if (inFlight.has(thread.id)) return null;
     inFlight.add(thread.id);
     try {
-      const decision = await decideFor(thread, settings);
+      const { decision } = await decideFor(thread, settings);
       if (decision.action === "skip") {
-        if (decision.reason === "cap-reached") {
-          port.log(
-            "info",
-            `${thread.id}: interrupted by a restart again, not resumed: ${settings.maxConsecutive} resumes in a row without a completed turn`,
-          );
-        }
+        const line = LOGGED_SKIPS[decision.reason];
+        if (line !== undefined) port.log("info", `${thread.id}: interrupted by a restart, ${line(settings)}`);
         return decision;
       }
       // Claim before sending, so a failed or slow send never leads to a second message.
@@ -131,7 +180,10 @@ export function createResumer(port: ResumePort): Resumer {
         try {
           await considerWith(thread, settings);
         } catch (error) {
-          port.log("warn", `${thread.id}: could not check for a restart interruption: ${error instanceof Error ? error.message : String(error)}`);
+          port.log(
+            "warn",
+            `${thread.id}: could not check for a restart interruption: ${error instanceof Error ? error.message : String(error)}`,
+          );
         }
       }
     },

@@ -15,9 +15,11 @@ function fakeBb(init: { threads: ThreadSummary[]; events: Record<string, EventRo
   const port: ResumePort = {
     settings: async () => init.settings ?? parseSettings({}),
     recentThreads: async (since) => init.threads.filter((t) => t.updatedAt >= since),
+    thread: async (id) => init.threads.find((t) => t.id === id) ?? null,
     async events(threadId, query) {
       let rows = (init.events[threadId] ?? []).filter((row) => query.types.includes(row.type));
       if (query.afterSeq !== undefined) rows = rows.filter((row) => row.seq > query.afterSeq!);
+      if (query.beforeSeq !== undefined) rows = rows.filter((row) => row.seq < query.beforeSeq!);
       rows = [...rows].sort((a, b) => (query.order === "asc" ? a.seq - b.seq : b.seq - a.seq));
       // Yield, so concurrent triggers interleave as they would over the loopback API.
       await new Promise((resolve) => setImmediate(resolve));
@@ -35,7 +37,13 @@ function fakeBb(init: { threads: ThreadSummary[]; events: Record<string, EventRo
   return { port, records, sent, logs, failSendNext: () => void (failSend = true) };
 }
 
-const thread = (id: string, status = "error"): ThreadSummary => ({ id, status, archivedAt: null, updatedAt: NOW - 60_000 });
+const thread = (id: string, status = "error", parentThreadId: string | null = null): ThreadSummary => ({
+  id,
+  status,
+  archivedAt: null,
+  updatedAt: NOW - 60_000,
+  parentThreadId,
+});
 
 const interruptedLog = (reason: string): EventRow[] => [
   { seq: 1, type: "client/turn/requested", createdAt: NOW - 300_000, data: {} },
@@ -119,5 +127,79 @@ describe("the resume loop", () => {
     await resumer.sweep();
     await resumer.consider(thread("thr_a"));
     assert.equal(bb.sent.length, 0);
+  });
+});
+
+describe("waiting on the person", () => {
+  const question = (seq: number, status: string): EventRow => ({
+    seq,
+    type: "system/interaction/lifecycle",
+    createdAt: NOW - 100_000,
+    data: { interaction: { id: `pi_${seq < 10 ? "a" : "b"}`, status, statusReason: null } },
+  });
+
+  test("a turn cut while a question was open is left for the person, and logged", async () => {
+    const events = [...interruptedLog("host-daemon-restarted"), question(5, "pending"), question(12, "interrupted")];
+    const bb = fakeBb({ threads: [thread("thr_a")], events: { thr_a: events } });
+    await createResumer(bb.port).sweep();
+    assert.equal(bb.sent.length, 0);
+    assert.ok(bb.logs.includes("info: thr_a: interrupted by a restart, not resumed: was waiting on user"));
+  });
+
+  test("a question answered before the cut does not hold the resume", async () => {
+    const answered: EventRow = { ...question(6, "resolved"), data: { interaction: { id: "pi_a", status: "resolved" } } };
+    const events = [...interruptedLog("host-daemon-restarted"), question(5, "pending"), answered];
+    const bb = fakeBb({ threads: [thread("thr_a")], events: { thr_a: events } });
+    await createResumer(bb.port).sweep();
+    assert.equal(bb.sent.length, 1);
+  });
+
+  test("a question from an earlier turn does not count", async () => {
+    const earlier: EventRow = { seq: 1, type: "system/interaction/lifecycle", createdAt: 0, data: { interaction: { id: "pi_old", status: "interrupted" } } };
+    const events = [earlier, ...interruptedLog("host-daemon-restarted").filter((row) => row.seq !== 1)];
+    const bb = fakeBb({ threads: [thread("thr_a")], events: { thr_a: events } });
+    await createResumer(bb.port).sweep();
+    assert.equal(bb.sent.length, 1);
+  });
+});
+
+describe("a parent and its child", () => {
+  const restart = () => interruptedLog("host-daemon-restarted");
+
+  test("both interrupted: only the parent is resumed, in either order", async () => {
+    for (const order of [["thr_p", "thr_c"], ["thr_c", "thr_p"]]) {
+      const threads = { thr_p: thread("thr_p"), thr_c: thread("thr_c", "error", "thr_p") };
+      const bb = fakeBb({ threads: order.map((id) => threads[id as keyof typeof threads]), events: { thr_p: restart(), thr_c: restart() } });
+      const resumer = createResumer(bb.port);
+      await resumer.sweep();
+      // The child's own failure event, arriving after the parent's resume.
+      await resumer.consider(threads.thr_c);
+      assert.deepEqual(bb.sent.map((s) => s.threadId), ["thr_p"], order.join(","));
+      assert.ok(bb.logs.includes("info: thr_c: interrupted by a restart, not resumed: its parent is resumed and re-drives it"));
+    }
+  });
+
+  test("a child whose parent is not resumed is resumed itself", async () => {
+    const cases: Record<string, { status: string; events: EventRow[] }> = {
+      "parent still running": { status: "active", events: [] },
+      "parent stopped by hand": { status: "error", events: interruptedLog("manual-stop") },
+    };
+    for (const [name, parent] of Object.entries(cases)) {
+      const bb = fakeBb({
+        threads: [thread("thr_p", parent.status), thread("thr_c", "error", "thr_p")],
+        events: { thr_p: parent.events, thr_c: restart() },
+      });
+      await createResumer(bb.port).sweep();
+      assert.deepEqual(bb.sent.map((s) => s.threadId), ["thr_c"], name);
+    }
+  });
+
+  test("a grandchild defers through a covered parent to the resumed root", async () => {
+    const bb = fakeBb({
+      threads: [thread("thr_g", "error", "thr_c"), thread("thr_c", "error", "thr_p"), thread("thr_p")],
+      events: { thr_p: restart(), thr_c: restart(), thr_g: restart() },
+    });
+    await createResumer(bb.port).sweep();
+    assert.deepEqual(bb.sent.map((s) => s.threadId), ["thr_p"]);
   });
 });

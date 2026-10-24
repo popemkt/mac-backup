@@ -15,7 +15,9 @@ was in flight if its result matters, then carry on with the task. Do not repeat 
 already landed.
 
 The plugin resumes a thread at most `maxConsecutive` times (3) in a row without a completed turn,
-only for interruptions newer than `windowMinutes` (30), and never for a thread someone stopped.
+only for interruptions newer than `windowMinutes` (30), and never for a thread someone stopped
+or one that was waiting on the person. A child thread of a resumed parent gets no message: if
+you are that parent and a child was interrupted, re-drive the child yourself.
 
 ```sh
 bb plugin config restart-resume set enabled false

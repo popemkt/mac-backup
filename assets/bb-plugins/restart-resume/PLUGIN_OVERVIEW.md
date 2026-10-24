@@ -19,6 +19,10 @@ bb resumes the agent's own session for that message, so the agent keeps its conv
 - Threads you or an agent stopped, threads that failed for any other reason, and threads that
   moved on since (a new message, a new turn).
 - Interruptions older than 30 minutes.
+- A thread that was waiting on you (a question, approval or permission) when it was cut: it
+  waits for you.
+- A child thread whose parent is resumed too: the parent hears that its child was interrupted
+  and re-drives it, so the child gets no second nudge.
 - A thread already resumed 3 times in a row without finishing a turn: it stays stopped until
   you step in. A turn that finishes resets the count.
 - Each interruption gets one message, however many times the plugin looks.

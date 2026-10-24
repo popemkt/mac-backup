@@ -19,13 +19,14 @@ const LIST_MAX_PAGES = 25;
 /** The SDK's event-type filter; its element type is not exported by name. */
 type EventTypes = NonNullable<Parameters<BbPluginApi["sdk"]["threads"]["events"]["list"]>[0]["types"]>;
 
-const recordKey =(threadId: string): string => `thread:${threadId}`;
+const recordKey = (threadId: string): string => `thread:${threadId}`;
 
 const summary = (thread: ThreadSummary): ThreadSummary => ({
   id: thread.id,
   status: thread.status,
   archivedAt: thread.archivedAt,
   updatedAt: thread.updatedAt,
+  parentThreadId: thread.parentThreadId,
 });
 
 export default function plugin(bb: BbPluginApi): void {
@@ -66,14 +67,24 @@ export default function plugin(bb: BbPluginApi): void {
       }
       return recent;
     },
+    async thread(threadId) {
+      try {
+        const thread = await bb.sdk.threads.get({ threadId });
+        return thread.deletedAt === null ? summary(thread) : null;
+      } catch {
+        return null; // gone, or not readable: no parent to defer to
+      }
+    },
     async events(threadId, query: EventQuery) {
       const rows = await bb.sdk.threads.events.list({
         threadId,
-        // The policy names only event types bb 0.46.1 declares (TURN_BOUNDARY_TYPES).
+        // The policy names only event types bb 0.46.1 declares (TURN_BOUNDARY_TYPES,
+        // INTERACTION_TYPES, turn/started, turn/completed).
         types: query.types as EventTypes,
         order: query.order,
         limit: String(query.limit),
         ...(query.afterSeq === undefined ? {} : { afterSeq: String(query.afterSeq) }),
+        ...(query.beforeSeq === undefined ? {} : { beforeSeq: String(query.beforeSeq) }),
       });
       return rows.map((row): EventRow => ({ seq: row.seq, type: row.type, createdAt: row.createdAt, data: row.data }));
     },

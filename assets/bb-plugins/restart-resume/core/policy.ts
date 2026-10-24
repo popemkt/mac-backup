@@ -88,6 +88,35 @@ export function anyTurnCompleted(rows: readonly EventRow[]): boolean {
   return rows.some((row) => row.type === "turn/completed" && field(row.data, "status") === "completed");
 }
 
+/**
+ * Event types that record a question, approval or permission put to the person. bb writes
+ * `system/interaction/lifecycle` (`data.interaction.{id,status}`); the older per-kind types carry
+ * `data.{interactionId,status}`. Statuses: pending, resolving, resolved, interrupted.
+ */
+export const INTERACTION_TYPES = [
+  "system/interaction/lifecycle",
+  "system/userQuestion/lifecycle",
+  "system/permissionGrant/lifecycle",
+] as const;
+
+/**
+ * Whether the cut turn was waiting on the person: of the interactions its events record (every
+ * interaction event after the turn started), one never got an answer. bb marks an interaction
+ * still open at the cut `interrupted`; one left `pending` or `resolving` counts too.
+ */
+export function wasWaitingOnUser(interactionRows: readonly EventRow[]): boolean {
+  const latest = new Map<string, { seq: number; status: unknown }>();
+  for (const row of interactionRows) {
+    const nested = field(row.data, "interaction");
+    const id = nested === undefined ? field(row.data, "interactionId") : field(nested, "id");
+    const status = nested === undefined ? field(row.data, "status") : field(nested, "status");
+    if (typeof id !== "string") continue;
+    const seen = latest.get(id);
+    if (seen === undefined || seen.seq < row.seq) latest.set(id, { seq: row.seq, status });
+  }
+  return [...latest.values()].some(({ status }) => status !== "resolved");
+}
+
 /** What the plugin remembers per thread, in its own storage. */
 export interface ResumeRecord {
   /** Resumes in a row; reset by a turn that completes. */
@@ -113,6 +142,10 @@ export interface ThreadFacts {
   readonly boundary: TurnBoundary | null;
   /** A turn completed normally after the interruption the record last resumed. */
   readonly completedSinceRecord: boolean;
+  /** The cut turn was waiting on a question, approval or permission (`wasWaitingOnUser`). */
+  readonly waitingOnUser: boolean;
+  /** Its parent is resumed for this restart and re-drives it (`parentCovers`). */
+  readonly parentCovers: boolean;
 }
 
 export type SkipReason =
@@ -123,7 +156,9 @@ export type SkipReason =
   | "not-a-restart"
   | "already-resumed"
   | "stale"
-  | "cap-reached";
+  | "waiting-on-user"
+  | "cap-reached"
+  | "parent-resumes";
 
 export type Decision =
   | { readonly action: "resume"; readonly record: ResumeRecord }
@@ -144,9 +179,34 @@ export function decide(
   if (boundary.reason !== RESTART_REASON) return skip("not-a-restart");
   if (record !== null && record.interruptionSeq >= boundary.seq) return skip("already-resumed");
   if (now - boundary.at > settings.windowMs) return skip("stale");
+  // As in T3 Code: an open question does not survive the restart, so the person answers first.
+  if (facts.waitingOnUser) return skip("waiting-on-user");
   const chain = record !== null && !facts.completedSinceRecord ? record.chain : 0;
   if (chain >= settings.maxConsecutive) return skip("cap-reached");
+  if (facts.parentCovers) return skip("parent-resumes");
   return { action: "resume", record: { chain: chain + 1, interruptionSeq: boundary.seq, resumedAt: now } };
+}
+
+/**
+ * Whether a parent's state covers its interrupted child. bb tells a parent when its child is
+ * interrupted, so a parent resumed for the same restart re-drives the child, and a second nudge
+ * from here would race it. The parent covers when it is resumed now, was resumed inside the
+ * window, or is itself covered by its own parent. A parent that is not resumed leaves the child
+ * to this plugin.
+ */
+export function parentCovers(
+  parentDecision: Decision,
+  parentRecord: ResumeRecord | null,
+  settings: Settings,
+  now: number,
+): boolean {
+  if (parentDecision.action === "resume") return true;
+  if (parentDecision.reason === "parent-resumes") return true;
+  return (
+    parentDecision.reason === "already-resumed" &&
+    parentRecord !== null &&
+    now - parentRecord.resumedAt <= settings.windowMs
+  );
 }
 
 /** The message a resumed thread gets: the configured text, marked so the person sees what sent it. */

@@ -32,7 +32,18 @@ A thread is resumed when all hold:
 2. its newest turn-boundary event (`client/turn/requested`, `turn/started`, `turn/completed`,
    `system/thread/interrupted`) is an interruption with reason `host-daemon-restarted`;
 3. that interruption is inside the window and newer than the one the plugin last resumed;
-4. fewer than `maxConsecutive` resumes ran since a turn last completed normally.
+4. the cut turn was not waiting on the person: no question, approval or permission it raised
+   (`system/interaction/lifecycle` and the older per-kind lifecycle events after its
+   `turn/started`) ended other than `resolved`. bb marks one open at the cut `interrupted`, and it
+   does not survive the restart, so the person answers first, as in T3 Code;
+5. fewer than `maxConsecutive` resumes ran since a turn last completed normally;
+6. no ancestor covers it. bb tells a parent when its child is interrupted, so a parent resumed
+   for the same restart (now, or inside the window) re-drives the child, and the child gets no
+   message of its own. A child whose parent is not resumed (still running, stopped by hand,
+   capped, on another machine) is resumed itself.
+
+Skips for 4, 5 and 6 are logged ("not resumed: was waiting on user", "… resumes in a row …",
+"… its parent is resumed and re-drives it").
 
 The per-thread record (`bb.storage.kv`, `thread:<id>`: `chain`, `interruptionSeq`, `resumedAt`)
 is written before the message is sent, so a failed or repeated trigger never sends twice. A
@@ -61,8 +72,11 @@ every active thread on that machine, so it needs the owner's go-ahead and a mome
 5. Dedup: `bb plugin reload restart-resume` (a start sweep) sends nothing more to T.
 6. Cap: interrupt T's resumed turns twice more the same way: messages 2 of 3 and 3 of 3 arrive;
    a fourth interruption logs "not resumed: 3 resumes in a row" and sends nothing.
-7. Negative: `bb thread stop` on a running thread sends nothing.
-8. Archive T.
+7. Negative: `bb thread stop` on a running thread sends nothing. A thread that asked the person a
+   question and was cut while waiting gets nothing and logs "was waiting on user".
+8. Parent and child: a throwaway thread that spawns a child running `sleep 600`, both active at
+   the restart: only the parent gets the message, and it re-drives the child.
+9. Archive the throwaway threads.
 
 ## Develop
 
