@@ -107,6 +107,13 @@ module refuses an app that says neither:
   its name to `updatedBy`'s tags and to the module's channel table, then
   calls the hook with what it changed; it never names an app.
 
+An app made of several processes declares the others as `companions.<name>`
+(a command, environment, and its own `idleCheck`), each its own unit
+`app-<app>-<name>`, so each process restarts only for its own reasons; an
+upgrade restarts all of them together. An `idleCheck` on a unit defers its
+restarts until the app reports idle (bb's host daemon, where agent threads
+run, while bb's server restarts freely).
+
 An app that can listen on a Unix socket sets `socket = "/run/<dir>/<file>"`
 instead of `port`. It gets no HOST or PORT; its arguments name the socket. The
 unit creates `/run/<dir>` owned by the app's owner with mode 0700 and removes

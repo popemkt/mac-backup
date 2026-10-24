@@ -27,6 +27,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Decide the home for the checklist in this repo, port R1-R20, and wire the mechanical subset the way the reference repo does before adding more skills.
 - **node** — `01M1M08W6Z70XV3KCQB5CWH3ZR`
 
+### GAP: bb's idle gate cannot see past a daemon cut off from the server
+
+- **expected** — app-bb-daemon's idle-gated restart happens once its threads finish, even while the daemon cannot reach the server
+- **current** — The idleCheck asks the server (bb thread list). A daemon that is down, or that the server rejects for a protocol mismatch (a crash restart of app-bb onto a newly upgraded bb before the idle-gated lockstep restart), leaves its threads active in the server's database, so the check never passes and the waiter gives up after 24 h
+- **impact** — The daemon restart waits until someone runs sudo systemctl restart app-bb-daemon; meanwhile that machine's threads are invisible to the server
+- **closes** — An idle check that also asks the daemon itself (its local API on 127.0.0.1:38887) or treats a disconnected daemon as idle; or an upstream bb way to list a daemon's running work
+- **node** — `01M5P0D3VP9RXH16D7VJV282BT`
+
 ### GAP: kb.server has no NixOS side
 
 - **expected** — kb.server runs on NixOS as a supervised service for a named person, rendered from the same service declaration the macOS launchd agent comes from.

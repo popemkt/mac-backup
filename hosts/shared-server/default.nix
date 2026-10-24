@@ -155,27 +155,48 @@
   # popemkt's bb server, as svc:bb-popemkt. Its API is unauthenticated and
   # runs commands as popemkt, so the tailnet grant is its access boundary;
   # everyone in my.people here is already root through sudo. BB_APP_URL is
-  # the browser origin bb allows and links to; its co-located host daemon
-  # stays on loopback 38887.
+  # the browser origin bb allows and links to.
+  #
+  # bb runs as two units, so that only bb's own upgrades interrupt a thread:
+  # app-bb, the server alone, and app-bb-daemon, this machine's host daemon
+  # on loopback 38887, which every agent thread here runs under. A thread
+  # survives a server restart: the daemon keeps it running, queues its
+  # events and reconnects, and the server keeps a thread active across a
+  # reconnect from the same daemon process. So the server restarts whenever
+  # its definition changes. The daemon shares the data directory ~/.bb, and
+  # with it the machine's identity (host-id and auth.json), and restarts only
+  # once bb is idle.
   my.services.bb = {
     owner = "popemkt";
     port = 38886;
-    # bb-app tracks npm's latest release; update-npm-globals restarts it
-    # once it is idle (idleCheck).
+    # bb-app tracks npm's latest release. The server accepts only a daemon
+    # of its own protocol version, which most bb releases bump, so
+    # update-npm-globals restarts both units together, once bb is idle.
     updatedBy.npmGlobal = "bb-app";
-    command = "bb-app --server-port 38886 --host-daemon-port 38887 --no-in-app-updates";
-    # The server is also the host daemon every agent thread runs in, so a
-    # restart cuts them all off ("host daemon disconnected"). Neither a
-    # rebuild nor an upgrade restarts it until no thread, hidden ones
-    # included, is running a turn, a background agent, a background command,
-    # or a workflow. If bb cannot answer, it counts as busy.
-    idleCheck = ''
-      bb thread list --include-hidden --json | jq -e '
-        type == "array" and all(.[];
-          .status != "active"
-          and ([.activity // {} | (.activeBackgroundAgentCount, .activeBackgroundCommandCount, .activeWorkflowCount) // 0] | add) == 0)
-      ' >/dev/null
-    '';
+    # bb-server has no in-app updates to turn off.
+    command = "bb-server --server-port 38886";
+    companions.daemon = {
+      # Without --auto-update the daemon never reinstalls bb itself over a
+      # protocol mismatch; it logs one and keeps retrying.
+      command = "bb-host-daemon --server-url ${config.my.services.bb.listenOrigin} --host-daemon-port 38887";
+      # A daemon restart cuts every thread on this machine off ("host daemon
+      # disconnected"). Neither a rebuild nor an upgrade restarts it until no
+      # thread, hidden ones included, is running a turn, a background agent,
+      # a background command, or a workflow. If bb cannot answer, it counts
+      # as busy.
+      # GAP [[01M5P0D3VP9RXH16D7VJV282BT]]: it asks the server, so a daemon
+      # the server cannot see (down, or rejected for its protocol) never
+      # counts as idle.
+      idleCheck = ''
+        bb thread list --include-hidden --json | jq -e '
+          type == "array" and all(.[];
+            .status != "active"
+            and ([.activity // {} | (.activeBackgroundAgentCount, .activeBackgroundCommandCount, .activeWorkflowCount) // 0] | add) == 0)
+        ' >/dev/null
+      '';
+    };
+    # Both units' environment (the daemon also reads BB_APP_URL); the
+    # companion gets no HOST or PORT.
     environment = {
       BB_APP_URL = config.my.stacks.vpn.services.bb-popemkt.publicOrigin;
       # The address bb gives the machines it enrolls (Settings → Machines →

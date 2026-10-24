@@ -60,7 +60,7 @@ if [[ -n "${REBUILD_DRY_RUN:-}" ]]; then
 fi
 
 # A rebuild started from inside a my.services app (an agent working in a bb
-# thread runs under app-bb.service) dies when the switch restarts that app:
+# thread runs under app-bb-daemon.service) dies when the switch restarts that app:
 # the stop kills the caller, the pipe to switch-to-configuration closes, and
 # switch-to-configuration panics (exit 101) after stopping the changed units and
 # before starting them, leaving them down. Rerun detached in a transient unit
