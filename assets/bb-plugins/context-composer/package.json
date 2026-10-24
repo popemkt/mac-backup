@@ -1,0 +1,41 @@
+{
+  "name": "bb-plugin-context-composer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "bb plugin: see everything that feeds an agent, compose it (keep, drop, add), ask what the composition does to a thread's trajectory, and start a thread with it.",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.46",
+    "bbPluginSdk": ">=0.6.49"
+  },
+  "bb": {
+    "name": "Context Composer",
+    "description": "See what feeds a thread's agent, compose it, ask what it does to the trajectory, and start a thread with it. Says per provider what is enforced and what is only advisory.",
+    "branding": {
+      "icon": "Layers"
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.49",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "cron-parser": "^5.10.2",
+    "hono": "^4.13.13",
+    "typescript": "^5.7.0"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.ts",
+    "typecheck": "tsc -p ."
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^12.10.0"
+  },
+  "//": "better-sqlite3 is optional: only the server tests (bb's fake plugin host) need it, and bb-plugins-sync installs with --omit=optional, so no host builds it."
+}
