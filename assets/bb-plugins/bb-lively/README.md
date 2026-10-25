@@ -18,6 +18,7 @@ for what a person gets, [core/README.md](core/README.md) for the engine, and the
 | `app.tsx` | The `motion` content script; a headless app overlay for settings and one for `experimental_useSidebarThreads` (feature-detected); an invisible composer action for `useComposer().onSubmitted` and the accent caret (`setTextEffect`); the Preset settings section (every effective value and its source, a one-click palette switch) and the selector-health one. |
 | `server.ts` | `bb.settings.define`, the palette switch on `settings.onChange`, and the art image route. |
 | `themes/` | `lively.css`, `lively-dracula.css`, their `-bold` variants and `lively-zzz.css` (manifest `bb.themes`): tokens only, no motion. A bold file is its base palette copied plus a Bold block at the end (one theme is active at a time, so it cannot import the base): keep each pair in step. |
+| `ART-DIRECTION.md` | **Canonical** per-theme art direction: each theme's source analysis, its translation into UI concepts, and where each concept lives in code (shipped or planned). |
 | `skills/bb-lively/` | Tells agents what lively does, its settings, and how to report a broken selector. |
 | `tests/` | Adapter tests, and `fixtures/bb-0.46.1.html`: bb's markup captured from the web UI (structure and attributes only) that `selectors.test.ts` runs the table against. |
 
