@@ -40,7 +40,7 @@ export interface ArtSurfaceArt {
    * Topmost first, as in CSS `background`. Use the theme's colors through
    * `--lively-accent`, `--lively-accent-2`, `--lively-canvas`. Backdrop art
    * (and its mask) is anchored to the bottom-right corner in fixed pixels, not
-   * percentages: a floating dock's band shares that corner and repeats the
+   * percentages: bb's dock band (behind the composer) shares that corner and repeats the
    * layers, which only meet seamlessly if neither depends on the box's size.
    */
   readonly layers: ReadonlyArray<ArtLayer>;
@@ -61,14 +61,6 @@ export const DEFAULT_IMAGE_PLACEMENT: ArtImagePlacement = { surface: "backdrop",
 // The image is fixed to the window (background-attachment), so `size` and `position` are relative to the window.
 
 export interface PresetArt {
-  /**
-   * `float`: the composer's dock stops painting an opaque band; the composer
-   * and the cards above it become translucent floating panels (a soft shadow,
-   * a hard sticker shadow when stickers are on) over the backdrop, with a
-   * short fade at the timeline's bottom edge so text scrolling under stays
-   * readable. Floating HUD controls over the scene.
-   */
-  readonly dock?: "float";
   readonly backdrop?: ArtSurfaceArt;
   readonly sidebar?: ArtSurfaceArt;
   readonly image?: ArtImagePlacement;
@@ -122,7 +114,6 @@ export const PRESETS = [
     artDirection: "ART-DIRECTION.md#lively",
     values: { intensity: "lively", style: "clean" },
     palette: "lively",
-    art: { dock: "float" },
   },
   {
     id: "zzz",
@@ -133,7 +124,6 @@ export const PRESETS = [
     values: { intensity: "bold", style: "wobbly", skew: true, stickers: "wobbly", jelly: "matched", effects: { pageWipe: true } },
     palette: "lively-zzz",
     art: {
-      dock: "float",
       // ZZZ's panels: a halftone field and two accent slashes rising out of the lower right.
       backdrop: {
         layers: [

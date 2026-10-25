@@ -5,11 +5,10 @@ palette and an art layer.
 ## Presets
 
 - **Calm**: subtle, clean motion, no sticker shadows, no page wipe; leaves bb's theme alone.
-- **Lively**: clean motion at the lively volume on the Lively palette, with the composer
-  floating over the thread.
+- **Lively**: clean motion at the lively volume on the Lively palette.
 - **ZZZ**: wobbly at bold, skewing rows, sticker shadows, matched jelly, the page wipe, the
   Lively ZZZ palette, a halftone-and-slash backdrop behind the thread and hazard stripes
-  under the sidebar, with the composer and its cards floating over it like a game HUD.
+  under the sidebar, running behind the composer to the bottom edge.
 - **Custom**: no preset.
 
 Every setting below starts on **From preset**. Set one yourself and it stays as you set it
