@@ -13,9 +13,11 @@
 // copies then share the view's corner and its mask, one continuous picture.
 // The stretch is clipped by the scroller, so nothing shows under the scrollbar.
 //
-// A ResizeObserver per band and view measures again on any size change (a
-// window resize, a scrollbar appearing, a panel opening); bands are found by
-// a cheap periodic query, as rows.ts finds lists. Reads layout only there.
+// Bands are found by a cheap periodic query, as rows.ts finds lists, and every
+// band is measured again on each pass, so a gap that opens without a resize
+// event (a scrollbar appearing, a panel opening) closes within a second. Where
+// the window has a ResizeObserver, one per band and view, and a window resize,
+// measure at once. Reads layout only there.
 import type { Targets } from "./targets.ts";
 
 /** The custom properties the art's band layer reaches out by (px, set on each dock band). */
@@ -27,7 +29,7 @@ export const REACH = {
 const SCAN_MS = 1000;
 
 export interface ReachWatcher {
-  /** Look for new bands now and measure them (also runs every second). */
+  /** Look for new bands now and measure every band (also runs every second). */
   scan(): void;
   /** Measure every band now. */
   measure(): void;
@@ -71,14 +73,15 @@ export function createReachWatcher(options: { readonly win: Window; readonly tar
       bands.set(band, view);
       observer?.observe(band);
       observer?.observe(view);
-      measureOne(band, view);
     }
+    measure();
   };
   const tick = () => {
     if (disposed) return;
     scan();
     timer = win.setTimeout(tick, SCAN_MS);
   };
+  win.addEventListener("resize", measure, { passive: true });
   tick();
 
   return {
@@ -88,6 +91,7 @@ export function createReachWatcher(options: { readonly win: Window; readonly tar
       disposed = true;
       if (timer !== undefined) win.clearTimeout(timer);
       observer?.disconnect();
+      win.removeEventListener("resize", measure);
       for (const band of bands.keys()) {
         band.style.removeProperty(REACH.right);
         band.style.removeProperty(REACH.bottom);
