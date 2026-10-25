@@ -178,6 +178,8 @@ test("art: a backdrop repeats on bb's dock band, hides bb's fade above it, and f
   // The band stays opaque (no background override) and paints the same art layers as the thread, anchored to the same corner.
   assert.ok(!/:is\(\.dock\) \{ background/u.test(css));
   assert.match(css, new RegExp(`${scope} :is\\(\\.page, \\.dock\\)::before \\{[^}]*background-position: right bottom, right bottom;`, "u"));
+  // The band's layer reaches its view's corner by the gap reach.ts measures (0 where unset), so both copies share it.
+  assert.match(css, new RegExp(`${scope} :is\\(\\.page, \\.dock\\)::before \\{[^}]*inset: 0 calc\\(-1 \\* var\\(--lively-reach-right, 0px\\)\\) calc\\(-1 \\* var\\(--lively-reach-bottom, 0px\\)\\) 0;`, "u"));
   assert.match(css, new RegExp(`${scope} :is\\(\\.dock-fade\\) \\{ display: none; \\}`, "u"));
   // The composer keeps bb's own surface; over the art it only loses its hard offset shadows
   // (the palette's lift, lively's focus sticker), which would cut a dark sliver into the art.

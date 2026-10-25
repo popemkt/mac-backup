@@ -5,6 +5,7 @@ export * from "./domain/index.ts";
 export { type Canary, type CanaryEntry, type CanaryReading, createCanary } from "./dom/canary.ts";
 export { createLively, type CreateLivelyOptions, type Lively, type StatusTone, STYLE_ATTRIBUTE } from "./dom/lively.ts";
 export { createPulser, type Pulser } from "./dom/pulser.ts";
+export { createReachWatcher, REACH, type ReachWatcher } from "./dom/reach.ts";
 export { createRowWatcher, type RowWatcher } from "./dom/rows.ts";
 export { buildStylesheet, CLASSES, ROOT, ROOT_ATTRIBUTES } from "./dom/stylesheet.ts";
 export { ART_IMAGE_PROPERTY, ART_ROOT, buildArtStylesheet } from "./dom/art.ts";

@@ -43,8 +43,9 @@ export interface ArtSurfaceArt {
    * Topmost first, as in CSS `background`. Use the theme's colors through
    * `--lively-accent`, `--lively-accent-2`, `--lively-canvas`. Backdrop art
    * (and its mask) is anchored to the bottom-right corner in fixed pixels, not
-   * percentages: bb's dock band (behind the composer) shares that corner and repeats the
-   * layers, which only meet seamlessly if neither depends on the box's size.
+   * percentages: bb's dock band (behind the composer) repeats the layers, reaching
+   * the thread's corner (dom/reach.ts), and the two only meet seamlessly if neither
+   * depends on the box's size.
    */
   readonly layers: ReadonlyArray<ArtLayer>;
   /** A CSS mask over the whole surface's art (the person's image too), to keep it off where text sits. */

@@ -46,9 +46,10 @@ export interface Targets {
    */
   readonly sidebar: string;
   /**
-   * The band the composer docks in at the bottom of a thread, opaque, sharing
-   * the bottom-right corner of `pageView`. A preset's backdrop art repeats on
-   * it, so the art runs to the bottom edge; it must already be positioned.
+   * The band the composer docks in at the bottom of a thread, opaque, inside
+   * a `pageView`. A preset's backdrop art repeats on it, so the art runs to the
+   * bottom edge; it must already be positioned. Its edges may stop short of the
+   * view's (a scrollbar between them): its art reaches the view's corner (reach.ts).
    */
   readonly dock: string;
   /** The host's fade over the timeline's bottom edge, just above the dock; hidden under backdrop art. */

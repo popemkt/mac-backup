@@ -115,8 +115,12 @@ motion Off turns it off with everything else.
 **The dock.** With a backdrop, bb's opaque band behind the composer repeats the art, so it
 runs to the bottom edge: backdrop layers and masks are anchored to the bottom-right corner
 in fixed pixels (the tests enforce it) and the image is fixed to the window, so the two
-meet without a seam. bb's solid fade just above the composer, which would cut the art
-off, is hidden. Nothing else in the dock changes: the composer keeps bb's own surface.
+meet without a seam. The band sits inside the thread's scroller, so a classic scrollbar
+pulls its right edge in from the thread's; lively measures that gap and the band's art
+reaches past it to the thread's corner (`core/src/dom/reach.ts`), or every slanted stroke
+would step sideways at the dock. bb's solid fade just above the composer, which would cut
+the art off, is hidden. The composer keeps bb's own surface, minus its hard offset
+shadows, which would cut a dark sliver into the art.
 
 **A preset's own motion and paint.** `tokens` lays a preset's motion character over every
 (style, intensity) at the full level (YoRHa: no overshoot, no blur, no tilt, no lift

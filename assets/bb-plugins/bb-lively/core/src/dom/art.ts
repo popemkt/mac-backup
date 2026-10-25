@@ -14,6 +14,7 @@
 // color so text stays readable.
 import { type ArtLayer, type ArtSurface, ART_SURFACES, DEFAULT_IMAGE_PLACEMENT, type Preset } from "../domain/presets.ts";
 import { cssString } from "./css.ts";
+import { REACH } from "./reach.ts";
 import type { Targets } from "./targets.ts";
 
 /** The custom property on <html> holding the person's image as `url("…")`. */
@@ -46,12 +47,18 @@ function backgroundLists(layers: ReadonlyArray<ArtLayer>): string {
   background-attachment: ${list((layer) => layer.attachment ?? "scroll")};`;
 }
 
+/**
+ * A surface's art layer. It reaches past the surface's right and bottom edges by
+ * REACH, which reach.ts sets on the dock band only (the gap to its thread
+ * view's corner, e.g. a scrollbar): the band's copy of the backdrop then shares
+ * the view's corner, so the two meet without a step. Elsewhere it is unset: 0.
+ */
 function surfaceRule(selector: string, layers: ReadonlyArray<ArtLayer>, mask: string | undefined): string {
   return `${selector} { position: relative; isolation: isolate; }
 ${selector}::before {
   content: "";
   position: absolute;
-  inset: 0;
+  inset: 0 calc(-1 * var(${REACH.right}, 0px)) calc(-1 * var(${REACH.bottom}, 0px)) 0;
   z-index: -1;
   pointer-events: none;
 ${backgroundLists(layers)}
@@ -72,7 +79,8 @@ function presetArt(preset: Preset, surfaces: Readonly<Record<ArtSurface, string>
   const colors = Object.entries(preset.art?.colors ?? {}).map(([name, color]) => `  --lively-c-${name}: ${color};`);
   if (fonts.length + colors.length > 0) out.push(`${scope} {\n${[...fonts, ...colors].join("\n")}\n}`);
   // With a backdrop, bb's dock band (opaque, behind the composer) repeats it: the art is
-  // anchored to the corner they share, so it runs to the bottom edge without a seam. bb's
+  // anchored to the view's corner (the band's layer reaches it, reach.ts), so it runs to
+  // the bottom edge without a seam. bb's
   // fade above the band, a solid gradient, would cut it off, so it goes.
   // The person's image behind the thread does the same.
   // The dock's controls then float on the art, each on its own rounded surface, with no hard

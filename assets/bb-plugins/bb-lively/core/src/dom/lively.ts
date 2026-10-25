@@ -1,6 +1,7 @@
 // createLively: the motion layer in one window. It owns one <style>, the
-// root attributes, a reduced-motion listener, the row watcher and the
-// one-shot pulses, and removes every one of them when its signal aborts.
+// root attributes, a reduced-motion listener, the row watcher, the dock
+// band's art reach and the one-shot pulses, and removes every one of them
+// when its signal aborts.
 import { type EffectId, effectAttribute } from "../domain/effects.ts";
 import { MAX_CONCURRENT_ENTERS, type MotionPolicy, resolveMotion, tokensFor } from "../domain/policy.ts";
 import type { Preset } from "../domain/presets.ts";
@@ -8,6 +9,7 @@ import { decodeSettings } from "../domain/resolve.ts";
 import type { SettingsInput, SettingsProblem } from "../domain/settings.ts";
 import { ART_IMAGE_PROPERTY } from "./art.ts";
 import { createPulser } from "./pulser.ts";
+import { createReachWatcher } from "./reach.ts";
 import { createRowWatcher } from "./rows.ts";
 import { buildStylesheet, CLASSES, PAGE_REPLAYED, PULSE_ATTRIBUTES, ROOT, ROOT_ATTRIBUTES } from "./stylesheet.ts";
 import type { Targets } from "./targets.ts";
@@ -117,6 +119,9 @@ export function createLively(options: CreateLivelyOptions): Lively {
     },
   });
 
+  // The dock band's copy of the backdrop art reaches its thread view's corner (reach.ts).
+  const reach = createReachWatcher({ win, targets });
+
   // press: the sink is pure CSS (:active); the spring back needs to know the press ended.
   const released = (event: PointerEvent) => {
     const target = elementOf(event.target);
@@ -180,6 +185,7 @@ export function createLively(options: CreateLivelyOptions): Lively {
       if (disposed) return;
       disposed = true;
       rows.dispose();
+      reach.dispose();
       pulser.clear();
       media.removeEventListener("change", refresh);
       win.removeEventListener("pointerup", released, { capture: true });
