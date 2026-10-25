@@ -165,3 +165,15 @@ test("the DOM layer writes the preset, the art switch and the image, and removes
   for (const name of ROOT_ATTRIBUTES) assert.ok(!p.root.hasAttribute(name), name);
   assert.equal(p.root.style.getPropertyValue(ART_IMAGE_PROPERTY), "");
 });
+
+test("art: a floating dock clears the band, fades its top edge, and floats the composer and its cards", () => {
+  const css = buildArtStylesheet(TARGETS, PRESETS);
+  const scope = String.raw`:root\[data-lively-art="on"\]\[data-lively-preset="zzz"\]`;
+  assert.match(css, new RegExp(`${scope} :is\\(\\.dock\\) \\{ background: transparent; \\}`, "u"));
+  assert.match(css, new RegExp(`${scope} :is\\(\\.dock\\)::before \\{[^}]*inset: auto 0 100% 0;`, "u"));
+  assert.match(css, new RegExp(`${scope} :is\\(:is\\(form\\.composer\\), :is\\(\\.dock-card\\)\\) \\{[^}]*backdrop-filter: blur`, "u"));
+  assert.match(css, new RegExp(`${scope}\\[data-lively-stickers="on"\\] :is\\(:is\\(form\\.composer\\):not\\(:focus-within\\), :is\\(\\.dock-card\\)\\) \\{[^}]*var\\(--lively-sticker\\)`, "u"));
+  // Lively floats too; calm and custom keep bb's dock.
+  assert.match(css, /\[data-lively-preset="lively"\] :is\(\.dock\) \{ background: transparent; \}/u);
+  assert.ok(!/\[data-lively-preset="(calm|custom)"\] :is\(\.dock\)/u.test(css));
+});

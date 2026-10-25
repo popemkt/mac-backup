@@ -65,6 +65,8 @@ export const TARGETS: Targets = {
   checkbox: "[role=checkbox]",
   pageView: ".page",
   sidebar: ".sidebar",
+  dock: ".dock",
+  dockCard: ".dock-card",
   working: ".working",
   hostAnimation: ".animate-in",
   suspendOn: ["data-measuring"],

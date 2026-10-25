@@ -53,6 +53,14 @@ export interface ArtImagePlacement {
 export const DEFAULT_IMAGE_PLACEMENT: ArtImagePlacement = { surface: "backdrop", strength: 0.16, size: "cover", position: "center" };
 
 export interface PresetArt {
+  /**
+   * `float`: the composer's dock stops painting an opaque band; the composer
+   * and the cards above it become translucent floating panels (a soft shadow,
+   * a hard sticker shadow when stickers are on) over the backdrop, with a
+   * short fade at the timeline's bottom edge so text scrolling under stays
+   * readable. Floating HUD controls over the scene.
+   */
+  readonly dock?: "float";
   readonly backdrop?: ArtSurfaceArt;
   readonly sidebar?: ArtSurfaceArt;
   readonly image?: ArtImagePlacement;
@@ -106,6 +114,7 @@ export const PRESETS = [
     artDirection: "ART-DIRECTION.md#lively",
     values: { intensity: "lively", style: "clean" },
     palette: "lively",
+    art: { dock: "float" },
   },
   {
     id: "zzz",
@@ -116,6 +125,7 @@ export const PRESETS = [
     values: { intensity: "bold", style: "wobbly", skew: true, stickers: "wobbly", jelly: "matched", effects: { pageWipe: true } },
     palette: "lively-zzz",
     art: {
+      dock: "float",
       // ZZZ's panels: a halftone field and two accent slashes rising out of the lower right.
       backdrop: {
         layers: [
