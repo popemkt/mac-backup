@@ -5,7 +5,7 @@ import { type EffectId, effectAttribute } from "../domain/effects.ts";
 import { MAX_CONCURRENT_ENTERS, type MotionPolicy, resolveMotion, tokensFor } from "../domain/policy.ts";
 import type { Preset } from "../domain/presets.ts";
 import { decodeSettings } from "../domain/resolve.ts";
-import type { Settings, SettingsInput, SettingsProblem } from "../domain/settings.ts";
+import type { SettingsInput, SettingsProblem } from "../domain/settings.ts";
 import { ART_IMAGE_PROPERTY } from "./art.ts";
 import { createPulser } from "./pulser.ts";
 import { createRowWatcher } from "./rows.ts";
@@ -33,7 +33,7 @@ export interface Lively {
   policy(): MotionPolicy;
   /** A local send just happened: ripple the send button, and let its echo rise in. */
   sent(): void;
-  /** Ring a status row once in a tone; false when it did not run (effect off, paused, already ringing). */
+  /** Ring a status row once in a tone (a failure also glitches, under a preset with the glitch); false when it did not run (effect off, paused, already ringing). */
   pulseStatus(row: Element, tone: StatusTone): boolean;
   dispose(): void;
 }
@@ -54,9 +54,10 @@ export function createLively(options: CreateLivelyOptions): Lively {
   const root = doc.documentElement;
   const { targets } = options;
   const presets = options.presets;
-  let settings: Settings = decodeSettings(options.settings ?? {}, presets).settings;
+  let resolved = decodeSettings(options.settings ?? {}, presets);
   const media = win.matchMedia(REDUCED_QUERY);
-  let current: MotionPolicy = resolveMotion(settings, media.matches);
+  const policyNow = () => resolveMotion(resolved.settings, media.matches, resolved.preset.tokens);
+  let current: MotionPolicy = policyNow();
   let disposed = false;
 
   for (const stale of doc.head.querySelectorAll(`style[${STYLE_ATTRIBUTE}]`)) stale.remove();
@@ -94,7 +95,7 @@ export function createLively(options: CreateLivelyOptions): Lively {
     for (const effect of current.effects) root.setAttribute(effectAttribute(effect), "");
   };
   const refresh = () => {
-    current = resolveMotion(settings, media.matches);
+    current = policyNow();
     write();
   };
   write();
@@ -160,10 +161,9 @@ export function createLively(options: CreateLivelyOptions): Lively {
 
   const lively: Lively = {
     setSettings: (input) => {
-      const decoded = decodeSettings(input, presets);
-      settings = decoded.settings;
+      resolved = decodeSettings(input, presets);
       refresh();
-      return decoded.problems;
+      return resolved.problems;
     },
     policy: () => current,
     sent: () => {
@@ -172,7 +172,10 @@ export function createLively(options: CreateLivelyOptions): Lively {
       if (!may("sendPulse")) return;
       for (const button of doc.querySelectorAll(targets.sendButton)) pulser.pulse(button, CLASSES.send, deadline(tokens().pulseMs));
     },
-    pulseStatus: (row, tone) => may("statusPulse") && pulser.pulse(row, CLASSES.pulse, deadline(2 * tokens().pulseMs), { [PULSE_ATTRIBUTES.tone]: tone }),
+    // A failure also glitches under a preset that has the glitch, even with the rings off.
+    pulseStatus: (row, tone) =>
+      (may("statusPulse") || (tone === "error" && may("glitch"))) &&
+      pulser.pulse(row, CLASSES.pulse, deadline(2 * tokens().pulseMs), { [PULSE_ATTRIBUTES.tone]: tone }),
     dispose: () => {
       if (disposed) return;
       disposed = true;

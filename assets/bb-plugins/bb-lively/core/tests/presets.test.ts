@@ -3,7 +3,13 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import {
+  BUDGETS,
   decodeChoices,
+  INTENSITIES,
+  landsAt,
+  MOTION_TOKENS,
+  STYLES,
+  tokensFor,
   decodeSettings,
   DEFAULT_SETTINGS,
   EFFECT_IDS,
@@ -18,7 +24,7 @@ import {
 } from "../src/domain/index.ts";
 import { ART_IMAGE_PROPERTY, buildArtStylesheet } from "../src/dom/art.ts";
 import { createLively } from "../src/dom/lively.ts";
-import { ROOT_ATTRIBUTES } from "../src/dom/stylesheet.ts";
+import { buildStylesheet, ROOT_ATTRIBUTES } from "../src/dom/stylesheet.ts";
 import { page, TARGETS } from "./harness.ts";
 
 test("the table: unique ids, custom first and empty, every value a real setting", () => {
@@ -187,9 +193,112 @@ test("art: backdrop art never depends on its box's size, so the dock band contin
   for (const preset of PRESETS as ReadonlyArray<Preset>) {
     const { art } = preset;
     for (const layer of art?.backdrop?.layers ?? []) {
-      assert.match(layer.position ?? "", /^right bottom$/u, `${preset.id}: ${layer.image.slice(0, 30)}`);
+      // Anchored to the bottom-right corner, at most offset from it in fixed pixels.
+      assert.match(layer.position ?? "", /^right(?: \d+px)? bottom(?: \d+px)?$/u, `${preset.id}: ${layer.image.slice(0, 30)}`);
       assert.ok(!/%/u.test(layer.size ?? "auto"), `${preset.id}: size ${layer.size}`);
     }
     if (art?.backdrop?.mask !== undefined) assert.match(art.backdrop.mask, /right bottom \/ \d+px \d+px/u, preset.id);
   }
+});
+
+test("cloudbank and yorha: each a whole art direction, with its palette, its own effect and its art", () => {
+  const cloudbank = resolve({ ...NO_CHOICES, preset: "cloudbank" }).settings;
+  assert.deepEqual(
+    [cloudbank.style, cloudbank.intensity, cloudbank.stickers, cloudbank.palette, cloudbank.effects.pageWipe, cloudbank.effects.turnFreeze],
+    ["clean", "lively", "off", "lively-cloudbank", true, true],
+  );
+  const yorha = resolve({ ...NO_CHOICES, preset: "yorha" }).settings;
+  assert.deepEqual([yorha.style, yorha.speed, yorha.palette, yorha.effects.glitch], ["clean", "snappy", "lively-yorha", true]);
+  assert.ok(resolveMotion(cloudbank, false).effects.includes("turnFreeze") && !resolveMotion(cloudbank, false).effects.includes("glitch"));
+  assert.ok(resolveMotion(yorha, false).effects.includes("glitch") && !resolveMotion(yorha, false).effects.includes("turnFreeze"));
+  // Turn() is a state: it stays under reduced motion; the glitch is a movement and goes.
+  assert.ok(resolveMotion(cloudbank, true).effects.includes("turnFreeze"));
+  assert.ok(!resolveMotion(yorha, true).effects.includes("glitch"));
+  for (const id of ["cloudbank", "yorha"]) {
+    const preset = PRESETS.find((row) => row.id === id) as Preset | undefined;
+    assert.ok(preset?.art?.backdrop?.layers.length && preset.art.sidebar?.layers.length, id);
+    assert.ok(preset.paint?.wipe && preset.paint.chroma, id);
+  }
+});
+
+test("a preset's own tokens keep the style's budget, at every intensity", () => {
+  for (const preset of PRESETS as ReadonlyArray<Preset>) {
+    if (preset.tokens === undefined) continue;
+    for (const style of STYLES) {
+      const budget = BUDGETS[style];
+      for (const intensity of INTENSITIES) {
+        const tokens = { ...MOTION_TOKENS[style][intensity], ...preset.tokens };
+        const at = `${preset.id}: ${style} × ${intensity}`;
+        assert.ok(tokens.pressMs <= budget.maxPressMs, at);
+        for (const ms of [tokens.releaseMs, tokens.enterMs, tokens.overlayMs, tokens.exitMs, tokens.pulseMs]) assert.ok(ms <= budget.maxTotalMs, `${at}: ${ms} ms`);
+        // A spring with no overshoot never lands early, so clean's total cap is its land cap.
+        for (const ms of [tokens.releaseMs, tokens.enterMs, tokens.overlayMs]) assert.ok(Math.min(1, landsAt(tokens)) * ms <= budget.maxTotalMs, at);
+      }
+    }
+  }
+});
+
+test("a preset's tokens apply at the full level only; reduced motion keeps the reduced tokens", () => {
+  const yorha = resolve({ ...NO_CHOICES, preset: "yorha" });
+  const full = resolveMotion(yorha.settings, false, yorha.preset.tokens);
+  assert.equal(tokensFor(full).overshoot, 0);
+  assert.equal(tokensFor(full).blur, 0);
+  assert.deepEqual(resolveMotion(yorha.settings, true, yorha.preset.tokens).overrides, {});
+  const css = buildStylesheet(TARGETS);
+  const blocks = [...css.matchAll(/^(.*\[data-lively-preset="yorha"\][^{]*)\{([^}]*)\}/gmu)].filter((match) => (match[2] ?? "").includes("--lively-spring"));
+  assert.equal(blocks.length, 12, "six (style, intensity) blocks, for a forced full level and for the system's");
+  for (const [, selector] of blocks) assert.match(selector ?? "", /\[data-lively="full"\]/u);
+  // The system's copies sit under the media query that says the OS does not ask for less motion.
+  assert.match(css, /@media \(prefers-reduced-motion: no-preference\) \{\s*:root\[data-lively-preset="yorha"\]\[data-lively="full"\]\[data-lively-source="system"\]/u);
+  // Cloudbank only brightens the sword's light: its glow, nothing that moves.
+  assert.deepEqual(Object.keys(PRESETS.find((preset) => preset.id === "cloudbank")?.tokens ?? {}), ["glow"]);
+  assert.ok(!/\[data-lively-preset="(zzz|calm|lively|custom)"\]\[data-lively="full"\]\[data-lively-source/u.test(css), "the seed presets keep the shared tokens");
+});
+
+test("a preset's paint recolors the shared effects under that preset only", () => {
+  const css = buildStylesheet(TARGETS);
+  assert.match(css, /:root\[data-lively-preset="cloudbank"\]\[data-lively\] \{\s*--lively-wipe-fill: [^;]+;\s*--lively-wipe-mask: [^;]+;\s*--lively-chroma-a: var\(--lively-accent\);/u);
+  assert.match(css, /:root\[data-lively-preset="yorha"\]\[data-lively\] \{[^}]*--lively-chroma-b: #4a7a8c;/u);
+  assert.ok(!/\[data-lively-preset="(zzz|calm|lively|custom)"\]\[data-lively\] \{/u.test(css));
+});
+
+test("turnFreeze: the timeline freezes while the page view holds a request, and the request itself never does", () => {
+  const css = buildStylesheet(TARGETS);
+  const freeze = [...css.matchAll(/^([^{}\n]*\[data-lively-turn-freeze\][^{]*)\{([^}]*)\}/gmu)].map((match) => [(match[1] ?? "").trim(), match[2] ?? ""] as const);
+  assert.ok(freeze.length >= 6);
+  for (const [selector] of freeze) assert.match(selector, /:is\(\.page\):has\(:is\(\.request\)\)|:is\(\.timeline\) > :is\(\.row\)/u, selector);
+  // The dimming filter lands on timeline rows only; the request is lit (a glow, the segmented bar, its Turn() label).
+  for (const [selector, body] of freeze) if (/filter:[^;]*saturate/u.test(body)) assert.match(selector, /:is\(\.timeline\) > :is\(\.row\)\s*$/u, selector);
+  assert.ok(freeze.some(([selector, body]) => selector.endsWith(":is(.request)::before") && /content: "Turn\(\)"/u.test(body)));
+  assert.ok(freeze.some(([selector, body]) => selector.endsWith(":is(.request)::after") && /repeating-linear-gradient/u.test(body)));
+  // Coming in moves: full level only (reduced shows the frozen state at once).
+  for (const [selector, body] of freeze) if (/animation|transition/u.test(body)) assert.match(selector, /^:root\[data-lively="full"\]/u, selector);
+});
+
+test("glitch: a failure tears under yorha even with the status rings off, and never elsewhere", () => {
+  const p = page('<div class="thread"></div>');
+  close.push(() => p.close());
+  const controller = new AbortController();
+  const lively = createLively({ window: p.win, signal: controller.signal, targets: TARGETS, settings: { preset: "yorha", effects: { statusPulse: false } } });
+  const row = p.doc.querySelector(".thread") as Element;
+  assert.equal(lively.pulseStatus(row, "success"), false, "the glitch is for failures; the rings are off");
+  assert.equal(lively.pulseStatus(row, "error"), true);
+  assert.equal(row.getAttribute("data-lively-tone"), "error");
+  controller.abort();
+  const other = page('<div class="thread"></div>');
+  close.push(() => other.close());
+  const plain = createLively({ window: other.win, signal: new AbortController().signal, targets: TARGETS, settings: { preset: "custom", effects: { statusPulse: false } } });
+  assert.equal(plain.pulseStatus(other.doc.querySelector(".thread") as Element, "error"), false);
+  plain.dispose();
+});
+
+test("lettering: Cloudbank prints its functions as calls: the sidebar's loadout (with the art) and Jaunt() across the wipe", () => {
+  const css = buildStylesheet(TARGETS);
+  assert.match(css, /:root\[data-lively-preset="cloudbank"\]\[data-lively\] \{[^}]*--lively-wipe-label: "Jaunt\(\)";[^}]*--lively-letter-font: [^;]+;/u);
+  assert.match(css, /:root\[data-lively-art="on"\]\[data-lively-preset="cloudbank"\] :is\(\.sidebar\)::after \{\s*content: "Crash\(\)[^"]*";/u);
+  // Lively's own wipe prints nothing.
+  assert.match(css, /--lively-wipe-label: "";/u);
+  // A quote or backslash in a preset's words never escapes the CSS string.
+  const hostile: ReadonlyArray<Preset> = [{ id: "x", label: "X", description: "", values: {}, lettering: { font: "serif", color: "red", sidebar: 'a"; } body { color: red; } "\\' } }];
+  assert.match(buildArtStylesheet(TARGETS, hostile), /content: "a; \} body \{ color: red; \} ";/u);
 });

@@ -1,0 +1,98 @@
+/*
+ * Lively Cloudbank: after Transistor's city at dusk (ART-DIRECTION.md#cloudbank). Night is
+ * the home mode: a blue-violet sky over an ember horizon, Turn()'s cyan for what you act on,
+ * gold for the city's lights and the trace of the timeline, coral for failure. The light mode
+ * is the same city by day: warm paper, deep teal, burnt gold. Every color is picked here,
+ * nothing is sampled from the game, and no font or image of it is used.
+ *
+ * A palette theme only (tokens). The Cloudbank preset paints its skyline, its sidebar
+ * cartouche and its Turn() freeze from the lively layer, reading the `--lively-art-*` tokens
+ * below; with another theme those fall back to mixes of the accent and the canvas.
+ *
+ * Contrast (WCAG): dark ink 12.2:1, muted 6.4:1, primary 11.6:1, gold 9.2:1, destructive
+ * 6.5:1 on the canvas; light ink 14.0:1, primary 5.1:1, white on primary 5.9:1.
+ */
+:root, .light {
+  --canvas: #f3ecdf;
+  --ink: #1b1d36;
+  --muted-foreground: #55587a;
+  --card: #f9f4ea;
+  --popover: #f9f4ea;
+  --sidebar: #ebe2d1;
+  --border: #d2c3a6;
+  --input: #c4b494;
+  --primary: #08706a;
+  --primary-foreground: #ffffff;
+  --timeline-accent: #8a5c0c;
+  --file-accent: var(--timeline-accent);
+  --destructive: #b2361f;
+  --destructive-text: #9a2d19;
+  --warning: #985210;
+  --warning-text: #7f440c;
+  --attention: #8a5c0c;
+  --success: #2b7444;
+  --diff-added: #2b7444;
+  --diff-removed: #b2361f;
+  --pr-merged: #9a2f66;
+  --ring: color-mix(in oklch, var(--primary) 70%, transparent);
+  --surface-selected: color-mix(in oklab, var(--primary) 11%, transparent);
+  --surface-selected-border: color-mix(in oklab, var(--primary) 40%, transparent);
+  /* The sword's light along bb's seams (the sidebar's edge, the panes' and headers' rules). */
+  --border-seam: color-mix(in oklab, var(--primary) 35%, var(--canvas));
+
+  --radius: 6px;
+  --shadow-lift: 0px -6px 18px -8px #3a22441f;
+  /* A glide: no bounce in the host's own transitions (the motion layer brings the spring). */
+  --default-transition-duration: 180ms;
+  --default-transition-timing-function: cubic-bezier(0.22, 0.9, 0.3, 1);
+  --ease-out: cubic-bezier(0.22, 0.9, 0.3, 1);
+
+  /* The art layer's colors (core/src/domain/presets.ts, cloudbank). */
+  --lively-art-sky-1: #e8a07a;
+  --lively-art-sky-2: #d98aa8;
+  --lively-art-sky-3: #f2c27a;
+  --lively-art-far: #c9b8d6;
+  --lively-art-near: #7c7ea0;
+  --lively-art-rim: #2a8f88;
+  --lively-art-lights: #f6d58a;
+  --lively-art-line: #8a5c0c;
+}
+
+.dark {
+  --canvas: #13142a;
+  --ink: #d0d3e6;
+  --muted-foreground: #9397bb;
+  --card: #1b1d3a;
+  --popover: #191b36;
+  --sidebar: #0e0f22;
+  --sidebar-accent: color-mix(in oklch, var(--primary) 10%, var(--sidebar));
+  --border: #2d3060;
+  --input: #3a3e74;
+  --primary: #3ee6d4;
+  --primary-foreground: #06201e;
+  --timeline-accent: #e0b25a;
+  --file-accent: var(--timeline-accent);
+  --destructive: #ff6b57;
+  --destructive-text: #ff8a7a;
+  --warning: #f2a14a;
+  --warning-text: #f2a14a;
+  --attention: #e8c46a;
+  --success: #7fdc9a;
+  --diff-added: #7fdc9a;
+  --diff-removed: #ff6b57;
+  --pr-merged: #d94f8a;
+  --ring: color-mix(in oklch, var(--primary) 70%, transparent);
+  --surface-selected: color-mix(in oklab, var(--primary) 12%, transparent);
+  --surface-selected-border: color-mix(in oklab, var(--primary) 40%, transparent);
+  --shadow-lift: 0px -6px 18px -8px #00000073;
+  --border-seam: color-mix(in oklab, var(--primary) 38%, var(--canvas));
+
+  --lively-art-sky-1: #e8503a;
+  --lively-art-sky-2: #d94f8a;
+  --lively-art-sky-3: #f2a14a;
+  --lively-art-far: #3b2f66;
+  --lively-art-near: #0b0c1d;
+  --lively-art-rim: #3ee6d4;
+  --lively-art-lights: #e0b25a;
+  --lively-art-line: #e0b25a;
+}

@@ -34,9 +34,12 @@ export interface MotionPolicy {
   readonly artImage: string;
   /** The effects that run, in table order. Empty when the level is `off`. */
   readonly effects: ReadonlyArray<EffectId>;
+  /** The active preset's own tokens (presets.ts `tokens`), at the full level only; empty otherwise. */
+  readonly overrides: Partial<MotionTokens>;
 }
 
-export function resolveMotion(settings: Settings, systemReduced: boolean): MotionPolicy {
+/** `overrides` is the active preset's `tokens`: they apply at the full level only. */
+export function resolveMotion(settings: Settings, systemReduced: boolean, overrides: Partial<MotionTokens> = {}): MotionPolicy {
   const source = settings.motion === "system" ? "system" : "user";
   const level: MotionLevel =
     settings.motion === "system" ? (systemReduced ? "reduced" : "full") : settings.motion;
@@ -63,6 +66,7 @@ export function resolveMotion(settings: Settings, systemReduced: boolean): Motio
     art: level !== "off" && settings.art,
     artImage: level !== "off" && settings.art ? settings.artImage : "",
     effects,
+    overrides: level === "full" ? overrides : {},
   };
 }
 
@@ -104,7 +108,7 @@ export const REDUCED_TOKENS: MotionTokens = {
 /** The tokens in force for a policy, with speed applied to durations. */
 export function tokensFor(policy: MotionPolicy): MotionTokens {
   if (policy.level === "reduced") return REDUCED_TOKENS;
-  const base = motionTokens(policy.style, policy.intensity);
+  const base = { ...motionTokens(policy.style, policy.intensity), ...policy.overrides };
   const factor = SPEED_FACTOR[policy.speed];
   return {
     ...base,

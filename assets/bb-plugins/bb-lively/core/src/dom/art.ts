@@ -1,5 +1,5 @@
 // The presets' art layer as CSS: per preset, the backdrop and sidebar art
-// (domain/presets.ts) and its font tokens, all under
+// (domain/presets.ts), its named colors and its font tokens, all under
 // `:root[data-lively-art][data-lively-preset="<id>"]`, so a preset switch is
 // one attribute and the art goes with it. Art is paint, not motion: it has no
 // animation, so it stays under reduced motion (and goes with motion "off",
@@ -13,6 +13,7 @@
 // image surface, under the preset's own layers, washed toward the surface
 // color so text stays readable.
 import { type ArtLayer, type ArtSurface, ART_SURFACES, DEFAULT_IMAGE_PLACEMENT, type Preset } from "../domain/presets.ts";
+import { cssString } from "./css.ts";
 import type { Targets } from "./targets.ts";
 
 /** The custom property on <html> holding the person's image as `url("…")`. */
@@ -68,7 +69,8 @@ function presetArt(preset: Preset, surfaces: Readonly<Record<ArtSurface, string>
     preset.fonts?.sans === undefined ? "" : `  --font-sans: ${preset.fonts.sans};`,
     preset.fonts?.mono === undefined ? "" : `  --font-mono: ${preset.fonts.mono};`,
   ].filter(Boolean);
-  if (fonts.length > 0) out.push(`${scope} {\n${fonts.join("\n")}\n}`);
+  const colors = Object.entries(preset.art?.colors ?? {}).map(([name, color]) => `  --lively-c-${name}: ${color};`);
+  if (fonts.length + colors.length > 0) out.push(`${scope} {\n${[...fonts, ...colors].join("\n")}\n}`);
   // With a backdrop, bb's dock band (opaque, behind the composer) repeats it: the art is
   // anchored to the corner they share, so it runs to the bottom edge without a seam. bb's
   // fade above the band, a solid gradient, would cut it off, so it goes.
@@ -76,6 +78,25 @@ function presetArt(preset: Preset, surfaces: Readonly<Record<ArtSurface, string>
   const behindThread = `${surfaces.backdrop}, ${targets.dock}`;
   if (preset.art?.backdrop !== undefined) out.push(`${scope} ${is(targets.dockFade)} { display: none; }`);
   if (placement.surface === "backdrop") out.push(`${withImage} ${is(targets.dockFade)} { display: none; }`);
+  // The preset's caption down the sidebar's inner edge (its gutter, clear of the rows), in its lettering (the stylesheet's
+  // --lively-letter-* properties): art, so it goes with the art switch.
+  const caption = preset.lettering?.sidebar;
+  if (caption !== undefined) {
+    out.push(`${scope} ${is(targets.sidebar)} { position: relative; isolation: isolate; }
+${scope} ${is(targets.sidebar)}::after {
+  content: ${cssString(caption)};
+  position: absolute;
+  top: 120px;
+  right: 2px;
+  writing-mode: vertical-rl;
+  pointer-events: none;
+  font: 600 9px/1 var(--lively-letter-font);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--lively-letter-color);
+  opacity: 0.8;
+}`);
+  }
   for (const surface of ART_SURFACES) {
     const art = preset.art?.[surface];
     const target = is(surface === "backdrop" ? behindThread : surfaces[surface]);

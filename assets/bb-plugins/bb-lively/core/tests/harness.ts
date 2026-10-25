@@ -67,6 +67,7 @@ export const TARGETS: Targets = {
   sidebar: ".sidebar",
   dock: ".dock",
   dockFade: ".dock-fade",
+  pendingRequest: ".request",
   working: ".working",
   hostAnimation: ".animate-in",
   suspendOn: ["data-measuring"],

@@ -1,0 +1,99 @@
+/*
+ * Lively YoRHa: after NieR:Automata's menus (ART-DIRECTION.md#yorha). Light is the home
+ * mode: warm parchment grey, dark umber ink, selection as a darker bar outlined in ink, square corners,
+ * hairline rules, and a single rust accent for what demands attention. Night inverts the
+ * same voice. Every color is picked here, nothing is sampled from the game, and no font or
+ * image of it is used.
+ *
+ * A palette theme only (tokens). The YoRHa preset adds the grid, the corner brackets, the
+ * scan-bar page wipe, mechanical (no-bounce) motion and the failure glitch from the lively
+ * layer; the `--lively-art-*` tokens below are what its art reads.
+ *
+ * Contrast (WCAG): light ink 8.1:1, muted 4.7:1, primary 6.2:1, accent 4.9:1 on the canvas;
+ * night ink 10.3:1, muted 5.9:1, accent 5.9:1.
+ */
+:root, .light {
+  --canvas: #d8d2b8;
+  --ink: #38352d;
+  --muted-foreground: #5d5848;
+  --card: #e1dcc6;
+  --popover: #e1dcc6;
+  --sidebar: #cfc8ab;
+  --sidebar-accent: #c3bc9f;
+  --border: #a9a38c;
+  --border-hairline: #b5af97;
+  --input: #a9a38c;
+  --primary: #4a463b;
+  --primary-foreground: #d8d2b8;
+  --timeline-accent: #8e3b26;
+  --file-accent: var(--timeline-accent);
+  --destructive: #9b2a20;
+  --destructive-text: #8a251c;
+  --warning: #7a4f12;
+  --warning-text: #6a440f;
+  --attention: #8e3b26;
+  --success: #3f5a26;
+  --diff-added: #3f5a26;
+  --diff-removed: #9b2a20;
+  --pr-merged: #4a463b;
+  --ring: var(--primary);
+  /* Selection is a darker bar outlined in ink, as in the game's menus. */
+  --surface-selected: color-mix(in oklab, var(--primary) 16%, transparent);
+  --surface-selected-border: var(--primary);
+  --state-active: color-mix(in oklab, var(--primary) 18%, transparent);
+
+  --radius: 0px;
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow-md: 0 0 0 1px #38352d33;
+  --shadow-lg: 0 0 0 1px #38352d40, 3px 3px 0 0 #38352d1f;
+  --shadow-xl: 0 0 0 1px #38352d40, 4px 4px 0 0 #38352d24;
+  --shadow-lift: 0 0 0 1px #38352d33;
+  /* Mechanical: quick, linear-ish, never past the target. */
+  --default-transition-duration: 110ms;
+  --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* The art layer's colors (core/src/domain/presets.ts, yorha). */
+  --lively-art-line: #38352d;
+  --lively-art-mark: #4a463b;
+  --lively-art-rim: #8e3b26;
+}
+
+.dark {
+  --canvas: #22211c;
+  --ink: #d6cfb4;
+  --muted-foreground: #a39d86;
+  --card: #2b2a24;
+  --popover: #2b2a24;
+  --sidebar: #1b1a16;
+  --sidebar-accent: #2f2d26;
+  --border: #4a473d;
+  --border-hairline: #3d3a32;
+  --input: #57544a;
+  --primary: #d6cfb4;
+  --primary-foreground: #22211c;
+  --timeline-accent: #d9876a;
+  --file-accent: var(--timeline-accent);
+  --destructive: #e5735f;
+  --destructive-text: #ec8b79;
+  --warning: #d9a55a;
+  --warning-text: #d9a55a;
+  --attention: #d9876a;
+  --success: #9fb97a;
+  --diff-added: #9fb97a;
+  --diff-removed: #e5735f;
+  --pr-merged: #d6cfb4;
+  --ring: var(--primary);
+  --surface-selected: color-mix(in oklab, var(--primary) 14%, transparent);
+  --surface-selected-border: var(--primary);
+  --state-active: color-mix(in oklab, var(--primary) 16%, transparent);
+  --shadow-md: 0 0 0 1px #d6cfb433;
+  --shadow-lg: 0 0 0 1px #d6cfb440, 3px 3px 0 0 #00000059;
+  --shadow-xl: 0 0 0 1px #d6cfb440, 4px 4px 0 0 #00000066;
+  --shadow-lift: 0 0 0 1px #d6cfb433;
+
+  --lively-art-line: #d6cfb4;
+  --lively-art-mark: #d6cfb4;
+  --lively-art-rim: #d9876a;
+}

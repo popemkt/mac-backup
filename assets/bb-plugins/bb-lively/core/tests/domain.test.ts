@@ -20,7 +20,8 @@ import {
 } from "../src/domain/index.ts";
 
 const withMotion = (motion: Settings["motion"]): Settings => ({ ...DEFAULT_SETTINGS, motion });
-const defaultsOn = EFFECT_IDS.filter((id) => EFFECTS[id].default);
+// What runs by default under no preset: a preset's own effects (presets) wait for theirs.
+const defaultsOn = EFFECT_IDS.filter((id) => EFFECTS[id].default && EFFECTS[id].presets === undefined);
 
 test("system follows the OS: full without the preference, reduced with it", () => {
   assert.equal(resolveMotion(withMotion("system"), false).level, "full");
@@ -40,7 +41,10 @@ test("full runs every effect switched on, but never calmHost (it only calms unde
     motion: "full",
     effects: Object.fromEntries(EFFECT_IDS.map((id) => [id, true])) as Settings["effects"],
   };
-  assert.deepEqual(resolveMotion(all, false).effects, EFFECT_IDS.filter((id) => id !== "calmHost"));
+  // A preset's own effects (turnFreeze, glitch) run only under their preset, not under custom.
+  assert.deepEqual(resolveMotion(all, false).effects, EFFECT_IDS.filter((id) => id !== "calmHost" && EFFECTS[id].presets === undefined));
+  assert.ok(resolveMotion({ ...all, preset: "cloudbank" }, false).effects.includes("turnFreeze"));
+  assert.ok(resolveMotion({ ...all, preset: "yorha" }, false).effects.includes("glitch"));
   assert.deepEqual(resolveMotion(withMotion("full"), false).effects, defaultsOn);
 });
 

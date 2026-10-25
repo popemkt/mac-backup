@@ -53,6 +53,13 @@ export interface Targets {
   readonly dock: string;
   /** The host's fade over the timeline's bottom edge, just above the dock; hidden under backdrop art. */
   readonly dockFade: string;
+  /**
+   * A request waiting for the person inside a page view (an approval, a
+   * question, a plan to review): while one is present, turnFreeze freezes the
+   * view's timeline (`rowList`) and lights the request up. It must sit outside
+   * `rowList`, so the freeze never dims the request itself.
+   */
+  readonly pendingRequest: string;
   /** The host's "agent is working" line, which breathes a glow while present. */
   readonly working: string;
   /** The host's own enter/exit animations, stopped by `calmHost` under reduced motion. */

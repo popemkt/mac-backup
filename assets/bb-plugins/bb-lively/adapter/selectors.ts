@@ -170,6 +170,18 @@ export const SELECTORS = {
     where: "an open thread (the fade just above the composer)",
     purpose: "preset art: bb's solid fade over the timeline's bottom edge, hidden so the backdrop runs on unbroken",
   },
+  pendingRequest: {
+    // bb renders each pending interaction as a banner in the composer's dock, under the thread
+    // window and outside the timeline: one test id per kind (approval, question, plan review,
+    // a plugin's request). The question banner was matched live; the other three share its
+    // renderer and were read from bb's bundle.
+    selector:
+      '[data-testid="approval-banner"], [data-testid="user-question-banner"], [data-testid="plan-review-banner"], [data-testid="plugin-request-banner"]',
+    rating: "M",
+    verified: "0.46.1 live (question), source (approval, plan review, plugin request)",
+    where: "an open thread whose agent waits for you: an approval, a question or a plan to review, above the composer",
+    purpose: "turnFreeze: the request card that stays lit while the thread's timeline freezes",
+  },
   working: {
     selector: ".animate-shine",
     rating: "M",
@@ -224,6 +236,7 @@ export const BB_TARGETS: Targets = {
   sidebar: SELECTORS.sidebar.selector,
   dock: SELECTORS.dock.selector,
   dockFade: SELECTORS.dockFade.selector,
+  pendingRequest: SELECTORS.pendingRequest.selector,
   working: SELECTORS.working.selector,
   hostAnimation: SELECTORS.hostAnimation.selector,
   suspendOn: [BBIM_ACTIVE],

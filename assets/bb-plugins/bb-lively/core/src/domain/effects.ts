@@ -19,6 +19,8 @@ export const EFFECT_IDS = [
   "pageWipe",
   "workingGlow",
   "typingGlow",
+  "turnFreeze",
+  "glitch",
   "calmHost",
 ] as const;
 
@@ -144,6 +146,25 @@ export const EFFECTS: Readonly<Record<EffectId, EffectInfo>> = {
     description: "The composer's caret takes the accent color.",
     default: false,
     reducedSafe: true,
+  },
+  turnFreeze: {
+    label: "Turn() freeze",
+    wobbly: "The same under either style.",
+    description:
+      "While the open thread waits for you (an approval, a question, a plan to review), its timeline freezes into a dim, cyan-gridded plan and the request card lights up as a Turn() bar fills along its top, as in Transistor's planning mode. It thaws when you answer. Cloudbank only.",
+    default: true,
+    // The freeze is a state, not a movement: under reduced motion it shows at once, without the bar filling.
+    reducedSafe: true,
+    presets: ["cloudbank"],
+  },
+  glitch: {
+    label: "Failure glitch",
+    wobbly: "The same under either style.",
+    description:
+      "A thread that fails tears for a few frames instead of swelling: its sidebar row jumps sideways in hard steps, split into the palette's two signal colors (NieR:Automata's glitch). YoRHa only.",
+    default: true,
+    reducedSafe: false,
+    presets: ["yorha"],
   },
   calmHost: {
     label: "Calm bb's own motion",

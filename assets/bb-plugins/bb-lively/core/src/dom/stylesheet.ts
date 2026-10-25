@@ -40,6 +40,7 @@ import {
 import { REDUCED_TOKENS } from "../domain/policy.ts";
 import { type Preset, PRESETS } from "../domain/presets.ts";
 import { ART_ROOT, buildArtStylesheet } from "./art.ts";
+import { cssString } from "./css.ts";
 import type { Targets } from "./targets.ts";
 
 /** The classes the DOM layer sets for one animation each. */
@@ -154,9 +155,49 @@ const pageKeyframes = Object.entries(PAGE_FRAMES)
   .flatMap(([name, body]) => [`@keyframes ${name} { ${body} }`, `@keyframes ${name}${AGAIN} { ${body} }`])
   .join("\n");
 
-/** The motion layer, then the presets' art (art.ts). */
+/** The motion layer, each preset's own tokens and effect paint, then the presets' art (art.ts). */
 export function buildStylesheet(targets: Targets, presets: ReadonlyArray<Preset> = PRESETS): string {
-  return `${motionStylesheet(targets)}${buildArtStylesheet(targets, presets)}`;
+  return `${motionStylesheet(targets)}${presetMotion(presets)}${buildArtStylesheet(targets, presets)}`;
+}
+
+/**
+ * A preset's motion character and effect paint, under `data-lively-preset`.
+ * - `paint` sets the shared effects' paint properties (the wipe's panel, the
+ *   chromatic split's colors); paint, so at every level.
+ * - `tokens` lays its tokens over every (style, intensity), recomputing the
+ *   derived ones (the spring from its overshoot), at the full level only: a
+ *   forced full level, or the system's while it does not ask for less motion.
+ *   Reduced motion keeps the reduced tokens whatever the preset.
+ */
+function presetMotion(presets: ReadonlyArray<Preset>): string {
+  const out: Array<string> = [];
+  for (const preset of presets) {
+    const scope = `:root[${ROOT.preset}="${preset.id}"]`;
+    const paint = [
+      preset.paint?.wipe === undefined ? "" : `  --lively-wipe-fill: ${preset.paint.wipe.fill};\n  --lively-wipe-mask: ${preset.paint.wipe.mask};`,
+      preset.paint?.chroma === undefined ? "" : `  --lively-chroma-a: ${preset.paint.chroma[0]};\n  --lively-chroma-b: ${preset.paint.chroma[1]};`,
+      preset.paint?.wipe?.label === undefined ? "" : `  --lively-wipe-label: ${cssString(preset.paint.wipe.label)};`,
+      preset.paint?.wipe?.ink === undefined ? "" : `  --lively-wipe-ink: ${preset.paint.wipe.ink};`,
+      preset.lettering === undefined ? "" : `  --lively-letter-font: ${preset.lettering.font};\n  --lively-letter-color: ${preset.lettering.color};`,
+    ].filter(Boolean);
+    if (paint.length > 0) out.push(`${scope}[${ROOT.level}] {\n${paint.join("\n")}\n}`);
+    const overrides = preset.tokens;
+    if (overrides === undefined || Object.keys(overrides).length === 0) continue;
+    const blocks = STYLES.flatMap((style) =>
+      INTENSITIES.map((intensity) => {
+        const at = (source: string) =>
+          `${scope}[${ROOT.level}="full"][${ROOT.source}="${source}"][${ROOT.intensity}="${intensity}"]:where([${ROOT.style}="${style}"])`;
+        const body = tokenBlock({ ...motionTokens(style, intensity), ...overrides }, jellyName(intensity));
+        return { user: `${at("user")} {${body}\n}`, system: `${at("system")} {${body}\n}` };
+      }),
+    );
+    out.push(`/* ${preset.label}'s own tokens. */
+${blocks.map((block) => block.user).join("\n")}
+@media (prefers-reduced-motion: no-preference) {
+${blocks.map((block) => block.system).join("\n")}
+}`);
+  }
+  return out.length === 0 ? "" : `/* Preset motion (domain/presets.ts tokens, paint). */\n${out.join("\n")}\n`;
 }
 
 function motionStylesheet(targets: Targets): string {
@@ -179,6 +220,9 @@ function motionStylesheet(targets: Targets): string {
   const wobblyStickered = (effect: EffectId) =>
     `:root[${ROOT.level}="full"][${ROOT.style}="wobbly"][${ROOT.stickers}="on"][${effectAttribute(effect)}]${suspend}`;
   const reducedRoot = `:root[${ROOT.level}="reduced"]`;
+  /** A page view while it holds a request waiting for the person, and its timeline then. */
+  const waiting = `${is(targets.pageView)}:has(${is(targets.pendingRequest)})`;
+  const frozen = `${waiting} ${is(targets.rowList)}`;
   const systemRoot = `:root[${ROOT.source}="system"]`;
 
   const blocks = STYLES.flatMap((style) =>
@@ -225,6 +269,16 @@ function motionStylesheet(targets: Targets): string {
      sideways: growing x a third as much grows the ring by about the same pixels each way. */
   --lively-ring-scale-x: calc(1 + (var(--lively-ring-scale) - 1) / 3);
   --lively-glow-color: color-mix(in oklab, var(--lively-accent) calc(var(--lively-glow) * 100%), transparent);
+  /* The shared effects' paint; a preset may recolor and reshape them (presets.ts paint). */
+  --lively-chroma-a: #3fd4ff;
+  --lively-chroma-b: #ff3dbb;
+  --lively-wipe-fill: radial-gradient(circle, color-mix(in oklab, #000 24%, transparent) 1px, transparent 1.5px) 0 0 / 6px 6px, var(--lively-accent);
+  --lively-wipe-mask: linear-gradient(105deg, transparent 18%, #000 18% 82%, transparent 82%);
+  --lively-wipe-label: "";
+  --lively-wipe-ink: var(--canvas, Canvas);
+  /* The preset's lettering (presets.ts lettering): tracked capitals in its face and color. */
+  --lively-letter-font: var(--font-sans, sans-serif);
+  --lively-letter-color: var(--lively-accent-2);
 }
 :root[${ROOT.speed}="snappy"] { --lively-speed: 0.8; }
 :root[${ROOT.speed}="relaxed"] { --lively-speed: 1.25; }
@@ -289,8 +343,8 @@ ${INTENSITIES.map(jellyKeyframes).join("\n")}
 @keyframes lively-flash { from { filter: brightness(calc(1 + var(--lively-flash))); } to { filter: brightness(1); } }
 @keyframes lively-chroma {
   0%, 100% { filter: none; }
-  10% { filter: drop-shadow(var(--lively-chroma) 0 0 #3fd4ff) drop-shadow(calc(var(--lively-chroma) * -1) 0 0 #ff3dbb); }
-  35% { filter: drop-shadow(calc(var(--lively-chroma) * -1) 0 0 #3fd4ff) drop-shadow(var(--lively-chroma) 0 0 #ff3dbb); }
+  10% { filter: drop-shadow(var(--lively-chroma) 0 0 var(--lively-chroma-a)) drop-shadow(calc(var(--lively-chroma) * -1) 0 0 var(--lively-chroma-b)); }
+  35% { filter: drop-shadow(calc(var(--lively-chroma) * -1) 0 0 var(--lively-chroma-a)) drop-shadow(var(--lively-chroma) 0 0 var(--lively-chroma-b)); }
   50% { filter: none; }
 }
 @keyframes lively-sticker-pop {
@@ -303,6 +357,17 @@ ${INTENSITIES.map(jellyKeyframes).join("\n")}
   100% { opacity: 0; scale: var(--lively-ripple-scale); }
 }
 @keyframes lively-idle { to { scale: calc(1 + var(--lively-swell) / 4); } }
+/* turnFreeze: the veil comes up, the Turn() bar fills. */
+@keyframes lively-veil { from { opacity: 0; } }
+@keyframes lively-turn-bar { from { scale: 0 1; } }
+/* glitch: hard sideways jumps, split into the two signal colors, then still. */
+@keyframes lively-glitch {
+  0% { translate: 0 0; filter: none; }
+  12% { translate: var(--lively-tear) 0; filter: drop-shadow(var(--lively-tear) 0 0 var(--lively-chroma-a)) drop-shadow(calc(var(--lively-tear) * -1) 0 0 var(--lively-chroma-b)); }
+  30% { translate: calc(var(--lively-tear) * -0.6) 0; filter: drop-shadow(calc(var(--lively-tear) * -1) 0 0 var(--lively-chroma-a)) drop-shadow(var(--lively-tear) 0 0 var(--lively-chroma-b)); }
+  46% { translate: calc(var(--lively-tear) * 0.3) 0; filter: none; }
+  60%, 100% { translate: 0 0; filter: none; }
+}
 ${pageKeyframes}
 
 /* press: clean sinks and springs back; wobbly squashes and wobbles back like jelly. */
@@ -388,21 +453,25 @@ ${wobbly("pageEnter")} ${replayed} {
   animation: lively-page-w${AGAIN} var(--lively-enter) var(--lively-spring) backwards;
 }
 
-/* pageWipe (either style, full level): ZZZ's slanted, dotted panel sweeps across the
+/* pageWipe (either style, full level): ZZZ's slanted, dotted panel (or the preset's own) sweeps across the
    thread as it mounts. The slant is a mask, not a skew, so only translate moves; the
    window already clips its overflow, and positioning it moves none of its children.
    It runs as long as the entrance, so the replay's one class ends with both. */
 ${onFull("pageWipe")} ${is(targets.pageView)} { position: relative; }
 ${onFull("pageWipe")} ${is(targets.pageView)}::after {
-  content: "";
+  content: var(--lively-wipe-label);
+  display: grid;
+  place-items: center;
+  font: 600 22px/1 var(--lively-letter-font);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--lively-wipe-ink);
   position: absolute;
   inset: 0 -40%;
   z-index: 60;
   pointer-events: none;
-  background:
-    radial-gradient(circle, color-mix(in oklab, #000 24%, transparent) 1px, transparent 1.5px) 0 0 / 6px 6px,
-    var(--lively-accent);
-  mask: linear-gradient(105deg, transparent 18%, #000 18% 82%, transparent 82%);
+  background: var(--lively-wipe-fill);
+  mask: var(--lively-wipe-mask);
   translate: 140% 0;
 }
 ${onFull("pageWipe")} ${mounted}::after {
@@ -606,6 +675,75 @@ ${wobbly("workingGlow")} ${is(targets.working)} {
   animation:
     lively-working var(--lively-breathe) var(--lively-ease-out) infinite alternate,
     lively-idle var(--lively-breathe) ease-in-out infinite alternate;
+}
+
+/* turnFreeze (Cloudbank's Turn()): while the page view holds a request waiting for the person,
+   its timeline freezes into a dim cyan plan (the rows dim and tint; a grid veil and a dashed
+   plan line come up behind them) and the request lights up as a Turn() bar fills along its top.
+   A state, so it shows at every level; at the full level it comes in on steps and thaws on the
+   ease. The request sits outside the timeline, so it never freezes. */
+${on("turnFreeze")} ${frozen} > ${is(targets.row)} {
+  filter: saturate(0.3) sepia(0.35) hue-rotate(135deg) opacity(0.62);
+}
+${on("turnFreeze")} ${frozen}::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(to bottom, var(--lively-accent) 0 6px, transparent 6px 12px) 2px 0 / 2px 100% no-repeat,
+    linear-gradient(to right, color-mix(in oklab, var(--lively-accent) 8%, transparent) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(to bottom, color-mix(in oklab, var(--lively-accent) 8%, transparent) 1px, transparent 1px) 0 0 / 24px 24px,
+    color-mix(in oklab, var(--lively-accent) 5%, transparent);
+}
+${on("turnFreeze")} ${waiting} ${is(targets.pendingRequest)} {
+  position: relative;
+  /* Opaque while lit: the art behind the dock never runs through the request. */
+  background-color: var(--card, var(--background, Canvas));
+  border-color: var(--lively-accent);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--lively-accent) 45%, transparent), 0 0 calc(var(--lively-glow) * 40px) var(--lively-glow-color);
+}
+/* The Turn() bar: eight segments along the request's top edge, in the sword's light. */
+${on("turnFreeze")} ${waiting} ${is(targets.pendingRequest)}::after {
+  content: "";
+  position: absolute;
+  inset: 3px 8px auto;
+  height: 4px;
+  pointer-events: none;
+  background: repeating-linear-gradient(to right, var(--lively-accent) 0 calc(12.5% - 3px), transparent calc(12.5% - 3px) 12.5%);
+  filter: drop-shadow(0 0 calc(var(--lively-glow) * 12px) var(--lively-accent));
+  transform-origin: 0 50%;
+}
+/* Its name, as the game writes its functions: Turn(), in the preset's lettering. */
+${on("turnFreeze")} ${waiting} ${is(targets.pendingRequest)}::before {
+  content: "Turn()";
+  position: absolute;
+  top: 12px;
+  right: 44px;
+  pointer-events: none;
+  font: 600 10px/1 var(--lively-letter-font);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--lively-letter-color);
+}
+${onFull("turnFreeze")} ${is(targets.rowList)} > ${is(targets.row)} {
+  transition: filter var(--lively-enter) var(--lively-ease-out);
+}
+${onFull("turnFreeze")} ${frozen} > ${is(targets.row)} {
+  transition: filter var(--lively-overlay) steps(3, end);
+}
+${onFull("turnFreeze")} ${frozen}::before {
+  animation: lively-veil var(--lively-overlay) steps(3, end) backwards;
+}
+${onFull("turnFreeze")} ${waiting} ${is(targets.pendingRequest)}::after {
+  animation: lively-turn-bar calc(var(--lively-enter) * 1.4) steps(8, end) var(--lively-overlay) backwards;
+}
+
+/* glitch (YoRHa): a failed thread's row tears sideways in hard steps, in the two signal colors.
+   The tear is a third of the rise, so it scales with the intensity. */
+${onFull("glitch")} .${CLASSES.pulse}[${PULSE_ATTRIBUTES.tone}="error"] {
+  --lively-tear: calc(var(--lively-rise) / 3);
+  animation: lively-glitch var(--lively-pulse) steps(1, end);
 }
 
 /* typingGlow */
