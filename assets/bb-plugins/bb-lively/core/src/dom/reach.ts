@@ -7,17 +7,19 @@
 // view's: its copy of the art lands that far to the left, a step in every
 // slanted stroke.
 //
-// CSS cannot see that gap, so this measures it, per band, as the distance from
-// the band's right and bottom edges to its view's, and writes it on the band
+// CSS cannot see that gap: the band's nearest size container is the scroller,
+// whose content box is the band's own width, and the band cannot be moved out
+// of the scroller. So this measures it, per band, as the distance from the
+// band's right and bottom edges to its view's, and writes it on the band
 // (REACH). The art stretches the band's layer by it (art.ts surfaceRule): both
 // copies then share the view's corner and its mask, one continuous picture.
 // The stretch is clipped by the scroller, so nothing shows under the scrollbar.
 //
-// Bands are found by a cheap periodic query, as rows.ts finds lists, and every
-// band is measured again on each pass, so a gap that opens without a resize
-// event (a scrollbar appearing, a panel opening) closes within a second. Where
-// the window has a ResizeObserver, one per band and view, and a window resize,
-// measure at once. Reads layout only there.
+// Event-driven, no polling: one ResizeObserver watches each band and every
+// ancestor up to its view, content boxes included, so the scroller's content
+// box shrinking when a classic scrollbar appears measures again, as does any
+// resize of the view. A MutationObserver on the body finds bands that bb mounts
+// or swaps, and looks no further than the nodes each mutation adds or removes.
 import type { Targets } from "./targets.ts";
 
 /** The custom properties the art's band layer reaches out by (px, set on each dock band). */
@@ -26,10 +28,8 @@ export const REACH = {
   bottom: "--lively-reach-bottom",
 } as const;
 
-const SCAN_MS = 1000;
-
 export interface ReachWatcher {
-  /** Look for new bands now and measure every band (also runs every second). */
+  /** Look for bands now and measure every band (also runs whenever bb adds or removes one). */
   scan(): void;
   /** Measure every band now. */
   measure(): void;
@@ -39,59 +39,64 @@ export interface ReachWatcher {
 /** The gap from a band's edge to its view's, never negative, to a tenth of a pixel. */
 const gap = (outer: number, inner: number) => `${Math.max(0, Math.round((outer - inner) * 10) / 10)}px`;
 
+/** The band, its view and everything between them: the scroller's content box among them. */
+function chain(band: Element, view: Element): Array<Element> {
+  const out: Array<Element> = [];
+  for (let at: Element | null = band; at !== null; at = at.parentElement) {
+    out.push(at);
+    if (at === view) break;
+  }
+  return out;
+}
+
 export function createReachWatcher(options: { readonly win: Window; readonly targets: Targets }): ReachWatcher {
   const { win, targets } = options;
   const doc = win.document;
+  const realm = win as Window & typeof globalThis;
   /** Each band and the view it belongs to. */
   const bands = new Map<HTMLElement, Element>();
-  let timer: ReturnType<Window["setTimeout"]> | undefined;
   let disposed = false;
 
-  const measureOne = (band: HTMLElement, view: Element) => {
-    const outer = view.getBoundingClientRect();
-    const inner = band.getBoundingClientRect();
-    band.style.setProperty(REACH.right, gap(outer.right, inner.right));
-    band.style.setProperty(REACH.bottom, gap(outer.bottom, inner.bottom));
-  };
   const measure = () => {
-    for (const [band, view] of bands) if (band.isConnected) measureOne(band, view);
-  };
-  const Observer = (win as Window & typeof globalThis).ResizeObserver as typeof ResizeObserver | undefined;
-  const observer = Observer === undefined ? undefined : new Observer(() => measure());
-
-  const forget = (band: HTMLElement, view: Element) => {
-    observer?.unobserve(band);
-    if (![...bands].some(([other, shared]) => other !== band && shared === view)) observer?.unobserve(view);
-    bands.delete(band);
-  };
-  const scan = () => {
-    for (const [band, view] of bands) if (!band.isConnected || !view.isConnected) forget(band, view);
-    for (const band of doc.querySelectorAll<HTMLElement>(targets.dock)) {
-      if (bands.has(band)) continue;
-      const view = band.closest(targets.pageView);
-      if (view === null) continue;
-      bands.set(band, view);
-      observer?.observe(band);
-      observer?.observe(view);
+    for (const [band, view] of bands) {
+      if (!band.isConnected) continue;
+      const outer = view.getBoundingClientRect();
+      const inner = band.getBoundingClientRect();
+      band.style.setProperty(REACH.right, gap(outer.right, inner.right));
+      band.style.setProperty(REACH.bottom, gap(outer.bottom, inner.bottom));
     }
+  };
+  // Every engine lively runs in has it; happy-dom's lays nothing out and never fires.
+  const resized = new realm.ResizeObserver(() => measure());
+
+  const scan = () => {
+    if (disposed) return;
+    for (const band of bands.keys()) if (!band.isConnected) bands.delete(band);
+    for (const band of doc.querySelectorAll<HTMLElement>(targets.dock)) {
+      const view = band.closest(targets.pageView);
+      if (view !== null) bands.set(band, view);
+    }
+    resized.disconnect();
+    for (const [band, view] of bands) for (const element of chain(band, view)) resized.observe(element);
     measure();
   };
-  const tick = () => {
-    if (disposed) return;
-    scan();
-    timer = win.setTimeout(tick, SCAN_MS);
-  };
-  win.addEventListener("resize", measure, { passive: true });
-  tick();
+
+  /** Whether a mutation added or removed a band (or a view holding one). */
+  const touchesBand = (nodes: NodeList) =>
+    [...nodes].some((node) => node.nodeType === 1 && ((node as Element).matches(targets.dock) || (node as Element).querySelector(targets.dock) !== null));
+  const mutated = new realm.MutationObserver((records) => {
+    if (records.some((record) => touchesBand(record.addedNodes) || touchesBand(record.removedNodes))) scan();
+  });
+  mutated.observe(doc.body, { childList: true, subtree: true });
+  scan();
 
   return {
     scan,
     measure,
     dispose: () => {
       disposed = true;
-      if (timer !== undefined) win.clearTimeout(timer);
-      observer?.disconnect();
-      win.removeEventListener("resize", measure);
+      mutated.disconnect();
+      resized.disconnect();
       for (const band of bands.keys()) {
         band.style.removeProperty(REACH.right);
         band.style.removeProperty(REACH.bottom);

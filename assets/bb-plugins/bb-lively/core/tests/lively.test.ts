@@ -291,6 +291,22 @@ test("reach: the dock band's art reaches its thread view's corner past a scrollb
   assert.equal(band.style.getPropertyValue(REACH.bottom), "");
 });
 
+test("reach: a band bb mounts or swaps in later is found by the mutation, without polling", async () => {
+  const p = page(`<div class="page"><div class="scroller"></div></div>`);
+  cleanup.push(() => p.close());
+  const reach = createReachWatcher({ win: p.win, targets: TARGETS });
+  cleanup.push(() => reach.dispose());
+  const view = p.doc.querySelector(".page") as HTMLElement;
+  pinBox(view, 1600, 1000);
+  // happy-dom lays nothing out: pin the band's box as it is created.
+  const created = p.doc.createElement("div");
+  created.className = "dock";
+  pinBox(created, 1589, 1000);
+  p.doc.querySelector(".scroller")?.append(created);
+  await p.settle();
+  assert.equal(created.style.getPropertyValue(REACH.right), "11px");
+});
+
 test("reach: createLively runs the watcher and removes what it wrote", () => {
   const { p, controller } = mounted(REACH_HTML);
   const band = p.doc.querySelector(".page .dock") as HTMLElement;
