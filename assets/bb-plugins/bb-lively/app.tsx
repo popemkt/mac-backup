@@ -1,17 +1,20 @@
 // lively's frontend: the motion layer as a content script, a headless app
 // overlay that feeds it settings and the sidebar's status changes, an
-// invisible composer action that reports sends, and a settings section that
-// lists bb selectors that have stopped matching.
-import { useEffect, useRef, useState } from "react";
+// invisible composer action that reports sends, and two settings sections:
+// the active preset with every effective value, and the bb selectors that
+// have stopped matching.
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   definePluginApp,
   experimental_useSidebarThreads,
   useComposer,
+  useSdk,
   useSettings,
 } from "@get-bb/plugin-sdk/app";
 import { CLASSES } from "@popemkt/bb-lively-core";
 import { mountLively, selectorHealth, sent, syncSettings, threadsChanged } from "./adapter/bb.ts";
-import { settingsInput } from "./adapter/settings.ts";
+import { themeIdOf } from "./adapter/palette.ts";
+import { effectiveRows, effectiveSettings, PLUGIN_ID, settingsInput } from "./adapter/settings.ts";
 
 function SettingsSync() {
   const { values } = useSettings();
@@ -36,12 +39,94 @@ function StatusWatch() {
 function SendSignal() {
   const composer = useComposer();
   const { values } = useSettings();
-  const caret = values?.["typingGlow"] === true;
+  const caret = effectiveSettings(values ?? {}).settings.effects.typingGlow;
   useEffect(() => composer.onSubmitted(sent), [composer]);
   useEffect(() => {
     composer.setTextEffect(caret ? { className: CLASSES.typing } : null);
   }, [composer, caret]);
   return null;
+}
+
+/** The palette's bb theme: its name, and a one-click switch when bb shows another theme. */
+function PaletteLine({ palette }: { readonly palette: string | null }) {
+  const sdk = useSdk();
+  const [active, setActive] = useState<string | undefined>();
+  const [names, setNames] = useState<ReadonlyMap<string, string>>(new Map());
+  const target = palette === null ? undefined : themeIdOf(PLUGIN_ID, palette);
+  useEffect(() => {
+    let live = true;
+    void sdk.theme
+      .catalog()
+      .then((catalog) => {
+        if (live) {
+          setActive(catalog.active.themeId);
+          setNames(new Map(catalog.plugins.map((theme) => [theme.id.startsWith("plugin:") ? theme.id : themeIdOf(theme.pluginId, theme.id), theme.name])));
+        }
+        return undefined;
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [sdk, target]);
+  if (target === undefined) return <p className="text-muted-foreground">Palette: bb's own theme (Settings → Appearance).</p>;
+  const name = names.get(target) ?? palette;
+  return (
+    <p className="flex flex-wrap items-center gap-2">
+      <span>
+        Palette: <strong>{name}</strong>
+        {active === target ? " (active)" : ", switched to when you pick the preset."}
+      </span>
+      {active !== undefined && active !== target && (
+        <button
+          type="button"
+          className="rounded-md border border-border px-2 py-0.5 text-xs"
+          onClick={() => void sdk.theme.set(target).then((theme) => setActive(theme.themeId))}
+        >
+          Use {name} now
+        </button>
+      )}
+    </p>
+  );
+}
+
+/** The active preset, its palette, the art image, and every setting's effective value with where it came from. */
+function PresetSection() {
+  const { values } = useSettings();
+  const resolved = useMemo(() => effectiveSettings(values ?? {}), [values]);
+  const rows = useMemo(() => effectiveRows(resolved), [resolved]);
+  const image = typeof values?.["artImage"] === "string" ? values["artImage"] : "";
+  return (
+    <div className="space-y-2 text-sm">
+      <p>
+        <strong>{resolved.preset.label}</strong>: <span className="text-muted-foreground">{resolved.preset.description}</span>
+      </p>
+      <PaletteLine palette={resolved.settings.palette} />
+      <p className="text-muted-foreground">
+        {image === ""
+          ? "Art image: none; the preset's own art shows alone. Set Art image to a URL or a file on the bb machine."
+          : `Art image: ${image}${resolved.settings.art ? "" : " (hidden: Art is off)"}.`}
+      </p>
+      <table className="w-full text-left">
+        <thead className="text-muted-foreground">
+          <tr>
+            <th className="font-normal">Setting</th>
+            <th className="font-normal">Currently</th>
+            <th className="font-normal">From</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.key}>
+              <td>{row.label}</td>
+              <td>{row.value}</td>
+              <td className="text-muted-foreground">{row.source}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 /** The selector canary: every bb selector that has matched nothing since this window loaded. */
@@ -89,6 +174,12 @@ export default definePluginApp((app) => {
     app.slots.experimental_appOverlay({ id: "status-watch", component: StatusWatch });
   }
   app.composer.customize({ id: "send-signal", actions: [{ id: "send-signal", component: SendSignal }] });
+  app.slots.settingsSection({
+    id: "preset",
+    title: "Preset",
+    description: "What each setting is now, and whether you set it, the preset did, or it is the default.",
+    component: PresetSection,
+  });
   app.slots.settingsSection({
     id: "selector-health",
     title: "Selector health",

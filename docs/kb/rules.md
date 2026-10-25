@@ -27,6 +27,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Decide the home for the checklist in this repo, port R1-R20, and wire the mechanical subset the way the reference repo does before adding more skills.
 - **node** — `01M1M08W6Z70XV3KCQB5CWH3ZR`
 
+### GAP: bb plugin settings cannot inherit a value or describe it live
+
+- **expected** — A plugin setting can be left unset (inherit) from bb's UI, a boolean can be tri-state, and a description can show the effective value ("currently: wobbly, from ZZZ") next to the setting.
+- **current** — bb 0.46.1 settings descriptors are static (registered once in server.ts); a stored value always shadows the default and the UI cannot unset it; a boolean is a two-state switch. bb-lively models From preset as an explicit select option (the default), turns its switches into From preset/On/Off selects, and shows effective values in its own Preset settings section.
+- **impact** — Effect switches are dropdowns instead of switches; a stored boolean from before presets falls back to From preset (bb coerces a type mismatch to the default); effective values live in a section below the settings, not beside each one.
+- **closes** — bb adds an inherit/unset state or dynamic descriptions to plugin settings; then bb-lively's adapter/settings.ts goes back to switches and per-setting descriptions.
+- **node** — `01M5RXXJV7Q5EWQF8EVK8VFX85`
+
 ### GAP: bb-lively not verified as an installed plugin
 
 - **expected** — bb-lively installed (bb plugin install) and checked live on the web UI and the 0.47 desktop app: real composer sends (onSubmitted), real sidebar indicator changes (experimental_useSidebarThreads), real timeline arrivals, the settings page with Selector health, the Lively and Lively Dracula themes in Settings > Appearance, reduced motion from the OS, and the selectors not on screen when checked (toast, switch thumb, checkbox, dialog, hover-lift cards)
