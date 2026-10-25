@@ -60,6 +60,13 @@
       "ip": ["tcp:443"],
     },
 
+    // Tailnet members can reach bytetum's temporary app on the shared server.
+    {
+      "src": ["autogroup:member"],
+      "dst": ["svc:adhoc-bytetum"],
+      "ip": ["tcp:443"],
+    },
+
     // Tailnet members can reach popemkt's bb server on the shared server.
     // bb's API is unauthenticated, so this grant is its only access control.
     {
@@ -101,6 +108,7 @@
       "svc:t3-bytetum": ["tag:shared-server"],
       "svc:kb-popemkt": ["tag:shared-server"],
       "svc:adhoc-popemkt": ["tag:shared-server"],
+      "svc:adhoc-bytetum": ["tag:shared-server"],
       "svc:bb-popemkt": ["tag:shared-server"],
     },
   },

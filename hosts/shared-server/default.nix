@@ -113,9 +113,14 @@
           # popemkt's endpoint for temporary HTTP apps: whatever listens on
           # 127.0.0.1:9001 is reachable at https://adhoc-popemkt.<tailnet>.
           adhoc-popemkt.target = "http://127.0.0.1:9001";
+          # bytetum's, on the next port: https://adhoc-bytetum.<tailnet>.
+          adhoc-bytetum.target = "http://127.0.0.1:9002";
         };
     };
   };
+
+  # Unfree packages a person here selects (users/<person>).
+  nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "tana" ];
 
   # Vulkan sees only the 680M iGPU (1002:1681), so Chromium's WebGPU and
   # WebGL render there: ANGLE otherwise picks the RX 6800S dGPU, which was

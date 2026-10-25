@@ -115,7 +115,7 @@ generate() {
   # The devShell's own PATH, without the caller's: what the gate checks tools
   # against, so a tool the devShell lacks is not found elsewhere on PATH.
   # shellcheck disable=SC2016 # expanded by the inner shell
-  dev_path="$(env -i /bin/bash --noprofile --norc -c '. "$1" >/dev/null 2>&1; printf %s "$PATH"' _ "$tmp")"
+  dev_path="$(env -i "$BASH" --noprofile --norc -c '. "$1" >/dev/null 2>&1; printf %s "$PATH"' _ "$tmp")"
   [ -n "$dev_path" ] || die "could not read the devShell PATH from nix print-dev-env"
   {
     printf 'export DOTFILES_DEV_PATH=%q\n' "$dev_path"
