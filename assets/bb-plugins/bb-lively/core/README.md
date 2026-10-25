@@ -9,8 +9,8 @@ selector per role, plus the attributes that pause it). The bb plugin next door
 
 | Layer | Path | What it is |
 |---|---|---|
-| Domain | `src/domain/` (`effect` only, no DOM types) | the effects table, settings and their decoder, the motion policy (`resolveMotion(settings, systemReduced)` → level, source, speed, running effects), the motion tokens per intensity and the spring easing family (`motion.ts`), the budget constants |
-| DOM | `src/dom/` | `createLively`, the stylesheet builder, the row watcher, the one-shot pulser, the selector canary |
+| Domain | `src/domain/` (`effect` only, no DOM types) | the effects table, settings and their decoder, the presets table and `resolve(choices, presets)` (explicit, else the preset's, else the default), the motion policy (`resolveMotion(settings, systemReduced)` → level, source, speed, running effects), the motion tokens per intensity and the spring easing family (`motion.ts`), the budget constants |
+| DOM | `src/dom/` | `createLively`, the stylesheet builder and the presets' art (`art.ts`: backdrop, sidebar and dock layers, fonts, the person's image), the row watcher, the one-shot pulser, the selector canary |
 
 ## Use
 

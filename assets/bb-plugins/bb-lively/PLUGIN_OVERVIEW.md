@@ -1,5 +1,23 @@
 Motion for bb on whatever theme you use: an intensity (subtle to bold) and a style (clean or
-wobbly), each one setting.
+wobbly), each one setting. Or one **preset** that sets the whole look at once: motion, bb's
+palette and an art layer.
+
+## Presets
+
+- **Calm**: subtle, clean motion, no sticker shadows, no page wipe; leaves bb's theme alone.
+- **Lively**: clean motion at the lively volume on the Lively palette, with the composer
+  floating over the thread.
+- **ZZZ**: wobbly at bold, skewing rows, sticker shadows, matched jelly, the page wipe, the
+  Lively ZZZ palette, a halftone-and-slash backdrop behind the thread and hazard stripes
+  under the sidebar, with the composer and its cards floating over it like a game HUD.
+- **Custom**: no preset.
+
+Every setting below starts on **From preset**. Set one yourself and it stays as you set it
+whatever preset you pick; the settings page's **Preset** section shows each setting's value
+now and whether you, the preset or the default set it. Picking a preset with a palette
+switches bb's theme to it (and picking one without puts your own back); **Keep my bb
+theme** stops that. Add your own picture with **Art image** (a link, or a file on the
+machine bb runs on): the preset places it and fades it so text stays readable.
 
 ## What you get
 
@@ -44,6 +62,8 @@ positioning and never touches toasts. Nothing moves while bbim's hints are up.
 
 ## Settings
 
+- **Preset:** Custom (the default), Calm, Lively or ZZZ. Every other setting can be left on
+  From preset (the default) or set to a value of its own.
 - **Motion:** System (follows your OS "reduce motion"), Full, Reduced (short fades only, no
   movement), or Off.
 - **Intensity:** Subtle (the quiet original), Lively, or Bold (the default): more
@@ -56,7 +76,10 @@ positioning and never touches toasts. Nothing moves while bbim's hints are up.
 - **Jelly decay** (wobbly): Shared (one jelly shape, the default) or Matched (each intensity
   wobbles like its own spring, so Bold wobbles longer).
 - **Speed:** Snappy, Normal, Relaxed.
-- One switch per effect.
+- One switch per effect: From preset, On or Off.
+- **Palette:** From preset, or Keep my bb theme.
+- **Art:** the preset's backdrop, fonts and your image, on or off.
+- **Art image:** your own picture, a link or a file on the bb machine; never stored in a repository.
 
 The settings page also lists any of bb's own markup lively relies on that has not shown up
 in this window, so a bb update that breaks an effect is visible instead of silent.
