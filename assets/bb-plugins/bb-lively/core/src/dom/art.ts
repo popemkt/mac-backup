@@ -75,9 +75,15 @@ function presetArt(preset: Preset, surfaces: Readonly<Record<ArtSurface, string>
   // anchored to the corner they share, so it runs to the bottom edge without a seam. bb's
   // fade above the band, a solid gradient, would cut it off, so it goes.
   // The person's image behind the thread does the same.
+  // The dock's controls then float on the art, each on its own rounded surface, with no hard
+  // offset shadow: the palette's lift (ZZZ's is a 4px black offset) and lively's focus sticker
+  // would cut a dark sliver into the art past the composer's rounded edge.
   const behindThread = `${surfaces.backdrop}, ${targets.dock}`;
-  if (preset.art?.backdrop !== undefined) out.push(`${scope} ${is(targets.dockFade)} { display: none; }`);
-  if (placement.surface === "backdrop") out.push(`${withImage} ${is(targets.dockFade)} { display: none; }`);
+  const overArt = [preset.art?.backdrop !== undefined ? scope : "", placement.surface === "backdrop" ? withImage : ""];
+  for (const root of overArt.filter(Boolean)) {
+    out.push(`${root} ${is(targets.dockFade)} { display: none; }
+${root} ${is(targets.focusBox)} { --shadow-lift: 0 0 #0000; --lively-sticker: 0px; }`);
+  }
   // The preset's caption down the sidebar's inner edge (its gutter, clear of the rows), in its lettering (the stylesheet's
   // --lively-letter-* properties): art, so it goes with the art switch.
   const caption = preset.lettering?.sidebar;

@@ -172,16 +172,20 @@ test("the DOM layer writes the preset, the art switch and the image, and removes
   assert.equal(p.root.style.getPropertyValue(ART_IMAGE_PROPERTY), "");
 });
 
-test("art: a backdrop repeats on bb's dock band and hides bb's fade above it; nothing else in the dock changes", () => {
+test("art: a backdrop repeats on bb's dock band, hides bb's fade above it, and floats the composer without a hard shadow", () => {
   const css = buildArtStylesheet(TARGETS, PRESETS);
   const scope = String.raw`:root\[data-lively-art="on"\]\[data-lively-preset="zzz"\]`;
   // The band stays opaque (no background override) and paints the same art layers as the thread, anchored to the same corner.
   assert.ok(!/:is\(\.dock\) \{ background/u.test(css));
   assert.match(css, new RegExp(`${scope} :is\\(\\.page, \\.dock\\)::before \\{[^}]*background-position: right bottom, right bottom;`, "u"));
   assert.match(css, new RegExp(`${scope} :is\\(\\.dock-fade\\) \\{ display: none; \\}`, "u"));
-  // The composer keeps bb's own surface: lively's art never restyles it.
+  // The composer keeps bb's own surface; over the art it only loses its hard offset shadows
+  // (the palette's lift, lively's focus sticker), which would cut a dark sliver into the art.
   assert.ok(!/backdrop-filter/u.test(css));
-  assert.ok(!/form\.composer/u.test(css));
+  assert.match(css, new RegExp(`${scope} :is\\(form\\.composer\\) \\{ --shadow-lift: 0 0 #0000; --lively-sticker: 0px; \\}`, "u"));
+  assert.match(css, /\[data-lively-art-image="on"\]\[data-lively-preset="custom"\] :is\(form\.composer\) \{ --shadow-lift/u);
+  assert.ok(!/\[data-lively-art="on"\]\[data-lively-preset="(calm|custom|lively)"\] :is\(form\.composer\)/u.test(css));
+  assert.ok(!/form\.composer[^{]*\{[^}]*(background|box-shadow|border)/u.test(css));
   // The person's image is fixed to the window, so the thread and the band show one picture.
   assert.match(css, /\[data-lively-art-image="on"\]\[data-lively-preset="zzz"\] :is\(\.page, \.dock\)::before \{[^}]*background-attachment: scroll, scroll, scroll, fixed;/u);
   // Presets without a backdrop leave bb's dock and fade alone, until the person adds an image.
