@@ -125,8 +125,8 @@ test("art: each preset's layers, fonts and image slot are scoped to it and to th
   assert.match(css, /:root\[data-lively-art="on"\]\[data-lively-preset="neon"\] \{\s*--font-sans: "Fixture Sans", sans-serif;/u);
   assert.match(css, /:root\[data-lively-art="on"\]\[data-lively-preset="neon"\] :is\(\.sidebar\)::before \{[^}]*background-image: linear-gradient\(red, blue\);[^}]*background-size: 10px 10px;[^}]*mask: linear-gradient\(#000, transparent\);/u);
   // No preset names an image surface: the person's image goes behind the thread (pageView), under no art of its own.
-  assert.match(css, /\[data-lively-art-image="on"\]\[data-lively-preset="neon"\] :is\(\.page\)::before \{[^}]*var\(--lively-art-image\)/u);
-  assert.match(css, /\[data-lively-art-image="on"\]\[data-lively-preset="custom"\] :is\(\.page\)::before/u);
+  assert.match(css, /\[data-lively-art-image="on"\]\[data-lively-preset="neon"\] :is\(\.page, \.dock\)::before \{[^}]*var\(--lively-art-image\)/u);
+  assert.match(css, /\[data-lively-art-image="on"\]\[data-lively-preset="custom"\] :is\(\.page, \.dock\)::before/u);
   // Art never animates, and every rule is scoped to a preset and the art switch.
   assert.ok(!/animation|transition/u.test(css));
   for (const [selector] of css.matchAll(/^[^\s/{}][^{]*(?=\{)/gmu)) assert.match(selector, /data-lively-art="on"/u, selector);
@@ -166,20 +166,21 @@ test("the DOM layer writes the preset, the art switch and the image, and removes
   assert.equal(p.root.style.getPropertyValue(ART_IMAGE_PROPERTY), "");
 });
 
-test("art: a floating dock repeats the backdrop on bb's band, blurs the fade, and floats the composer, its cards and the scroll button", () => {
+test("art: a backdrop repeats on bb's dock band and hides bb's fade above it; nothing else in the dock changes", () => {
   const css = buildArtStylesheet(TARGETS, PRESETS);
   const scope = String.raw`:root\[data-lively-art="on"\]\[data-lively-preset="zzz"\]`;
   // The band stays opaque (no background override) and paints the same art layers as the thread, anchored to the same corner.
   assert.ok(!/:is\(\.dock\) \{ background/u.test(css));
   assert.match(css, new RegExp(`${scope} :is\\(\\.page, \\.dock\\)::before \\{[^}]*background-position: right bottom, right bottom;`, "u"));
-  assert.match(css, new RegExp(`${scope} :is\\(\\.dock-fade\\) \\{[^}]*background: none;[^}]*backdrop-filter: blur`, "u"));
-  assert.match(css, new RegExp(`${scope} :is\\(:is\\(form\\.composer\\), :is\\(\\.dock-card\\), :is\\(\\.to-latest\\)\\) \\{[^}]*backdrop-filter: blur`, "u"));
-  assert.match(css, new RegExp(`${scope}\\[data-lively-stickers="on"\\] :is\\(:is\\(form\\.composer\\):not\\(:focus-within\\), :is\\(\\.dock-card\\), :is\\(\\.to-latest\\)\\) \\{[^}]*var\\(--lively-sticker\\)`, "u"));
+  assert.match(css, new RegExp(`${scope} :is\\(\\.dock-fade\\) \\{ display: none; \\}`, "u"));
+  // The composer keeps bb's own surface: lively's art never restyles it.
+  assert.ok(!/backdrop-filter/u.test(css));
+  assert.ok(!/form\.composer/u.test(css));
   // The person's image is fixed to the window, so the thread and the band show one picture.
   assert.match(css, /\[data-lively-art-image="on"\]\[data-lively-preset="zzz"\] :is\(\.page, \.dock\)::before \{[^}]*background-attachment: scroll, scroll, scroll, fixed;/u);
-  // Lively floats too; calm and custom keep bb's dock.
-  assert.match(css, /\[data-lively-preset="lively"\] :is\(:is\(form\.composer\)/u);
-  assert.ok(!/\[data-lively-preset="(calm|custom)"\] :is\(:is\(form/u.test(css));
+  // Presets without a backdrop leave bb's dock and fade alone, until the person adds an image.
+  assert.ok(!/\[data-lively-art="on"\]\[data-lively-preset="(calm|custom|lively)"\] :is\(\.dock-fade\)/u.test(css));
+  assert.match(css, /\[data-lively-art-image="on"\]\[data-lively-preset="custom"\] :is\(\.dock-fade\) \{ display: none; \}/u);
 });
 
 test("art: backdrop art never depends on its box's size, so the dock band continues it seamlessly", () => {

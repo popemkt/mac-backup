@@ -47,16 +47,12 @@ export interface Targets {
   readonly sidebar: string;
   /**
    * The band the composer docks in at the bottom of a thread, opaque, sharing
-   * the bottom-right corner of `pageView`. A preset with a floating dock
-   * repeats the backdrop's art on it; it must already be positioned.
+   * the bottom-right corner of `pageView`. A preset's backdrop art repeats on
+   * it, so the art runs to the bottom edge; it must already be positioned.
    */
   readonly dock: string;
-  /** The cards stacked above the composer box in the dock (changes, background activity); with `focusBox`, the dock's panels. */
-  readonly dockCard: string;
-  /** The host's fade over the timeline's bottom edge, above the dock. */
+  /** The host's fade over the timeline's bottom edge, just above the dock; hidden under backdrop art. */
   readonly dockFade: string;
-  /** The "scroll to latest" button floating above the dock. */
-  readonly scrollLatest: string;
   /** The host's "agent is working" line, which breathes a glow while present. */
   readonly working: string;
   /** The host's own enter/exit animations, stopped by `calmHost` under reduced motion. */

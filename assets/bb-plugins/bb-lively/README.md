@@ -75,9 +75,9 @@ A preset is one row in `core/src/domain/presets.ts`: an id, a label, a descripti
 to its section of `ART-DIRECTION.md`, a partial map of setting values (any setting, effect
 switches included), a palette (one of the themes below), an art block and font tokens.
 Seeds: **Custom** (none, the default), **Calm** (clean, subtle, no stickers or wipe),
-**Lively** (clean at lively, the Lively palette, a floating dock) and **ZZZ** (wobbly at
+**Lively** (clean at lively, the Lively palette) and **ZZZ** (wobbly at
 bold, skew, stickers with wobbly, matched jelly, the page wipe, the Lively ZZZ palette, a
-halftone-and-slash backdrop, hazard stripes under the sidebar, a floating dock).
+halftone-and-slash backdrop that runs to the bottom edge, hazard stripes under the sidebar).
 
 **Override semantics.** Every presettable setting is a select whose first option, and
 default, is **From preset**; switches are From preset / On / Off. The effective value is
@@ -107,13 +107,11 @@ surface. The repository is public: no game art and no font files are committed; 
 preset looks finished without the image. Art is paint, so it stays under reduced motion;
 motion Off turns it off with everything else.
 
-**Floating dock** (`art.dock: "float"`): floating HUD controls over the scene. bb's band
-behind the composer stays opaque, so history never shows through it, and repeats the
-backdrop's art: backdrop layers and masks are anchored to the bottom-right corner in
-fixed pixels (the stylesheet tests enforce it), and the image is fixed to the window, so
-the two meet without a seam. bb's solid fade above it becomes a short blur; the composer,
-the cards above it and the scroll-to-latest button float as translucent panels with a
-soft shadow, or a hard accent sticker shadow when stickers are on.
+**The dock.** With a backdrop, bb's opaque band behind the composer repeats the art, so it
+runs to the bottom edge: backdrop layers and masks are anchored to the bottom-right corner
+in fixed pixels (the tests enforce it) and the image is fixed to the window, so the two
+meet without a seam. bb's solid fade just above the composer, which would cut the art
+off, is hidden. Nothing else in the dock changes: the composer keeps bb's own surface.
 
 **Adding a preset** (the Transistor one, say): a row in `presets.ts`; its palette as
 `themes/<id>.css` plus a `bb.themes` entry in `package.json` (a test checks every preset's

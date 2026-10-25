@@ -44,7 +44,7 @@ Limits that stay:
 - **A preset is data**: one row in `core/src/domain/presets.ts` with id,
   label, description, a link to its art-direction section, a partial map of
   setting values (effect switches included), a palette id, an art block
-  (backdrop and sidebar layers, the image slot, a floating dock) and font
+  (backdrop and sidebar layers, the image slot) and font
   tokens. Seeds: custom (none), calm, lively, zzz.
 - **Override semantics**: every presettable field is `"preset"` or an explicit
   value. `resolve(choices, presets)` returns the effective settings and each
@@ -66,32 +66,28 @@ Limits that stay:
 - **Signature effects**: an effect in `effects.ts` may name `presets: [...]`;
   it then runs only under those presets.
 
-## Floating HUD controls over the scene (owner feedback, same day)
+## The dock (owner feedback, same day)
 
-The owner saw ZZZ live: bb paints the composer's dock as a full-width opaque
-band, cutting the backdrop off above the composer, and its solid
-`[data-overflow-fade]` gradient plus the scroll-to-latest button read as a
-separate strip. Topic → concept: ZZZ's HUD floats over the scene, so the
-controls should too.
+The owner saw ZZZ live and liked the backdrop and the motion. One thing broke the
+scene: bb's solid `[data-overflow-fade]` gradient just above the composer (where
+the scroll-to-latest button sits), a little black band cutting the art off.
+Topic → concept: the scene runs behind the controls.
 
-- A first pass made the band clear; history then showed through the gaps
-  between the cards and behind the footer row. So the band stays opaque and
-  **repeats the backdrop's art**: backdrop layers and masks are anchored to
-  the bottom-right corner in fixed pixels (a test enforces it), which the
-  thread window and the band share, and the person's image is fixed to the
-  window; the two meet without a seam.
-- bb's fade above the band becomes a 24 px blur that fades in (no solid band).
-- The composer box, the cards above it (`[data-app-composer]
-  section[aria-label]`) and the scroll-to-latest button are translucent
-  panels with a blur, an accent-tinted border and a soft shadow; with
-  stickers on (ZZZ), a hard accent sticker shadow. The yellow-green edge the
-  owner saw on the background-command bar is that sticker shadow, not the
-  working glow.
-- On for the lively and zzz presets (`art.dock: "float"`), the two with Lively
-  palettes; calm and custom keep bb's dock.
+- bb's band behind the composer (`[data-scroll-footer] > *`) stays opaque, so
+  history never shows through it, and repeats the backdrop's art: backdrop
+  layers and masks are anchored to the bottom-right corner in fixed pixels (a
+  test enforces it), which the thread window and the band share, and the
+  person's image is fixed to the window. They meet without a seam.
+- bb's fade is hidden whenever a backdrop (or the person's image) is showing.
+  Nothing replaces it: the band's top edge is where history slides under.
+- Nothing else in the dock changes. Two intermediate versions on the branch
+  (a clear band, then translucent floating panels with sticker shadows and a
+  blurred fade) went further than asked and were reverted; the yellow-green
+  edge the owner saw on the background-command bar was those panels' sticker
+  shadow.
 
-Screenshots: `.kb/assets/overnight/2026-10-25/lively-presets/` (dock-before,
-dock-after, dock-after-v2-*, zzz-thread*, settings-preset-section).
+Screenshots: `.kb/assets/overnight/2026-10-25/lively-presets/` (fade-before,
+fade-after, zzz-thread*, settings-preset-section).
 
 ## Adding a themed preset (e.g. Transistor)
 

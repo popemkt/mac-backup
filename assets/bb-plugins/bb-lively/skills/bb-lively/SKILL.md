@@ -18,7 +18,7 @@ value = the explicit one, else the preset's, else the base default. The settings
 
 | Setting | Values | Base default (no preset) |
 |---|---|---|
-| `preset` | `custom` (none), `calm` (clean, subtle, no stickers/wipe), `lively` (clean at lively, Lively palette, floating dock), `zzz` (wobbly at bold, skew, stickers, matched jelly, page wipe, Lively ZZZ palette, halftone backdrop, floating dock) | `custom` |
+| `preset` | `custom` (none), `calm` (clean, subtle, no stickers/wipe), `lively` (clean at lively, Lively palette), `zzz` (wobbly at bold, skew, stickers, matched jelly, page wipe, Lively ZZZ palette, halftone backdrop) | `custom` |
 | `motion` | `preset`, `system` (follows the OS reduce-motion preference), `full`, `reduced` (short fades only, no movement), `off` | `system` |
 | `intensity` | `preset`, `subtle`, `lively`, `bold` (more overshoot, travel, blur-in, glow, send particles; every effect scales together) | `bold` |
 | `style` | `preset`, `clean` (one soft overshoot), `wobbly` (after Zenless Zone Zero: a snap in, two or three bounces, squash, jelly, skew, tilt, flash, chromatic split) | `clean` |
@@ -46,7 +46,7 @@ run at the full level only). Sticker shadows stay: they are paint, not motion. S
 1. A row in `core/src/domain/presets.ts`: `id`, `label`, `description`, `artDirection`
    (its `ART-DIRECTION.md` section), `values` (any settings, `effects` included),
    `palette`, `art` (backdrop/sidebar CSS layers anchored `right bottom` in pixels, the
-   image slot, `dock: "float"`), `fonts` (stacks only).
+   image slot; a backdrop also repeats on bb's band behind the composer), `fonts` (stacks only).
 2. Its palette: `themes/<palette>.css` and a `bb.themes` entry in `package.json`.
 3. A signature effect, if any: a row in `core/src/domain/effects.ts` with
    `presets: ["<id>"]`, its rules in `core/src/dom/stylesheet.ts`.
