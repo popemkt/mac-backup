@@ -37,6 +37,16 @@ export interface EffectInfo {
    * or less, so a state change is still visible; the rest switch off.
    */
   readonly reducedSafe: boolean;
+  /**
+   * A preset's own effect (its signature motion): it runs only while one of
+   * these presets (presets.ts) is active, and its switch is on. Absent: every preset.
+   */
+  readonly presets?: ReadonlyArray<string>;
+}
+
+/** Whether an effect belongs to the active preset (every effect without `presets` does). */
+export function effectInPreset(info: EffectInfo, preset: string): boolean {
+  return info.presets === undefined || info.presets.includes(preset);
 }
 
 export const EFFECTS: Readonly<Record<EffectId, EffectInfo>> = {

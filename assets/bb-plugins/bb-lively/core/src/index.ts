@@ -7,4 +7,5 @@ export { createLively, type CreateLivelyOptions, type Lively, type StatusTone, S
 export { createPulser, type Pulser } from "./dom/pulser.ts";
 export { createRowWatcher, type RowWatcher } from "./dom/rows.ts";
 export { buildStylesheet, CLASSES, ROOT, ROOT_ATTRIBUTES } from "./dom/stylesheet.ts";
+export { ART_IMAGE_PROPERTY, ART_ROOT, buildArtStylesheet } from "./dom/art.ts";
 export type { Targets } from "./dom/targets.ts";

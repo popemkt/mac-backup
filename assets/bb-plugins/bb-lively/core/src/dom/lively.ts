@@ -3,7 +3,10 @@
 // one-shot pulses, and removes every one of them when its signal aborts.
 import { type EffectId, effectAttribute } from "../domain/effects.ts";
 import { MAX_CONCURRENT_ENTERS, type MotionPolicy, resolveMotion, tokensFor } from "../domain/policy.ts";
-import { decodeSettings, type Settings, type SettingsInput, type SettingsProblem } from "../domain/settings.ts";
+import type { Preset } from "../domain/presets.ts";
+import { decodeSettings } from "../domain/resolve.ts";
+import type { Settings, SettingsInput, SettingsProblem } from "../domain/settings.ts";
+import { ART_IMAGE_PROPERTY } from "./art.ts";
 import { createPulser } from "./pulser.ts";
 import { createRowWatcher } from "./rows.ts";
 import { buildStylesheet, CLASSES, PAGE_REPLAYED, PULSE_ATTRIBUTES, ROOT, ROOT_ATTRIBUTES } from "./stylesheet.ts";
@@ -19,6 +22,8 @@ export interface CreateLivelyOptions {
   readonly signal: AbortSignal;
   readonly targets: Targets;
   readonly settings?: SettingsInput;
+  /** The preset table (domain/presets.ts) by default. */
+  readonly presets?: ReadonlyArray<Preset>;
 }
 
 export interface Lively {
@@ -48,7 +53,8 @@ export function createLively(options: CreateLivelyOptions): Lively {
   const doc = win.document;
   const root = doc.documentElement;
   const { targets } = options;
-  let settings: Settings = decodeSettings(options.settings ?? {}).settings;
+  const presets = options.presets;
+  let settings: Settings = decodeSettings(options.settings ?? {}, presets).settings;
   const media = win.matchMedia(REDUCED_QUERY);
   let current: MotionPolicy = resolveMotion(settings, media.matches);
   let disposed = false;
@@ -56,7 +62,7 @@ export function createLively(options: CreateLivelyOptions): Lively {
   for (const stale of doc.head.querySelectorAll(`style[${STYLE_ATTRIBUTE}]`)) stale.remove();
   const style = doc.createElement("style");
   style.setAttribute(STYLE_ATTRIBUTE, "");
-  style.textContent = buildStylesheet(targets);
+  style.textContent = buildStylesheet(targets, presets);
   doc.head.append(style);
 
   const pulser = createPulser(win);
@@ -68,8 +74,16 @@ export function createLively(options: CreateLivelyOptions): Lively {
 
   const write = () => {
     for (const name of ROOT_ATTRIBUTES) root.removeAttribute(name);
+    root.style.removeProperty(ART_IMAGE_PROPERTY);
     if (current.level === "off") return;
     root.setAttribute(ROOT.level, current.level);
+    root.setAttribute(ROOT.preset, current.preset);
+    if (current.art) root.setAttribute(ROOT.art, "on");
+    if (current.artImage !== "") {
+      root.setAttribute(ROOT.artImage, "on");
+      // ArtImage (domain/settings.ts) admits no quote, backslash or control character.
+      root.style.setProperty(ART_IMAGE_PROPERTY, `url("${current.artImage}")`);
+    }
     root.setAttribute(ROOT.source, current.source);
     root.setAttribute(ROOT.intensity, current.intensity);
     root.setAttribute(ROOT.style, current.style);
@@ -146,7 +160,7 @@ export function createLively(options: CreateLivelyOptions): Lively {
 
   const lively: Lively = {
     setSettings: (input) => {
-      const decoded = decodeSettings(input);
+      const decoded = decodeSettings(input, presets);
       settings = decoded.settings;
       refresh();
       return decoded.problems;
@@ -171,6 +185,7 @@ export function createLively(options: CreateLivelyOptions): Lively {
       win.removeEventListener("popstate", navigated);
       for (const view of doc.querySelectorAll(`[${PAGE_REPLAYED}]`)) view.removeAttribute(PAGE_REPLAYED);
       for (const name of ROOT_ATTRIBUTES) root.removeAttribute(name);
+      root.style.removeProperty(ART_IMAGE_PROPERTY);
       style.remove();
     },
   };

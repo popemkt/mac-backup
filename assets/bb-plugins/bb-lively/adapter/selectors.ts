@@ -149,6 +149,13 @@ export const SELECTORS = {
     where: "an open thread (mounts per split pane; stays mounted across a thread switch)",
     purpose: "pageEnter: the thread view that eases in",
   },
+  sidebar: {
+    selector: '[data-sidebar="sidebar"]',
+    rating: "M",
+    verified: LIVE,
+    where: "the sidebar (open, not collapsed)",
+    purpose: "preset art: the sidebar surface a preset's art paints behind (opaque, nothing positioned outside it)",
+  },
   working: {
     selector: ".animate-shine",
     rating: "M",
@@ -200,6 +207,7 @@ export const BB_TARGETS: Targets = {
   switchThumb: SELECTORS.switchThumb.selector,
   checkbox: SELECTORS.checkbox.selector,
   pageView: SELECTORS.pageView.selector,
+  sidebar: SELECTORS.sidebar.selector,
   working: SELECTORS.working.selector,
   hostAnimation: SELECTORS.hostAnimation.selector,
   suspendOn: [BBIM_ACTIVE],

@@ -2,7 +2,7 @@
 // motion, which level runs, at which intensity and style, and which effects are on. The
 // one place that decides; the DOM layer only writes the answer onto the root
 // element.
-import { EFFECT_IDS, EFFECTS, type EffectId } from "./effects.ts";
+import { EFFECT_IDS, EFFECTS, type EffectId, effectInPreset } from "./effects.ts";
 import { type Intensity, type MotionTokens, motionTokens, type Style } from "./motion.ts";
 import { type JellyMode, type Settings, type Speed, SPEED_FACTOR } from "./settings.ts";
 
@@ -26,6 +26,12 @@ export interface MotionPolicy {
   readonly stickers: boolean;
   readonly jelly: JellyMode;
   readonly speed: Speed;
+  /** The active preset: its art and fonts paint under `data-lively-preset`. */
+  readonly preset: string;
+  /** The preset's art layer and the person's own image show. Paint, not motion: it stays under `reduced`. */
+  readonly art: boolean;
+  /** The person's art image URL ("" for none); shown only with `art`. */
+  readonly artImage: string;
   /** The effects that run, in table order. Empty when the level is `off`. */
   readonly effects: ReadonlyArray<EffectId>;
 }
@@ -40,6 +46,7 @@ export function resolveMotion(settings: Settings, systemReduced: boolean): Motio
       : EFFECT_IDS.filter(
           (id) =>
             settings.effects[id] &&
+            effectInPreset(EFFECTS[id], settings.preset) &&
             (level === "full" ? id !== "calmHost" : EFFECTS[id].reducedSafe),
         );
   const stickers = level !== "off" && (settings.stickers === "always" || (settings.stickers === "wobbly" && settings.style === "wobbly"));
@@ -52,6 +59,9 @@ export function resolveMotion(settings: Settings, systemReduced: boolean): Motio
     stickers,
     jelly: settings.jelly,
     speed: settings.speed,
+    preset: settings.preset,
+    art: level !== "off" && settings.art,
+    artImage: level !== "off" && settings.art ? settings.artImage : "",
     effects,
   };
 }

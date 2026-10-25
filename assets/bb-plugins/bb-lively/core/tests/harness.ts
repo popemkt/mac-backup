@@ -64,6 +64,7 @@ export const TARGETS: Targets = {
   switchThumb: "[role=switch] > span",
   checkbox: "[role=checkbox]",
   pageView: ".page",
+  sidebar: ".sidebar",
   working: ".working",
   hostAnimation: ".animate-in",
   suspendOn: ["data-measuring"],

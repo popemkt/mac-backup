@@ -63,7 +63,8 @@ test("a switched-off effect stays off at every level", () => {
 });
 
 test("decodeSettings: nothing stored is the defaults, with no problems", () => {
-  assert.deepEqual(decodeSettings({}), { settings: DEFAULT_SETTINGS, problems: [] });
+  const { settings, problems } = decodeSettings({});
+  assert.deepEqual({ settings, problems }, { settings: DEFAULT_SETTINGS, problems: [] });
 });
 
 test("decodeSettings: a bad value falls back to its default and is reported", () => {

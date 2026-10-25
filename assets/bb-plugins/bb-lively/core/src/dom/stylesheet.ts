@@ -38,6 +38,8 @@ import {
   STYLES,
 } from "../domain/motion.ts";
 import { REDUCED_TOKENS } from "../domain/policy.ts";
+import { type Preset, PRESETS } from "../domain/presets.ts";
+import { ART_ROOT, buildArtStylesheet } from "./art.ts";
 import type { Targets } from "./targets.ts";
 
 /** The classes the DOM layer sets for one animation each. */
@@ -79,6 +81,7 @@ export const ROOT = {
   /** `matched` when the wobbly release decays like the intensity's own spring. */
   jelly: "data-lively-jelly",
   speed: "data-lively-speed",
+  ...ART_ROOT,
 } as const;
 
 /** Every root attribute lively may write, so cleanup can remove them all. */
@@ -151,7 +154,12 @@ const pageKeyframes = Object.entries(PAGE_FRAMES)
   .flatMap(([name, body]) => [`@keyframes ${name} { ${body} }`, `@keyframes ${name}${AGAIN} { ${body} }`])
   .join("\n");
 
-export function buildStylesheet(targets: Targets): string {
+/** The motion layer, then the presets' art (art.ts). */
+export function buildStylesheet(targets: Targets, presets: ReadonlyArray<Preset> = PRESETS): string {
+  return `${motionStylesheet(targets)}${buildArtStylesheet(targets, presets)}`;
+}
+
+function motionStylesheet(targets: Targets): string {
   const suspend = targets.suspendOn.map((attribute) => `:not([${attribute}])`).join("");
   /** The root scope of one effect: on, and nothing is measuring. */
   const on = (effect: EffectId) => `:root[${effectAttribute(effect)}]${suspend}`;
