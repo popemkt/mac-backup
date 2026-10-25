@@ -9,6 +9,17 @@ palette and an art layer.
 - **ZZZ**: wobbly at bold, skewing rows, sticker shadows, matched jelly, the page wipe, the
   Lively ZZZ palette, a halftone-and-slash backdrop behind the thread and hazard stripes
   under the sidebar, running behind the composer to the bottom edge.
+- **Cloudbank** (after Transistor): a gliding clean spring, the Lively Cloudbank palette
+  (blue-violet night, the sword's teal light along every seam, city-light gold; a
+  warm-paper day mode), a dusk skyline behind the thread, functions written as calls
+  (`Crash() Breach() Jaunt()…` down the sidebar), the Process whitewashing the thread into
+  cells as you `Jaunt()` to another, and **Turn()**: while an agent waits for you (an
+  approval, a question, a plan to review), the thread freezes into a dim cyan plan and the
+  request lights up as its segmented Turn() bar fills.
+- **YoRHa** (after NieR:Automata): mechanical motion (snappy, never past its target), the
+  Lively YoRHa palette (parchment grey, umber ink, square corners; a night mode), a
+  technical grid with a corner bracket, a scan-bar wipe, and a **glitch** when a thread
+  fails.
 - **Custom**: no preset.
 
 Every setting below starts on **From preset**. Set one yourself and it stays as you set it
@@ -61,7 +72,7 @@ positioning and never touches toasts. Nothing moves while bbim's hints are up.
 
 ## Settings
 
-- **Preset:** Custom (the default), Calm, Lively or ZZZ. Every other setting can be left on
+- **Preset:** Custom (the default), Calm, Lively, ZZZ, Cloudbank or YoRHa. Every other setting can be left on
   From preset (the default) or set to a value of its own.
 - **Motion:** System (follows your OS "reduce motion"), Full, Reduced (short fades only, no
   movement), or Off.
@@ -90,4 +101,6 @@ accent) and **Lively Dracula** (bb's Dracula with Lively's rounder corners and s
 transitions), each with a **Bold** variant that carries the accent further (tinted
 selection, accent focus ring, glowing elevation, rounder corners) to pair with Bold
 intensity. **Lively ZZZ** is near-black with lime and yellow accents and hard offset
-shadows, to pair with Wobbly. The motion works without any of them.
+shadows, to pair with Wobbly. **Lively Cloudbank** and **Lively YoRHa** are the Cloudbank
+and YoRHa presets' palettes, each with a light and a dark mode. The motion works without
+any of them.

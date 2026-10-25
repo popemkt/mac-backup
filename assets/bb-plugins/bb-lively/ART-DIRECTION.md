@@ -36,15 +36,35 @@ Selectors are named by their key in `adapter/selectors.ts` (`pageView` is `[data
 *new target*.
 - Effect ids are the keys of `EFFECTS` in `core/src/domain/effects.ts`.
 - Motion tokens are the fields of `MotionTokens` in `core/src/domain/motion.ts`.
-- Theme tokens are bb's custom properties in `themes/*.css`. `--lively-*` theme tokens are the planned
-  art-layer contract.
+- Theme tokens are bb's custom properties in `themes/*.css`. A palette may also define `--lively-art-<name>`
+  tokens: its preset's art reads them (`PresetArt.colors` in `core/src/domain/presets.ts`, set once as
+  `--lively-c-<name>`) with a fallback for any other theme, so art follows the light and dark modes.
+- A preset's own motion is `tokens` (laid over every style and intensity at the full level) and its paint of
+  the shared effects is `paint` (`--lively-wipe-fill/-mask`, `--lively-chroma-a/-b`); both in `presets.ts`.
 
 Copyright: the dotfiles repo is public. Every piece of art here is drawn by us (SVG, CSS) in the spirit of
 its source. No game art, screenshots, logos or fonts are committed. A user's own art goes through the
-**user art slot** (planned; see the Transistor section and the research doc), which stays out of git.
+**user art slot** (the `artImage` setting: a URL or a file on the bb machine, placed by the preset), which
+stays out of git.
 
 ---
 
+<a id="calm"></a>
+## Calm
+
+**A. Topic analysis.** Calm is a house preset with no outside source: lively at its quietest, for
+all-day use.
+- **World**, **Art**, **UI**: whatever bb's own theme is; Calm never touches it.
+- **Motion**: subtle, clean, no sticker shadows, no page wipe.
+- **Sound → motion**: none.
+
+**B. bb translation.**
+
+| Concept | From | Lives in | Status |
+|---|---|---|---|
+| Quiet motion on any theme | Motion | `core/src/domain/presets.ts` · `calm` row (`intensity: subtle`, `style: clean`, `stickers: off`, `pageWipe: false`, no palette) | shipped |
+
+<a id="lively"></a>
 ## Lively
 
 **A. Topic analysis.** Lively is a house style with no outside source.
@@ -86,6 +106,7 @@ its source. No game art, screenshots, logos or fonts are committed. A user's own
 | Lively's shape and timing on top | (Lively) | `themes/lively-dracula.css` · "Lively's tokens on top of Dracula" block | shipped |
 | Accent carried further (Bold) | Art | `themes/lively-dracula-bold.css` · Bold block | shipped |
 
+<a id="zzz"></a>
 ## Lively ZZZ (Zenless Zone Zero)
 
 **A. Topic analysis.** HoYoverse's *Zenless Zone Zero* (2024). Source and measurements are in
@@ -127,12 +148,14 @@ its source. No game art, screenshots, logos or fonts are committed. A user's own
 | Halftone send burst | Art | effect `sendPulse` (wobbly); `stylesheet.ts` · `.lively-send::after` | shipped |
 | Sticker shadows on cards, menus and toasts | Art | setting `stickers`; `motion.ts` · `sticker` | shipped |
 | Idle breathing | Motion (idle loops) | effect `workingGlow` (wobbly breathes in scale); selector `working` | shipped |
-| Chromatic split colours (cyan/magenta) as theme tokens | Art | `stylesheet.ts` hard-codes `#3fd4ff` `#ff3dbb` → planned `--lively-chroma-a/b` | planned |
-| Wipe dot texture and slant as theme tokens | UI | `stylesheet.ts` hard-codes the dots and the 105° mask → planned `--lively-wipe-fill/-mask` | planned |
+| Chromatic split colours (cyan/magenta) as paint tokens | Art | `stylesheet.ts` · `--lively-chroma-a/-b` (ZZZ's are lively's defaults; a preset's `paint.chroma` replaces them) | shipped |
+| Wipe dot texture and slant as paint tokens | UI | `stylesheet.ts` · `--lively-wipe-fill/-mask` (ZZZ's are lively's defaults; a preset's `paint.wipe` replaces them) | shipped |
+| Halftone field and accent slashes; hazard stripes under the sidebar | Art | `presets.ts` · `zzz` row `art.backdrop`, `art.sidebar`; `core/src/dom/art.ts` | shipped |
 
 ---
 
-## Transistor — "Cloudbank" (candidate, first pick)
+<a id="cloudbank"></a>
+## Transistor — "Cloudbank" (shipped as the Cloudbank preset)
 
 **A. Topic analysis.** Supergiant Games' *Transistor* (2014). Art direction by Jen Zee, music by Darren Korb.
 - **World**:
@@ -175,24 +198,34 @@ its source. No game art, screenshots, logos or fonts are committed. A user's own
 
 | Concept | From | Lives in | Status |
 |---|---|---|---|
-| Dusk violet canvas, turquoise accent, gold accent, Red as destructive | Art | new `themes/lively-transistor.css` · `--canvas #13142a` `--primary #3ee6d4` `--timeline-accent #e0b25a` `--destructive #ff6b57` `--pr-merged #d94f8a` | planned |
-| Cloudbank day (light mode) on parchment | Art | same file · `:root, .light` block (`--canvas #f3ecdf`, `--primary #08706a`) | planned |
-| Painted dusk sky with brush texture | Art | theme token `--lively-art-timeline` (gradients); painted by lively on `pageView::before` | planned |
-| Skyline: far towers, a turquoise rim, near towers, lit windows | Art (Cloudbank) | theme tokens `--lively-art-timeline-{1..4}-paint/-mask` (our own SVG masks); painted by lively on stacked pseudo-layers of `pageView` | planned |
-| Art Nouveau cartouche around the sidebar head | Art | theme tokens `--lively-art-sidebar-paint/-mask`; *new target* `sidebar` (`[data-sidebar="content"]`, to be captured in the fixture) | planned |
-| **Turn() = approval wait** | UI (Turn()) | **new effect `turnFreeze`**; trigger: the open thread's indicator becomes `waiting-for-input` (the seam already read in `adapter/bb.ts`) | planned |
-| ↳ the world freezes into a plan | UI, Sound (EQ muffle) | `turnFreeze` · `filter: saturate() brightness()` on `rowList`, a cyan wireframe veil on `rowList::after` | planned |
-| ↳ the Turn() bar fills, queued actions pop in | UI | `turnFreeze` · on `focusBox::before` (a `scale` fill on the spring); queued marks use `overlayMs` | planned |
-| ↳ planned path dashed down the gutter, a node per row | UI | `turnFreeze` · `rowList::before` plus a diamond on each `row::after` | planned |
-| ↳ approve = execute | Motion (instant execution) | `turnFreeze` exit · one `brightness` flash (the `flash` token), then the bar drains on the exit ease | planned |
-| Trace of a new row | UI (planned path) | **new effect `traceLine`** (or `listEnter` with an arrival mark, see the research doc) · `row::before`, `scale` from the top | planned |
-| Process wipe: the thread dissolves through square cells | World (the Process) | effect `pageWipe` with theme tokens `--lively-wipe-fill` (grid) and `--lively-wipe-mask` (stepped cells) | planned |
-| Function sparks on send | UI (functions) | effect `sendPulse` with `--lively-burst-fill` (radial rays) | planned |
-| Sword hum while working | Sound (hum), Motion | effect `workingGlow` with a preset override `breatheMs: 3200`, `glow: .3` and a small scale breath | planned |
-| Display type for the brand and headers | Art (Art Nouveau lettering) | `--lively-font-display` (Josefin Sans or Federo, both OFL, bundled by the plugin) · headers only, needs a *new target* | planned |
-| Red's colours in the chromatic split | Art | `--lively-chroma-a: #3ee6d4`, `--lively-chroma-b: #e8503a` | planned |
-| User's own key art behind the timeline | (owner's art) | **user art slot**: setting `artImage` (a URL, such as a kb asset served on the tailnet, or a host path) → `--lively-user-art` on `:root`, layered under the theme's own art at ≤ 50% with a mask that keeps the reading column clear | planned |
-| The game's own art, logo or font | — | never committed (public repo); only through the user art slot | — |
+| Dusk violet canvas, turquoise accent, gold accent, Red as destructive | Art | `themes/lively-cloudbank.css` · `.dark` · `--canvas #13142a` `--primary #3ee6d4` `--timeline-accent #e0b25a` `--destructive #ff6b57` `--pr-merged #d94f8a` | shipped |
+| Cloudbank day (light mode) on parchment | Art | same file · `:root, .light` (`--canvas #f3ecdf`, `--primary #08706a`, `--timeline-accent #8a5c0c`) | shipped |
+| The whole look in one choice | (all) | `presets.ts` · `cloudbank` row: `clean` at `lively`, `stickers: off`, `pageWipe` and `turnFreeze` on, palette `lively-cloudbank` | shipped |
+| Painted dusk horizon with brush grain | Art | `presets.ts` · `CLOUDBANK_ART.backdrop` (ember, magenta and amber radial glows; two crossing hatches) · colors `--lively-art-sky-1/-2/-3` · painted on `pageView::before` by `core/src/dom/art.ts` | shipped |
+| Skyline: far towers, a turquoise rim, near towers, lit windows | Art (Cloudbank) | `presets.ts` · `farCity`, `nearCity`, `litWindows` (seeded `skyline()`, `rect()`, `windows()` in `core/src/domain/artkit.ts`; plain gradients, no images) · colors `--lively-art-far/-near/-rim/-lights` · bb's band behind the composer repeats it seamlessly | shipped |
+| Art Nouveau cartouche at the foot of the sidebar | Art | `presets.ts` · `CLOUDBANK_ART.sidebar` (two arcs and a row of beads in `--lively-art-line`) · selector `sidebar` (`[data-sidebar="sidebar"]`) | shipped |
+| **Turn() = waiting for you** | UI (Turn()) | effect **`turnFreeze`** (`presets: ["cloudbank"]`, `reducedSafe`) · trigger is pure CSS: `pageView:has(pendingRequest)`; selector **`pendingRequest`** (bb's `approval-banner`, `user-question-banner`, `plan-review-banner`, `plugin-request-banner`, in the composer dock; question matched live, the rest from bb's bundle; on the canary) | shipped |
+| ↳ the world freezes into a plan | UI, Sound (EQ muffle) | `stylesheet.ts` · `turnFreeze` · `filter: saturate() sepia() hue-rotate() opacity()` on each `rowList > row`, comes in on `steps(3)`, thaws on the ease | shipped |
+| ↳ a cyan grid veil and the planned path dashed down the gutter | UI | `turnFreeze` · `rowList::before` (grid, wash, dashed line at the left edge), fades in on steps | shipped |
+| ↳ the request lights up; the segmented Turn() bar fills | UI | `turnFreeze` · `pendingRequest` made opaque with a cyan border and glow; `pendingRequest::after`: eight glowing segments that fill one by one (`scale` on `steps(8)`, `enterMs × 1.4`) | shipped |
+| ↳ named as the game names its functions | UI (functions as programs) | `turnFreeze` · `pendingRequest::before` prints `Turn()` in the preset's lettering | shipped |
+| ↳ a node per planned row; queued marks pop in | UI | a diamond on each `row::after`; three marks on the bar | planned |
+| ↳ approve = execute | Motion (instant execution) | one `brightness` flash as the freeze lifts; needs a script (the `:has()` just stops matching) | planned |
+| Trace of a new row | UI (planned path) | new effect `traceLine` · `row::before`, `scale` from the top | planned |
+| Process wipe: the thread whitewashes into blank cells as you jump to another, labelled `Jaunt()` | World (the Process), UI (functions) | `presets.ts` · `cloudbank.paint.wipe`: Process white (`--lively-art-process`, else `#f2efe6`) under a 16px cyan cell grid, edges dissolving in stepped bands, `label: "Jaunt()"` in night ink → `--lively-wipe-fill/-mask/-label/-ink`; effect `pageWipe` | shipped |
+| A function loadout down the sidebar | UI (functions written as programs) | `presets.ts` · `cloudbank.lettering.sidebar` (`Crash() Breach() Jaunt() Load() Spark()`) set vertically in the sidebar's gutter by `core/src/dom/art.ts`; with the art switch | shipped |
+| Functions as tracked capitals in an OVC terminal's amber | UI, Art (Red's gold) | `presets.ts` · `cloudbank.lettering`: Josefin Sans (OFL, if installed), Futura, Avenir Next; `--lively-accent-2` (gold) → `--lively-letter-font/-color` | shipped |
+| The sword's light along the seams | Art (turquoise sword-light) | `themes/lively-cloudbank.css` · `--border-seam` mixed toward the accent: thin teal outlines on the sidebar's edge, the panes, the message cards | shipped |
+| The sword's light down the sidebar's inner edge | Art | `CLOUDBANK_ART.sidebar` · a 2px line and an 18px glow (`--lively-art-sword`); shows where bb's sidebar content is transparent (its header and foot) | shipped |
+| Brighter sword-light everywhere it glows | Art, Motion | `presets.ts` · `cloudbank.tokens.glow: 0.34` (focus ring, working line, status rings) | shipped |
+| Function sparks on send | UI (functions) | effect `sendPulse` with a radial-ray burst paint (`paint.burst`) | planned |
+| Sword hum while working | Sound (hum), Motion | effect `workingGlow` (clean breathing in Turn() cyan, at `glow` 0.34); a slower `breatheMs` via `tokens` | shipped (glow); planned (slower hum) |
+| A clean 1920s sans for reading | Art | `presets.ts` · `cloudbank.fonts.sans`: Jost (OFL, as kb's Transistor, if installed), Avenir Next, Futura, system | shipped |
+| The faces themselves, on every machine | Art | lively cannot serve a font file: gap `01M5SK4NQ90CRG9YAQC2GXNZJW` (kb ships Federant, Josefin Sans and Jost from `@fontsource`) | gap |
+| A thin display face for headers | Art (Art Nouveau lettering) | a `--lively-font-display` token and a *new target* for headers | planned |
+| Red's colours in the chromatic split | Art | `presets.ts` · `cloudbank.paint.chroma`: Turn() cyan and `--lively-art-sky-1` | shipped |
+| User's own key art behind the timeline | (owner's art) | setting `artImage` · `cloudbank.art.image`: backdrop, 20%, cover, center bottom, under the preset's own layers | shipped |
+| The game's own art, logo or font | — | never committed (public repo); only through `artImage` | — |
 
 ## Persona 5 — "Phantom" (candidate)
 
@@ -225,7 +258,8 @@ its source. No game art, screenshots, logos or fonts are committed. A user's own
 | Shard backdrop and halftone | Art | `--lively-art-timeline` + one masked layer (our own shards) | planned |
 | Cut-in band on a finished thread | UI (cut-ins) | **new** status mark `cutIn` (off by default) | planned |
 
-## NieR:Automata — "YoRHa" (candidate)
+<a id="yorha"></a>
+## NieR:Automata — "YoRHa" (shipped as the YoRHa preset)
 
 **A. Topic analysis.** PlatinumGames / Square Enix's *NieR:Automata* (2017). UI by Kijima, at Yoko Taro's
 request for "a nice, warm beige".
@@ -250,13 +284,21 @@ request for "a nice, warm beige".
 
 | Concept | From | Lives in | Status |
 |---|---|---|---|
-| Beige paper, khaki ink, rust accent; square corners | Art | new `themes/lively-yorha.css` (light-first; a night block) · `--radius 0` | planned |
-| Inverted selection | UI | `--surface-selected` = ink and `--primary-foreground` = paper | planned |
-| Grid and corner brackets | Art | `--lively-art-timeline` (grid) + two masked bracket layers | planned |
-| Mechanical, no bounce | Motion | preset: `clean`, `subtle`, `snappy`, with a **per-preset token override** `overshoot: 0` | planned |
-| Scan-bar wipe | UI | effect `pageWipe` with `--lively-wipe-fill` (horizontal bars) | planned |
-| Glitch on failure | Motion (damage) | status mark `slice` on `statusRow` (failure tone) | planned |
-| Bracket focus instead of glow | UI | `focusRing` variant: an outline with an offset (theme element block on `focusBox`, or a planned `--lively-focus-shape` token) | planned |
+| Beige paper, khaki ink, rust accent; square corners | Art | `themes/lively-yorha.css` (light-first; a night block) · `--canvas #d8d2b8` `--ink #38352d` `--primary #4a463b` `--timeline-accent #8e3b26` · `--radius 0` | shipped |
+| Hairline elevation instead of shadows | Art | same file · `--shadow-*` as 1px ink rings and short hard offsets | shipped |
+| Dark selection bar | UI | same file · `--surface-selected`, `--surface-selected-border` = ink | shipped |
+| Fully inverted selection with a square marker | UI | needs a theme element block on the selected sidebar row | planned |
+| The whole look in one choice | (all) | `presets.ts` · `yorha` row: `clean` at `lively`, `snappy`, `stickers: off`, `pageWipe` and `glitch` on, palette `lively-yorha` | shipped |
+| Grid and a corner bracket | Art | `presets.ts` · `YORHA_ART.backdrop`: 24px and 120px grids, a tick ruler, `bracket()` and a rust square (`artkit.ts`) · colors `--lively-art-line/-mark/-rim` · masked to fade out from the lower right | shipped |
+| Hatching at the foot of the sidebar | Art | `YORHA_ART.sidebar` · selector `sidebar` | shipped |
+| Mechanical, no bounce | Motion | `presets.ts` · `yorha.tokens`: `overshoot: 0`, `blur: 0`, `tilt: 0`, `liftShadow: 0` (full level only; the tests hold them to `BUDGETS.clean`) | shipped |
+| Scan-bar wipe | UI | `presets.ts` · `yorha.paint.wipe` (6px ink bars, fading edges) → `--lively-wipe-fill/-mask`; effect `pageWipe` | shipped |
+| Glitch on failure | Motion (damage) | effect **`glitch`** (`presets: ["yorha"]`, off under reduced) · `stylesheet.ts` `lively-glitch`: `translate` in `steps(1)` and a split in `paint.chroma` (rust and steel), on `statusRow` when the thread fails · runs even with `statusPulse` off (`core/src/dom/lively.ts` `pulseStatus`) | shipped |
+| Slice band on the failing row | Motion (damage) | a `clip-path` slice needs a pseudo-element the status rings already use | planned |
+| Plain grotesque type | UI | `yorha.fonts.sans`: Helvetica Neue, Helvetica, Nimbus Sans, Arial, system | shipped |
+| Condensed, letter-spaced labels | UI | needs a label target and a letter-spacing token | planned |
+| Bracket focus instead of glow | UI | `focusRing` variant: an outline with an offset (`--lively-focus-shape`) | planned |
+| User's own art | (owner's art) | setting `artImage` · `yorha.art.image`: backdrop at 12% | shipped |
 
 ## Hollow Knight — "Hallownest" (candidate)
 

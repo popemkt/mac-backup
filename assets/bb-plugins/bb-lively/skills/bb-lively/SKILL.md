@@ -1,6 +1,6 @@
 ---
 name: bb-lively
-description: bb-lively (plugin id `bb-lively`), the bb plugin that adds themed presets (Calm, Lively, ZZZ; one setting for motion, bb's palette and an art layer) and motion to bb at three intensities and two styles, clean and a Zenless Zone Zero-style wobbly (button press, new timeline rows rising in, menu and dialog springs, send burst, sidebar thread status rings, composer focus glow, toast spring, switch/checkbox motion, thread transitions, an optional page wipe, a glow on the working line) and the optional Lively, Lively Dracula and Lively ZZZ palette themes. Use when asked about bb animations, micro-interactions or the wobbly/ZZZ style, to pick or add a preset, to change lively's motion mode, intensity, style, speed, effects, palette or art image, why an effect does nothing, or to report a bb selector lively relies on that broke after a bb update.
+description: bb-lively (plugin id `bb-lively`), the bb plugin that adds themed presets (Calm, Lively, ZZZ, Cloudbank after Transistor with its Turn() freeze while an agent waits, YoRHa after NieR:Automata with its failure glitch; one setting for motion, bb's palette and an art layer) and motion to bb at three intensities and two styles, clean and a Zenless Zone Zero-style wobbly (button press, new timeline rows rising in, menu and dialog springs, send burst, sidebar thread status rings, composer focus glow, toast spring, switch/checkbox motion, thread transitions, an optional page wipe, a glow on the working line) and the optional Lively, Lively Dracula, Lively ZZZ, Lively Cloudbank and Lively YoRHa palette themes. Use when asked about bb animations, micro-interactions or the wobbly/ZZZ style, to pick or add a preset, to change lively's motion mode, intensity, style, speed, effects, palette or art image, why an effect does nothing, or to report a bb selector lively relies on that broke after a bb update.
 ---
 
 # bb-lively
@@ -18,7 +18,7 @@ value = the explicit one, else the preset's, else the base default. The settings
 
 | Setting | Values | Base default (no preset) |
 |---|---|---|
-| `preset` | `custom` (none), `calm` (clean, subtle, no stickers/wipe), `lively` (clean at lively, Lively palette), `zzz` (wobbly at bold, skew, stickers, matched jelly, page wipe, Lively ZZZ palette, halftone backdrop) | `custom` |
+| `preset` | `custom` (none), `calm` (clean, subtle, no stickers/wipe), `lively` (clean at lively, Lively palette), `zzz` (wobbly at bold, skew, stickers, matched jelly, page wipe, Lively ZZZ palette, halftone backdrop), `cloudbank` (clean at lively, cell page wipe, Turn() freeze, Lively Cloudbank palette, dusk skyline), `yorha` (clean at lively, snappy, no overshoot or blur, scan-bar page wipe, failure glitch, Lively YoRHa palette, grid backdrop) | `custom` |
 | `motion` | `preset`, `system` (follows the OS reduce-motion preference), `full`, `reduced` (short fades only, no movement), `off` | `system` |
 | `intensity` | `preset`, `subtle`, `lively`, `bold` (more overshoot, travel, blur-in, glow, send particles; every effect scales together) | `bold` |
 | `style` | `preset`, `clean` (one soft overshoot), `wobbly` (after Zenless Zone Zero: a snap in, two or three bounces, squash, jelly, skew, tilt, flash, chromatic split) | `clean` |
@@ -32,13 +32,15 @@ value = the explicit one, else the preset's, else the base default. The settings
 | `press`, `hoverLift`, `listEnter`, `focusRing`, `sendPulse`, `statusPulse`, `toastSpring`, `overlayEnter`, `toggles`, `pageEnter`, `workingGlow` | `preset`, `on`, `off` | on |
 | `pageWipe` (a slanted, dotted accent panel sweeps across a thread on switch) | `preset`, `on`, `off` | off |
 | `typingGlow` (accent caret in the composer) | `preset`, `on`, `off` | off |
+| `turnFreeze` (Cloudbank only: while the open thread waits on an approval, question or plan review, its timeline freezes into a dim cyan plan and the request card lights up) | `preset`, `on`, `off` | on (runs under Cloudbank only) |
+| `glitch` (YoRHa only: a failed thread's sidebar row tears sideways in two signal colors) | `preset`, `on`, `off` | on (runs under YoRHa only) |
 | `calmHost` (under reduced motion, also stop bb's own menu/dialog animations) | `preset`, `on`, `off` | off |
 
 Set values with `bb plugin config bb-lively set <key> <value>` (`unset <key>` returns it to
 From preset), or in the UI.
 
-Under `reduced`, `press`, `hoverLift`, `toastSpring`, `toggles`, `pageWipe` and `workingGlow`
-switch off; the rest keep only their fade, whatever the intensity or style (wobbly's own rules
+Under `reduced`, `press`, `hoverLift`, `toastSpring`, `toggles`, `pageWipe`, `glitch` and `workingGlow`
+switch off (`turnFreeze` stays: the frozen state shows at once, without its bar filling); the rest keep only their fade, whatever the intensity or style (wobbly's own rules
 run at the full level only). Sticker shadows stay: they are paint, not motion. Set values with `bb plugin settings` (see the bb CLI skill) or in the UI.
 
 ## Adding a preset
@@ -46,7 +48,10 @@ run at the full level only). Sticker shadows stay: they are paint, not motion. S
 1. A row in `core/src/domain/presets.ts`: `id`, `label`, `description`, `artDirection`
    (its `ART-DIRECTION.md` section), `values` (any settings, `effects` included),
    `palette`, `art` (backdrop/sidebar CSS layers anchored `right bottom` in pixels, the
-   image slot; a backdrop also repeats on bb's band behind the composer), `fonts` (stacks only).
+   image slot; a backdrop also repeats on bb's band behind the composer; named `colors` read
+   from the palette's `--lively-art-*` tokens), `fonts` (stacks only), `tokens` (its own motion character, e.g. no overshoot;
+   held to the style's budget), `paint` (the page wipe's panel and label, the chromatic split's
+   colors) and `lettering` (the face and color of words lively prints, and a sidebar caption).
 2. Its palette: `themes/<palette>.css` and a `bb.themes` entry in `package.json`.
 3. A signature effect, if any: a row in `core/src/domain/effects.ts` with
    `presets: ["<id>"]`, its rules in `core/src/dom/stylesheet.ts`.
@@ -57,7 +62,8 @@ run at the full level only). Sticker shadows stay: they are paint, not motion. S
 
 `plugin:bb-lively:lively`, `plugin:bb-lively:lively-dracula` and their Bold variants
 `plugin:bb-lively:lively-bold`, `plugin:bb-lively:lively-dracula-bold`, and
-`plugin:bb-lively:lively-zzz` (near-black, lime and yellow, hard offset shadows) (`bb theme set <id>`). They
+`plugin:bb-lively:lively-zzz` (near-black, lime and yellow, hard offset shadows),
+`plugin:bb-lively:lively-cloudbank` and `plugin:bb-lively:lively-yorha` (`bb theme set <id>`). They
 are palettes only (colors, radius, elevation, transition timing); the motion layer does not
 depend on them.
 

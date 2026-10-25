@@ -17,10 +17,10 @@ for what a person gets, [core/README.md](core/README.md) for the engine, and the
 | `adapter/bb.ts` | Mounting, sends, sidebar indicator → pulse tone, and the canary for the settings page. |
 | `app.tsx` | The `motion` content script; a headless app overlay for settings and one for `experimental_useSidebarThreads` (feature-detected); an invisible composer action for `useComposer().onSubmitted` and the accent caret (`setTextEffect`); the Preset settings section (every effective value and its source, a one-click palette switch) and the selector-health one. |
 | `server.ts` | `bb.settings.define`, the palette switch on `settings.onChange`, and the art image route. |
-| `themes/` | `lively.css`, `lively-dracula.css`, their `-bold` variants and `lively-zzz.css` (manifest `bb.themes`): tokens only, no motion. A bold file is its base palette copied plus a Bold block at the end (one theme is active at a time, so it cannot import the base): keep each pair in step. |
+| `themes/` | `lively.css`, `lively-dracula.css`, their `-bold` variants, `lively-zzz.css`, `lively-cloudbank.css` and `lively-yorha.css` (manifest `bb.themes`): tokens only, no motion. A bold file is its base palette copied plus a Bold block at the end (one theme is active at a time, so it cannot import the base): keep each pair in step. |
 | `ART-DIRECTION.md` | **Canonical** per-theme art direction: each theme's source analysis, its translation into UI concepts, and where each concept lives in code (shipped or planned). |
 | `skills/bb-lively/` | Tells agents what lively does, its settings, and how to report a broken selector. |
-| `tests/` | Adapter tests, and `fixtures/bb-0.46.1.html`: bb's markup captured from the web UI (structure and attributes only) that `selectors.test.ts` runs the table against. |
+| `tests/` | Adapter tests, and `fixtures/bb-0.46.1.html` and `fixtures/bb-0.46.1-request.html` (a thread waiting on a question): bb's markup captured from the web UI (structure and attributes only) that `selectors.test.ts` runs the table against. |
 
 ## How it works
 
@@ -78,7 +78,11 @@ switches included), a palette (one of the themes below), an art block and font t
 Seeds: **Custom** (none, the default), **Calm** (clean, subtle, no stickers or wipe),
 **Lively** (clean at lively, the Lively palette) and **ZZZ** (wobbly at
 bold, skew, stickers with wobbly, matched jelly, the page wipe, the Lively ZZZ palette, a
-halftone-and-slash backdrop that runs to the bottom edge, hazard stripes under the sidebar).
+halftone-and-slash backdrop that runs to the bottom edge, hazard stripes under the sidebar). Full art
+directions: **Cloudbank** (after Transistor: clean at lively, a dusk skyline, a cyan cell
+wipe, and the `turnFreeze` effect) and **YoRHa** (after NieR:Automata: snappy, no
+overshoot or blur through its own `tokens`, a technical grid, a scan-bar wipe, and the
+`glitch` effect); each is mapped from source to code in `ART-DIRECTION.md`.
 
 **Override semantics.** Every presettable setting is a select whose first option, and
 default, is **From preset**; switches are From preset / On / Off. The effective value is
@@ -113,6 +117,26 @@ runs to the bottom edge: backdrop layers and masks are anchored to the bottom-ri
 in fixed pixels (the tests enforce it) and the image is fixed to the window, so the two
 meet without a seam. bb's solid fade just above the composer, which would cut the art
 off, is hidden. Nothing else in the dock changes: the composer keeps bb's own surface.
+
+**A preset's own motion and paint.** `tokens` lays a preset's motion character over every
+(style, intensity) at the full level (YoRHa: no overshoot, no blur, no tilt, no lift
+shadow), never under reduced motion; the tests hold it to the style's budget. `paint`
+recolors and reshapes the shared effects: the page wipe's panel (`--lively-wipe-fill`,
+`--lively-wipe-mask`) and the chromatic split's colors (`--lively-chroma-a/-b`). Art
+`colors` are set once per preset as `--lively-c-<name>`, each reading the palette's own
+`--lively-art-<name>` token with a fallback, so the art follows the theme's light and dark
+modes and still works on any other theme. `lettering` is the words lively itself prints
+under a preset and their face (tracked capitals): a caption down the sidebar's gutter (art),
+the page wipe's label (`paint.wipe.label`), and Turn()'s own label. Cloudbank prints its
+functions as calls: `Crash() Breach() Jaunt() Load() Spark()`, `Jaunt()`, `Turn()`.
+
+**Turn()** (`turnFreeze`, Cloudbank) needs no script: bb renders a pending approval,
+question, plan review or plugin request as a banner in the composer's dock
+(`pendingRequest` in `adapter/selectors.ts`, the canary watches it), inside the thread
+window and outside the timeline, so `[data-thread-window]:has(<request>)` freezes the
+timeline's rows (a filter), raises a grid veil behind them, and lights the request. The
+**glitch** (YoRHa) rides the status pulse: a sidebar row whose thread fails tears sideways
+in hard steps, even with the status rings off.
 
 **Adding a preset** (the Transistor one, say): a row in `presets.ts`; its palette as
 `themes/<id>.css` plus a `bb.themes` entry in `package.json` (a test checks every preset's
