@@ -134,7 +134,7 @@ test("art: each preset's layers, fonts and image slot are scoped to it and to th
 
 test("art: the seed table's zzz layers its image under its own art, washed toward the canvas", () => {
   const css = buildArtStylesheet(TARGETS, PRESETS);
-  const rule = css.match(/\[data-lively-art-image="on"\]\[data-lively-preset="zzz"\] :is\(\.page\)::before \{([^}]*)\}/u)?.[1] ?? "";
+  const rule = css.match(/\[data-lively-art-image="on"\]\[data-lively-preset="zzz"\] :is\(\.page, \.dock\)::before \{([^}]*)\}/u)?.[1] ?? "";
   assert.match(rule, /background-image: linear-gradient\(112deg[\s\S]*color-mix\(in oklab, var\(--lively-canvas\) 78%, transparent\)[\s\S]*var\(--lively-art-image\);/u);
   assert.match(rule, /background-repeat: [^;]*no-repeat;/u);
 });
@@ -166,14 +166,29 @@ test("the DOM layer writes the preset, the art switch and the image, and removes
   assert.equal(p.root.style.getPropertyValue(ART_IMAGE_PROPERTY), "");
 });
 
-test("art: a floating dock clears the band, fades its top edge, and floats the composer and its cards", () => {
+test("art: a floating dock repeats the backdrop on bb's band, blurs the fade, and floats the composer, its cards and the scroll button", () => {
   const css = buildArtStylesheet(TARGETS, PRESETS);
   const scope = String.raw`:root\[data-lively-art="on"\]\[data-lively-preset="zzz"\]`;
-  assert.match(css, new RegExp(`${scope} :is\\(\\.dock\\) \\{ background: transparent; \\}`, "u"));
-  assert.match(css, new RegExp(`${scope} :is\\(\\.dock\\)::before \\{[^}]*inset: auto 0 100% 0;`, "u"));
-  assert.match(css, new RegExp(`${scope} :is\\(:is\\(form\\.composer\\), :is\\(\\.dock-card\\)\\) \\{[^}]*backdrop-filter: blur`, "u"));
-  assert.match(css, new RegExp(`${scope}\\[data-lively-stickers="on"\\] :is\\(:is\\(form\\.composer\\):not\\(:focus-within\\), :is\\(\\.dock-card\\)\\) \\{[^}]*var\\(--lively-sticker\\)`, "u"));
+  // The band stays opaque (no background override) and paints the same art layers as the thread, anchored to the same corner.
+  assert.ok(!/:is\(\.dock\) \{ background/u.test(css));
+  assert.match(css, new RegExp(`${scope} :is\\(\\.page, \\.dock\\)::before \\{[^}]*background-position: right bottom, right bottom;`, "u"));
+  assert.match(css, new RegExp(`${scope} :is\\(\\.dock-fade\\) \\{[^}]*background: none;[^}]*backdrop-filter: blur`, "u"));
+  assert.match(css, new RegExp(`${scope} :is\\(:is\\(form\\.composer\\), :is\\(\\.dock-card\\), :is\\(\\.to-latest\\)\\) \\{[^}]*backdrop-filter: blur`, "u"));
+  assert.match(css, new RegExp(`${scope}\\[data-lively-stickers="on"\\] :is\\(:is\\(form\\.composer\\):not\\(:focus-within\\), :is\\(\\.dock-card\\), :is\\(\\.to-latest\\)\\) \\{[^}]*var\\(--lively-sticker\\)`, "u"));
+  // The person's image is fixed to the window, so the thread and the band show one picture.
+  assert.match(css, /\[data-lively-art-image="on"\]\[data-lively-preset="zzz"\] :is\(\.page, \.dock\)::before \{[^}]*background-attachment: scroll, scroll, scroll, fixed;/u);
   // Lively floats too; calm and custom keep bb's dock.
-  assert.match(css, /\[data-lively-preset="lively"\] :is\(\.dock\) \{ background: transparent; \}/u);
-  assert.ok(!/\[data-lively-preset="(calm|custom)"\] :is\(\.dock\)/u.test(css));
+  assert.match(css, /\[data-lively-preset="lively"\] :is\(:is\(form\.composer\)/u);
+  assert.ok(!/\[data-lively-preset="(calm|custom)"\] :is\(:is\(form/u.test(css));
+});
+
+test("art: backdrop art never depends on its box's size, so the dock band continues it seamlessly", () => {
+  for (const preset of PRESETS as ReadonlyArray<Preset>) {
+    const { art } = preset;
+    for (const layer of art?.backdrop?.layers ?? []) {
+      assert.match(layer.position ?? "", /^right bottom$/u, `${preset.id}: ${layer.image.slice(0, 30)}`);
+      assert.ok(!/%/u.test(layer.size ?? "auto"), `${preset.id}: size ${layer.size}`);
+    }
+    if (art?.backdrop?.mask !== undefined) assert.match(art.backdrop.mask, /right bottom \/ \d+px \d+px/u, preset.id);
+  }
 });

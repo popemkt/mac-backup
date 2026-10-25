@@ -28,6 +28,7 @@ export interface ArtLayer {
   readonly size?: string;
   readonly position?: string;
   readonly repeat?: string;
+  readonly attachment?: "scroll" | "fixed";
 }
 
 /** Where art can paint: behind the open thread, or behind the sidebar. */
@@ -35,7 +36,13 @@ export const ART_SURFACES = ["backdrop", "sidebar"] as const;
 export type ArtSurface = (typeof ART_SURFACES)[number];
 
 export interface ArtSurfaceArt {
-  /** Topmost first, as in CSS `background`. Use the theme's colors through `--lively-accent`, `--lively-accent-2`, `--lively-canvas`. */
+  /**
+   * Topmost first, as in CSS `background`. Use the theme's colors through
+   * `--lively-accent`, `--lively-accent-2`, `--lively-canvas`. Backdrop art
+   * (and its mask) is anchored to the bottom-right corner in fixed pixels, not
+   * percentages: a floating dock's band shares that corner and repeats the
+   * layers, which only meet seamlessly if neither depends on the box's size.
+   */
   readonly layers: ReadonlyArray<ArtLayer>;
   /** A CSS mask over the whole surface's art (the person's image too), to keep it off where text sits. */
   readonly mask?: string;
@@ -51,6 +58,7 @@ export interface ArtImagePlacement {
 
 /** The placement for a preset that does not name one. */
 export const DEFAULT_IMAGE_PLACEMENT: ArtImagePlacement = { surface: "backdrop", strength: 0.16, size: "cover", position: "center" };
+// The image is fixed to the window (background-attachment), so `size` and `position` are relative to the window.
 
 export interface PresetArt {
   /**
@@ -131,10 +139,13 @@ export const PRESETS = [
         layers: [
           {
             image: `linear-gradient(112deg, transparent 0 74%, ${accent(9)} 74% 81%, transparent 81% 83.5%, ${accent(8, "--lively-accent-2")} 83.5% 85%, transparent 85%)`,
+            size: "900px 760px",
+            position: "right bottom",
+            repeat: "no-repeat",
           },
-          { image: `radial-gradient(circle, ${accent(22)} 1.1px, transparent 1.7px)`, size: "10px 10px" },
+          { image: `radial-gradient(circle, ${accent(22)} 1.1px, transparent 1.7px)`, size: "10px 10px", position: "right bottom" },
         ],
-        mask: "radial-gradient(130% 110% at 100% 100%, #000 8%, transparent 68%)",
+        mask: "radial-gradient(farthest-corner at 100% 100%, #000 8%, transparent 68%) right bottom / 900px 760px no-repeat",
       },
       // Hazard stripes along the bottom of the sidebar.
       sidebar: {

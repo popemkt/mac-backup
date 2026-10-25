@@ -161,7 +161,7 @@ export const SELECTORS = {
     rating: "M",
     verified: LIVE,
     where: "an open thread (the band behind the composer)",
-    purpose: "preset art (floating dock): the opaque band bb docks the composer in, cleared so the backdrop runs behind it",
+    purpose: "preset art (floating dock): the opaque band bb docks the composer in, which repeats the backdrop's art",
   },
   dockCard: {
     selector: "[data-app-composer] section[aria-label]",
@@ -169,6 +169,20 @@ export const SELECTORS = {
     verified: LIVE,
     where: "an open thread with uncommitted changes or background activity (the cards above the composer)",
     purpose: "preset art (floating dock): the cards above the composer that float as panels",
+  },
+  dockFade: {
+    selector: "[data-scroll-footer] [data-overflow-fade]",
+    rating: "M",
+    verified: LIVE,
+    where: "an open thread (the fade just above the composer)",
+    purpose: "preset art (floating dock): bb's solid fade over the timeline's bottom edge, turned into a short blur",
+  },
+  scrollLatest: {
+    selector: 'button[aria-label="Scroll to latest event"]',
+    rating: "M",
+    verified: LIVE,
+    where: "an open thread scrolled up from the end",
+    purpose: "preset art (floating dock): the scroll-to-latest button, floated like the dock's panels",
   },
   working: {
     selector: ".animate-shine",
@@ -224,6 +238,8 @@ export const BB_TARGETS: Targets = {
   sidebar: SELECTORS.sidebar.selector,
   dock: SELECTORS.dock.selector,
   dockCard: SELECTORS.dockCard.selector,
+  dockFade: SELECTORS.dockFade.selector,
+  scrollLatest: SELECTORS.scrollLatest.selector,
   working: SELECTORS.working.selector,
   hostAnimation: SELECTORS.hostAnimation.selector,
   suspendOn: [BBIM_ACTIVE],

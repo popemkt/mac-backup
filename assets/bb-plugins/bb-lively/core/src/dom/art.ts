@@ -38,13 +38,14 @@ const SURFACE_COLOR: Readonly<Record<ArtSurface, string>> = {
 
 const is = (selector: string) => `:is(${selector})`;
 
-/** Layers as the four background lists (image, size, position, repeat). */
+/** Layers as the background lists (image, size, position, repeat, attachment). */
 function backgroundLists(layers: ReadonlyArray<ArtLayer>): string {
   const list = (pick: (layer: ArtLayer) => string) => layers.map(pick).join(", ");
   return `  background-image: ${list((layer) => layer.image)};
   background-size: ${list((layer) => layer.size ?? "auto")};
   background-position: ${list((layer) => layer.position ?? "0 0")};
-  background-repeat: ${list((layer) => layer.repeat ?? "repeat")};`;
+  background-repeat: ${list((layer) => layer.repeat ?? "repeat")};
+  background-attachment: ${list((layer) => layer.attachment ?? "scroll")};`;
 }
 
 function surfaceRule(selector: string, layers: ReadonlyArray<ArtLayer>, mask: string | undefined): string {
@@ -61,25 +62,24 @@ ${backgroundLists(layers)}
 }
 
 /**
- * The floating dock: the band behind the composer goes clear (a short fade at
- * its top edge keeps text scrolling under it readable), and the composer box
- * and the cards above it float as translucent panels.
+ * The floating dock: floating HUD controls over the scene. bb's band behind
+ * the composer stays opaque (it hides what scrolls under it) but repeats the
+ * backdrop's art (see presetArt), so the art runs to the bottom edge without
+ * a seam; bb's fade above it turns from a solid gradient into a short blur.
+ * The composer box, the cards above it and the scroll-to-latest button float
+ * as translucent panels with a soft shadow, or a sticker shadow when stickers
+ * are on.
  */
 function floatingDock(scope: string, targets: Targets): string {
-  const band = `${scope} ${is(targets.dock)}`;
-  const panels = `${scope} :is(${is(targets.focusBox)}, ${is(targets.dockCard)})`;
+  const floating = `:is(${is(targets.focusBox)}, ${is(targets.dockCard)}, ${is(targets.scrollLatest)})`;
   // A focused composer already wears the focus ring's sticker (stylesheet.ts focusRing).
-  const stickered = `${scope}[${STICKERS}="on"] :is(${is(targets.focusBox)}:not(:focus-within), ${is(targets.dockCard)})`;
-  return `${band} { background: transparent; }
-${band}::before {
-  content: "";
-  position: absolute;
-  inset: auto 0 100% 0;
-  height: 28px;
-  pointer-events: none;
-  background: linear-gradient(to bottom, transparent, color-mix(in oklab, var(--lively-canvas) 85%, transparent));
+  const stickered = `${scope}[${STICKERS}="on"] :is(${is(targets.focusBox)}:not(:focus-within), ${is(targets.dockCard)}, ${is(targets.scrollLatest)})`;
+  return `${scope} ${is(targets.dockFade)} {
+  background: none;
+  backdrop-filter: blur(4px);
+  mask-image: linear-gradient(to bottom, transparent, #000);
 }
-${panels} {
+${scope} ${floating} {
   background-color: color-mix(in oklab, var(--lively-panel) 80%, transparent);
   backdrop-filter: blur(12px) saturate(1.2);
   border-color: color-mix(in oklab, var(--lively-accent) 22%, var(--border, transparent));
@@ -103,9 +103,11 @@ function presetArt(preset: Preset, surfaces: Readonly<Record<ArtSurface, string>
   ].filter(Boolean);
   if (fonts.length > 0) out.push(`${scope} {\n${fonts.join("\n")}\n}`);
   if (preset.art?.dock === "float") out.push(floatingDock(scope, targets));
+  const floats = preset.art?.dock === "float";
   for (const surface of ART_SURFACES) {
     const art = preset.art?.[surface];
-    const target = is(surfaces[surface]);
+    // A floating dock's band repeats the backdrop: the art is anchored to the shared bottom-right corner, so it continues seamlessly.
+    const target = is(surface === "backdrop" && floats ? `${surfaces.backdrop}, ${targets.dock}` : surfaces[surface]);
     if (art !== undefined) out.push(surfaceRule(`${scope} ${target}`, art.layers, art.mask));
     if (placement.surface !== surface) continue;
     const wash = `color-mix(in oklab, ${SURFACE_COLOR[surface]} ${Math.round((1 - placement.strength) * 100)}%, transparent)`;
@@ -116,7 +118,8 @@ function presetArt(preset: Preset, surfaces: Readonly<Record<ArtSurface, string>
         [
           ...(art?.layers ?? []),
           { image: `linear-gradient(${wash}, ${wash})` },
-          { image: `var(${ART_IMAGE_PROPERTY})`, size: placement.size, position: placement.position, repeat: "no-repeat" },
+          // Fixed to the window, so the thread and the dock band show one picture.
+          { image: `var(${ART_IMAGE_PROPERTY})`, size: placement.size, position: placement.position, repeat: "no-repeat", attachment: "fixed" },
         ],
         art?.mask,
       ),
