@@ -35,11 +35,17 @@ let
 
       # bb's main process; its helpers are named "bb Helper…". An instance
       # with its own --user-data-dir is a test copy, not the person's bb.
+      # A process ps cannot read (it just exited) is skipped, never taken for bb.
       main_pid=""
+      main_args=""
       while read -r pid; do
-        case "$(/bin/ps -o args= -p "$pid")" in
+        if ! cmdline="$(/bin/ps -o args= -p "$pid")"; then continue; fi
+        case "$cmdline" in
           *--user-data-dir=*) ;;
-          *) main_pid="$pid" ;;
+          *)
+            main_pid="$pid"
+            main_args="$cmdline"
+            ;;
         esac
       done < <(/usr/bin/pgrep -x -u "$(/usr/bin/id -u)" bb || true)
 
@@ -47,7 +53,7 @@ let
         exec /usr/bin/open -b ${bundleId} --args "''${switches[@]}"
       fi
 
-      args="$(/bin/ps -o args= -p "$main_pid") "
+      args="$main_args "
       missing=()
       for s in "''${switches[@]}"; do
         case "$args" in *" $s "*) ;; *) missing+=("$s") ;; esac
@@ -59,7 +65,7 @@ let
       answer="$(/usr/bin/osascript \
         -e 'on run argv' \
         -e 'activate' \
-        -e 'display dialog "bb is running without " & item 1 of argv & ". Restart it with them? Threads keep running on the server." buttons {"Not now", "Restart bb"} default button "Restart bb" with title "bb Launcher"' \
+        -e 'display dialog "bb is running without " & item 1 of argv & ". Quit bb and start it again with them?" buttons {"Not now", "Restart bb"} default button "Not now" cancel button "Not now" with title "bb Launcher"' \
         -e 'return button returned of result' \
         -e 'end run' \
         "''${missing[*]}" 2>/dev/null || true)"
@@ -67,9 +73,11 @@ let
         exec /usr/bin/open -b ${bundleId}
       fi
 
-      # SIGTERM is Electron's graceful quit (app.quit(): before-quit, will-quit), the
-      # same path as Cmd-Q, sent to this one process so a test copy is left alone.
-      kill -TERM "$main_pid"
+      # Electron quits gracefully on SIGTERM (its ShutdownDetector calls the app's
+      # quit, which runs before-quit and will-quit, as Cmd-Q does). It goes to this
+      # one process: a quit by bundle id could reach a test copy instead. If bb
+      # already exited, there is nothing to wait for.
+      kill -TERM "$main_pid" 2>/dev/null || true
       for ((i = 0; i < 60; i++)); do
         kill -0 "$main_pid" 2>/dev/null || break
         /bin/sleep 0.5

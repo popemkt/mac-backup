@@ -10,21 +10,6 @@ in
 {
   options.my.stacks.bb = mkStack {
     description = "bb agent IDE";
-    componentOptions = {
-      # The macOS desktop app only (./darwin.nix): bb has no setting for a
-      # Chromium switch and reads them only from its command line.
-      desktopSwitches = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
-        default = [ ];
-        example = [ "--enable-blink-features=CanvasDrawElement" ];
-        description = ''
-          Chromium switches the bb desktop app starts with when opened
-          through `bb Launcher` (or `bb-launch`), installed when the list is
-          not empty. A Dock or Spotlight launch of bb itself still starts it
-          without them; the launcher then offers to restart it.
-        '';
-      };
-    };
   };
 
   config = lib.mkIf config.my.stacks.bb.enable {
