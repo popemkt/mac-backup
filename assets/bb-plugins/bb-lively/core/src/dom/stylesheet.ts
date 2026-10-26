@@ -82,6 +82,8 @@ export const ROOT = {
   /** `matched` when the wobbly release decays like the intensity's own spring. */
   jelly: "data-lively-jelly",
   speed: "data-lively-speed",
+  /** `on` while lively's HTML-in-Canvas layer draws the canvas effects; their CSS fallbacks stand down. */
+  canvas: "data-lively-canvas",
   ...ART_ROOT,
 } as const;
 
@@ -179,6 +181,7 @@ function presetMotion(presets: ReadonlyArray<Preset>): string {
       preset.paint?.wipe?.label === undefined ? "" : `  --lively-wipe-label: ${cssString(preset.paint.wipe.label)};`,
       preset.paint?.wipe?.ink === undefined ? "" : `  --lively-wipe-ink: ${preset.paint.wipe.ink};`,
       preset.lettering === undefined ? "" : `  --lively-letter-font: ${preset.lettering.font};\n  --lively-letter-color: ${preset.lettering.color};`,
+      preset.lettering?.chant?.[0] === undefined ? "" : `  --lively-chant: ${cssString(preset.lettering.chant[0])};`,
     ].filter(Boolean);
     if (paint.length > 0) out.push(`${scope}[${ROOT.level}] {\n${paint.join("\n")}\n}`);
     const overrides = preset.tokens;
@@ -224,6 +227,8 @@ function motionStylesheet(targets: Targets): string {
   const waiting = `${is(targets.pageView)}:has(${is(targets.pendingRequest)})`;
   const frozen = `${waiting} ${is(targets.rowList)}`;
   const systemRoot = `:root[${ROOT.source}="system"]`;
+  /** An effect's CSS half while lively's HTML-in-Canvas layer does not draw it (canvas effects only). */
+  const noCanvas = (effect: EffectId) => `${onFull(effect)}:not([${ROOT.canvas}])`;
 
   const blocks = STYLES.flatMap((style) =>
     INTENSITIES.map(
@@ -368,6 +373,13 @@ ${INTENSITIES.map(jellyKeyframes).join("\n")}
   46% { translate: calc(var(--lively-tear) * 0.3) 0; filter: none; }
   60%, 100% { translate: 0 0; filter: none; }
 }
+/* Control: the slabs (shiftWarp's CSS half) and the prism's sweep (prismEdge's). */
+@keyframes lively-slab {
+  from { translate: var(--lively-slab) 0; filter: drop-shadow(calc(var(--lively-chroma) + 3px) 0 0 var(--lively-chroma-a)) drop-shadow(calc(-3px - var(--lively-chroma)) 0 0 var(--lively-chroma-b)); }
+  60% { filter: drop-shadow(1px 0 0 var(--lively-chroma-a)) drop-shadow(-1px 0 0 var(--lively-chroma-b)); }
+  to { translate: 0 0; filter: none; }
+}
+@keyframes lively-prism-sweep { from { translate: -100% 0; opacity: 1; } to { translate: 260% 0; opacity: 0; } }
 ${pageKeyframes}
 
 /* press: clean sinks and springs back; wobbly squashes and wobbles back like jelly. */
@@ -744,6 +756,73 @@ ${onFull("turnFreeze")} ${waiting} ${is(targets.pendingRequest)}::after {
 ${onFull("glitch")} .${CLASSES.pulse}[${PULSE_ATTRIBUTES.tone}="error"] {
   --lively-tear: calc(var(--lively-rise) / 3);
   animation: lively-glitch var(--lively-pulse) steps(1, end);
+}
+
+/* shiftWarp (Control: the Oldest House rearranging). The canvas layer breaks the thread you leave into
+   slabs; this CSS half, without it, assembles the thread you open: its rows slide in from alternating
+   sides as slabs, in hard steps, split into the preset's two dispersion colors. */
+${noCanvas("shiftWarp")} ${replayed} ${is(targets.rowList)} > ${is(targets.row)} {
+  --lively-slab: calc(var(--lively-rise) * -2.4);
+  animation: lively-slab calc(var(--lively-enter) * 1.6) steps(5, end) backwards;
+}
+${noCanvas("shiftWarp")} ${replayed} ${is(targets.rowList)} > ${is(targets.row)}:nth-child(even) {
+  --lively-slab: calc(var(--lively-rise) * 2.4);
+}
+
+/* prismEdge (Control: the Board's prism). The canvas layer refracts the transcript above the composer;
+   this CSS half, without it, sweeps a spectral line along the composer's top edge on a send. */
+${noCanvas("prismEdge")} ${is(targets.focusBox)}:has(.${CLASSES.send})::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40%;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--lively-chroma-a), #ffb000, #34c759, #2f9bff, var(--lively-chroma-b), transparent);
+  filter: drop-shadow(0 0 calc(var(--lively-glow) * 16px) var(--lively-chroma-b));
+  opacity: 0;
+  animation: lively-prism-sweep calc(var(--lively-pulse) * 1.6) var(--lively-ease-out) backwards;
+}
+
+/* hissResonance (Control: the Hiss). While the open thread waits for the person, the timeline takes a
+   red cast (still readable), a red resonance veil comes up behind it, and the request card burns Hiss
+   red with the preset's chant printed doubled over itself in its corner. A state, so at every level,
+   and still (no loop); the canvas layer adds rippling red echoes of the card and the chant in the
+   margins on top of this. */
+${on("hissResonance")} { --lively-hiss: var(--lively-art-hiss, var(--destructive, #e01b24)); }
+${on("hissResonance")} ${frozen} > ${is(targets.row)} {
+  filter: sepia(0.3) saturate(1.3) hue-rotate(-24deg) brightness(0.94);
+}
+${on("hissResonance")} ${frozen}::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(to bottom, color-mix(in oklab, var(--lively-hiss) 7%, transparent) 0 1px, transparent 1px 5px),
+    radial-gradient(120% 60% at 50% 100%, color-mix(in oklab, var(--lively-hiss) 12%, transparent), transparent 70%);
+}
+${on("hissResonance")} ${waiting} ${is(targets.pendingRequest)} {
+  position: relative;
+  background-color: var(--card, var(--background, Canvas));
+  border-color: var(--lively-hiss);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--lively-hiss) 50%, transparent), 0 0 calc(var(--lively-glow) * 48px) color-mix(in oklab, var(--lively-hiss) 40%, transparent);
+}
+${on("hissResonance")} ${waiting} ${is(targets.pendingRequest)}::before {
+  content: var(--lively-chant, "");
+  position: absolute;
+  top: 12px;
+  right: 44px;
+  pointer-events: none;
+  font: 700 10px/1 var(--lively-letter-font);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--lively-hiss);
+  text-shadow: 3px 0 0 color-mix(in oklab, var(--lively-hiss) 45%, transparent), -4px 1px 0 color-mix(in oklab, var(--lively-hiss) 28%, transparent), 9px -1px 0 color-mix(in oklab, var(--lively-hiss) 16%, transparent);
+}
+${onFull("hissResonance")} ${frozen}::before {
+  animation: lively-veil var(--lively-overlay) steps(3, end) backwards;
 }
 
 /* typingGlow */

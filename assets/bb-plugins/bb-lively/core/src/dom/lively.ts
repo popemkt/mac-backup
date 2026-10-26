@@ -2,14 +2,16 @@
 // root attributes, a reduced-motion listener, the row watcher, the dock
 // band's art reach and the one-shot pulses, and removes every one of them
 // when its signal aborts.
-import { type EffectId, effectAttribute } from "../domain/effects.ts";
+import { type EffectId, EFFECTS, effectAttribute } from "../domain/effects.ts";
 import { MAX_CONCURRENT_ENTERS, type MotionPolicy, resolveMotion, tokensFor } from "../domain/policy.ts";
 import type { Preset } from "../domain/presets.ts";
 import { decodeSettings } from "../domain/resolve.ts";
 import type { SettingsInput, SettingsProblem } from "../domain/settings.ts";
 import { ART_IMAGE_PROPERTY } from "./art.ts";
+import { detectDrawable, type Drawable } from "./drawable.ts";
 import { createPulser } from "./pulser.ts";
 import { createReachWatcher } from "./reach.ts";
+import { createRefraction, type Refraction } from "./refraction.ts";
 import { createRowWatcher } from "./rows.ts";
 import { buildStylesheet, CLASSES, PAGE_REPLAYED, PULSE_ATTRIBUTES, ROOT, ROOT_ATTRIBUTES } from "./stylesheet.ts";
 import type { Targets } from "./targets.ts";
@@ -26,6 +28,8 @@ export interface CreateLivelyOptions {
   readonly settings?: SettingsInput;
   /** The preset table (domain/presets.ts) by default. */
   readonly presets?: ReadonlyArray<Preset>;
+  /** The browser's HTML-in-Canvas (dom/drawable.ts); detected from the window by default, `null` for none. */
+  readonly drawable?: Drawable | null;
 }
 
 export interface Lively {
@@ -49,6 +53,9 @@ function elementOf(target: EventTarget | null): Element | null {
 const deadline = (ms: number) => ms + 200;
 
 const REDUCED_QUERY = "(prefers-reduced-motion: reduce)";
+
+/** How often the waiting scene checks for a request waiting for the person (ms). */
+const WAITING_POLL = 800;
 
 export function createLively(options: CreateLivelyOptions): Lively {
   const win = options.window ?? window;
@@ -95,13 +102,47 @@ export function createLively(options: CreateLivelyOptions): Lively {
     if (current.jelly === "matched") root.setAttribute(ROOT.jelly, "matched");
     root.setAttribute(ROOT.speed, current.speed);
     for (const effect of current.effects) root.setAttribute(effectAttribute(effect), "");
+    if (canvasLayer() !== undefined) root.setAttribute(ROOT.canvas, "on");
   };
+
+  // The HTML-in-Canvas layer (refraction.ts), for the effects that draw there: made on first
+  // need, at the full level only (its scenes are motion), and gone when none of them runs.
+  const drawable = options.drawable === undefined ? detectDrawable(win) : (options.drawable ?? undefined);
+  let refraction: Refraction | undefined;
+  let refractionFailed = false;
+  const canvasEffects = () => current.effects.filter((effect) => EFFECTS[effect].canvas !== undefined);
+  function canvasLayer(): Refraction | undefined {
+    if (drawable === undefined || refractionFailed || disposed || current.level !== "full" || canvasEffects().length === 0) {
+      refraction?.dispose();
+      refraction = undefined;
+      return undefined;
+    }
+    if (refraction === undefined) {
+      refraction = createRefraction({
+        win,
+        targets,
+        drawable,
+        // Slower than an entrance (the tokens, speed applied): the architecture shifts, it does not snap.
+        duration: (kind) => (kind === "navigate" ? 2.2 : 2.4) * tokens().enterMs,
+        chant: () => resolved.preset.lettering?.chant ?? [],
+      });
+      refractionFailed = refraction === undefined;
+    }
+    return refraction;
+  }
   const refresh = () => {
     current = policyNow();
     write();
   };
   write();
   media.addEventListener("change", refresh);
+
+  // hissResonance on the layer: poll for a request waiting in the open thread (the CSS half needs no script).
+  const waitingTimer = win.setInterval(() => {
+    if (refraction === undefined) return;
+    const present = may("hissResonance") && doc.querySelector(`:is(${targets.pageView}) :is(${targets.pendingRequest})`) !== null;
+    refraction.waiting(present);
+  }, WAITING_POLL);
 
   const rows = createRowWatcher({
     win,
@@ -161,7 +202,15 @@ export function createLively(options: CreateLivelyOptions): Lively {
       pulser.pulse(view, CLASSES.page, deadline(tokens().enterMs));
     }
   };
+  // shiftWarp on the layer: the thread being left is captured before the router renders the next one.
+  const leaving = (event: Event) => {
+    const destination = (event as Event & { destination?: { url?: string } }).destination?.url;
+    if (destination === undefined || !may("shiftWarp")) return;
+    if (new URL(destination, win.location.href).pathname === win.location.pathname) return;
+    canvasLayer()?.navigate();
+  };
   navigation?.addEventListener("currententrychange", navigated);
+  navigation?.addEventListener("navigate", leaving);
   win.addEventListener("popstate", navigated);
 
   const lively: Lively = {
@@ -174,6 +223,7 @@ export function createLively(options: CreateLivelyOptions): Lively {
     sent: () => {
       if (disposed) return;
       rows.armSend();
+      if (may("prismEdge")) canvasLayer()?.send();
       if (!may("sendPulse")) return;
       for (const button of doc.querySelectorAll(targets.sendButton)) pulser.pulse(button, CLASSES.send, deadline(tokens().pulseMs));
     },
@@ -191,7 +241,11 @@ export function createLively(options: CreateLivelyOptions): Lively {
       win.removeEventListener("pointerup", released, { capture: true });
       win.removeEventListener("click", clicked, { capture: true });
       navigation?.removeEventListener("currententrychange", navigated);
+      navigation?.removeEventListener("navigate", leaving);
       win.removeEventListener("popstate", navigated);
+      win.clearInterval(waitingTimer);
+      refraction?.dispose();
+      refraction = undefined;
       for (const view of doc.querySelectorAll(`[${PAGE_REPLAYED}]`)) view.removeAttribute(PAGE_REPLAYED);
       for (const name of ROOT_ATTRIBUTES) root.removeAttribute(name);
       root.style.removeProperty(ART_IMAGE_PROPERTY);
