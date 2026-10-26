@@ -110,7 +110,7 @@ tailnet members. It has no backend while that port is unused.
 The shared server (`shared-server`, tagged `tag:shared-server`) publishes one
 T3 Code server per person. Each target is derived from that instance's port in
 `hosts/shared-server/default.nix`; both people may reach both. It also
-publishes popemkt's personal kb (its home store) (a `my.services` app, below) and an ad hoc
+publishes each person's personal kb (their home store; `my.services` apps, below) and an ad hoc
 endpoint for popemkt's temporary HTTP apps, like the personal host's.
 
 | Service | Tailnet URL | Local target | Purpose |
@@ -118,11 +118,13 @@ endpoint for popemkt's temporary HTTP apps, like the personal host's.
 | `svc:t3-popemkt` | `https://t3-popemkt.<tailnet-domain>` | `127.0.0.1:3773` | popemkt's T3 Code server |
 | `svc:t3-bytetum` | `https://t3-bytetum.<tailnet-domain>` | `127.0.0.1:3774` | bytetum's T3 Code server |
 | `svc:kb-popemkt` | `https://kb-popemkt.<tailnet-domain>` | `unix:/run/kb-popemkt/kb.sock` | popemkt's kb home store (`my.services.kb`; a socket only popemkt and root can reach) |
+| `svc:kb-bytetum` | `https://kb-bytetum.<tailnet-domain>` | `unix:/run/kb-bytetum/kb.sock` | bytetum's kb home store (`my.services.kb-bytetum`, `app = "kb"`; a socket only bytetum and root can reach) |
 | `svc:adhoc-popemkt` | `https://adhoc-popemkt.<tailnet-domain>` | `127.0.0.1:9001` | popemkt's temporary HTTP apps |
 | `svc:bb-popemkt` | `https://bb-popemkt.<tailnet-domain>` | `127.0.0.1:38886` | popemkt's bb server (`my.services.bb`; its API is unauthenticated) |
 
 A native app placed with `my.services.<app>` on a NixOS host is exposed the
-same way, as `svc:<app>-<owner>` targeting its loopback port, or its Unix
+same way, as `svc:<app>-<owner>` (`<app>` is the entry's `app`, its name
+unless set) targeting its loopback port, or its Unix
 socket when it sets `socket`, unless it sets `expose = false`. Prefer a socket
 for an app that trusts whoever reaches it: any account on the host can connect
 to a loopback port, but only the owner and root (tailscaled) can reach the

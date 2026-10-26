@@ -175,6 +175,8 @@ in
     "--embed-script"
     "${config.my.stacks.vpn.services.bb-popemkt.publicOrigin}/api/v1/plugins/bbim/http/bridge.js"
   ];
+  # bytetum runs no bb, so nothing frames their page.
+  my.services.kb-bytetum = kbHome "bytetum" [ ];
 
   # popemkt's bb server, as svc:bb-popemkt. Its API is unauthenticated and
   # runs commands as popemkt, so the tailnet grant is its access boundary;
