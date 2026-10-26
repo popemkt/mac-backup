@@ -8,7 +8,8 @@
 # NixOS side of my.services (modules/options/services.nix): one systemd unit,
 # `app-<app>`, per declared app, and one more, `app-<app>-<name>`, per
 # companion, all run as the app's owner, and a Tailscale Service
-# `<app>-<owner>` for each exposed app. A socket app's unit owns the socket's
+# `<app>-<owner>` for each exposed app (`<app>` is its `app`, the entry's name
+# unless set; units always take the entry's name). A socket app's unit owns the socket's
 # directory as its RuntimeDirectory: created (owner-only) when it starts and
 # removed when it stops, so a crash leaves nothing that blocks the restart.
 # The app's unit Wants its companions and they start After it; neither ever
@@ -61,7 +62,7 @@
 let
   cfg = config.my.services;
   exposed = lib.filterAttrs (_: app: app.expose) cfg;
-  serviceName = name: app: "${name}-${app.owner}";
+  serviceName = _: app: "${app.app}-${app.owner}";
 
   # Loopback ports something else on this host already declares: T3 Code
   # servers, and every Tailscale Service target that is not one of these apps.
@@ -288,6 +289,12 @@ in
       {
         assertion = exposed == { } || config.my.stacks.vpn.enable;
         message = "my.services: an exposed app needs my.stacks.vpn.enable.";
+      }
+      {
+        assertion = lib.length (lib.unique ownServiceNames) == lib.length ownServiceNames;
+        message = "my.services: two exposed apps share a Tailscale Service (same app and owner): ${
+          toString (lib.unique (lib.filter (n: lib.count (m: m == n) ownServiceNames > 1) ownServiceNames))
+        }.";
       }
       {
         assertion = lib.length (lib.unique allUnitNames) == lib.length allUnitNames;
