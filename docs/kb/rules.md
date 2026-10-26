@@ -309,7 +309,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **expected** — A preset's OFL faces (Cloudbank: Jost, Josefin Sans; kb ships them from @fontsource) load in bb whatever the machine has installed
 - **current** — bb-lively names families only; no route or bundle serves a font file, so Cloudbank falls back to Avenir Next and Futura (macOS) or the system sans
 - **impact** — Cloudbank's lettering and body type differ by machine and from kb's Transistor
-- **closes** — Serve @fontsource woff2 files (an npm dependency, never committed) from the plugin's HTTP route or app bundle and declare @font-face under the preset
+- **closes** — Closed by installing the faces on the Macs, where bb is viewed: nix-darwin fonts.packages in the bb stack (modules/stacks/bb/darwin.nix). Serving @fontsource woff2 files from the plugin would still reach other devices (a phone)
 - **node** — `01M5SK4NQ90CRG9YAQC2GXNZJW`
 
 ### GAP: bbim gives no hints inside bb's browser tabs
