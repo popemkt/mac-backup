@@ -2,9 +2,10 @@
 // detection across both API generations.
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { EFFECTS, effectAttribute, NO_CHOICES, resolve, resolveMotion } from "../src/domain/index.ts";
-import { detectDrawable } from "../src/dom/drawable.ts";
+import { CANVAS_TRIGGERS, EFFECT_IDS, EFFECTS, effectAttribute, NO_CHOICES, resolve, resolveMotion } from "../src/domain/index.ts";
+import { type Drawable, detectDrawable } from "../src/dom/drawable.ts";
 import { createLively } from "../src/dom/lively.ts";
+import { createRefraction, REFRACTION_ATTRIBUTE, SCENE_MODES, WAITING_MS } from "../src/dom/refraction.ts";
 import { buildStylesheet, ROOT } from "../src/dom/stylesheet.ts";
 import { page, TARGETS } from "./harness.ts";
 
@@ -98,4 +99,91 @@ test("lively: without HTML-in-Canvas, or without a GL to draw with, Control runs
     assert.equal(p.doc.querySelector("[data-lively-refraction]"), null);
     controller.abort();
   }
+});
+
+test("canvas effects: one contract, two halves; every trigger has its scene and every effect its CSS half", () => {
+  assert.deepEqual(Object.keys(SCENE_MODES).toSorted(), [...CANVAS_TRIGGERS].toSorted());
+  const css = buildStylesheet(TARGETS);
+  for (const effect of EFFECT_IDS.filter((id) => EFFECTS[id].canvas !== undefined)) {
+    assert.ok(css.includes(`[${effectAttribute(effect)}]`), `${effect} has a CSS half`);
+  }
+  // Nothing moves on its own for long: the Hiss resonates under five seconds per request (WCAG 2.2.2).
+  assert.ok(WAITING_MS < 5000);
+});
+
+/** A WebGL 2 context that accepts every call; it counts the times it is lost. */
+function fakeGl(lost: { count: number }): object {
+  return new Proxy(
+    {},
+    {
+      get: (_target, key) => {
+        if (key === "getExtension") return () => ({ loseContext: () => (lost.count += 1) });
+        if (key === "getShaderParameter" || key === "getProgramParameter") return () => true;
+        if (typeof key === "string" && /^[A-Z0-9_]+$/u.test(key)) return 0;
+        return () => ({});
+      },
+    },
+  );
+}
+const FAKE_DRAWABLE: Drawable = {
+  markup: "layoutsubtree",
+  upload: "image-3",
+  prepare: (canvas) => canvas.setAttribute("layoutsubtree", ""),
+  requestPaint: () => undefined,
+  draw: () => ({ width: 1, height: 1 }),
+};
+const withGl = (p: ReturnType<typeof page>, lost: { count: number }) => {
+  const proto = p.win.HTMLCanvasElement.prototype as unknown as { getContext: (kind: string) => unknown };
+  const original = proto.getContext;
+  proto.getContext = (kind: string) => (kind === "webgl2" ? fakeGl(lost) : null);
+  close.push(() => (proto.getContext = original));
+};
+
+test("lively: the layer is made at its first scene, snapshots a sanitized copy, and lets its GL go below the full level", () => {
+  const p = page('<div class="page"><div class="timeline"><iframe></iframe><div class="rows" id="rows" data-x="1" style="overflow:auto;height:10px"><p>a</p><p>b</p></div></div><form class="composer"></form></div>');
+  close.push(() => p.close());
+  const lost = { count: 0 };
+  withGl(p, lost);
+  const controller = new AbortController();
+  const lively = createLively({ window: p.win, signal: controller.signal, targets: TARGETS, settings: { preset: "control", motion: "full" }, drawable: FAKE_DRAWABLE });
+  assert.ok(p.root.hasAttribute(ROOT.canvas), "the CSS halves stand down at once");
+  assert.equal(p.doc.querySelector(`[${REFRACTION_ATTRIBUTE}]`), null, "no GL context before a scene");
+  const rows = p.doc.querySelector(".rows");
+  assert.ok(rows !== null);
+  rows.scrollTop = 7;
+  lively.sent();
+  const canvas = p.doc.querySelector<HTMLCanvasElement>(`[${REFRACTION_ATTRIBUTE}]`);
+  assert.ok(canvas !== null && canvas.style.display === "block" && canvas.getAttribute("aria-hidden") === "true");
+  const copy = canvas.querySelector(".rows");
+  assert.ok(copy !== null);
+  assert.equal(canvas.querySelector("iframe"), null, "frames dropped");
+  assert.ok(!copy.hasAttribute("id") && !copy.hasAttribute("data-x"), "nothing finds the copy by bb's hooks");
+  assert.equal(copy.scrollTop, 7, "scroll kept past a dropped element");
+  lively.setSettings({ preset: "control", motion: "reduced" });
+  assert.equal(p.doc.querySelector(`[${REFRACTION_ATTRIBUTE}]`), null);
+  assert.ok(!p.root.hasAttribute(ROOT.canvas));
+  assert.equal(lost.count, 1, "its GL context is released");
+  controller.abort();
+});
+
+test("refraction: the Hiss resonates once per request, again only when the card moves or a new request comes", () => {
+  const p = page('<div class="page"><div class="timeline"></div><div class="request">Approve?</div></div>');
+  close.push(() => p.close());
+  const lost = { count: 0 };
+  withGl(p, lost);
+  const layer = createRefraction({ win: p.win, targets: TARGETS, drawable: FAKE_DRAWABLE, duration: () => 100, chant: () => ["Hold/release"] });
+  assert.ok(layer !== undefined);
+  const stage = () => p.doc.querySelector(`[${REFRACTION_ATTRIBUTE}]`)?.firstElementChild?.firstElementChild;
+  layer.waiting(true);
+  const first = stage();
+  assert.ok(first !== undefined && first !== null && layer.running());
+  layer.waiting(true);
+  assert.equal(stage(), first, "the same request does not restart it");
+  layer.waiting(false);
+  assert.ok(!layer.running());
+  layer.waiting(true);
+  assert.notEqual(stage(), first, "a new request resonates again");
+  layer.dispose();
+  assert.equal(p.doc.querySelector(`[${REFRACTION_ATTRIBUTE}]`), null);
+  assert.equal(lost.count, 1);
 });

@@ -14,17 +14,20 @@
 //   refracting the transcript just above it into its colors;
 // - `waiting` (hissResonance): the waiting request resonates outward in red
 //   echoes, the card itself left untouched, and a chant overlaps in the
-//   thread's side margins; it loops until the request is answered.
+//   thread's side margins, for a few seconds once per request (then the
+//   CSS half's still state holds: nothing moves on its own for long).
+import type { CanvasTrigger } from "../domain/effects.ts";
 import type { Drawable } from "./drawable.ts";
 import type { Targets } from "./targets.ts";
 
-export type SceneKind = "navigate" | "send" | "waiting";
+/** A scene per canvas trigger: an effect's `canvas` names the scene it plays. */
+export type SceneKind = CanvasTrigger;
 
 export interface RefractionOptions {
   readonly win: Window;
   readonly targets: Targets;
   readonly drawable: Drawable;
-  /** A scene's length in ms (the motion tokens, speed applied); `waiting` loops and ignores it. */
+  /** A scene's length in ms (the motion tokens, speed applied); `waiting` has its own (WAITING_MS). */
   readonly duration: (kind: Exclude<SceneKind, "waiting">) => number;
   /** The words the waiting scene chants in the margins (the active preset's). */
   readonly chant: () => ReadonlyArray<string>;
@@ -35,7 +38,7 @@ export interface Refraction {
   navigate(): boolean;
   /** Refract the transcript above the composer; false when there is no composer. */
   send(): boolean;
-  /** The open thread waits for the person (true: start, or redraw if its request moved) or no longer does (false). */
+  /** The open thread waits for the person (true: resonate once for this request, again if it moved) or no longer does (false). */
   waiting(on: boolean): void;
   /** Whether a scene is on screen now. */
   running(): boolean;
@@ -45,9 +48,12 @@ export interface Refraction {
 /** The attribute on lively's canvas, so it is easy to find and never doubled. */
 export const REFRACTION_ATTRIBUTE = "data-lively-refraction";
 
-const MODES: Readonly<Record<SceneKind, number>> = { navigate: 0, send: 1, waiting: 2 };
+/** The shader mode of each scene; every canvas trigger has one (tests/control.test.ts holds the table to it). */
+export const SCENE_MODES: Readonly<Record<SceneKind, number>> = { navigate: 0, send: 1, waiting: 2 };
 /** The waiting scene's frame rate: a slow ripple needs no more. */
 const WAITING_FPS = 30;
+/** How long the Hiss resonates per request: under five seconds, so it needs no pause control (WCAG 2.2.2). */
+export const WAITING_MS: number = 4500;
 /** Hiss red for the shader, the dark palette's `--lively-art-hiss` (themes/lively-control.css); the echo is light on any canvas. */
 const HISS: readonly [number, number, number] = [1, 0.14, 0.16];
 
@@ -153,13 +159,29 @@ void main() {
     vec2 rq = p + vec2(ripple, 0.0);
     float chant = tap(rq).a * 0.75 + tap(rq + vec2(4.0, 1.0) * px).a * 0.4 + tap(rq - vec2(7.0, 2.0) * px).a * 0.25;
     float breathe = 0.82 + 0.18 * sin(u_t * 0.9);
-    float a = clamp(max(echo * 0.55, chant * 0.5) * breathe, 0.0, 0.6);
+    float life = smoothstep(0.0, 0.4, u_t) * (1.0 - smoothstep(${(WAITING_MS / 1000 - 1.2).toFixed(1)}, ${(WAITING_MS / 1000).toFixed(1)}, u_t));
+    float a = clamp(max(echo * 0.55, chant * 0.5) * breathe, 0.0, 0.6) * life;
     o = vec4(u_hiss * a, a);
   }
 }`;
 
 /** Attributes a snapshot never keeps: nothing may find it by bb's or lively's own hooks. */
 const DROP_ELEMENTS = "iframe, frame, object, embed, video, audio, canvas, script, [autofocus]";
+
+/**
+ * The scrolled descendants of `original` paired with the same nodes in `clone`, taken before
+ * the clone is sanitized (which removes nodes and so breaks a walk in tree order).
+ */
+function scrolled(original: Element, clone: Element): ReadonlyArray<readonly [Element, number, number]> {
+  const from = [original, ...original.querySelectorAll("*")];
+  const to = [clone, ...clone.querySelectorAll("*")];
+  const pairs: Array<readonly [Element, number, number]> = [];
+  for (const [index, element] of from.entries()) {
+    const target = to[index];
+    if (target !== undefined && (element.scrollTop !== 0 || element.scrollLeft !== 0)) pairs.push([target, element.scrollTop, element.scrollLeft]);
+  }
+  return pairs;
+}
 
 function sanitize(clone: Element): void {
   for (const element of clone.querySelectorAll(DROP_ELEMENTS)) {
@@ -169,21 +191,6 @@ function sanitize(clone: Element): void {
   for (const element of [clone, ...clone.querySelectorAll("*")]) {
     for (const name of element.getAttributeNames()) {
       if (name === "id" || name === "name" || name === "for" || name.startsWith("data-") || name === "contenteditable") element.removeAttribute(name);
-    }
-  }
-}
-
-/** The scroll positions of `original`'s scrolled descendants, applied to the same nodes in `clone` (same tree order). */
-function copyScroll(original: Element, clone: Element): void {
-  const from = [original, ...original.querySelectorAll("*")];
-  const to = [clone, ...clone.querySelectorAll("*")];
-  if (from.length !== to.length) return;
-  for (const [index, element] of from.entries()) {
-    if (element.scrollTop !== 0 || element.scrollLeft !== 0) {
-      const target = to[index];
-      if (target === undefined) continue;
-      target.scrollTop = element.scrollTop;
-      target.scrollLeft = element.scrollLeft;
     }
   }
 }
@@ -216,7 +223,10 @@ export function createRefraction(options: RefractionOptions): Refraction | undef
   const gl = canvas.getContext("webgl2", { premultipliedAlpha: true, alpha: true, antialias: false });
   if (gl === null) return undefined;
   const program = link(gl);
-  if (program === undefined) return undefined;
+  if (program === undefined) {
+    gl.getExtension("WEBGL_lose_context")?.loseContext();
+    return undefined;
+  }
   const buffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
@@ -246,6 +256,8 @@ export function createRefraction(options: RefractionOptions): Refraction | undef
   doc.body.append(canvas);
 
   let scene: Scene | undefined;
+  /** The card the Hiss last resonated around, while its request is open. */
+  let resonated: Scene["rect"] | undefined;
   let uploaded = false;
   let frame = 0;
   let lastDrawn = 0;
@@ -265,20 +277,20 @@ export function createRefraction(options: RefractionOptions): Refraction | undef
     const current = scene;
     if (current === undefined || disposed) return;
     const elapsed = now - current.start;
-    const looping = current.kind === "waiting";
-    if (!looping && elapsed >= current.duration) {
+    const waiting = current.kind === "waiting";
+    if (elapsed >= current.duration) {
       stop();
       return;
     }
     frame = win.requestAnimationFrame(render);
     if (!uploaded) return;
-    if (looping && now - lastDrawn < 1000 / WAITING_FPS) return;
+    if (waiting && now - lastDrawn < 1000 / WAITING_FPS) return;
     lastDrawn = now;
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.uniform1i(at.mode, MODES[current.kind]);
-    gl.uniform1f(at.t, looping ? elapsed / 1000 : elapsed / current.duration);
+    gl.uniform1i(at.mode, SCENE_MODES[current.kind]);
+    gl.uniform1f(at.t, waiting ? elapsed / 1000 : elapsed / current.duration);
     gl.uniform2f(at.res, win.innerWidth, win.innerHeight);
     gl.uniform4f(at.rect, ...current.rect);
     gl.uniform1f(at.seed, current.seed);
@@ -306,30 +318,37 @@ export function createRefraction(options: RefractionOptions): Refraction | undef
     canvas.style.display = "block";
     const start = win.performance.now();
     // A different break-up each time, from the clock: no randomness needed.
-    scene = { kind, start, duration: kind === "waiting" ? Infinity : options.duration(kind), rect, seed: (start % 997) / 997 };
+    scene = { kind, start, duration: kind === "waiting" ? WAITING_MS : options.duration(kind), rect, seed: (start % 997) / 997 };
     drawable.requestPaint(canvas);
     frame = win.requestAnimationFrame(render);
   };
 
-  /** A sanitized copy of `original`, placed where it sits on screen, on the page's own background. */
-  const snapshot = (original: Element): HTMLElement => {
+  /**
+   * A sanitized copy of `original`, placed where it sits on screen, on the page's own background;
+   * `settle` matches its scroll positions to the original's once it is in the document (laid out).
+   * bb virtualizes its timeline, so a thread view is ~400–500 nodes on any thread: 20–45 ms to
+   * clone and lay out on a CPU-rendered headless Chromium, once per switch or send.
+   */
+  const snapshot = (original: Element): { readonly copy: HTMLElement; readonly settle: () => void } => {
     const box = original.getBoundingClientRect();
-    const frameBox = doc.createElement("div");
-    frameBox.style.cssText = `position:absolute;left:${box.left}px;top:${box.top}px;width:${box.width}px;height:${box.height}px;overflow:hidden;background:var(--canvas, var(--background, Canvas));color:var(--ink, CanvasText)`;
+    const copy = doc.createElement("div");
+    copy.style.cssText = `position:absolute;left:${box.left}px;top:${box.top}px;width:${box.width}px;height:${box.height}px;overflow:hidden;background:var(--canvas, var(--background, Canvas));color:var(--ink, CanvasText)`;
     const clone = original.cloneNode(true) as HTMLElement;
+    const scroll = scrolled(original, clone);
     sanitize(clone);
     clone.style.width = "100%";
     clone.style.height = "100%";
-    frameBox.append(clone);
-    return frameBox;
-  };
-  /** After the clone is in the document (laid out), match its scroll positions to the original's. */
-  const settleScroll = (original: Element, frameBox: HTMLElement) => {
-    const clone = frameBox.firstElementChild;
-    if (clone !== null) copyScroll(original, clone);
+    copy.append(clone);
+    const settle = () => {
+      for (const [element, top, left] of scroll) {
+        element.scrollTop = top;
+        element.scrollLeft = left;
+      }
+    };
+    return { copy, settle };
   };
 
-  const unit = (box: DOMRect): Scene["rect"] => [box.left / win.innerWidth, box.top / win.innerHeight, box.right / win.innerWidth, box.bottom / win.innerHeight];
+  const unit = (box: Pick<DOMRect, "left" | "top" | "right" | "bottom">): Scene["rect"] => [box.left / win.innerWidth, box.top / win.innerHeight, box.right / win.innerWidth, box.bottom / win.innerHeight];
 
   const chantBlock = (left: number, top: number, width: number, height: number): HTMLElement => {
     const block = doc.createElement("div");
@@ -345,9 +364,9 @@ export function createRefraction(options: RefractionOptions): Refraction | undef
       if (disposed) return false;
       const view = doc.querySelector(targets.pageView);
       if (view === null) return false;
-      const copy = snapshot(view);
+      const { copy, settle } = snapshot(view);
       begin("navigate", [copy], unit(view.getBoundingClientRect()));
-      settleScroll(view, copy);
+      settle();
       return true;
     },
     send: () => {
@@ -357,16 +376,17 @@ export function createRefraction(options: RefractionOptions): Refraction | undef
       const view = box.closest(targets.pageView) ?? doc.querySelector(targets.pageView);
       if (view === null) return false;
       const composer = box.getBoundingClientRect();
-      const copy = snapshot(view);
+      const { copy, settle } = snapshot(view);
       // The band: the transcript's last ~140px above the composer, across its width.
-      const band = new DOMRect(composer.left, Math.max(0, composer.top - 140), composer.width, 140);
+      const band = { left: composer.left, top: Math.max(0, composer.top - 140), right: composer.right, bottom: Math.max(0, composer.top - 140) + 140 };
       begin("send", [copy], unit(band));
-      settleScroll(view, copy);
+      settle();
       return true;
     },
     waiting: (on) => {
       if (disposed) return;
       if (!on) {
+        resonated = undefined;
         if (scene?.kind === "waiting") stop();
         return;
       }
@@ -374,16 +394,19 @@ export function createRefraction(options: RefractionOptions): Refraction | undef
       const view = request?.closest(targets.pageView) ?? null;
       if (request === null || view === null) return;
       const card = request.getBoundingClientRect();
-      if (scene !== undefined) {
-        // Another scene plays out first; a waiting scene stays unless its card moved (a resize, a new request).
-        if (scene.kind !== "waiting") return;
-        const [x0, y0, x1, y1] = unit(card);
-        const moved = Math.max(Math.abs(x0 - scene.rect[0]), Math.abs(y0 - scene.rect[1]), Math.abs(x1 - scene.rect[2]), Math.abs(y1 - scene.rect[3]));
+      const rect = unit(card);
+      // Once per request; again only if its card moved (a resize, a new request).
+      const last = resonated;
+      if (last !== undefined) {
+        const moved = Math.max(...rect.map((value, index) => Math.abs(value - (last[index] ?? value))));
         if (moved * Math.max(win.innerWidth, win.innerHeight) < 2) return;
       }
+      // Another scene plays out first; the next poll tries again.
+      if (scene !== undefined && scene.kind !== "waiting") return;
+      resonated = rect;
       const viewBox = view.getBoundingClientRect();
       const list = view.querySelector(targets.rowList)?.getBoundingClientRect();
-      const children: Array<Element> = [snapshot(request)];
+      const children: Array<Element> = [snapshot(request).copy];
       // The chant goes in the side margins beside the timeline's column, where nothing is read.
       if (list !== undefined) {
         const margin = 16;
@@ -393,7 +416,7 @@ export function createRefraction(options: RefractionOptions): Refraction | undef
         if (left >= 72) children.push(chantBlock(viewBox.left + margin, viewBox.top + margin, left, height));
         if (right >= 72) children.push(chantBlock(list.right + margin, viewBox.top + margin, right, height));
       }
-      begin("waiting", children, unit(card));
+      begin("waiting", children, rect);
     },
     running: () => scene !== undefined,
     dispose: () => {
@@ -417,8 +440,8 @@ function link(gl: WebGL2RenderingContext): WebGLProgram | undefined {
   };
   const vertex = compile(gl.VERTEX_SHADER, VERTEX);
   const fragment = compile(gl.FRAGMENT_SHADER, FRAGMENT);
-  const program = gl.createProgram();
   if (vertex === undefined || fragment === undefined) return undefined;
+  const program = gl.createProgram();
   gl.attachShader(program, vertex);
   gl.attachShader(program, fragment);
   gl.bindAttribLocation(program, 0, "a_pos");

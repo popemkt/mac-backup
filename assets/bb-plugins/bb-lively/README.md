@@ -151,7 +151,11 @@ browser has HTML-in-Canvas (Chrome's `CanvasDrawElement`, detected by method nam
 both API generations: `texElementImage2D` before 155, `texElementSubImage2D` and
 `content="drawable"` from 155, which Chromium 154 mixes) and WebGL 2, and motion is at the
 full level, lively sets `data-lively-canvas` on the root and the effect draws on one fixed
-canvas: `pointer-events: none`, `aria-hidden`, an `inert` stage, `display: none` at rest.
+canvas: `pointer-events: none`, `aria-hidden`, an `inert` stage, `display: none` at rest,
+and its WebGL context made at the first scene, not before (if it fails then, the root
+attribute goes and the CSS halves take over). An effect's `canvas` names the scene it plays
+(`SCENE_MODES` in `refraction.ts`; a test holds every trigger to a scene and a CSS half).
+The Hiss resonates for 4.5 s once per request, never in a loop.
 Each scene uploads a sanitized clone (no ids, `data-*`, frames or media) of what it draws
 and runs one fragment shader for its length. Otherwise the CSS half runs, scoped
 `:not([data-lively-canvas])`. A thread switch snapshots the outgoing thread on the

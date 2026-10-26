@@ -36,7 +36,7 @@ value = the explicit one, else the preset's, else the base default. The settings
 | `glitch` (YoRHa only: a failed thread's sidebar row tears sideways in two signal colors) | `preset`, `on`, `off` | on (runs under YoRHa only) |
 | `shiftWarp` (Control only: on a thread switch the architecture shifts; with HTML-in-Canvas the outgoing thread breaks into slabs with prismatic fringes, without it the incoming rows assemble from slabs) | `preset`, `on`, `off` | on (runs under Control only) |
 | `prismEdge` (Control only: on a send the Board's prism passes over the composer; with HTML-in-Canvas it refracts the transcript just above, without it a spectral line sweeps the composer's edge) | `preset`, `on`, `off` | on (runs under Control only) |
-| `hissResonance` (Control only: while the open thread waits on you, the timeline takes a red cast, the request burns red with a doubled chant; with HTML-in-Canvas red echoes ripple out from the card) | `preset`, `on`, `off` | on (runs under Control only) |
+| `hissResonance` (Control only: while the open thread waits on you, the timeline takes a red cast, the request burns red with a doubled chant; with HTML-in-Canvas red echoes ripple out from the card for a few seconds, once per request) | `preset`, `on`, `off` | on (runs under Control only) |
 | `calmHost` (under reduced motion, also stop bb's own menu/dialog animations) | `preset`, `on`, `off` | off |
 
 Set values with `bb plugin config bb-lively set <key> <value>` (`unset <key>` returns it to

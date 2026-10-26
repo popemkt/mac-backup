@@ -2,7 +2,7 @@
 // root attributes, a reduced-motion listener, the row watcher, the dock
 // band's art reach and the one-shot pulses, and removes every one of them
 // when its signal aborts.
-import { type EffectId, EFFECTS, effectAttribute } from "../domain/effects.ts";
+import { type CanvasTrigger, type EffectId, EFFECTS, effectAttribute } from "../domain/effects.ts";
 import { MAX_CONCURRENT_ENTERS, type MotionPolicy, resolveMotion, tokensFor } from "../domain/policy.ts";
 import type { Preset } from "../domain/presets.ts";
 import { decodeSettings } from "../domain/resolve.ts";
@@ -102,21 +102,30 @@ export function createLively(options: CreateLivelyOptions): Lively {
     if (current.jelly === "matched") root.setAttribute(ROOT.jelly, "matched");
     root.setAttribute(ROOT.speed, current.speed);
     for (const effect of current.effects) root.setAttribute(effectAttribute(effect), "");
-    if (canvasLayer() !== undefined) root.setAttribute(ROOT.canvas, "on");
+    if (layerWanted()) root.setAttribute(ROOT.canvas, "on");
+    else {
+      refraction?.dispose();
+      refraction = undefined;
+    }
+    syncWaitingPoll();
   };
 
-  // The HTML-in-Canvas layer (refraction.ts), for the effects that draw there: made on first
-  // need, at the full level only (its scenes are motion), and gone when none of them runs.
+  // The HTML-in-Canvas layer (refraction.ts), for the effects that draw there (an effect's
+  // `canvas` names the trigger, and the scene, it plays at). The root says the layer is on as
+  // soon as it can be, so their CSS halves stand down; the layer itself (a WebGL context) is
+  // made at the first scene, at the full level only (its scenes are motion), and goes when
+  // none of them runs. If WebGL fails then, the root says so and the CSS halves take over.
   const drawable = options.drawable === undefined ? detectDrawable(win) : (options.drawable ?? undefined);
   let refraction: Refraction | undefined;
   let refractionFailed = false;
   const canvasEffects = () => current.effects.filter((effect) => EFFECTS[effect].canvas !== undefined);
+  function layerWanted(): boolean {
+    return drawable !== undefined && !refractionFailed && !disposed && current.level === "full" && canvasEffects().length > 0;
+  }
+  /** Whether an enabled effect plays on the layer at `trigger`, and may start now. */
+  const mayDraw = (trigger: CanvasTrigger) => layerWanted() && canvasEffects().some((effect) => EFFECTS[effect].canvas === trigger && may(effect));
   function canvasLayer(): Refraction | undefined {
-    if (drawable === undefined || refractionFailed || disposed || current.level !== "full" || canvasEffects().length === 0) {
-      refraction?.dispose();
-      refraction = undefined;
-      return undefined;
-    }
+    if (drawable === undefined || !layerWanted()) return undefined;
     if (refraction === undefined) {
       refraction = createRefraction({
         win,
@@ -126,23 +135,37 @@ export function createLively(options: CreateLivelyOptions): Lively {
         duration: (kind) => (kind === "navigate" ? 2.2 : 2.4) * tokens().enterMs,
         chant: () => resolved.preset.lettering?.chant ?? [],
       });
-      refractionFailed = refraction === undefined;
+      if (refraction === undefined) {
+        refractionFailed = true;
+        write();
+      }
     }
     return refraction;
   }
+
+  // The waiting trigger: poll for a request waiting in the open thread, only while an effect
+  // plays there (the CSS half needs no script).
+  let waitingTimer: number | undefined;
+  function syncWaitingPoll(): void {
+    const wanted = layerWanted() && canvasEffects().some((effect) => EFFECTS[effect].canvas === "waiting");
+    if (wanted && waitingTimer === undefined) {
+      waitingTimer = win.setInterval(() => {
+        const present = mayDraw("waiting") && doc.querySelector(`:is(${targets.pageView}) :is(${targets.pendingRequest})`) !== null;
+        if (present) canvasLayer()?.waiting(true);
+        else refraction?.waiting(false);
+      }, WAITING_POLL);
+    } else if (!wanted && waitingTimer !== undefined) {
+      win.clearInterval(waitingTimer);
+      waitingTimer = undefined;
+    }
+  }
+
   const refresh = () => {
     current = policyNow();
     write();
   };
   write();
   media.addEventListener("change", refresh);
-
-  // hissResonance on the layer: poll for a request waiting in the open thread (the CSS half needs no script).
-  const waitingTimer = win.setInterval(() => {
-    if (refraction === undefined) return;
-    const present = may("hissResonance") && doc.querySelector(`:is(${targets.pageView}) :is(${targets.pendingRequest})`) !== null;
-    refraction.waiting(present);
-  }, WAITING_POLL);
 
   const rows = createRowWatcher({
     win,
@@ -205,7 +228,7 @@ export function createLively(options: CreateLivelyOptions): Lively {
   // shiftWarp on the layer: the thread being left is captured before the router renders the next one.
   const leaving = (event: Event) => {
     const destination = (event as Event & { destination?: { url?: string } }).destination?.url;
-    if (destination === undefined || !may("shiftWarp")) return;
+    if (destination === undefined || !mayDraw("navigate")) return;
     if (new URL(destination, win.location.href).pathname === win.location.pathname) return;
     canvasLayer()?.navigate();
   };
@@ -223,7 +246,7 @@ export function createLively(options: CreateLivelyOptions): Lively {
     sent: () => {
       if (disposed) return;
       rows.armSend();
-      if (may("prismEdge")) canvasLayer()?.send();
+      if (mayDraw("send")) canvasLayer()?.send();
       if (!may("sendPulse")) return;
       for (const button of doc.querySelectorAll(targets.sendButton)) pulser.pulse(button, CLASSES.send, deadline(tokens().pulseMs));
     },
@@ -243,7 +266,8 @@ export function createLively(options: CreateLivelyOptions): Lively {
       navigation?.removeEventListener("currententrychange", navigated);
       navigation?.removeEventListener("navigate", leaving);
       win.removeEventListener("popstate", navigated);
-      win.clearInterval(waitingTimer);
+      if (waitingTimer !== undefined) win.clearInterval(waitingTimer);
+      waitingTimer = undefined;
       refraction?.dispose();
       refraction = undefined;
       for (const view of doc.querySelectorAll(`[${PAGE_REPLAYED}]`)) view.removeAttribute(PAGE_REPLAYED);

@@ -376,7 +376,7 @@ confirms.
 | **The Hiss while an agent waits for you** | World (the Hiss), Sound (the chant) | effect **`hissResonance`** (`canvas: "waiting"`, `reducedSafe`) · `pageView:has(pendingRequest)`, as Cloudbank's `turnFreeze` | shipped |
 | ↳ the timeline takes a red cast (still readable) under a red scanline veil; the request burns Hiss red | | `stylesheet.ts` · `hissResonance` · `--lively-hiss` | shipped |
 | ↳ the chant, the Board's way (slash alternatives, our own words), printed doubled over itself in the request's corner | Sound (overlapping chant), UI (the Board's speech) | `control.lettering.chant` → `--lively-chant` · `pendingRequest::before` with three red `text-shadow` ghosts | shipped |
-| ↳ with HTML-in-Canvas: the request resonates outward in rippling red echoes, the card itself untouched and usable, and the chant fills the side margins beside a wide timeline | | `refraction.ts` · scene `waiting`, shader mode 2, polled every 800 ms, at 30 fps, redrawn if the card moves | shipped |
+| ↳ with HTML-in-Canvas: the request resonates outward in rippling red echoes, the card itself untouched and usable, and the chant fills the side margins beside a wide timeline; for 4.5 s once per request (again if the card moves), then the still state above holds, so nothing moves on its own past five seconds (WCAG 2.2.2) | | `refraction.ts` · scene `waiting`, shader mode 2, `WAITING_MS`, at 30 fps; polled every 800 ms only while the effect can draw | shipped |
 | Large area title cards that stay | UI | a new target for a thread's title | planned |
 | A boiling Hiss distortion over the possessed, a failed thread | World (the Hiss) | a `glitch`-like effect on `statusRow` with a red resonance | planned |
 | The game's own art, logo, fonts or words | — | never committed (public repo); the chant and captions are ours | — |
@@ -384,8 +384,11 @@ confirms.
 How the HTML-in-Canvas layer keeps bb usable:
 - It is one `position: fixed` canvas with `pointer-events: none` and `aria-hidden`. Its stage is
   `inert`.
-- It exists only while a scene runs. At rest it is `display: none`, its stage is empty, and bb's
-  own DOM is all there is.
+- It is made at its first scene (no WebGL context before), and draws only while a scene runs.
+  At rest it is `display: none`, its stage is empty, and bb's own DOM is all there is.
+- A scene's snapshot is one clone of the thread view: bb virtualizes its timeline, so that is
+  about 400–500 nodes on any thread, 20–45 ms on shared-server's CPU-rendered headless Chromium,
+  once per switch or send.
 - Snapshots are sanitized clones: no ids, no `data-*`, no frames or media. Neither bb nor lively
   can find them.
 - It runs only at the full motion level. Under reduced motion every effect is CSS: the Hiss's
