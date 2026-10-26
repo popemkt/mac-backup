@@ -12,6 +12,8 @@ let
   # The repo's own plugins are one folder marketplace. Claude Code reads a
   # folder marketplace's relative-path plugins in place, so an edit there
   # reaches a session with /reload-plugins and no reinstall.
+  # GAP [[01M5W9JKV26YK4R234A0F60X21]] so agents load the checkout, not the
+  # revision being applied.
   repoMarketplace = "${config.users.users.${config.my.username}.home}/.dotfiles/assets/plugins";
 in
 lib.mkIf config.my.stacks.ai-agents.enable {
