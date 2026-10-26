@@ -53,6 +53,14 @@ if [[ -e "$shared_marker" && -z "${REBUILD_LOCAL:-}" ]]; then
   fi
 fi
 
+# The flake source holds tracked files only, so a file left untracked in a bb
+# plugin folder is in no plugin's store copy, and the install misses it.
+untracked="$(git -C "$ROOT_DIR" ls-files --others --exclude-standard -- assets/bb-plugins 2>/dev/null || true)"
+if [[ -n "$untracked" ]]; then
+  echo "rebuild: warning: these files are untracked, so no bb plugin install gets them (git add them):" >&2
+  while IFS= read -r file; do echo "  $file"; done <<<"$untracked" >&2
+fi
+
 if [[ -n "${REBUILD_DRY_RUN:-}" ]]; then
   printf '%q ' "${switch_cmd[@]}" "$@"
   printf '\n'
@@ -83,11 +91,12 @@ fi
 # A failed switch aborts here (set -e) with its own status, before any check.
 "${switch_cmd[@]}" "$@"
 
-# Converge bb plugins to their source in the checkout. Home Manager activation
-# runs the same installer, but only when the generation changes, and plugin
-# sources are not in the closure: a plugin-only change or an interrupted
-# activation would otherwise stay stale. Unchanged plugins are skipped by
-# stamp. Best effort, as in activation; it reaches only this user's bb.
+# Converge bb plugins to their source in the generation just applied (the
+# plugin folders are in its closure). Home Manager activation runs the same
+# installer, but only when the generation changes: a sync activation skipped
+# (no bb server answering) or an interrupted activation would otherwise stay
+# stale. Unchanged plugins are skipped by store hash. Best effort, as in
+# activation; it reaches only this user's bb.
 bb_plugins_sync="/etc/profiles/per-user/$(id -un)/bin/bb-plugins-sync"
 if [[ -x "$bb_plugins_sync" ]]; then
   "$bb_plugins_sync" || echo "rebuild: bb-plugins-sync failed; rerun it by hand." >&2

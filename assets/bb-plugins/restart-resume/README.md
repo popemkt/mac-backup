@@ -144,5 +144,5 @@ npm run verify             # typecheck, lint, tests, bb plugin build
 bb plugin install .        # or: bb plugin reload restart-resume
 ```
 
-Installed by `modules/common/home-manager/bb-plugins.nix`, listed in the bb stack's
+Installed by `modules/common/home-manager/bb-plugins/`, listed in the bb stack's
 `my.pkgs.bbPlugins`.

@@ -5,7 +5,7 @@
 # `installedBy` says who installs a channel's members:
 # - "executor": a cross-cutting executor reads the merged list and installs
 #   it (homebrew.nix, npm-global.nix, bun-global.nix, agent-plugins.nix,
-#   bb-plugins.nix), so
+#   bb-plugins/), so
 #   a host can add members through a stack's `extra.<name>`.
 # - "owner": the contributing module installs its own members, and the
 #   channel only makes membership and pins readable for drift and update
@@ -51,7 +51,7 @@
     installedBy = "executor";
   };
   bbPlugins = {
-    description = "bb plugins kept in this repo (paths relative to the dotfiles checkout) contributed by stacks.";
+    description = "bb plugins kept in this repo (folders relative to the repo root, installed from the Nix store) contributed by stacks.";
     installedBy = "executor";
   };
   # Attribute names in nixpkgs. NixOS's system module hands them to nix-ld,

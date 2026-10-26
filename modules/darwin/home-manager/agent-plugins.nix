@@ -51,6 +51,9 @@ let
   # Listing is also the readiness probe. If a list command fails we skip rather
   # than treat empty output as "nothing installed", which would otherwise
   # re-add marketplaces that already exist.
+  #
+  # GAP [[01M5W9JKF16RWS5DG3P5ZZTWT9]] this runs the sync script of the
+  # person's checkout, not of the revision being applied.
   installScript = ''
     local_repo_plugins() {
       local script="${home}/.dotfiles/scripts/sync-agent-plugins.sh"

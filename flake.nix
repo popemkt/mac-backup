@@ -299,6 +299,12 @@
         # them and run against a fake systemctl.
         app-restart-check = import ./modules/nixos/system/app-restart/tests.nix { inherit pkgs; };
         canvas-links-check = canvasLinksCheck;
+        # Each bb plugin's store copy holds every relative path its source
+        # reaches (modules/common/home-manager/bb-plugins/source.nix).
+        bb-plugin-sources-check = import ./modules/common/home-manager/bb-plugins/check.nix {
+          inherit pkgs;
+          inherit (pkgs) lib;
+        };
         github-sources-check = githubSourcesCheck;
         system-setup-manifest-personal = systemSetupManifestCheck "popemkt-personal";
         system-setup-manifest-work = systemSetupManifestCheck "popemkt-work";

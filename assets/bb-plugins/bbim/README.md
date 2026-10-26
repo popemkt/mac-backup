@@ -58,7 +58,7 @@ npm run verify             # typecheck, lint, tests, bridge freshness, bb plugin
 bb plugin install .        # or: bb plugin dev
 ```
 
-Installed by `modules/common/home-manager/bb-plugins.nix` (`npm ci --omit=optional`, then
+Installed by `modules/common/home-manager/bb-plugins/` (`npm ci --omit=optional`, then
 `bb plugin install`), listed in the bb stack's `my.pkgs.bbPlugins`. Dev tools (TypeScript 7,
 `@effect/tsgo`, oxlint, esbuild, happy-dom, fast-check) are the core's dev dependencies; the
 executor installs them too, and none needs an install script to build the plugin.

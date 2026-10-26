@@ -83,6 +83,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Install the plugin on a bb server, compose and spawn on thr_5kgr5arqw3's project, and record the result in the research doc.
 - **node** — `01M5QKD89DMW3BR5RS6SYZD3RJ`
 
+### GAP: Home Manager activation runs scripts/sync-agent-plugins.sh from the person's checkout
+
+- **expected** — Activation runs only code of the revision being applied: the agent-plugin skill sync is a store script built from the flake source.
+- **current** — modules/darwin/home-manager/agent-plugins.nix (installAgentPlugins and update-agent-plugins) runs ~/.dotfiles/scripts/sync-agent-plugins.sh, whatever that checkout holds; it validates, omp-links and symlinks assets/plugins/*. Darwin only, one person per Mac, so the checkout usually is the one applied.
+- **impact** — A rebuild from another checkout or worktree, or a checkout behind main, runs a different sync script than the revision applied; nothing reports it.
+- **closes** — agent-plugins.nix builds the script with writeShellApplication from the flake source (or inlines it) and passes it the plugin folder; no activation path names ~/.dotfiles.
+- **node** — `01M5W9JKF16RWS5DG3P5ZZTWT9`
+
 ### GAP: kb canvas links see only the kb the plugin serves (shared-server's home store)
 
 - **expected** — Every kb store a bb thread writes is read for links: the home store, a Mac's own home store, a repo's .kb, each named by its root (kb Locations), read on the machine that holds it.
@@ -241,6 +249,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Generalise the relink to any declared package whose bin links are missing (or move it to the owning stack), and add || warn to the install. The marker could not be placed: npm-global.nix had uncommitted user edits.
 - **rule** — Module boundaries
 - **node** — `01M3E9V5JS5VS5ZRT14510BN4D`
+
+### GAP: The repo's Claude Code marketplace and agent skill links point into the person's checkout
+
+- **expected** — What an agent loads from this repo is the revision applied, as bb plugins are since they install from the Nix store (modules/common/home-manager/bb-plugins/); in-place reading is an explicit opt-in for development.
+- **current** — modules/stacks/ai-agents/claude-mods.nix declares the marketplace dotfiles=~/.dotfiles/assets/plugins, which Claude Code reads in place, and scripts/sync-agent-plugins.sh symlinks assets/plugins/*/skills into ~/.agents, ~/.claude, ~/.codex and ~/.cursor at the checkout. Chosen so an edit reaches a session with /reload-plugins and no reinstall. Darwin hosts only today.
+- **impact** — Agents run whatever the checkout holds (a feature branch, uncommitted edits, a stale tree), not the applied revision; on a host several people apply from it would repeat the bb-lively downgrade of 2026-10-26.
+- **closes** — Marketplace and skill links point at a store copy of assets/plugins (or a writable copy keyed by its hash, as bb plugins do), with a documented in-place mode for trying edits, like bb-plugins-sync --path.
+- **node** — `01M5W9JKV26YK4R234A0F60X21`
 
 ### GAP: the stop indicator cannot tell a stop by the person from a stop by another agent
 
