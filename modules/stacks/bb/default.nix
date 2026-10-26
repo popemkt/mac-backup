@@ -14,7 +14,7 @@ in
 
   config = lib.mkIf config.my.stacks.bb.enable {
     # The repo's own bb plugins, installed from the revision being applied
-    # (its Nix store copy) by modules/common/home-manager/bb-plugins.nix.
+    # (its Nix store copy) by modules/common/home-manager/bb-plugins/.
     my.pkgs.bbPlugins = [
       # What shapes a thread's agent, and Claude Code's own view of its
       # workspace: the `Agent artifacts` panel tab and `bb artifacts`.

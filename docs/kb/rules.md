@@ -252,7 +252,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 ### GAP: The repo's Claude Code marketplace and agent skill links point into the person's checkout
 
-- **expected** — What an agent loads from this repo is the revision applied, as bb plugins are since they install from the Nix store (modules/common/home-manager/bb-plugins.nix); in-place reading is an explicit opt-in for development.
+- **expected** — What an agent loads from this repo is the revision applied, as bb plugins are since they install from the Nix store (modules/common/home-manager/bb-plugins/); in-place reading is an explicit opt-in for development.
 - **current** — modules/stacks/ai-agents/claude-mods.nix declares the marketplace dotfiles=~/.dotfiles/assets/plugins, which Claude Code reads in place, and scripts/sync-agent-plugins.sh symlinks assets/plugins/*/skills into ~/.agents, ~/.claude, ~/.codex and ~/.cursor at the checkout. Chosen so an edit reaches a session with /reload-plugins and no reinstall. Darwin hosts only today.
 - **impact** — Agents run whatever the checkout holds (a feature branch, uncommitted edits, a stale tree), not the applied revision; on a host several people apply from it would repeat the bb-lively downgrade of 2026-10-26.
 - **closes** — Marketplace and skill links point at a store copy of assets/plugins (or a writable copy keyed by its hash, as bb plugins do), with a documented in-place mode for trying edits, like bb-plugins-sync --path.

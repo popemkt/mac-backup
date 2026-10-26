@@ -53,6 +53,14 @@ if [[ -e "$shared_marker" && -z "${REBUILD_LOCAL:-}" ]]; then
   fi
 fi
 
+# The flake source holds tracked files only, so a file left untracked in a bb
+# plugin folder is in no plugin's store copy, and the install misses it.
+untracked="$(git -C "$ROOT_DIR" ls-files --others --exclude-standard -- assets/bb-plugins 2>/dev/null || true)"
+if [[ -n "$untracked" ]]; then
+  echo "rebuild: warning: these files are untracked, so no bb plugin install gets them (git add them):" >&2
+  while IFS= read -r file; do echo "  $file"; done <<<"$untracked" >&2
+fi
+
 if [[ -n "${REBUILD_DRY_RUN:-}" ]]; then
   printf '%q ' "${switch_cmd[@]}" "$@"
   printf '\n'

@@ -5,7 +5,7 @@ _:
     ./git.nix
     ./packages.nix
     ./npm-global.nix
-    ./bb-plugins.nix
+    ./bb-plugins
     ./shell.nix
     ./neovim.nix
     ./claude-code.nix

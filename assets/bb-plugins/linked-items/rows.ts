@@ -2,7 +2,7 @@
 // canvases) and the kb canvases panel (kb). Each plugin maps its own items to a LinkRow; the scopes, search,
 // dating and thread chips are stated once here, and row.tsx draws a row the same way for both. Imported by
 // relative path: bb's build bundles it into each plugin, and bb-plugins-sync reinstalls them when it changes
-// (modules/common/home-manager/bb-plugins.nix). No imports, so any plugin's tests can load it.
+// (modules/common/home-manager/bb-plugins/). No imports, so any plugin's tests can load it.
 
 export type Scope = "session" | "project" | "all";
 export const SCOPES: readonly Scope[] = ["session", "project", "all"];
