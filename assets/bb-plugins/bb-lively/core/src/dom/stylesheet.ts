@@ -760,10 +760,11 @@ ${onFull("glitch")} .${CLASSES.pulse}[${PULSE_ATTRIBUTES.tone}="error"] {
 
 /* shiftWarp (Control: the Oldest House rearranging). The canvas layer breaks the thread you leave into
    slabs; this CSS half, without it, assembles the thread you open: its rows slide in from alternating
-   sides as slabs, in hard steps, split into the preset's two dispersion colors. */
+   sides as slabs, in hard steps, split into the preset's two dispersion colors. As long as the
+   entrance, which ends the replay class. */
 ${noCanvas("shiftWarp")} ${replayed} ${is(targets.rowList)} > ${is(targets.row)} {
   --lively-slab: calc(var(--lively-rise) * -2.4);
-  animation: lively-slab calc(var(--lively-enter) * 1.6) steps(5, end) backwards;
+  animation: lively-slab var(--lively-enter) steps(4, end) backwards;
 }
 ${noCanvas("shiftWarp")} ${replayed} ${is(targets.rowList)} > ${is(targets.row)}:nth-child(even) {
   --lively-slab: calc(var(--lively-rise) * 2.4);

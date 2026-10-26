@@ -245,21 +245,31 @@ const YORHA_ART = {
 /** The black of a redaction bar. */
 const REDACT = "var(--lively-art-redact, #0b0b0c)";
 
-// Control (Remedy): the Oldest House. Board-formed concrete (fine horizontal grain and a grid of
-// form-tie holes), a coffered ceiling grid, a lobby's round light, and two black monoliths in the
-// lower right, as on the Astral Plane; in the sidebar, the Board's inverted prism with spectral
-// fringes, over a fan of dispersed light. Colors come from themes/lively-control.css, else the accent.
+// Control (Remedy): the Oldest House. Board-formed concrete (fine grain and a grid of form-tie
+// holes), a coffered ceiling grid, a lobby's round light, and in the lower right the Astral Plane:
+// two monoliths under the Board, an inverted prism with spectral fringes. bb's sidebar content is
+// opaque, so the sidebar only carries the prism's light down its inner edge (seen at its head and
+// foot). Colors come from themes/lively-control.css, else the accent; the slabs are pale by day
+// (text reads over them) and near-black at night.
 const CONTROL_ART = {
   colors: {
     monolith: token("--lively-art-monolith", "color-mix(in oklab, #000 70%, var(--lively-canvas))"),
     rim: tint(token("--lively-art-rim", "var(--lively-accent)"), 55),
     line: token("--lively-art-line", "var(--lively-accent)"),
-    light: tint(token("--lively-art-light", "var(--lively-accent)"), 30),
+    light: tint(token("--lively-art-light", "var(--lively-accent)"), 22),
     hiss: tint(token("--lively-art-hiss", "var(--destructive, #e01b24)"), 70),
-    prism: token("--lively-art-monolith", "color-mix(in oklab, #000 70%, var(--lively-canvas))"),
   },
   backdrop: {
     layers: [
+      // The Board: an inverted triangle (a 60-degree wedge from its apex, which points down) floating
+      // over the monoliths, its edges split into the spectrum.
+      { image: `conic-gradient(from -30deg at 50% 100%, ${c("monolith")} 0 60deg, transparent 60deg)`, size: "104px 90px", position: "right 102px bottom 360px", repeat: "no-repeat" },
+      {
+        image: "conic-gradient(from -33deg at 50% 100%, #ff2a3a 0deg, #ffb000 1.2deg, #34c759 2.4deg, #2f9bff 3.6deg, transparent 3.8deg 62.2deg, #2f9bff 62.4deg, #34c759 63.6deg, #ffb000 64.8deg, #ff2a3a 66deg, transparent 66.2deg)",
+        size: "116px 96px",
+        position: "right 96px bottom 357px",
+        repeat: "no-repeat",
+      },
       // Two monoliths: a lit top edge, then the slab; a thin Hiss-red seam at the foot of the taller one.
       rect(c("rim"), 96, 312, 58, 2),
       rect(c("hiss"), 96, 0, 58, 2),
@@ -267,7 +277,7 @@ const CONTROL_ART = {
       rect(c("rim"), 176, 196, 26, 2),
       rect(c("monolith"), 176, 0, 26, 196),
       // A lobby's round light: a ring and its soft pool.
-      { image: `radial-gradient(circle at right 420px bottom 520px, transparent 0 46px, ${c("light")} 46px 48px, transparent 49px)`, size: "1400px 900px", position: "right bottom", repeat: "no-repeat" },
+      { image: `radial-gradient(circle at right 420px bottom 520px, transparent 0 46px, ${c("light")} 46px 47px, transparent 48px)`, size: "1400px 900px", position: "right bottom", repeat: "no-repeat" },
       { image: `radial-gradient(160px 160px at right 420px bottom 520px, ${tint(c("light"), 40)}, transparent 70%)`, size: "1400px 900px", position: "right bottom", repeat: "no-repeat" },
       // The coffered ceiling: a 96px grid, each coffer with a recessed inner edge 8px in.
       { image: `linear-gradient(to left, ${tint(c("line"), 9)} 1px, transparent 1px)`, size: "96px 96px", position: "right bottom" },
@@ -282,19 +292,11 @@ const CONTROL_ART = {
   },
   sidebar: {
     layers: [
-      // The Board: an inverted triangle (a 60-degree wedge from its apex) over spectral fringes,
-      // and the light it disperses fanning down from the apex.
-      { image: `conic-gradient(from -30deg at 50% 100%, ${c("prism")} 0 60deg, transparent 60deg)`, size: "92px 80px", position: "center bottom 168px", repeat: "no-repeat" },
+      // The prism's light: a spectral hairline down the sidebar's inner edge.
       {
-        image: "conic-gradient(from -34deg at 50% 100%, #ff2a3a 0deg, #ffb000 1.4deg, #34c759 2.8deg, #2f9bff 4deg, transparent 4.2deg 63.8deg, #2f9bff 64deg, #34c759 65.2deg, #ffb000 66.6deg, #ff2a3a 68deg, transparent 68.2deg)",
-        size: "100px 86px",
-        position: "center bottom 168px",
-        repeat: "no-repeat",
-      },
-      {
-        image: "conic-gradient(from 168deg at 50% 0%, transparent 0deg, #ff2a3a33 2deg, #ffb00033 6deg, #34c75933 10deg, #2f9bff33 14deg, #8a5cff33 18deg, transparent 22deg)",
-        size: "120px 110px",
-        position: "center bottom 58px",
+        image: "linear-gradient(to bottom, transparent, #ff2a3a99 20%, #ffb00099 38%, #34c75999 56%, #2f9bff99 74%, transparent)",
+        size: "1px 100%",
+        position: "right 0 top 0",
         repeat: "no-repeat",
       },
       // A thin rule across the foot, as on a Bureau form.
@@ -437,9 +439,9 @@ export const PRESETS = [
       wipe: {
         fill: [
           // Three lines to a 66px tile: bars 13px tall at a 22px pitch, each line its own length.
-          `linear-gradient(to bottom, ${REDACT} 0 13px, transparent 13px) 22% 40px / 46% 66px repeat-y`,
-          `linear-gradient(to bottom, ${REDACT} 0 13px, transparent 13px) 26% 62px / 30% 66px repeat-y`,
-          `linear-gradient(to bottom, ${REDACT} 0 13px, transparent 13px) 30% 84px / 38% 66px repeat-y`,
+          `linear-gradient(to bottom, ${REDACT} 0 13px, transparent 13px) 34% 40px / 30% 66px repeat-y`,
+          `linear-gradient(to bottom, ${REDACT} 0 13px, transparent 13px) 36% 62px / 20% 66px repeat-y`,
+          `linear-gradient(to bottom, ${REDACT} 0 13px, transparent 13px) 38% 84px / 26% 66px repeat-y`,
           "var(--lively-art-paper, #e8e6e1)",
         ].join(", "),
         mask: "linear-gradient(90deg, transparent 16%, #000 16% 84%, transparent 84%)",

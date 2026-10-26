@@ -82,35 +82,44 @@ void main() {
   vec2 p = vec2(v_uv.x, 1.0 - v_uv.y);
   vec2 px = 1.0 / u_res;
   if (u_mode == 0) {
-    // Shifting architecture: horizontal slabs of uneven height; each slides its own way, some split at a
-    // vertical cut, all sink a little; the seams open onto the new thread; dispersion follows the speed.
+    // Shifting architecture: horizontal slabs of uneven height inside the thread's box (u_rect); each
+    // slides its own way, some part at a vertical cut, all sink a little; the seams open onto the new
+    // thread; the dispersion follows the speed. Nothing leaves the thread's box.
+    if (any(lessThan(p, u_rect.xy)) || any(greaterThan(p, u_rect.zw))) { o = vec4(0.0); return; }
     float t = clamp(u_t, 0.0, 1.0);
     float e = t * t * (3.0 - 2.0 * t);
     float rows = 9.0;
     float y = p.y + 0.035 * sin(p.y * 7.0 + u_seed * 6.0);
     float i = floor(y * rows);
-    float dir = hash(i) > 0.5 ? 1.0 : -1.0;
-    float speed = 0.06 + 0.3 * hash(i + 17.0);
-    float cut = 0.25 + 0.5 * hash(i + 31.0);
-    float split = hash(i + 47.0) > 0.55 ? (p.x < cut ? -1.0 : 1.0) : dir;
-    vec2 q = p - vec2(split * speed * e, (hash(i + 59.0) - 0.3) * 0.05 * e);
-    float velocity = speed * 6.0 * t * (1.0 - t);
-    vec4 c = disperse(q, velocity * 0.02 + 2.0 * px.x * e);
+    float d = (0.05 + 0.25 * hash(i + 17.0)) * e;
+    float drop = (hash(i + 59.0) - 0.3) * 0.05 * e;
+    vec2 q;
+    if (hash(i + 47.0) > 0.55) {
+      // Two halves part at the cut: the left one goes left, the right one right, a gap between.
+      float cut = mix(u_rect.x, u_rect.z, 0.25 + 0.5 * hash(i + 31.0));
+      if (p.x < cut - d) q = vec2(p.x + d, p.y - drop);
+      else if (p.x > cut + d) q = vec2(p.x - d, p.y - drop);
+      else { o = vec4(0.0); return; }
+    } else {
+      q = vec2(p.x - (hash(i) > 0.5 ? d : -d), p.y - drop);
+    }
+    if (any(lessThan(q, u_rect.xy)) || any(greaterThan(q, u_rect.zw))) { o = vec4(0.0); return; }
+    float velocity = 6.0 * t * (1.0 - t) * (d / max(e, 0.001));
+    vec4 c = disperse(q, velocity * 0.008 + 1.5 * px.x * e);
     float f = fract(y * rows);
     float gap = 0.004 + 0.07 * e;
     c.a *= smoothstep(0.0, gap, f) * smoothstep(0.0, gap, 1.0 - f);
-    // The cut, opening as the halves part.
-    c.a *= hash(i + 47.0) > 0.55 ? smoothstep(0.0, 0.002 + 0.03 * e, abs(p.x - cut - split * speed * e)) : 1.0;
-    c.a *= 1.0 - smoothstep(0.35, 1.0, t);
+    c.a *= 1.0 - smoothstep(0.3, 0.95, t);
     o = premul(c);
   } else if (u_mode == 1) {
-    // A prism slides along the band above the composer, refracting what is under it.
+    // A prism slides along the band above the composer (u_rect), refracting what is under it; it enters
+    // and leaves at the band's ends, never past them.
     float t = clamp(u_t, 0.0, 1.0);
     float e = t * t * (3.0 - 2.0 * t);
     float w = 0.09;
     float cx = mix(u_rect.x - w, u_rect.z + w, e);
     float d = (p.x - cx) / w;
-    bool inside = p.y > u_rect.y && p.y < u_rect.w && abs(d) < 1.0;
+    bool inside = all(greaterThan(p, u_rect.xy)) && all(lessThan(p, u_rect.zw)) && abs(d) < 1.0;
     if (!inside) { o = vec4(0.0); return; }
     float lens = 1.0 - d * d;
     float edge = smoothstep(u_rect.y, u_rect.y + 0.04, p.y);
@@ -337,7 +346,7 @@ export function createRefraction(options: RefractionOptions): Refraction | undef
       const view = doc.querySelector(targets.pageView);
       if (view === null) return false;
       const copy = snapshot(view);
-      begin("navigate", [copy], [0, 0, 1, 1]);
+      begin("navigate", [copy], unit(view.getBoundingClientRect()));
       settleScroll(view, copy);
       return true;
     },

@@ -2,8 +2,9 @@
  * Lively Control: after Remedy's Control (ART-DIRECTION.md#control). Night is the Oldest House:
  * board-formed concrete in charcoal greys, the Bureau's off-white signage as the thing you act on
  * (selection inverts to it, as the game's menus do), wayfinding green for the timeline's trace,
- * and Hiss red kept for what is wrong or waiting on you. Day is the Astral Plane: a white void,
- * black monoliths for ink, the same green and red. Square corners, hairline rules, no glow.
+ * and Hiss red kept for what is wrong or waiting on you. Day is the Astral Plane: a white void with
+ * ink as black as its monoliths (the art's own slabs go pale, so text reads over them), the same
+ * green and red. Square corners, hairline rules, no glow.
  * Every color is picked here, nothing is sampled from the game, and no font or image of it is used.
  *
  * A palette theme only (tokens). The Control preset paints the concrete, the monoliths, the
@@ -56,8 +57,9 @@
 
   /* The art layer's colors (core/src/domain/presets.ts, control). */
   --lively-art-line: #0b0b0c;
-  --lively-art-monolith: #0b0b0c;
-  --lively-art-rim: #8a8a86;
+  /* Pale slabs by day: ink reads over them. */
+  --lively-art-monolith: #dcdcd8;
+  --lively-art-rim: #0b0b0c;
   --lively-art-light: #0b0b0c;
   --lively-art-hiss: #c8101c;
   --lively-art-sign: #0b0b0c;
