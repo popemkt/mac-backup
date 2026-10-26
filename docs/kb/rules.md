@@ -27,6 +27,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Decide the home for the checklist in this repo, port R1-R20, and wire the mechanical subset the way the reference repo does before adding more skills.
 - **node** — `01M1M08W6Z70XV3KCQB5CWH3ZR`
 
+### GAP: bb desktop has no persistent Chromium switch setting
+
+- **expected** — bb starts with the Chromium switches the bb stack declares (desktopSwitches), however it is opened
+- **current** — Only bb Launcher / bb-launch pass them (open --args); a Dock, Spotlight or post-update relaunch starts bb without them, and the launcher must restart it
+- **impact** — HTML-in-Canvas effects (bb-lively Control) fall back to CSS until bb is relaunched through the launcher
+- **closes** — bb reads switches from a setting or env (app.commandLine.appendSwitch); then drop modules/stacks/bb/launcher.nix
+- **node** — `01M5WM2XP3AFV2AVMPM4S74GS5`
+
 ### GAP: bb plugin settings cannot inherit a value or describe it live
 
 - **expected** — A plugin setting can be left unset (inherit) from bb's UI, a boolean can be tri-state, and a description can show the effective value ("currently: wobbly, from ZZZ") next to the setting.

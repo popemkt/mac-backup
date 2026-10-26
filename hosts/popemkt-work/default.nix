@@ -21,7 +21,11 @@
         dataset = "work";
       };
     };
-    bb.enable = true;
+    bb = {
+      enable = true;
+      # HTML-in-Canvas (drawElementImage) for bb-lively's Control preset; through bb Launcher.
+      desktopSwitches = [ "--enable-blink-features=CanvasDrawElement" ];
+    };
     browsers.enable = true;
     kb.enable = true;
     office-docs.enable = true;
