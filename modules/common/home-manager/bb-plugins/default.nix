@@ -81,6 +81,7 @@ let
       export PATH="${pkgs.nodejs}/bin:$PATH"
 
     ''
+    + builtins.readFile ../plugin-sources/sync-lib.sh
     + builtins.readFile ./sync.sh;
   };
 in

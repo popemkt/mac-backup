@@ -4,14 +4,13 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 
-// skills/ holds what an agent reads, and templates it copies elsewhere (a
-// tldraw pattern's script types itself against the canvas's workspace), not
-// code the plugin loads.
-const SKIPPED = new Set(["node_modules", "dist", "skills"]);
+const SKIPPED = new Set(["node_modules", "dist"]);
 const SOURCE = /\.(ts|tsx|mts|js|mjs)$/;
 const SPECIFIERS = [
   /\b(?:import|export)\b[^'";]*?\bfrom\s*["'](\.{1,2}\/[^"']+)["']/g,
-  /\bimport\s*\(\s*["'](\.{1,2}\/[^"']+)["']\s*\)/g,
+  // Not a JSDoc type, {import('…').T}, which loads nothing: a tldraw
+  // pattern types its script against the canvas workspace it is copied into.
+  /(?<!\{)\bimport\s*\(\s*["'](\.{1,2}\/[^"']+)["']\s*\)/g,
   /^\s*import\s+["'](\.{1,2}\/[^"']+)["']/gm,
 ];
 const CSS_IMPORT = /@import\s+(?:url\()?["'](\.{1,2}\/[^"']+)["']/g;

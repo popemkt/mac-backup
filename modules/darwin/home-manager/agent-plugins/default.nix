@@ -16,58 +16,77 @@
 # "owner/repo@ref"; Claude Code has no ref surface, so it always tracks the
 # marketplace default branch.
 #
-# This repo's own plugins and skills (assets/plugins) are installed from the
-# revision being applied, as bb plugins are: the folder is copied into the
-# Nix store at evaluation (modules/common/home-manager/plugin-sources/,
-# shared with bb plugins) and never read from a person's checkout, which may
-# be behind or ahead of it. agent-plugins-sync (./sync.sh) points a stable
-# link at that copy and links every plugin's skills into each agent through
-# it; a marketplace source "./assets/plugins" names that link, so Claude
-# Code reads the plugins of the revision applied. A store path needs no
-# writable copy here: Claude Code and Oh My Pi only read the folder.
-# `agent-plugins-sync --path <worktree>/assets/plugins` points the link at a
-# checkout to try edits in place; the next sync points it back.
+# A marketplace whose source is "./<folder>" is a folder of this repo
+# (dotfiles=./assets/plugins): its plugins and skills come from its store
+# copy (modules/common/home-manager/plugin-sources/, shared with bb plugins),
+# never from a person's checkout, through a stable link agent-plugins-sync
+# keeps (./sync.sh says how, and how to try a checkout's instead).
 let
   home = config.home.homeDirectory;
   codexHome = "${home}/.codex";
 
-  repoPlugins = "./assets/plugins";
+  repoRoot = ../../../..;
   source = import ../../../common/home-manager/plugin-sources/source.nix {
     inherit lib;
     kind = "dotfiles-agent";
-  } ../../../../assets/plugins;
+  };
   state = "${config.xdg.stateHome}/dotfiles/agent-plugins";
+
+  # Each "<name>=./<folder>" entry, as { name; copy; } (copy: the folder in
+  # its store copy), or null for any other source. A folder with no
+  # marketplace manifest warns rather than failing every evaluation.
+  repoFolder =
+    entry:
+    let
+      name = lib.head (lib.splitString "=" entry);
+      src = lib.removePrefix "${name}=" entry;
+      rel = lib.removePrefix "./" src;
+      dir = repoRoot + "/${rel}";
+    in
+    if !(lib.hasPrefix "./" src) then
+      null
+    else if builtins.pathExists (dir + "/.claude-plugin/marketplace.json") then
+      {
+        inherit name;
+        copy = "${source dir}/${baseNameOf rel}";
+      }
+    else
+      lib.warn
+        "agent plugins: marketplace ${name} names ${src}, which has no .claude-plugin/marketplace.json; it is skipped"
+        {
+          inherit name;
+          copy = null;
+        };
+
+  # A repo folder's marketplace is its stable link.
+  resolve =
+    entry:
+    let
+      folder = repoFolder entry;
+    in
+    if folder == null then
+      [ entry ]
+    else
+      lib.optional (folder.copy != null) "${folder.name}=${state}/${folder.name}";
+
+  declared = lib.unique (osConfig.my.pkgs.claudeMarketplaces ++ osConfig.my.pkgs.codexMarketplaces);
+  folders = lib.filter (f: f != null && f.copy != null) (map repoFolder declared);
 
   agentPluginsSync = pkgs.writeShellApplication {
     name = "agent-plugins-sync";
     text = ''
       home=${lib.escapeShellArg home}
-      source=${source}/plugins
+      folders=(${lib.concatMapStringsSep " " (f: lib.escapeShellArg "${f.name}=${f.copy}") folders})
       state=${lib.escapeShellArg state}
       legacy=${lib.escapeShellArg "${home}/.dotfiles/assets/plugins"}
       cu=${pkgs.coreutils}/bin
       flock=${pkgs.flock}/bin/flock
+      jq=${lib.getExe pkgs.jq}
 
     ''
+    + builtins.readFile ../../../common/home-manager/plugin-sources/sync-lib.sh
     + builtins.readFile ./sync.sh;
   };
-
-  # A marketplace sourced from this repo's plugins folder is the stable link
-  # agent-plugins-sync keeps; no other repo folder is one.
-  resolve =
-    entry:
-    let
-      name = lib.head (lib.splitString "=" entry);
-      src = lib.removePrefix "${name}=" entry;
-    in
-    if src == repoPlugins then
-      [ "${name}=${state}/current" ]
-    else if lib.hasPrefix "./" src then
-      lib.warn
-        "agent plugins: marketplace ${name} names ${src}; only ${repoPlugins} is a repo marketplace, so it is skipped"
-        [ ]
-    else
-      [ entry ];
 
   inherit (osConfig.my.pkgs) claudePlugins codexPlugins;
   claudeMarketplaces = lib.concatMap resolve osConfig.my.pkgs.claudeMarketplaces;
@@ -120,7 +139,7 @@ let
           echo "Adding Claude Code marketplace: $name"
           claude plugin marketplace add "$source" || {
             echo "warning: failed to add Claude Code marketplace $name" >&2
-            return 0
+            continue
           }
         elif [ "''${source#/}" != "$source" ] && [ "$registered" != "$source" ]; then
           # A folder marketplace that moved (the repo's own was read from
@@ -130,7 +149,7 @@ let
           echo "Moving Claude Code marketplace $name to $source"
           claude plugin marketplace add "$source" || {
             echo "warning: failed to move Claude Code marketplace $name to $source" >&2
-            return 0
+            continue
           }
         fi
       done
@@ -157,7 +176,7 @@ let
           echo "Adding Codex marketplace: $name"
           codex plugin marketplace add "$source" || {
             echo "warning: failed to add Codex marketplace $name" >&2
-            return 0
+            continue
           }
         fi
       done

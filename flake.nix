@@ -306,6 +306,11 @@
           inherit pkgs;
           inherit (pkgs) lib;
         };
+        # agent-plugins-sync and the agent-plugins activation, run against
+        # fake claude, codex and omp.
+        agent-plugins-check = import ./modules/darwin/home-manager/agent-plugins/tests.nix {
+          inherit pkgs;
+        };
         github-sources-check = githubSourcesCheck;
         system-setup-manifest-personal = systemSetupManifestCheck "popemkt-personal";
         system-setup-manifest-work = systemSetupManifestCheck "popemkt-work";
