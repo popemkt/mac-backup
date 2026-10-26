@@ -299,9 +299,10 @@
         # them and run against a fake systemctl.
         app-restart-check = import ./modules/nixos/system/app-restart/tests.nix { inherit pkgs; };
         canvas-links-check = canvasLinksCheck;
-        # Each bb plugin's store copy holds every relative path its source
-        # reaches (modules/common/home-manager/bb-plugins/source.nix).
-        bb-plugin-sources-check = import ./modules/common/home-manager/bb-plugins/check.nix {
+        # Each plugin's store copy, bb's and the agents', holds every
+        # relative path its source reaches
+        # (modules/common/home-manager/plugin-sources/source.nix).
+        plugin-sources-check = import ./modules/common/home-manager/plugin-sources/check.nix {
           inherit pkgs;
           inherit (pkgs) lib;
         };

@@ -1,6 +1,9 @@
-# The store copy of a bb plugin kept in this repo: what a rebuild installs,
-# taken from the revision being applied. Used by the executor (./default.nix)
-# and by the flake check that proves each copy is complete (./check.nix).
+# The store copy of a plugin folder kept in this repo: what a rebuild
+# installs, taken from the revision being applied, never from a person's
+# checkout, which may be behind or ahead of it. Used by both plugin
+# executors, bb plugins (../bb-plugins/) and the agents' own plugins and
+# skills (modules/darwin/home-manager/agent-plugins/), and by the flake check
+# that proves each copy is complete (./check.nix).
 #
 # A copy holds the plugin folder and every sibling folder its files reach by
 # relative path ("../x/…" from its root, "../../x/…" from one level down),
@@ -11,8 +14,11 @@
 #
 # Left out, so that editing them installs nothing: node_modules and dist
 # (build output), tests folders, and Markdown other than PLUGIN_OVERVIEW.md
-# (bb's store listing) and skills/ (bb loads those).
-{ lib }:
+# (bb's store listing) and skills/ (agents load those).
+#
+# kind names the copy in the store (<kind>-<folder>), so a store listing
+# tells the executors' copies apart.
+{ lib, kind }:
 let
   skippedDirs = [
     "node_modules"
@@ -98,7 +104,7 @@ let
   prefix = "${toString parent}/";
 in
 builtins.path {
-  name = "bb-plugin-${name}";
+  name = "${kind}-${name}";
   path = parent;
   filter =
     path: type:
