@@ -1,0 +1,826 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+<meta charset="utf-8">
+<title>bb-lively: theme preset candidates (2026-10-25)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  Research mock for docs/research/2026-10-25-lively-theme-candidates.md.
+  Self-contained: no network, no fonts, no images. Every piece of art here is drawn by us
+  (inline SVG and CSS gradients, built in the script below); nothing is copied from a game.
+  The mocks use bb's token names (--canvas, --ink, --primary, ...) and the proposed lively art
+  tokens (--lively-art-*, --lively-wipe-*, --lively-burst-*, --lively-sticker-color), so each
+  block below is close to what a theme file would declare. Motion numbers come from
+  core/src/domain/motion.ts (the CLEAN and WOBBLY tables), and springs from the same oscillator.
+  Effects marked NEW in a card do not exist in bb-lively yet.
+-->
+<style>
+/* ================= page chrome (not themed) ================= */
+:root { color-scheme: dark; --page: #101012; --page-ink: #e8e6e1; --page-muted: #9a978f; --page-line: #2a2a2e; --page-chip: #1d1d21; }
+html.light { color-scheme: light; --page: #f2f0eb; --page-ink: #1b1a17; --page-muted: #5f5c55; --page-line: #d8d4ca; --page-chip: #e6e2d8; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--page-ink); font: 14px/1.45 -apple-system, "Inter", system-ui, sans-serif; }
+header.top { position: sticky; top: 0; z-index: 50; display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; padding: 14px 28px;
+  background: color-mix(in oklab, var(--page) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--page-line); }
+header.top h1 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+header.top h1 small { font-weight: 500; color: var(--page-muted); margin-left: 8px; }
+.seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--page-chip); }
+.seg button { border: 0; background: none; color: var(--page-ink); font: 600 12px/1 inherit; padding: 7px 12px; border-radius: 999px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--page-ink); color: var(--page); }
+.lede { max-width: 1180px; margin: 18px 28px 6px; color: var(--page-muted); font-size: 13px; }
+.lede b { color: var(--page-ink); }
+.new { display: inline-block; font: 700 10px/1 ui-monospace, monospace; letter-spacing: .06em; padding: 3px 5px; border-radius: 4px; background: #ffcf3d; color: #1b1500; vertical-align: 1px; }
+main { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px; padding: 18px 28px 60px; }
+.cand { min-width: 0; }
+.cand.hero { grid-column: 1 / -1; }
+.meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin: 0 2px 10px; }
+.meta h2 { margin: 0; font-size: 18px; letter-spacing: -.01em; }
+.meta .src { color: var(--page-muted); font-size: 12.5px; }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 2px 10px; }
+.chips span { font: 500 11.5px/1 ui-monospace, "SF Mono", monospace; padding: 5px 7px; border-radius: 6px; background: var(--page-chip); color: var(--page-ink); }
+.chips span.n { background: color-mix(in oklab, #ffcf3d 26%, var(--page-chip)); }
+.ctl { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 2px 0; }
+.ctl button { font: 600 12px/1 inherit; padding: 8px 11px; border-radius: 8px; border: 1px solid var(--page-line); background: var(--page-chip); color: var(--page-ink); cursor: pointer; }
+.ctl button.sig { border-color: #ffcf3d; }
+.ctl button:hover { border-color: var(--page-muted); }
+.why { margin: 10px 2px 0; color: var(--page-muted); font-size: 12.5px; max-width: 80ch; }
+.why b { color: var(--page-ink); }
+.swatches { display: flex; gap: 0; margin: 10px 2px 0; border-radius: 8px; overflow: hidden; height: 22px; }
+.swatches i { flex: 1; position: relative; }
+.swatches i::after { content: attr(data-hex); position: absolute; inset: auto 4px 3px auto; font: 600 9px/1 ui-monospace, monospace; color: #fff; mix-blend-mode: difference; opacity: .8; }
+
+/* ================= the bb mock (themed through bb's own token names) ================= */
+.bb { --radius: 8px; --font-sans: -apple-system, "Inter", system-ui, sans-serif; --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --lively-font-display: var(--font-sans);
+  --surface-selected: color-mix(in oklch, var(--primary) 14%, var(--canvas));
+  --sidebar-accent: color-mix(in oklch, var(--primary) 8%, var(--sidebar));
+  --recessed: color-mix(in oklab, var(--ink) 5%, var(--canvas));
+  --seam: color-mix(in oklab, var(--ink) 10%, transparent);
+  --lively-accent: var(--primary);
+  --lively-sticker-color: #000;
+  --lively-chroma-a: #3fd4ff; --lively-chroma-b: #ff3dbb;
+  --lively-wipe-fill: radial-gradient(circle, color-mix(in oklab, #000 24%, transparent) 1px, transparent 1.5px) 0 0 / 6px 6px, var(--lively-accent);
+  --lively-wipe-mask: linear-gradient(105deg, transparent 18%, #000 18% 82%, transparent 82%);
+  --lively-burst-fill: radial-gradient(circle, var(--lively-accent) 1.4px, transparent 1.8px) 0 0 / 6px 6px;
+  --lively-burst-mask: radial-gradient(circle, transparent 38%, #000 40% 62%, transparent 70%);
+  position: relative; display: grid; grid-template-columns: 196px minmax(0, 1fr); height: 392px; overflow: hidden; isolation: isolate;
+  background: var(--canvas); color: var(--ink); font: 13px/1.5 var(--font-sans); border-radius: 14px; border: 1px solid var(--border);
+  box-shadow: 0 1px 0 color-mix(in oklab, var(--ink) 4%, transparent) inset, 0 18px 40px -24px #000c; }
+.hero .bb { height: 470px; grid-template-columns: 220px minmax(0, 1fr); }
+.bb button { font: inherit; color: inherit; }
+
+/* art layers: paint + mask pairs, so one shape works in light and dark (proposed lively contract) */
+.bb::after { content: ""; position: absolute; inset: 0; z-index: 40; pointer-events: none; background: var(--lively-art-overlay, none); opacity: var(--lively-art-overlay-opacity, 1); border-radius: inherit; }
+.sb { position: relative; isolation: isolate; background: var(--sidebar); border-right: 1px solid var(--border); padding: 12px 9px; display: flex; flex-direction: column; gap: 2px; }
+.sb::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: var(--lively-art-sidebar, none); opacity: var(--lively-art-sidebar-opacity, 1); }
+.sb .art { position: absolute; inset: 0; z-index: -1; pointer-events: none; background: var(--lively-art-sidebar-paint, none); -webkit-mask: var(--lively-art-sidebar-mask, none); mask: var(--lively-art-sidebar-mask, none); opacity: var(--lively-art-sidebar-mask-opacity, .5); }
+.brand { font: 700 11px/1 var(--lively-font-display); letter-spacing: .22em; text-transform: uppercase; color: var(--muted); padding: 4px 8px 12px; display: flex; justify-content: space-between; }
+.brand em { font-style: normal; letter-spacing: 0; text-transform: none; font-family: var(--font-sans); font-weight: 600; color: color-mix(in oklab, var(--muted) 70%, transparent); }
+.sec { font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: color-mix(in oklab, var(--muted) 80%, transparent); padding: 10px 8px 4px; }
+.row { position: relative; display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: calc(var(--radius) - 2px); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: default; }
+.row:hover { background: var(--sidebar-accent); color: var(--ink); }
+.row.sel { background: var(--surface-selected); color: var(--ink); }
+.row .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: color-mix(in oklab, var(--muted) 50%, transparent); }
+.row .dot.run { background: var(--primary); box-shadow: 0 0 6px var(--primary); }
+.row .dot.ok { background: var(--success); }
+.row .dot.wait { background: var(--attention, var(--warning)); }
+.row .dot.err { background: var(--destructive); }
+.row .t { overflow: hidden; text-overflow: ellipsis; }
+
+.tw { position: relative; isolation: isolate; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+.tw::before { content: ""; position: absolute; inset: 0; z-index: -2; pointer-events: none; background: var(--lively-art-timeline, none); opacity: var(--lively-art-timeline-opacity, 1); }
+.tw > .art { position: absolute; inset: 0; z-index: -1; pointer-events: none; background: var(--lively-art-timeline-paint, none);
+  -webkit-mask: var(--lively-art-timeline-mask, none); mask: var(--lively-art-timeline-mask, none); opacity: var(--lively-art-timeline-mask-opacity, .5); }
+.tw > .art.l2 { background: var(--lively-art-timeline-2-paint, none); -webkit-mask: var(--lively-art-timeline-2-mask, none); mask: var(--lively-art-timeline-2-mask, none); opacity: var(--lively-art-timeline-2-opacity, 0); }
+.tw > .art.l3 { background: var(--lively-art-timeline-3-paint, none); -webkit-mask: var(--lively-art-timeline-3-mask, none); mask: var(--lively-art-timeline-3-mask, none); opacity: var(--lively-art-timeline-3-opacity, 0); }
+.tw > .art.l4 { background: var(--lively-art-timeline-4-paint, none); -webkit-mask: var(--lively-art-timeline-4-mask, none); mask: var(--lively-art-timeline-4-mask, none); opacity: var(--lively-art-timeline-4-opacity, 0); }
+.tw > .userart { position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: 0; transition: opacity 300ms; }
+.cand[data-userart="on"] .tw > .userart { opacity: 1; }
+.head { display: flex; align-items: center; gap: 10px; padding: 10px 18px; border-bottom: 1px solid var(--seam); font-weight: 600; font-size: 13px; }
+.head .crumb { color: var(--muted); font-weight: 500; }
+.head .pill { margin-left: auto; font: 600 10.5px/1 var(--font-mono); padding: 4px 7px; border-radius: 999px; color: var(--primary); background: color-mix(in oklab, var(--primary) 12%, transparent); }
+.tl { flex: 1; min-height: 0; padding: 12px 20px 8px 26px; display: flex; flex-direction: column; justify-content: flex-end; gap: 9px; overflow: hidden; }
+.msg { position: relative; max-width: 88%; }
+.msg.user { align-self: flex-end; background: var(--recessed); border: 1px solid var(--seam); padding: 7px 11px; border-radius: var(--radius); max-width: 72%; }
+.msg.tool { font: 12px/1.4 var(--font-mono); color: var(--muted); }
+.msg.tool b { color: var(--timeline-accent); font-weight: 600; }
+.msg code { font: 12px var(--font-mono); padding: 1px 5px; border-radius: 4px; background: color-mix(in oklab, var(--primary) 12%, transparent); color: var(--primary); }
+.msg .ok { color: var(--success); } .msg .err { color: var(--destructive-text, var(--destructive)); }
+.diff { font: 11.5px/1.45 var(--font-mono); border: 1px solid var(--seam); border-radius: calc(var(--radius) - 2px); overflow: hidden; background: var(--recessed); }
+.diff div { padding: 0 8px; } .diff .a { color: var(--diff-added, var(--success)); background: color-mix(in oklab, var(--diff-added, var(--success)) 10%, transparent); }
+.diff .r { color: var(--diff-removed, var(--destructive)); background: color-mix(in oklab, var(--diff-removed, var(--destructive)) 10%, transparent); }
+.working { align-self: flex-start; font-size: 12.5px; color: var(--muted); position: relative; padding: 2px 0; }
+.working::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--lively-accent); margin-right: 7px; vertical-align: 1px; }
+.approval { display: none; align-self: stretch; border: 1px solid color-mix(in oklab, var(--primary) 50%, var(--border)); border-radius: var(--radius); padding: 9px 12px; background: color-mix(in oklab, var(--primary) 6%, var(--canvas)); gap: 10px; align-items: center; }
+.approval .q { flex: 1; } .approval .q small { display: block; color: var(--muted); font: 11.5px var(--font-mono); }
+.cand.turn .approval { display: flex; }
+.btn { border: 1px solid var(--border); background: var(--canvas); color: var(--ink); padding: 6px 12px; border-radius: calc(var(--radius) - 2px); cursor: pointer; font-weight: 600; font-size: 12.5px; }
+.btn.pri { background: var(--primary); color: var(--primary-foreground); border-color: transparent; }
+.composer { position: relative; margin: 4px 16px 14px; display: flex; align-items: center; gap: 8px; padding: 9px 9px 9px 13px; border: 1px solid var(--border); border-radius: calc(var(--radius) + 4px); background: color-mix(in oklab, var(--canvas) 86%, transparent); backdrop-filter: blur(6px); }
+.composer input { flex: 1; min-width: 0; background: none; border: 0; outline: 0; color: var(--ink); font: inherit; caret-color: var(--lively-accent); }
+.composer input::placeholder { color: color-mix(in oklab, var(--muted) 80%, transparent); }
+.composer .tools { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.send { position: relative; flex: none; width: 32px; height: 32px; border-radius: 50%; border: 0; background: var(--primary); color: var(--primary-foreground); cursor: pointer; display: grid; place-items: center; font-weight: 800; }
+.send .icon { display: inline-block; }
+.toasts { position: absolute; right: 14px; top: 52px; z-index: 30; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; pointer-events: none; }
+.toast { pointer-events: auto; min-width: 210px; max-width: 280px; background: var(--popover, var(--card)); color: var(--ink); border: 1px solid var(--border); border-radius: var(--radius); padding: 9px 12px; font-size: 12.5px;
+  box-shadow: 0 10px 30px -12px #0009; }
+.toast b { display: block; font-family: var(--lively-font-display); font-size: 12.5px; }
+.toast span { color: var(--muted); font-size: 12px; }
+.wipe { position: absolute; inset: 0 -40%; z-index: 35; pointer-events: none; background: var(--lively-wipe-fill); -webkit-mask: var(--lively-wipe-mask); mask: var(--lively-wipe-mask); translate: 140% 0; }
+.veil { position: absolute; inset: 0; z-index: 20; pointer-events: none; opacity: 0; }
+.turnbar { display: none; }
+
+/* ================= motion (the tokens are set per card by the script, from motion.ts) ================= */
+@keyframes lv-press-in { to { scale: calc(var(--lv-press-scale) + var(--lv-squash) * .6) calc(var(--lv-press-scale) - var(--lv-squash) * .4); } }
+@keyframes lv-release { from { scale: var(--lv-press-scale); } to { scale: 1; } }
+@keyframes lv-jelly {
+  0% { scale: calc(1 + var(--lv-squash)) calc(1 - var(--lv-squash)); }
+  22% { scale: calc(1 - var(--lv-squash) * var(--lv-j1)) calc(1 + var(--lv-squash) * var(--lv-j1)); }
+  44% { scale: calc(1 + var(--lv-squash) * var(--lv-j2)) calc(1 - var(--lv-squash) * var(--lv-j2)); }
+  66% { scale: calc(1 - var(--lv-squash) * var(--lv-j3)) calc(1 + var(--lv-squash) * var(--lv-j3)); }
+  100% { scale: 1 1; } }
+@keyframes lv-enter {
+  from { opacity: 0; translate: calc(var(--lv-rise) * 1.6 * var(--lv-wobbly)) var(--lv-rise); filter: blur(var(--lv-blur)) brightness(calc(1 + var(--lv-flash))); }
+  30% { opacity: 1; } to { opacity: 1; translate: 0 0; filter: blur(0) brightness(1); } }
+@keyframes lv-fade { from { opacity: 0; } }
+@keyframes lv-skew-in { from { transform: skewX(var(--lv-skew)); } }
+@keyframes lv-pop { from { opacity: 0; scale: var(--lv-pop-from); rotate: calc(var(--lv-tilt) * 6); } to { opacity: 1; scale: 1; rotate: 0deg; } }
+@keyframes lv-ripple { from { opacity: .55; scale: 1; } to { opacity: 0; scale: var(--lv-ripple-scale); } }
+@keyframes lv-burst { 0% { opacity: 0; scale: .3; } 20% { opacity: 1; } 100% { opacity: 0; scale: 1.6; } }
+@keyframes lv-ring { 0% { opacity: 0; scale: 1; } 25% { opacity: 1; } 100% { opacity: 0; scale: var(--lv-ring-scale); } }
+@keyframes lv-swell { 0%, 30% { scale: 1; } 62% { scale: calc(1 + var(--lv-swell)); } 100% { scale: 1; } }
+@keyframes lv-chroma { 0%, 100% { filter: none; }
+  10% { filter: drop-shadow(var(--lv-chroma) 0 0 var(--lively-chroma-a)) drop-shadow(calc(var(--lv-chroma) * -1) 0 0 var(--lively-chroma-b)); }
+  35% { filter: drop-shadow(calc(var(--lv-chroma) * -1) 0 0 var(--lively-chroma-a)) drop-shadow(var(--lv-chroma) 0 0 var(--lively-chroma-b)); }
+  50% { filter: none; } }
+@keyframes lv-shudder { 0%, 100% { translate: 0 0; } 20% { translate: -3px 0; } 40% { translate: 3px 0; } 60% { translate: -2px 0; } 80% { translate: 1px 0; } }
+@keyframes lv-wipe { 0% { translate: 140% 0; } 40%, 65% { translate: 0 0; } 100% { translate: -140% 0; } }
+@keyframes lv-breathe-glow { from { filter: drop-shadow(0 0 0 transparent); } to { filter: drop-shadow(0 0 calc(var(--lv-glow) * 22px) var(--lively-accent)); } }
+@keyframes lv-breathe-scale { from { scale: 1; } to { scale: calc(1 + var(--lv-swell) * .25 + var(--lv-hum, 0)); } }
+@keyframes lv-toast-out { to { opacity: 0; translate: 0 -6px; } }
+
+.bb button:active { animation: lv-press-in var(--lv-press) cubic-bezier(.16,1,.3,1) forwards; }
+.bb .rel { animation: lv-release var(--lv-release) var(--lv-spring) backwards; }
+.cand[data-style="wobbly"] .bb .rel { animation: lv-jelly var(--lv-release) cubic-bezier(.3,0,.4,1) backwards; }
+.sb .row { transition: translate var(--lv-overlay) var(--lv-spring), rotate var(--lv-overlay) var(--lv-spring), filter 60ms steps(2, end), background-color 120ms, color 120ms; }
+.sb .row:hover { translate: 0 calc(var(--lv-lift) * -1px); }
+.cand[data-style="wobbly"] .sb .row:hover { rotate: var(--lv-tilt); }
+.cand[data-stickers="on"] .sb .row:hover { translate: calc(var(--lv-sticker) * -.5) calc(var(--lv-sticker) * -.5); filter: drop-shadow(calc(var(--lv-sticker) * 1.5) calc(var(--lv-sticker) * 1.5) 0 var(--lively-sticker-color)); }
+.cand[data-stickers="on"] .toast, .cand[data-stickers="on"] .btn.pri, .cand[data-stickers="on"] .send { filter: drop-shadow(var(--lv-sticker) var(--lv-sticker) 0 var(--lively-sticker-color)); }
+.cand[data-stickers="on"] .toast { box-shadow: none; }
+.enter { animation: lv-enter var(--lv-enter) var(--lv-spring) backwards; }
+.cand[data-style="wobbly"][data-skew="on"] .enter { animation: lv-enter var(--lv-enter) var(--lv-spring) backwards, lv-skew-in var(--lv-enter) var(--lv-spring) backwards; animation-composition: replace, add; }
+.enter.last { animation: lv-enter var(--lv-enter) var(--lv-spring) backwards, lv-chroma 160ms steps(1, end) calc(var(--lv-enter) * .2) 1; }
+.cand.reduced .enter, .cand.reduced .enter.last { animation: lv-fade 120ms linear backwards; }
+.send.fire::before { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--lively-accent); pointer-events: none; animation: lv-ripple var(--lv-pulse) cubic-bezier(.16,1,.3,1) forwards; }
+.send.fire::after { content: ""; position: absolute; inset: -16px; pointer-events: none; opacity: 0; background: var(--lively-burst-fill); -webkit-mask: var(--lively-burst-mask); mask: var(--lively-burst-mask);
+  animation: lv-burst calc(var(--lv-pulse) * 1.2) cubic-bezier(.16,1,.3,1); display: var(--lv-burst-display, block); }
+.send .icon.pop { animation: lv-pop var(--lv-overlay) var(--lv-spring) backwards; }
+.cand.reduced .send.fire::before { animation: lv-fade 120ms linear reverse; } .cand.reduced .send.fire::after { display: none; } .cand.reduced .send .icon.pop { animation: lv-fade 120ms linear backwards; }
+.row.pulse::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; border: 2px solid var(--tone); opacity: 0; animation: lv-ring var(--lv-pulse) cubic-bezier(.16,1,.3,1) 2; }
+.cand[data-style="wobbly"] .row.pulse { animation: lv-chroma 160ms steps(1, end) 1, lv-swell 360ms cubic-bezier(.16,1,.3,1) 1; }
+.cand[data-style="wobbly"] .row.pulse.bad { animation: lv-chroma 160ms steps(1, end) 1, lv-shudder 300ms linear 1; }
+.cand.reduced .row.pulse { animation: none; } .cand.reduced .row.pulse::after { animation: lv-fade 120ms linear 1 reverse; scale: 1; }
+.toast.in { animation: lv-enter var(--lv-enter) var(--lv-spring) backwards; }
+.cand[data-style="wobbly"] .toast.in { animation: lv-pop var(--lv-enter) var(--lv-spring) backwards; }
+.cand.reduced .toast.in { animation: lv-fade 120ms linear backwards; }
+.toast.out { animation: lv-toast-out var(--lv-exit) cubic-bezier(.4,0,1,1) forwards; }
+.tw.page-in > .tl, .tw.page-in > .head { animation: lv-enter var(--lv-enter) var(--lv-spring) backwards; }
+.cand.reduced .tw.page-in > .tl, .cand.reduced .tw.page-in > .head { animation: lv-fade 120ms linear backwards; }
+.tw.page-in > .wipe { animation: lv-wipe var(--lv-wipe-ms, var(--lv-enter)) linear backwards; }
+.cand.reduced .tw.page-in > .wipe, .cand[data-wipe="off"] .tw.page-in > .wipe { animation: none; }
+.composer { transition: border-color 120ms; }
+.composer:focus-within { border-color: color-mix(in oklab, var(--lively-accent) 70%, transparent); animation: lv-breathe-glow var(--lv-breathe) ease-in-out infinite alternate; }
+.cand[data-style="wobbly"] .composer:focus-within { animation: lv-swell 330ms cubic-bezier(.16,1,.3,1) 1; box-shadow: 0 0 0 2px var(--lively-accent), var(--lv-sticker) var(--lv-sticker) 0 2px var(--lively-sticker-color); }
+.cand.reduced .composer:focus-within { animation: none; }
+.working { animation: lv-breathe-glow var(--lv-breathe) ease-in-out infinite alternate; }
+.cand[data-style="wobbly"] .working, .cand[data-hum="on"] .working { animation: lv-breathe-glow var(--lv-breathe) ease-in-out infinite alternate, lv-breathe-scale calc(var(--lv-breathe) / 2) ease-in-out infinite alternate; transform-origin: left center; }
+.cand.reduced .working, .cand.reduced[data-style] .working { animation: none; }
+
+/* ================= 1. Transistor — "Cloudbank" ================= */
+/* Jen Zee's Cloudbank at dusk: a violet night over a warm horizon, a turquoise sword-light, gold Art Nouveau line.
+   The art is three layers: a painted sky (backdrop), a far and a near skyline (masks the theme paints), and lit windows. */
+.cand[data-theme="transistor"] .bb {
+  --canvas: #13142a; --sidebar: #0e0f22; --card: #1b1d3a; --popover: #191b36; --border: #2d3060; --ink: #d0d3e6; --muted: #9397bb;
+  --primary: #3ee6d4; --primary-foreground: #06201e; --timeline-accent: #e0b25a; --destructive: #ff6b57; --warning: #f2a14a; --attention: #e8c46a;
+  --success: #7fdc9a; --diff-added: #7fdc9a; --diff-removed: #ff6b57; --pr-merged: #d94f8a; --red: #e8503a; --magenta: #d94f8a; --gold: #e0b25a;
+  --radius: 6px; --lively-font-display: "Josefin Sans", Futura, "Avenir Next", "Century Gothic", sans-serif;
+  --surface-selected: linear-gradient(90deg, color-mix(in oklch, var(--primary) 18%, var(--canvas)), color-mix(in oklch, var(--primary) 3%, var(--canvas)));
+  --sidebar-accent: color-mix(in oklch, var(--primary) 7%, var(--sidebar));
+  --lively-sticker-color: transparent;
+  --lively-chroma-a: #3ee6d4; --lively-chroma-b: #e8503a;
+  --lively-art-timeline:
+    radial-gradient(46% 22% at 74% 76%, color-mix(in oklab, var(--red) 42%, transparent), transparent 72%),
+    radial-gradient(40% 18% at 22% 80%, color-mix(in oklab, var(--magenta) 34%, transparent), transparent 72%),
+    radial-gradient(70% 40% at 60% 72%, color-mix(in oklab, #f2a14a 12%, transparent), transparent 70%),
+    radial-gradient(60% 50% at 100% 0%, color-mix(in oklab, var(--primary) 9%, transparent), transparent 70%),
+    repeating-linear-gradient(118deg, color-mix(in oklab, #fff 2.2%, transparent) 0 2px, transparent 2px 9px),
+    repeating-linear-gradient(28deg, color-mix(in oklab, #fff 1.2%, transparent) 0 1px, transparent 1px 13px),
+    linear-gradient(180deg, #13142a 0%, #15163a 46%, #2a1c48 74%, #3a2244 100%);
+  /* far skyline, violet haze */
+  --lively-art-timeline-paint: linear-gradient(180deg, #4a3a78, #2a2350);
+  --lively-art-timeline-mask: var(--art-skyline-far) bottom 0 center / 100% 112px no-repeat; --lively-art-timeline-mask-opacity: .8;
+  /* the sword-light rim: the near skyline shifted up 2px, in turquoise, under the near skyline */
+  --lively-art-timeline-2-paint: var(--primary);
+  --lively-art-timeline-2-mask: var(--art-skyline-near) bottom 2px center / 100% 84px no-repeat; --lively-art-timeline-2-opacity: .7;
+  /* near skyline */
+  --lively-art-timeline-3-paint: #0b0c1d;
+  --lively-art-timeline-3-mask: var(--art-skyline-near) bottom 0 center / 100% 84px no-repeat; --lively-art-timeline-3-opacity: 1;
+  /* lit windows */
+  --lively-art-timeline-4-paint: var(--gold);
+  --lively-art-timeline-4-mask: var(--art-skyline-windows) bottom 0 center / 100% 84px no-repeat; --lively-art-timeline-4-opacity: .55;
+  --lively-art-sidebar: linear-gradient(180deg, color-mix(in oklab, var(--primary) 4%, transparent), transparent 40%, color-mix(in oklab, var(--magenta) 8%, transparent));
+  --lively-art-sidebar-paint: var(--gold);
+  --lively-art-sidebar-mask: var(--art-nouveau-frame) top 4px left 6px / calc(100% - 12px) auto no-repeat;
+  --lively-art-sidebar-mask-opacity: .7;
+  --lively-wipe-fill: repeating-linear-gradient(90deg, color-mix(in oklab, #fff 22%, transparent) 0 1px, transparent 1px 14px), repeating-linear-gradient(0deg, color-mix(in oklab, #fff 22%, transparent) 0 1px, transparent 1px 14px), color-mix(in oklab, var(--primary) 80%, #e9fffb);
+  --lively-wipe-mask: var(--art-cells) center / 100% 100% no-repeat;
+  --lively-burst-fill: repeating-conic-gradient(from 0deg, var(--primary) 0 4deg, transparent 4deg 30deg);
+  --lively-burst-mask: radial-gradient(circle, transparent 34%, #000 42% 58%, transparent 72%);
+}
+html.light .cand[data-theme="transistor"] .bb {
+  --canvas: #f3ecdf; --sidebar: #ebe2d1; --card: #f9f4ea; --popover: #fbf7ef; --border: #d2c3a6; --ink: #1b1d36; --muted: #55587a;
+  --primary: #08706a; --primary-foreground: #ffffff; --timeline-accent: #8a5c0c; --destructive: #b2361f; --warning: #985210; --attention: #8a6a10;
+  --success: #2b7444; --diff-added: #2b7444; --diff-removed: #b2361f; --pr-merged: #9a2f66; --red: #d4573a; --magenta: #c24f86; --gold: #a8792a;
+  --lively-art-timeline:
+    radial-gradient(70% 34% at 82% 100%, color-mix(in oklab, var(--red) 22%, transparent), transparent 72%),
+    radial-gradient(55% 30% at 18% 100%, color-mix(in oklab, var(--magenta) 14%, transparent), transparent 72%),
+    radial-gradient(60% 50% at 100% 0%, color-mix(in oklab, #3ee6d4 16%, transparent), transparent 70%),
+    repeating-linear-gradient(118deg, color-mix(in oklab, var(--ink) 2.4%, transparent) 0 2px, transparent 2px 9px),
+    linear-gradient(180deg, #f3ecdf 0%, #f1e6d6 70%, #f0dccb 100%);
+  --lively-art-timeline-paint: linear-gradient(180deg, #d9c3c9, #e6d2cf); --lively-art-timeline-mask-opacity: .9;
+  --lively-art-timeline-2-paint: #2a8f88; --lively-art-timeline-3-paint: #6b6d92; --lively-art-timeline-4-paint: #f6d58a;
+  --lively-art-sidebar: linear-gradient(180deg, transparent 50%, color-mix(in oklab, var(--magenta) 6%, transparent));
+}
+/* NEW turnFreeze: approval wait = Turn() planning. The timeline freezes into a cyan wireframe plan, a Turn() bar fills,
+   the planned path is dashed down the gutter; the approval card stays live. Approve = execute: a flash, then the bar drains. */
+.cand[data-theme="transistor"] .veil { background:
+  repeating-linear-gradient(0deg, color-mix(in oklab, var(--primary) 9%, transparent) 0 1px, transparent 1px 24px),
+  repeating-linear-gradient(90deg, color-mix(in oklab, var(--primary) 9%, transparent) 0 1px, transparent 1px 24px),
+  repeating-linear-gradient(0deg, color-mix(in oklab, var(--primary) 5%, transparent) 0 1px, transparent 1px 3px),
+  linear-gradient(180deg, color-mix(in oklab, var(--primary) 20%, transparent), color-mix(in oklab, var(--primary) 7%, transparent) 55%, color-mix(in oklab, var(--primary) 14%, transparent)); }
+.cand[data-theme="transistor"] .turnbar { display: flex; position: absolute; left: 26px; right: 20px; top: 50px; z-index: 25; align-items: center; gap: 10px; opacity: 0; pointer-events: none;
+  font: 700 11px/1 var(--lively-font-display); letter-spacing: .18em; color: var(--primary); text-transform: uppercase; text-shadow: 0 0 8px color-mix(in oklab, var(--primary) 60%, transparent); }
+.turnbar .track { position: relative; flex: 1; height: 8px; border: 1px solid color-mix(in oklab, var(--primary) 60%, transparent); border-radius: 1px; overflow: hidden; background: color-mix(in oklab, var(--canvas) 60%, transparent); }
+.turnbar .fill { position: absolute; inset: 0; background: linear-gradient(90deg, color-mix(in oklab, var(--primary) 70%, #fff), var(--primary)); transform-origin: left; scale: 0 1; box-shadow: 0 0 10px var(--primary); }
+.turnbar .seg { position: absolute; top: -1px; bottom: -1px; width: 2px; background: var(--canvas); }
+.turnbar .q { display: flex; gap: 4px; }
+.turnbar .q i { width: 18px; height: 8px; border: 1px solid var(--primary); background: color-mix(in oklab, var(--primary) 30%, transparent); opacity: 0; }
+.cand[data-theme="transistor"] .tl::before { content: ""; position: absolute; left: 14px; top: 76px; bottom: 120px; width: 0; border-left: 2px dashed var(--primary); opacity: 0; transform-origin: top; scale: 1 0; pointer-events: none; z-index: 21; }
+@keyframes lv-turn-fill { from { scale: 0 1; } to { scale: .72 1; } }
+@keyframes lv-turn-drain { from { scale: .72 1; } to { scale: 0 1; } }
+@keyframes lv-turn-in { from { opacity: 0; translate: 0 -4px; } to { opacity: 1; translate: 0 0; } }
+@keyframes lv-path { from { scale: 1 0; opacity: 1; } to { scale: 1 1; opacity: .9; } }
+@keyframes lv-execute { 0% { filter: saturate(.2) brightness(.72); } 25% { filter: saturate(1.4) brightness(1.4); } 100% { filter: none; } }
+.cand.turn .tl > :not(.approval), .cand.turn .head { filter: saturate(.2) brightness(.72); transition: filter 140ms steps(3, end); }
+.cand.turn .tw > .art { filter: saturate(.3) brightness(.8); }
+.cand.turn .tw::before { filter: saturate(.35) brightness(.85); }
+.cand.turn .veil { opacity: 1; transition: opacity 120ms linear; }
+.cand.turn .turnbar { opacity: 1; animation: lv-turn-in 160ms cubic-bezier(.16,1,.3,1) backwards; }
+.cand.turn .turnbar .fill { animation: lv-turn-fill calc(var(--lv-enter) * 1.4) var(--lv-spring) 80ms forwards; }
+.cand.turn .turnbar .q i { animation: lv-pop var(--lv-overlay) var(--lv-spring) forwards; }
+.cand.turn .turnbar .q i:nth-child(2) { animation-delay: 60ms; } .cand.turn .turnbar .q i:nth-child(3) { animation-delay: 120ms; }
+.cand.turn .tl::before { animation: lv-path calc(var(--lv-enter) * 1.2) var(--lv-ease) 120ms forwards; }
+.cand.turn .tl > .msg::after, .cand.turn .tl > .diff::after { content: ""; position: absolute; left: -16px; top: 7px; width: 7px; height: 7px; rotate: 45deg; background: var(--primary); box-shadow: 0 0 8px var(--primary); z-index: 22; }
+.cand.turn .tl > .diff { position: relative; overflow: visible; }
+.cand.turn .approval { box-shadow: 0 0 0 1px color-mix(in oklab, var(--primary) 70%, transparent), 0 0 28px -4px color-mix(in oklab, var(--primary) 70%, transparent); position: relative; z-index: 23; }
+.cand.executing .tl > :not(.approval), .cand.executing .head { animation: lv-execute 220ms linear; }
+.cand.executing .turnbar { opacity: 1; } .cand.executing .turnbar .fill { animation: lv-turn-drain 320ms cubic-bezier(.4,0,1,1) forwards; }
+.cand.reduced.turn .tl > :not(.approval), .cand.reduced.turn .head { transition: none; }
+.cand.reduced.turn .turnbar, .cand.reduced.turn .turnbar .fill, .cand.reduced.turn .turnbar .q i, .cand.reduced.turn .tl::before { animation: none; }
+.cand.reduced.turn .turnbar .fill { scale: .72 1; } .cand.reduced.turn .turnbar .q i { opacity: 1; } .cand.reduced.turn .tl::before { scale: 1 1; opacity: .9; }
+.cand.reduced.executing .tl > *, .cand.reduced.executing .head { animation: none; }
+/* NEW traceLine: a new row draws the Transistor's trace down the gutter, then fades. */
+@keyframes lv-trace { 0% { scale: 1 0; opacity: 1; } 55% { scale: 1 1; opacity: 1; } 100% { scale: 1 1; opacity: 0; } }
+.cand[data-theme="transistor"] .enter::before { content: ""; position: absolute; left: -14px; top: 2px; bottom: 2px; width: 2px; border-radius: 2px; transform-origin: top;
+  background: linear-gradient(var(--primary), color-mix(in oklab, var(--primary) 10%, transparent)); box-shadow: 0 0 8px var(--primary); opacity: 0; animation: lv-trace calc(var(--lv-enter) * 1.4) var(--lv-ease) backwards; }
+.cand[data-theme="transistor"].reduced .enter::before { display: none; }
+.cand[data-theme="transistor"] .working { color: color-mix(in oklab, var(--primary) 75%, var(--ink)); }
+.cand[data-theme="transistor"] .head { font-family: var(--lively-font-display); letter-spacing: .05em; background: linear-gradient(90deg, color-mix(in oklab, var(--canvas) 70%, transparent), transparent); }
+.cand[data-theme="transistor"] .brand { color: var(--gold); justify-content: center; padding: 18px 8px 26px; letter-spacing: .34em; }
+.cand[data-theme="transistor"] .brand em { display: none; }
+.cand[data-theme="transistor"] .composer { background: color-mix(in oklab, #0b0c1d 70%, transparent); border-color: color-mix(in oklab, var(--primary) 26%, var(--border)); }
+html.light .cand[data-theme="transistor"] .composer { background: color-mix(in oklab, #fbf7ef 80%, transparent); }
+.cand[data-theme="transistor"] .msg.user { background: color-mix(in oklab, var(--card) 85%, transparent); border-color: color-mix(in oklab, var(--gold) 22%, transparent); }
+.userart-standin { background:
+  radial-gradient(30% 45% at 76% 34%, #e8503a99, transparent 70%), radial-gradient(26% 50% at 64% 62%, #3ee6d477, transparent 70%),
+  radial-gradient(20% 30% at 88% 70%, #d94f8a88, transparent 70%),
+  conic-gradient(from 200deg at 70% 40%, #1b1d3a, #3a1b3e, #18264a, #1b1d3a);
+  -webkit-mask: linear-gradient(90deg, transparent 35%, #000 80%); mask: linear-gradient(90deg, transparent 35%, #000 80%); }
+.cand[data-userart="on"] .tw > .userart { opacity: .5; }
+.cand[data-userart="on"] .tw > .art { opacity: .25; }
+
+/* ================= 2. Persona 5 — "Phantom" ================= */
+.cand[data-theme="phantom"] .bb {
+  --canvas: #0b0b0b; --sidebar: #000000; --card: #161616; --popover: #111; --border: #2c2c2c; --ink: #d6d6d6; --muted: #a6a6a6;
+  --primary: #ff2a2a; --primary-foreground: #000000; --timeline-accent: #f4f4f4; --destructive: #ff5c8a; --warning: #ffc21a; --attention: #ffc21a; --success: #38e08a;
+  --radius: 2px; --lively-font-display: Impact, "Anton", "Haettenschweiler", "Arial Narrow Bold", sans-serif;
+  --surface-selected: #ff2a2a; --lively-sticker-color: #ff2a2a; --lively-chroma-a: #ff2a2a; --lively-chroma-b: #ffffff;
+  --lively-art-timeline:
+    linear-gradient(152deg, transparent 0 62%, #ff2a2a14 62% 66%, transparent 66% 70%, #ff2a2a22 70% 71%, transparent 71%),
+    radial-gradient(circle, #ffffff10 1px, transparent 1.6px) 0 0 / 8px 8px, #0b0b0b;
+  --lively-art-timeline-paint: #ff2a2a; --lively-art-timeline-mask: var(--art-shards) top right / 62% auto no-repeat; --lively-art-timeline-mask-opacity: .22;
+  --lively-art-sidebar: repeating-linear-gradient(-58deg, #ffffff06 0 10px, transparent 10px 22px);
+  --lively-wipe-fill: linear-gradient(100deg, #000 0 30%, #ff2a2a 30% 82%, #fff 82% 84%, #ff2a2a 84%);
+  --lively-wipe-mask: var(--art-jag) center / 100% 100% no-repeat;
+  --lively-burst-fill: #ff2a2a; --lively-burst-mask: var(--art-star) center / contain no-repeat;
+}
+.cand[data-theme="phantom"] .row.sel { color: #000; font-weight: 700; transform: skewX(-8deg); }
+.cand[data-theme="phantom"] .row.sel .t { display: inline-block; transform: skewX(8deg); }
+.cand[data-theme="phantom"] .head { font: 400 17px/1 var(--lively-font-display); letter-spacing: .02em; text-transform: uppercase; }
+.cand[data-theme="phantom"] .toast b { font: 400 15px/1.1 var(--lively-font-display); text-transform: uppercase; }
+html.light .cand[data-theme="phantom"] .bb { --canvas: #f3efe6; --sidebar: #0b0b0b; --card: #fff; --popover: #fff; --border: #1a1a1a; --ink: #0b0b0b; --muted: #4c4c4c;
+  --primary: #c8101e; --primary-foreground: #fff; --timeline-accent: #0b0b0b; --destructive: #a1003c; --warning: #8f5a00; --success: #16723f; --lively-sticker-color: #0b0b0b;
+  --lively-art-timeline: linear-gradient(152deg, transparent 0 62%, #c8101e14 62% 66%, transparent 66% 70%, #c8101e22 70% 71%, transparent 71%), radial-gradient(circle, #0000000d 1px, transparent 1.6px) 0 0 / 8px 8px, #f3efe6;
+  --surface-selected: #c8101e; }
+html.light .cand[data-theme="phantom"] .sb { --muted: #b5b5b5; --ink: #f3efe6; }
+html.light .cand[data-theme="phantom"] .row.sel { color: #fff; }
+/* NEW cutIn: a finished thread slams a slanted band across the timeline (off by default). */
+.cutin { position: absolute; left: -10%; right: -10%; top: 38%; z-index: 33; height: 54px; pointer-events: none; display: none; align-items: center; justify-content: center;
+  background: linear-gradient(90deg, #000 0 8%, #ff2a2a 8% 92%, #000 92%); color: #fff; font: 400 26px/1 Impact, "Anton", sans-serif; letter-spacing: .04em; text-transform: uppercase; rotate: -6deg; }
+.cutin span { background: #000; padding: 4px 12px; rotate: 2deg; }
+@keyframes lv-cutin { 0% { translate: 110% 0; } 18% { translate: 0 0; } 70% { translate: 0 0; opacity: 1; } 100% { translate: -6% 0; opacity: 0; } }
+.cand.cut .cutin { display: flex; animation: lv-cutin 540ms var(--lv-spring) forwards; }
+
+/* ================= 3. NieR:Automata — "YoRHa" ================= */
+.cand[data-theme="yorha"] .bb {
+  --canvas: #d8d2b8; --sidebar: #cfc8ab; --card: #e1dcc6; --popover: #e1dcc6; --border: #a9a38c; --ink: #38352d; --muted: #5d5848;
+  --primary: #4a463b; --primary-foreground: #d8d2b8; --timeline-accent: #8e3b26; --destructive: #9b2a20; --warning: #7a4f12; --attention: #7a4f12; --success: #3f5a26;
+  --radius: 0px; --lively-font-display: "Avenir Next Condensed", "Barlow Condensed", "Helvetica Neue", sans-serif;
+  --surface-selected: #4a463b; --lively-sticker-color: transparent; --lively-chroma-a: #8e3b26; --lively-chroma-b: #4a7a8c;
+  --lively-art-timeline: linear-gradient(#38352d0f 1px, transparent 1px) 0 0 / 100% 24px, linear-gradient(90deg, #38352d0f 1px, transparent 1px) 0 0 / 24px 100%, #d8d2b8;
+  --lively-art-timeline-paint: #38352d; --lively-art-timeline-mask: var(--art-bracket-tl) top 50px left 10px / 18px 18px no-repeat, var(--art-bracket-br) bottom 70px right 10px / 18px 18px no-repeat; --lively-art-timeline-mask-opacity: .6;
+  --lively-art-sidebar: repeating-linear-gradient(0deg, #38352d08 0 1px, transparent 1px 3px);
+  --lively-wipe-fill: repeating-linear-gradient(0deg, #38352d 0 6px, #4a463b 6px 7px, transparent 7px 12px);
+  --lively-wipe-mask: linear-gradient(90deg, transparent 10%, #000 22% 78%, transparent 90%);
+  --lively-burst-fill: transparent; --lively-burst-mask: none;
+}
+.cand[data-theme="yorha"] .row.sel { color: #d8d2b8; }
+.cand[data-theme="yorha"] .row.sel::before { content: ""; position: absolute; left: -6px; top: 50%; width: 4px; height: 4px; background: #4a463b; translate: 0 -50%; }
+.cand[data-theme="yorha"] .head { font: 600 13px/1 var(--lively-font-display); letter-spacing: .16em; text-transform: uppercase; }
+.cand[data-theme="yorha"] .send { border-radius: 0; }
+.cand[data-theme="yorha"] .composer:focus-within { border-color: transparent; outline: 1px solid #4a463b; outline-offset: 3px; animation: none; }
+html.light .cand[data-theme="yorha"] .bb {} /* YoRHa is light-first: its dark block below is the night-mode variant. */
+html.dark .cand[data-theme="yorha"] .bb { --canvas: #22211c; --sidebar: #1b1a16; --card: #2b2a24; --popover: #2b2a24; --border: #4a473d; --ink: #d6cfb4; --muted: #a39d86;
+  --primary: #d6cfb4; --primary-foreground: #22211c; --timeline-accent: #d9876a; --destructive: #e5735f; --warning: #d9a55a; --success: #9fb97a; --surface-selected: #d6cfb4;
+  --lively-art-timeline: linear-gradient(#d6cfb40c 1px, transparent 1px) 0 0 / 100% 24px, linear-gradient(90deg, #d6cfb40c 1px, transparent 1px) 0 0 / 24px 100%, #22211c;
+  --lively-art-timeline-paint: #d6cfb4; --lively-art-timeline-mask-opacity: .35;
+  --lively-wipe-fill: repeating-linear-gradient(0deg, #d6cfb4 0 6px, #a39d86 6px 7px, transparent 7px 12px); }
+html.dark .cand[data-theme="yorha"] .row.sel { color: #22211c; }
+html.dark .cand[data-theme="yorha"] .row.sel::before { background: #d6cfb4; }
+html.dark .cand[data-theme="yorha"] .composer:focus-within { outline-color: #d6cfb4; }
+/* NEW glitchSlice: failure slices the row into offset bands (two pseudo strips, translate only). */
+@keyframes lv-slice { 0%, 100% { translate: 0 0; opacity: 0; } 10% { translate: 6px 0; opacity: 1; } 30% { translate: -4px 0; } 50% { translate: 2px 0; opacity: 1; } 60% { opacity: 0; } }
+.cand[data-theme="yorha"] .row.slice::before { content: attr(data-t); position: absolute; inset: 0; padding: 6px 8px 6px 23px; color: var(--destructive); background: var(--sidebar); clip-path: inset(30% 0 45% 0); animation: lv-slice 260ms steps(4, end) 1; }
+
+/* ================= 4. Hollow Knight — "Hallownest" ================= */
+.cand[data-theme="hallownest"] .bb {
+  --canvas: #0e1317; --sidebar: #0a0e11; --card: #141b20; --popover: #121920; --border: #26313a; --ink: #cdd4da; --muted: #8b96a1;
+  --primary: #b7d4f0; --primary-foreground: #0e1317; --timeline-accent: #efe4c4; --destructive: #e46a64; --warning: #e6a85e; --attention: #e6c98a; --success: #8fd1a0;
+  --radius: 4px; --lively-font-display: "Trajan Pro", "Cinzel", Optima, "Palatino", serif;
+  --lively-sticker-color: transparent; --lively-chroma-a: #b7d4f0; --lively-chroma-b: #efe4c4;
+  --lively-art-timeline: radial-gradient(120% 90% at 50% 40%, transparent 50%, #000000a0 100%), radial-gradient(60% 40% at 50% 0%, #b7d4f012, transparent 70%), #0e1317;
+  --lively-art-timeline-paint: #b7d4f0; --lively-art-timeline-mask: var(--art-drips) top 0 left 0 / 100% 70px no-repeat; --lively-art-timeline-mask-opacity: .07;
+  --lively-art-timeline-2-paint: #b7d4f0; --lively-art-timeline-2-mask: var(--art-arch) bottom 40px right 8% / 150px auto no-repeat; --lively-art-timeline-2-opacity: .05;
+  --lively-art-overlay: repeating-linear-gradient(104deg, #b7d4f007 0 1px, transparent 1px 7px, #b7d4f004 7px 8px, transparent 8px 19px);
+  --lively-art-sidebar: radial-gradient(90% 60% at 50% 100%, #b7d4f00d, transparent 70%);
+  --lively-burst-fill: radial-gradient(circle, #ffffff 0 1.2px, transparent 1.8px) 0 0 / 9px 9px;
+  --lively-burst-mask: radial-gradient(circle, transparent 30%, #000 44% 52%, transparent 70%);
+}
+html.light .cand[data-theme="hallownest"] .bb { --canvas: #ecebe6; --sidebar: #e2e1da; --card: #f4f3ee; --popover: #f7f6f2; --border: #c9c8bf; --ink: #1a2127; --muted: #4f5962;
+  --primary: #2d5a82; --primary-foreground: #fff; --timeline-accent: #6b5a2e; --destructive: #a8322d; --warning: #8f5410; --attention: #7a5c12; --success: #2e6b40;
+  --lively-art-timeline: radial-gradient(120% 90% at 50% 40%, transparent 55%, #1a212722 100%), #ecebe6; --lively-art-timeline-paint: #2d5a82; --lively-art-timeline-mask-opacity: .08; --lively-art-timeline-2-paint: #2d5a82;
+  --lively-art-overlay: repeating-linear-gradient(104deg, #2d5a8209 0 1px, transparent 1px 7px, #2d5a8205 7px 8px, transparent 8px 19px); }
+.cand[data-theme="hallownest"] .head { font: 500 13px/1 var(--lively-font-display); letter-spacing: .14em; text-transform: uppercase; }
+.cand[data-theme="hallownest"] .brand { font-family: var(--lively-font-display); letter-spacing: .3em; }
+/* NEW fadeFromBlack: a thread opens out of darkness (brightness filter only). */
+@keyframes lv-from-black { from { filter: brightness(0); opacity: .2; } 60% { opacity: 1; } to { filter: brightness(1); opacity: 1; } }
+.cand[data-theme="hallownest"] .tw.page-in > .tl, .cand[data-theme="hallownest"] .tw.page-in > .head { animation: lv-from-black calc(var(--lv-enter) * 1.5) var(--lv-ease) backwards; }
+.cand[data-theme="hallownest"].reduced .tw.page-in > .tl { animation: lv-fade 120ms linear backwards; }
+/* NEW soulRise: on success a few pale motes rise out of the row once. */
+@keyframes lv-mote { from { opacity: 0; translate: 0 6px; } 30% { opacity: 1; } to { opacity: 0; translate: 0 -26px; } }
+.cand[data-theme="hallownest"] .row.pulse.good::before { content: "· ˙ ·"; position: absolute; right: 12px; top: 0; color: var(--primary); letter-spacing: 3px; font-size: 16px; text-shadow: 0 0 6px var(--primary); animation: lv-mote 400ms var(--lv-ease) 1 both; }
+
+/* ================= 5. Balatro — "Joker" ================= */
+.cand[data-theme="joker"] .bb {
+  --canvas: #1b2b2b; --sidebar: #142222; --card: #243838; --popover: #20302f; --border: #335050; --ink: #ebe6d9; --muted: #9fb0ab;
+  --primary: #2fa9ff; --primary-foreground: #04182a; --timeline-accent: #f5b143; --destructive: #fe5f55; --warning: #ff9a3c; --attention: #f5b143; --success: #4fd19a; --pr-merged: #a98bd0;
+  --radius: 10px; --lively-font-display: "Silkscreen", "Press Start 2P", ui-monospace, monospace;
+  --lively-sticker-color: #0a1414; --lively-chroma-a: #fe5f55; --lively-chroma-b: #2fa9ff;
+  --lively-art-timeline: radial-gradient(closest-side at 62% 52%, #1b2b2bf0 0 30%, #1b2b2b80 60%, transparent 100%) 0 0 / 100% 100%,
+    repeating-conic-gradient(from 10deg at 62% 52%, #fe5f5530 0deg, #1b2b2b00 22deg, #2fa9ff30 45deg, #1b2b2b00 67deg, #fe5f5530 90deg),
+    #1b2b2b;
+  --lively-art-overlay: repeating-linear-gradient(0deg, #0000002e 0 1px, transparent 1px 3px), radial-gradient(130% 100% at 50% 50%, transparent 58%, #00000080 100%);
+  --lively-art-timeline-paint: #ebe6d9; --lively-art-timeline-mask: var(--art-suits) bottom 70px right 18px / 120px auto no-repeat; --lively-art-timeline-mask-opacity: .14;
+  --lively-burst-fill: radial-gradient(circle, #2fa9ff 0 2px, transparent 2.4px) 0 0 / 8px 8px; --lively-burst-mask: radial-gradient(circle, transparent 36%, #000 42% 60%, transparent 68%);
+}
+html.light .cand[data-theme="joker"] .bb { --canvas: #efe8d8; --sidebar: #e4dcc9; --card: #f8f3e7; --popover: #fbf7ee; --border: #cbbf a6; --border: #cbbfa6; --ink: #1f2a2a; --muted: #4f5b5a;
+  --primary: #0068b8; --primary-foreground: #fff; --timeline-accent: #8a5a00; --destructive: #b03224; --warning: #9a5408; --success: #1a6e48; --lively-sticker-color: #1f2a2a;
+  --lively-art-timeline: radial-gradient(60% 80% at 20% 30%, #b0322412, transparent 60%), radial-gradient(60% 80% at 85% 70%, #0068b812, transparent 60%), #efe8d8;
+  --lively-art-overlay: repeating-linear-gradient(0deg, #0000000d 0 1px, transparent 1px 3px); --lively-art-timeline-paint: #1f2a2a; }
+.cand[data-theme="joker"] .head { font: 700 12px/1 var(--lively-font-display); letter-spacing: .06em; }
+.cand[data-theme="joker"] .sb .row { border: 1px solid transparent; }
+.cand[data-theme="joker"] .sb .row.sel { border-color: color-mix(in oklab, var(--primary) 50%, transparent); }
+/* NEW scorePop: a status lands as a floating chip/mult tag that pops and drifts up. */
+@keyframes lv-score { 0% { opacity: 0; scale: .4; translate: 0 0; rotate: -8deg; } 25% { opacity: 1; scale: 1.15; rotate: 4deg; } 45% { scale: 1; rotate: 0deg; } 80% { opacity: 1; } 100% { opacity: 0; translate: 0 -18px; } }
+.cand[data-theme="joker"] .row.pulse::before { content: attr(data-score); position: absolute; right: 8px; top: 3px; padding: 2px 6px; border-radius: 5px; font: 700 11px/1.2 var(--font-mono); color: #fff;
+  background: var(--tone); filter: drop-shadow(2px 2px 0 #0a1414); animation: lv-score 520ms var(--lv-spring) 1 both; }
+.cand[data-theme="joker"].reduced .row.pulse::before { display: none; }
+
+/* ================= 6. Splatoon — "Turf" ================= */
+.cand[data-theme="turf"] .bb {
+  --canvas: #15121d; --sidebar: #100d17; --card: #1e1a29; --popover: #1c1826; --border: #2f2940; --ink: #d9d3e8; --muted: #a49cb8;
+  --primary: #eaff3d; --primary-foreground: #15121d; --timeline-accent: #ff4fa3; --destructive: #ff5a5a; --warning: #ffa53d; --attention: #ffa53d; --success: #2ee6a6;
+  --radius: 16px; --lively-font-display: "Arial Rounded MT Bold", "Baloo 2", "Nunito", sans-serif;
+  --lively-sticker-color: transparent; --lively-chroma-a: #eaff3d; --lively-chroma-b: #ff4fa3;
+  --lively-art-timeline: #15121d;
+  --lively-art-timeline-paint: #ff4fa3; --lively-art-timeline-mask: var(--art-splat2) bottom -70px left -60px / 200px 200px no-repeat; --lively-art-timeline-mask-opacity: .6;
+  --lively-art-timeline-2-paint: #eaff3d; --lively-art-timeline-2-mask: var(--art-splat2) top -70px right -60px / 210px 210px no-repeat; --lively-art-timeline-2-opacity: .75;
+  --lively-wipe-fill: #ff4fa3; --lively-wipe-mask: var(--art-inkwall) center / 100% 100% no-repeat;
+  --lively-burst-fill: #eaff3d; --lively-burst-mask: var(--art-splat) center / contain no-repeat;
+}
+html.light .cand[data-theme="turf"] .bb { --canvas: #f4f2ea; --sidebar: #ebe8dc; --card: #fff; --popover: #fff; --border: #d6d2c3; --ink: #1a1626; --muted: #555066;
+  --primary: #5a2bd9; --primary-foreground: #fff; --timeline-accent: #c2185b; --destructive: #c62828; --warning: #a35400; --success: #00796b; --lively-art-timeline: #f4f2ea;
+  --lively-art-timeline-paint: #e5197a; --lively-art-timeline-2-paint: #a8c400; --lively-art-timeline-mask-opacity: .18; --lively-art-timeline-2-opacity: .22; --lively-burst-fill: #5a2bd9; --lively-wipe-fill: #5a2bd9; }
+.cand[data-theme="turf"] .head { font: 800 14px/1 var(--lively-font-display); }
+.cand[data-theme="turf"] .send { border-radius: 42% 58% 52% 48% / 55% 45% 55% 45%; }
+
+/* ================= 7. Risograph — "Riso" ================= */
+.cand[data-theme="riso"] .bb {
+  --canvas: #f5efe3; --sidebar: #ede5d4; --card: #fbf7ee; --popover: #fbf7ee; --border: #d8ccb4; --ink: #1d1b2c; --muted: #55526a;
+  --primary: #0070b8; --primary-foreground: #fff; --timeline-accent: #c4126f; --destructive: #c42341; --warning: #9a5208; --attention: #9a5208; --success: #00757b;
+  --radius: 4px; --lively-font-display: "Cooper Black", "Recoleta", "Georgia", serif;
+  --lively-sticker-color: #ff48b0; --lively-chroma-a: #ff48b0; --lively-chroma-b: #0078bf;
+  --lively-art-timeline: #f5efe3;
+  --lively-art-overlay: var(--art-grain) 0 0 / 180px 180px; --lively-art-overlay-opacity: .5;
+  --lively-art-timeline-paint: radial-gradient(circle, #ff48b0 1.2px, transparent 1.7px) 0 0 / 6px 6px; --lively-art-timeline-mask: radial-gradient(circle at 88% 12%, #000 0 18%, transparent 18.5%), radial-gradient(circle at 80% 22%, #000 0 9%, transparent 9.5%); --lively-art-timeline-mask-opacity: .55;
+  --lively-art-sidebar: radial-gradient(circle, #0078bf24 1px, transparent 1.6px) 3px 2px / 6px 6px;
+  --lively-wipe-fill: radial-gradient(circle, #0078bf 1.6px, transparent 2.2px) 2px 1px / 7px 7px, radial-gradient(circle, #ff48b0 2.4px, transparent 2.9px) 0 0 / 7px 7px, #fbf7ee;
+  --lively-burst-fill: radial-gradient(circle, #ff48b0 1.6px, transparent 2px) 0 0 / 6px 6px;
+}
+html.dark .cand[data-theme="riso"] .bb { --canvas: #1a1922; --sidebar: #15141c; --card: #22212c; --popover: #22212c; --border: #34323f; --ink: #e6dfcf; --muted: #a7a1b4;
+  --primary: #59b3ff; --primary-foreground: #0b1a29; --timeline-accent: #ff6cbd; --destructive: #ff6a7f; --warning: #ffb35c; --success: #3fd0c2; --lively-art-timeline: #1a1922; --lively-art-overlay-opacity: .35;
+  --lively-wipe-fill: radial-gradient(circle, #59b3ff 1.6px, transparent 2.2px) 2px 1px / 7px 7px, radial-gradient(circle, #ff48b0 2.4px, transparent 2.9px) 0 0 / 7px 7px, #22212c; }
+.cand[data-theme="riso"] .head { font: 700 15px/1 var(--lively-font-display); }
+.cand[data-theme="riso"] .msg.user { box-shadow: 2px 2px 0 #ff48b066; }
+
+/* ================= 8. Ukiyo-e — "Ukiyo" ================= */
+.cand[data-theme="ukiyo"] .bb {
+  --canvas: #f1eadb; --sidebar: #e8dfcc; --card: #f7f2e6; --popover: #f7f2e6; --border: #d3c6aa; --ink: #1c2540; --muted: #4c5470;
+  --primary: #1f4a85; --primary-foreground: #fff; --timeline-accent: #a8432c; --destructive: #a12a2a; --warning: #8c5a12; --attention: #8c5a12; --success: #3f6b3a;
+  --radius: 3px; --lively-font-display: "Hiragino Mincho ProN", "Shippori Mincho", "Songti SC", serif;
+  --lively-sticker-color: transparent; --lively-chroma-a: #1f4a85; --lively-chroma-b: #a8432c;
+  --lively-art-timeline: linear-gradient(180deg, #f1eadb 0 55%, #e9dfca), #f1eadb;
+  --lively-art-timeline-paint: #1f4a85; --lively-art-timeline-mask: var(--art-wave) bottom -6px right -20px / 58% auto no-repeat; --lively-art-timeline-mask-opacity: .16;
+  --lively-art-sidebar-paint: #1f4a85; --lively-art-sidebar-mask: var(--art-seigaiha) 0 0 / 36px 18px repeat; --lively-art-sidebar-mask-opacity: .07;
+  --lively-wipe-fill: #1f4a85; --lively-wipe-mask: var(--art-brush) center / 100% 100% no-repeat;
+  --lively-burst-fill: repeating-radial-gradient(circle, #1f4a85 0 1.2px, transparent 1.2px 5px); --lively-burst-mask: radial-gradient(circle, transparent 20%, #000 30% 64%, transparent 72%);
+}
+html.dark .cand[data-theme="ukiyo"] .bb { --canvas: #1f1f28; --sidebar: #16161d; --card: #2a2a37; --popover: #2a2a37; --border: #363646; --ink: #dcd7ba; --muted: #9a9787;
+  --primary: #7e9cd8; --primary-foreground: #16161d; --timeline-accent: #e6c384; --destructive: #e46876; --warning: #ffa066; --success: #98bb6c;
+  --lively-art-timeline: #1f1f28; --lively-art-timeline-paint: #7e9cd8; --lively-art-timeline-mask-opacity: .12; --lively-art-sidebar-paint: #7e9cd8;
+  --lively-wipe-fill: #2d4f67; --lively-burst-fill: repeating-radial-gradient(circle, #7e9cd8 0 1.2px, transparent 1.2px 5px); }
+.cand[data-theme="ukiyo"] .head { font: 600 14px/1 var(--lively-font-display); letter-spacing: .06em; }
+.cand[data-theme="ukiyo"] .brand { font-family: var(--lively-font-display); }
+/* NEW sealStamp: a finished thread gets a vermilion seal stamped on its row once, which then fades. */
+@keyframes lv-seal { 0% { opacity: 0; scale: 1.8; rotate: -14deg; } 55% { opacity: .95; scale: .94; rotate: -6deg; } 75% { scale: 1.02; } 100% { opacity: .95; scale: 1; rotate: -6deg; } }
+.cand[data-theme="ukiyo"] .row.pulse.good::before { content: "済"; position: absolute; right: 8px; top: 50%; margin-top: -10px; width: 20px; height: 20px; display: grid; place-items: center; font: 700 12px/1 var(--lively-font-display);
+  color: #fff; background: #b8382a; border-radius: 3px; animation: lv-seal 360ms var(--lv-ease) 1 both; }
+.cand[data-theme="ukiyo"].reduced .row.pulse.good::before { animation: lv-fade 120ms linear 1 both; }
+.cand[data-theme="ukiyo"] .enter { animation: lv-enter var(--lv-enter) var(--lv-ease) backwards; }
+
+/* ?still=1 (screenshots only): no animation, end states shown */
+html.still .cand *, html.still .cand *::before, html.still .cand *::after { animation: none !important; transition: none !important; }
+html.still .cand.turn .turnbar .fill { scale: .72 1; } html.still .cand.turn .turnbar .q i { opacity: 1; } html.still .cand.turn .tl::before { scale: 1 1; opacity: .9; }
+.cand[data-userart="on"] .tw::after { content: "user art slot (stand-in gradient; the owner's own image goes here)"; position: absolute; right: 16px; top: 52px; z-index: 5; font: 600 10.5px/1 var(--font-mono); color: var(--muted); opacity: .8; }
+/* reduced: the global toggle and the OS both collapse every card to opacity fades */
+@media (prefers-reduced-motion: reduce) { .cand .bb *, .cand .bb *::before, .cand .bb *::after { animation-duration: 120ms !important; animation-iteration-count: 1 !important; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>bb-lively theme presets <small>8 candidates · 2026-10-25</small></h1>
+  <div class="seg" role="group" aria-label="Mode"><button data-mode="dark" aria-pressed="true">Dark</button><button data-mode="light" aria-pressed="false">Light</button></div>
+  <div class="seg" role="group" aria-label="Motion"><button data-motion="full" aria-pressed="true">Full motion</button><button data-motion="reduced" aria-pressed="false">Reduced</button></div>
+  <div class="seg"><button id="playall" aria-pressed="false">Play every card</button></div>
+</header>
+<p class="lede">Each card is one <b>preset</b>: a bb palette theme (bb's own token names) plus a lively motion personality (style, intensity, knobs, effect switches), and a proposed <b>art layer</b> the theme declares and lively paints. Hover sidebar rows, focus a composer, press buttons, and use the controls under each mock. <span class="new">NEW</span> marks effects or tokens bb-lively does not have yet. All art on this page is original (SVG and CSS drawn for it); no game art, logos or fonts are used. Write-up: <code>docs/research/2026-10-25-lively-theme-candidates.md</code>; per-theme mappings: <code>assets/bb-plugins/bb-lively/ART-DIRECTION.md</code>.</p>
+<main id="cands"></main>
+
+<template id="mock">
+  <div class="bb">
+    <aside class="sb"><div class="art"></div>
+      <div class="brand"><span class="bn"></span><em>bb</em></div>
+      <div class="sec">Threads</div>
+      <div class="row sel"><span class="dot run"></span><span class="t r0"></span></div>
+      <div class="row"><span class="dot ok"></span><span class="t r1"></span></div>
+      <div class="row"><span class="dot wait"></span><span class="t r2"></span></div>
+      <div class="row"><span class="dot"></span><span class="t r3"></span></div>
+      <div class="sec">Earlier</div>
+      <div class="row"><span class="dot err"></span><span class="t r4"></span></div>
+      <div class="row"><span class="dot"></span><span class="t r5"></span></div>
+    </aside>
+    <section class="tw">
+      <div class="userart userart-standin"></div><div class="art"></div><div class="art l2"></div><div class="art l3"></div><div class="art l4"></div>
+      <div class="head"><span class="crumb">dotfiles /</span><span class="ttl"></span><span class="pill">opus · plan</span></div>
+      <div class="turnbar"><span>Turn()</span><div class="track"><div class="fill"></div><i class="seg" style="left:25%"></i><i class="seg" style="left:50%"></i><i class="seg" style="left:75%"></i></div><div class="q"><i></i><i></i><i></i></div></div>
+      <div class="tl">
+        <div class="msg user">Make the theme picker remember the last preset.</div>
+        <div class="msg tool"><b>Read</b> core/src/domain/settings.ts · <b>Grep</b> "preset"</div>
+        <div class="msg agent">Presets resolve in <code>resolveMotion</code>; I'll add a stored id and keep every knob overridable.</div>
+        <div class="diff"><div class="r">- readonly speed: Speed;</div><div class="a">+ readonly preset: PresetId | null;</div></div>
+        <div class="approval"><div class="q">Allow <b>Edit</b> to settings.ts?<small>2 files · +14 −3</small></div><button class="btn" data-act="deny">Deny</button><button class="btn pri" data-act="approve">Approve</button></div>
+        <div class="working">Working…</div>
+      </div>
+      <div class="composer"><input placeholder="Ask, plan, or @mention a file"><span class="tools">⌘↵</span><button class="send" aria-label="Send"><span class="icon">↑</span></button></div>
+      <div class="toasts"></div>
+      <div class="veil"></div><div class="cutin"><span>Thread complete</span></div>
+      <div class="wipe"></div>
+    </section>
+  </div>
+</template>
+
+<script>
+/* ---------- motion tokens: a copy of core/src/domain/motion.ts (CLEAN, WOBBLY) ---------- */
+const CLEAN = {
+  subtle: { pressMs: 90, releaseMs: 160, enterMs: 220, overlayMs: 160, exitMs: 90, pulseMs: 300, breatheMs: 0, overshoot: 0.025, rise: 6, lift: 1, blur: 0, stagger: 30, pressScale: 0.97, overlayScale: 0.96, rippleScale: 1.6, ringScale: 1.035, burst: 0, glow: 0.14, sticker: 2 },
+  lively: { pressMs: 85, releaseMs: 220, enterMs: 280, overlayMs: 210, exitMs: 100, pulseMs: 340, breatheMs: 2800, overshoot: 0.08, rise: 10, lift: 1.5, blur: 2, stagger: 40, pressScale: 0.96, overlayScale: 0.94, rippleScale: 1.9, ringScale: 1.06, burst: 1, glow: 0.22, sticker: 3 },
+  bold: { pressMs: 80, releaseMs: 280, enterMs: 360, overlayMs: 260, exitMs: 120, pulseMs: 400, breatheMs: 2400, overshoot: 0.16, rise: 16, lift: 2, blur: 4, stagger: 55, pressScale: 0.95, overlayScale: 0.9, rippleScale: 2.3, ringScale: 1.09, burst: 1.45, glow: 0.32, sticker: 4 },
+};
+const STILL = { peakAt: 0.4, squash: 0, skew: 0, tilt: 0, swell: 0, flash: 0, chroma: 0 };
+for (const k in CLEAN) Object.assign(CLEAN[k], STILL, { ...CLEAN[k] });
+const WOBBLY = {
+  subtle: { ...CLEAN.subtle, pressMs: 70, releaseMs: 320, enterMs: 340, overlayMs: 300, exitMs: 80, pulseMs: 320, overshoot: 0.18, peakAt: 0.26, rise: 8, blur: 0, stagger: 50, pressScale: 0.95, overlayScale: 0.92, squash: 0.05, skew: -4, tilt: -0.6, sticker: 2, swell: 0.03, flash: 0.25, chroma: 1 },
+  lively: { ...CLEAN.lively, pressMs: 65, releaseMs: 400, enterMs: 420, overlayMs: 360, exitMs: 80, pulseMs: 360, overshoot: 0.3, peakAt: 0.2, rise: 14, blur: 0, stagger: 50, pressScale: 0.93, overlayScale: 0.86, squash: 0.09, skew: -8, tilt: -1.2, sticker: 3, swell: 0.055, flash: 0.45, chroma: 2 },
+  bold: { ...CLEAN.bold, pressMs: 60, releaseMs: 480, enterMs: 500, overlayMs: 420, exitMs: 90, pulseMs: 400, overshoot: 0.42, peakAt: 0.16, rise: 20, blur: 0, stagger: 50, pressScale: 0.9, overlayScale: 0.8, squash: 0.14, skew: -12, tilt: -2, sticker: 4, swell: 0.08, flash: 0.7, chroma: 3 },
+};
+const SPEED = { snappy: 0.8, normal: 1, relaxed: 1.25 };
+function springPos({ overshoot, peakAt = 0.4 }) { return (t) => {
+  if (overshoot <= 0) { const o = 7; return 1 - Math.exp(-o * t) * (1 + o * t); }
+  const l = Math.log(overshoot), z = -l / Math.sqrt(Math.PI ** 2 + l ** 2), wd = Math.PI / peakAt, w = wd / Math.sqrt(1 - z ** 2), d = Math.exp(-z * w * t);
+  return 1 - d * (Math.cos(wd * t) + ((z * w) / wd) * Math.sin(wd * t)); }; }
+function springEasing(s) { const n = Math.max(24, Math.round(8 / (s.peakAt ?? 0.4))), p = springPos(s), a = [];
+  for (let i = 0; i <= n; i++) a.push(i === n ? 1 : Math.round(p(i / n) * 1000) / 1000); return `linear(${a.join(", ")})`; }
+
+/* ---------- original art, drawn for this page (masks: shape only, the theme paints the color) ---------- */
+const svg = (vb, body) => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='${vb}' preserveAspectRatio='none'>${body}</svg>`)}")`;
+const svgK = (vb, body) => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='${vb}'>${body}</svg>`)}")`;
+const ART = {
+  // The wipe as a sweep of square cells (the Process breaking things into blocks): a stepped leading and trailing edge.
+  cells: svg("0 0 100 100", (() => { let b = "<rect x='22' y='0' width='56' height='100'/>"; const s = 100 / 14;
+      for (let r = 0; r < 14; r++) { const n = (r * 7 + 3) % 5, m = (r * 3 + 1) % 4;
+        for (let c = 0; c < n; c++) b += `<rect x='${22 - (c + 1) * 3.2}' y='${r * s}' width='3' height='${s - .4}' opacity='${1 - c * .22}'/>`;
+        for (let c = 0; c < m; c++) b += `<rect x='${78 + c * 3.2}' y='${r * s}' width='3' height='${s - .4}' opacity='${1 - c * .25}'/>`; }
+      return b; })()),
+  shards: svgK("0 0 400 300", `<polygon points='400,0 160,0 300,90 120,70 400,220'/><polygon points='400,240 260,150 400,300' opacity='.6'/><polygon points='90,10 140,0 60,60' opacity='.7'/>`),
+  jag: svg("0 0 100 100", `<polygon points='30,0 70,0 64,12 76,20 66,34 80,44 68,58 82,70 70,84 78,100 30,100 36,88 24,76 34,62 20,50 32,36 18,24 30,12'/>`),
+  star: svgK("0 0 100 100", `<polygon points='50,0 58,34 92,14 68,44 100,52 66,60 86,92 54,70 46,100 40,68 8,88 30,58 0,46 34,40 14,8 44,30'/>`),
+  brackets: svg("0 0 100 100", `<g fill='none' stroke='#000' stroke-width='.5'><path d='M3 9V3H9M91 3H97V9M97 91V97H91M9 97H3V91'/></g><g fill='#000'><rect x='46' y='2.2' width='8' height='.5'/><rect x='2.2' y='46' width='.5' height='8'/></g>`),
+  filigree: svgK("0 0 300 200", `<g fill='none' stroke='#000' stroke-width='2.2' stroke-linecap='round'>
+    <path d='M10 190C40 120 110 150 120 110C130 70 80 60 74 88C70 106 96 112 100 96'/>
+    <path d='M120 110C150 90 190 120 220 90C246 64 230 30 206 40C188 48 196 72 214 66'/>
+    <path d='M60 190C80 160 120 176 150 160C176 146 172 120 156 124'/>
+    <path d='M220 90C250 110 270 100 290 70'/></g>`),
+  suits: svgK("0 0 120 40", `<path d='M14 4C20 12 28 16 22 26C18 32 14 28 14 24C14 28 10 32 6 26C0 16 8 12 14 4Z M12 24H16L18 36H10Z'/><path d='M46 6L56 20L46 34L36 20Z'/><circle cx='80' cy='14' r='6'/><circle cx='73' cy='24' r='6'/><circle cx='87' cy='24' r='6'/><rect x='78' y='24' width='4' height='12'/><path d='M110 34C98 24 96 18 100 12C104 6 110 10 110 14C110 10 116 6 120 12C124 18 122 24 110 34Z' transform='translate(-6 0)'/>`),
+  splats: svg("0 0 100 100", `<path d='M84 6C90 4 98 10 96 18C100 22 98 30 92 30C90 36 82 38 80 32C72 34 70 24 76 20C72 14 78 6 84 6Z'/><circle cx='70' cy='8' r='2'/><circle cx='99' cy='36' r='1.5'/>
+    <path d='M8 66C14 62 22 66 22 72C30 72 32 82 24 86C26 94 16 98 12 92C4 96 -2 88 2 82C-2 76 2 68 8 66Z'/><circle cx='28' cy='64' r='2'/><circle cx='30' cy='94' r='1.4'/>`),
+  splat: svgK("0 0 100 100", `<path d='M50 6C58 6 60 20 66 22C74 14 86 18 82 28C78 36 92 40 92 50C92 58 80 58 80 64C88 72 82 86 72 82C64 78 62 92 52 94C42 96 42 82 34 82C24 86 14 78 20 68C24 62 8 60 8 50C8 40 22 42 22 34C16 24 26 14 36 20C42 24 42 6 50 6Z'/><circle cx='92' cy='16' r='4'/><circle cx='10' cy='88' r='3'/><circle cx='88' cy='86' r='2.5'/>`),
+  inkwall: svg("0 0 100 100", `<path d='M26 0H74C70 8 80 14 74 22C68 30 82 36 76 46C70 56 84 62 76 72C70 80 82 88 74 100H26C30 92 18 84 26 76C34 66 20 60 28 50C34 40 20 34 28 24C34 16 22 8 26 0Z'/>`),
+  grain: svgK("0 0 180 180", `<filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .1  0 0 0 0 .1  0 0 0 0 .15  0 0 0 .55 0'/></filter><rect width='180' height='180' filter='url(%23n)'/>`.replace("%23", "#")),
+  wave: svgK("0 0 600 200", `<path d='M0 200V150C60 140 110 160 160 140C220 116 230 60 300 40C360 22 420 40 440 80C452 104 430 124 410 116C396 110 400 92 414 92C404 70 370 62 344 76C310 94 318 140 360 150C420 164 470 120 520 130C560 138 580 150 600 146V200Z'/>
+    <g fill='none' stroke='#000' stroke-width='3' stroke-linecap='round'><path d='M300 40C292 30 296 18 306 16M320 36C316 26 322 18 330 18M340 36C338 28 344 22 352 24'/></g>
+    <path d='M70 200V176C110 168 140 180 180 168C220 156 240 176 280 174C320 172 350 160 400 170C450 180 520 166 600 176V200Z' opacity='.6'/>`),
+  seigaiha: svgK("0 0 40 20", `<g fill='none' stroke='#000' stroke-width='1'><circle cx='0' cy='20' r='18'/><circle cx='0' cy='20' r='13'/><circle cx='0' cy='20' r='8'/><circle cx='40' cy='20' r='18'/><circle cx='40' cy='20' r='13'/><circle cx='40' cy='20' r='8'/><circle cx='20' cy='10' r='18'/><circle cx='20' cy='10' r='13'/><circle cx='20' cy='10' r='8'/></g>`),
+  brush: svg("0 0 100 100", `<path d='M28 0C34 2 40 0 48 1C58 0 66 3 74 1C70 10 78 16 72 26C76 36 68 44 74 54C70 64 78 72 72 82C76 90 70 96 74 100H28C24 92 30 86 26 76C22 66 30 58 26 48C22 38 30 30 26 20C22 12 30 6 28 0Z'/><rect x='74' y='18' width='4' height='2'/><rect x='76' y='60' width='5' height='1.5'/><rect x='21' y='40' width='4' height='1.5'/>`),
+};
+
+// A seeded skyline of our own: arched towers, onion domes, needle spires and setbacks (Cloudbank in spirit, drawn from scratch).
+function rng(seed) { return () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296; }
+function skyline(seed, W, H, minH, maxH, wMin, wMax, winP) {
+  const r = rng(seed); let x = -10, d = `M-10 ${H}`, wins = "";
+  while (x < W) {
+    const w = wMin + r() * (wMax - wMin), h = minH + r() * (maxH - minH), top = H - h, t = r(), cx = x + w / 2;
+    d += ` L${x.toFixed(1)} ${top.toFixed(1)}`;
+    if (t < .28) d += ` A${(w / 2).toFixed(1)} ${(w / 2).toFixed(1)} 0 0 1 ${(x + w).toFixed(1)} ${top.toFixed(1)}`;
+    else if (t < .48) d += ` C${x.toFixed(1)} ${(top - w * .45).toFixed(1)} ${(cx - w * .08).toFixed(1)} ${(top - w * .5).toFixed(1)} ${cx.toFixed(1)} ${(top - w * .95).toFixed(1)} C${(cx + w * .08).toFixed(1)} ${(top - w * .5).toFixed(1)} ${(x + w).toFixed(1)} ${(top - w * .45).toFixed(1)} ${(x + w).toFixed(1)} ${top.toFixed(1)}`;
+    else if (t < .66) d += ` L${(x + w * .3).toFixed(1)} ${top.toFixed(1)} L${(x + w * .3).toFixed(1)} ${(top - h * .16).toFixed(1)} L${cx.toFixed(1)} ${(top - h * .42).toFixed(1)} L${(x + w * .7).toFixed(1)} ${(top - h * .16).toFixed(1)} L${(x + w * .7).toFixed(1)} ${top.toFixed(1)} L${(x + w).toFixed(1)} ${top.toFixed(1)}`;
+    else if (t < .84) d += ` L${(x + w * .18).toFixed(1)} ${top.toFixed(1)} L${(x + w * .18).toFixed(1)} ${(top - 10).toFixed(1)} L${(x + w * .82).toFixed(1)} ${(top - 10).toFixed(1)} L${(x + w * .82).toFixed(1)} ${top.toFixed(1)} L${(x + w).toFixed(1)} ${top.toFixed(1)}`;
+    else d += ` L${(x + w).toFixed(1)} ${top.toFixed(1)}`;
+    d += ` L${(x + w).toFixed(1)} ${H}`;
+    if (winP) for (let y = top + 9; y < H - 6; y += 9) for (let wx = x + 5; wx < x + w - 6; wx += 7) if (r() < winP) wins += `<rect x='${wx.toFixed(1)}' y='${y.toFixed(1)}' width='2.6' height='4.2'/>`;
+    x += w + (r() < .35 ? 2 + r() * 8 : 0); d += ` L${x.toFixed(1)} ${H}`;
+  }
+  return { d: d + ` L${W + 10} ${H} Z`, wins };
+}
+const FAR = skyline(7, 1200, 150, 70, 140, 34, 86, 0), NEAR = skyline(41, 1200, 118, 34, 96, 24, 62, .16);
+const sky = (vb, body) => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='${vb}' preserveAspectRatio='xMidYMax slice'>${body}</svg>`)}")`;
+ART["skyline-far"] = sky("0 0 1200 150", `<path d='${FAR.d}'/>`);
+ART["skyline-near"] = sky("0 0 1200 118", `<path d='${NEAR.d}'/>`);
+ART["skyline-windows"] = sky("0 0 1200 118", NEAR.wins);
+// An Art Nouveau cartouche for the sidebar head: a double arch with a whiplash crest and curling feet.
+ART["nouveau-frame"] = svgK("0 0 200 70", `<g fill='none' stroke='#000' stroke-linecap='round'>
+  <path stroke-width='1.6' d='M4 70V32C4 16 16 8 32 8H78C88 8 92 2 100 2C108 2 112 8 122 8H168C184 8 196 16 196 32V70'/>
+  <path stroke-width='.9' d='M10 62V34C10 21 19 14 32 14H168C181 14 190 21 190 34V62'/>
+  <path stroke-width='1.3' d='M10 62C10 68 2 68 3 62M190 62C190 68 198 68 197 62'/>
+  <path stroke-width='1.1' d='M60 8C66 14 74 14 78 8M140 8C134 14 126 14 122 8'/>
+  <path stroke-width='1' d='M22 52C28 48 28 42 24 40C20 38 17 42 20 45M178 52C172 48 172 42 176 40C180 38 183 42 180 45'/></g>
+  <circle cx='100' cy='2.6' r='2.4' fill='#000'/><path d='M96 8L100 13L104 8Z' fill='#000'/>`);
+
+// A curling woodcut wave of our own (in the spirit of Edo prints): a filled body, foam claws on the lip, carved bands, a small far peak.
+ART.wave = svgK("0 0 600 300", (() => {
+  let b = `<path fill-opacity='.55' d='M0 300V232C80 222 150 242 210 202C262 166 282 100 340 70C392 44 452 50 482 92C502 120 488 152 462 152C440 152 432 132 446 120C430 102 400 104 378 124C350 148 352 198 392 216C452 242 530 212 600 224V300Z'/>`;
+  b += `<g fill='none' stroke='#000' stroke-width='3' stroke-linecap='round'>`;
+  b += `<path d='M0 252C90 242 160 258 222 226C270 200 290 150 330 116'/><path d='M0 274C100 266 172 280 238 250C292 224 318 182 350 160'/><path d='M392 236C460 258 530 232 600 244'/>`;
+  b += `<path d='M346 92C370 76 410 74 440 96'/><path d='M356 112C376 98 404 98 424 110'/></g>`;
+  const lip = [[340, 70], [360, 60], [382, 54], [404, 52], [426, 56], [446, 64], [464, 76], [478, 92], [484, 110]];
+  b += `<g fill='#000'>` + lip.map(([x, y], i) => `<path d='M${x} ${y}c-4 -12 6 -20 14 -16c-6 0 -9 5 -6 10z' transform='rotate(${i * 14 - 20} ${x} ${y})'/>`).join("") + `</g>`;
+  b += `<path fill-opacity='.8' d='M470 226L510 192L520 198L528 190L560 226Z'/><path fill='#fff' d='M502 199L510 192L520 198L528 190L536 197L526 202L518 199L510 204Z' fill-opacity='0'/>`;
+  return b; })());
+// Hallownest: drips hanging from the cavern ceiling, and the faint arch of a drowned city's window.
+ART.drips = svg("0 0 400 60", (() => { let b = "<rect x='0' y='0' width='400' height='6'/>"; const r = rng(11);
+  for (let x = 4; x < 400; x += 10 + r() * 22) { const h = 8 + r() * 46, w = 3 + r() * 6;
+    b += `<path d='M${x} 0V${h.toFixed(1)}Q${(x + w / 2).toFixed(1)} ${(h + w).toFixed(1)} ${(x + w).toFixed(1)} ${h.toFixed(1)}V0Z'/>`; }
+  return b; })());
+ART.arch = svgK("0 0 200 300", `<g fill='none' stroke='#000' stroke-width='3'><path d='M20 300V120C20 50 100 10 100 10C100 10 180 50 180 120V300'/><path d='M40 300V126C40 70 100 38 100 38C100 38 160 70 160 126V300'/><path d='M100 38V300M40 170H160M40 230H160'/></g>`);
+// YoRHa: corner brackets that keep their stroke at any size (four small SVGs, not a stretched one).
+ART["bracket-tl"] = svgK("0 0 24 24", `<path d='M1 23V1H23' fill='none' stroke='#000' stroke-width='1.5'/>`);
+ART["bracket-br"] = svgK("0 0 24 24", `<path d='M23 1V23H1' fill='none' stroke='#000' stroke-width='1.5'/>`);
+// Splatoon: one splat, used twice in two inks.
+ART.splat2 = svgK("0 0 100 100", `<path d='M52 8C60 8 60 22 66 24C74 16 88 20 82 30C78 37 92 42 90 52C88 60 78 58 78 64C86 72 80 86 70 82C62 79 60 92 50 92C40 92 42 80 34 80C24 84 14 76 20 66C24 60 10 58 10 50C10 40 22 42 24 34C18 24 28 14 38 20C44 24 44 8 52 8Z'/><circle cx='92' cy='18' r='4'/><circle cx='97' cy='30' r='2'/><circle cx='8' cy='86' r='3.4'/><circle cx='18' cy='96' r='2'/><circle cx='86' cy='90' r='2.6'/><path d='M66 82C70 92 66 100 62 100C58 100 60 92 66 82Z'/>`);
+
+/* ---------- the candidates ---------- */
+const CANDS = [
+  { id: "transistor", hero: true, name: "Transistor — “Cloudbank”", src: "Supergiant Games' Transistor (2014): Jen Zee's painterly Art Nouveau dusk, the Turn() planning freeze, the Process's cells, the sword's turquoise hum",
+    style: "clean", intensity: "lively", speed: "normal", skew: "off", stickers: "off", wipe: "on", hum: "on", over: { glow: 0.3, breatheMs: 3200 },
+    knobs: ["style clean", "intensity lively", "speed normal", "stickers off", "skew —", "jelly —", "page wipe on (cells)", "working glow: hum"],
+    news: ["turnFreeze", "traceLine", "art layer: skyline + nouveau frame", "wipe mask: cells", "burst: function rays", "user art slot"],
+    brand: "Cloudbank", title: "Process the preset store", rows: ["Process the preset store", "Jaunt() through settings", "Limiter: reduced motion", "Cloudbank skyline art", "Trace a failed build", "Fix the Access Point"],
+    msgs: ["Function queued: <code>Crash()</code> on the stale cache.", "Trace complete. Two calls left in this Turn().", "Limiter on: reduced motion keeps only fades.", "Breach() landed: <span class='ok'>tests pass</span>."],
+    toast: ["Turn() executed", "3 actions · 2 files changed"],
+    sig: [["Turn() — await approval", "turn"], ["Toggle user art slot", "userart"]],
+    why: "<b>Why it's fun to daily drive:</b> the agent's approval wait finally <i>feels</i> like something: the world freezes into a cyan plan, you make the call, and it all executes at once. The rest of the day it is a calm dusk violet with a turquoise and gold edge, readable at 12.2:1, and the skyline sits low behind the composer where nothing is read.",
+    sw: ["#13142a", "#2a1c48", "#3ee6d4", "#e0b25a", "#e8503a", "#d94f8a", "#d0d3e6"] },
+  { id: "phantom", name: "Persona 5 — “Phantom”", src: "Atlus' Persona 5 menus: red, black and white, slashing diagonals, calling-card cut-ins",
+    style: "wobbly", intensity: "bold", speed: "snappy", skew: "on", stickers: "on", wipe: "on", over: {},
+    knobs: ["style wobbly", "intensity bold", "speed snappy", "skew on", "stickers always (red)", "jelly shared", "page wipe on (jagged)"],
+    news: ["cutIn (off by default)", "wipe mask: jagged card", "burst: star", "sticker color token"],
+    brand: "Phantom", title: "Steal the slow test", rows: ["Steal the slow test", "Infiltrate the CI palace", "Calling card: release", "Mementos refactor", "Shadow: flaky e2e", "Confidant: review"],
+    msgs: ["Target locked: <code>e2e/login.spec.ts</code>.", "Take your time? No. 1.2 s saved.", "Showtime: <span class='ok'>all green</span>.", "Treasure secured."],
+    toast: ["Looking cool, Joker!", "Thread finished in 42 s"], sig: [["Cut-in (finished)", "cut"]],
+    why: "<b>Why it's fun:</b> every send is a heist. <b>Why it might not last:</b> red is both the accent and the error colour's neighbour, and all-bold motion at snappy speed is tiring by mid-afternoon; it shines as a weekend or demo preset.",
+    sw: ["#0b0b0b", "#000000", "#ff2a2a", "#f4f4f4", "#ffc21a", "#d6d6d6"] },
+  { id: "yorha", name: "NieR:Automata — “YoRHa”", src: "PlatinumGames / Square Enix's NieR:Automata: beige paper UI, dark khaki ink, corner brackets, glitches on damage",
+    style: "clean", intensity: "subtle", speed: "snappy", skew: "off", stickers: "off", wipe: "on", over: { overshoot: 0, blur: 0 },
+    knobs: ["style clean (overshoot 0)", "intensity subtle", "speed snappy", "stickers off", "page wipe on (scan bars)"],
+    news: ["style: mechanical (tokens)", "glitchSlice on failure", "art layer: grid + brackets", "wipe fill: scan bars"],
+    brand: "YoRHa", title: "Pod 042: lint sweep", rows: ["Pod 042: lint sweep", "Unit 2B: merge queue", "Bunker sync", "Resistance camp docs", "Machine lifeform: OOM", "Archive old branches"],
+    msgs: ["Proposal: run <code>statix</code> on staged files.", "Analysis complete. 3 warnings.", "Pod 042: <span class='ok'>task complete</span>.", "Glory to mankind."],
+    toast: ["Data saved", "Bunker uplink restored"], sig: [["Glitch (failed)", "slice"]],
+    why: "<b>Why it's fun:</b> the most <i>usable</i> 'game' theme here: a light, low-glare paper UI with dark ink at 8.1:1, square corners and no bounce. Motion is precise and mechanical, with one indulgence: failures glitch.",
+    sw: ["#d8d2b8", "#cfc8ab", "#4a463b", "#8e3b26", "#38352d", "#22211c"] },
+  { id: "hallownest", name: "Hollow Knight — “Hallownest”", src: "Team Cherry's Hollow Knight: blue-black depths, pale soul light, hand-drawn filigree, fades from black",
+    style: "clean", intensity: "subtle", speed: "relaxed", skew: "off", stickers: "off", wipe: "off", over: { blur: 1 },
+    knobs: ["style clean", "intensity subtle", "speed relaxed", "stickers off", "page wipe off", "hover lift on"],
+    news: ["fadeFromBlack (pageEnter variant)", "soulRise on success", "art layer: vignette + drips + arch + rain"],
+    brand: "Hallownest", title: "Descend into the logs", rows: ["Descend into the logs", "Soul vessel: cache", "City of Tears refactor", "Dirtmouth onboarding", "The Radiance: deadlock", "Map the module graph"],
+    msgs: ["Following the trail into <code>daemon/log.rs</code>.", "A bench. Saving progress.", "The infection spreads to 2 more callers.", "Sealed: <span class='ok'>deadlock fixed</span>."],
+    toast: ["Bench rested", "Progress saved"], sig: [],
+    why: "<b>Why it's fun:</b> it is the quiet one. Slow, weightless motion, threads opening out of darkness, and a pale glow on success. It is the easiest of the eight to live in all day.",
+    sw: ["#0e1317", "#141b20", "#b7d4f0", "#efe4c4", "#e46a64", "#cdd4da"] },
+  { id: "joker", name: "Balatro — “Joker”", src: "LocalThunk's Balatro: felt table, chips blue and mult red, CRT scanlines, cards that tilt and pop",
+    style: "wobbly", intensity: "lively", speed: "normal", skew: "off", stickers: "on", wipe: "off", jelly: "matched", over: {},
+    knobs: ["style wobbly", "intensity lively", "speed normal", "skew off", "stickers always (dark)", "jelly matched", "page wipe off"],
+    news: ["scorePop on status", "art layer: CRT overlay + felt swirl", "sticker color token"],
+    brand: "Joker", title: "Blind: big refactor", rows: ["Blind: big refactor", "Small blind: typo PR", "Boss blind: release", "Shop: dependencies", "Bust: flaky build", "Tarot: plan mode"],
+    msgs: ["Played a hand: <code>refactor(settings)</code>.", "<span class='ok'>+40 chips</span> × 3 mult.", "Joker triggered: tests reran.", "Blind defeated."],
+    toast: ["Blind defeated", "+$5 · 2 threads finished"], sig: [],
+    why: "<b>Why it's fun:</b> statuses land like scoring a hand, cards tilt under the cursor, and the CRT haze is cosy. Keep the scanlines faint (≤ 6% at a 3 px pitch) or they moiré with small text.",
+    sw: ["#1b2b2b", "#243838", "#2fa9ff", "#fe5f55", "#f5b143", "#ebe6d9"] },
+  { id: "turf", name: "Splatoon — “Turf”", src: "Nintendo's Splatoon: two clashing team inks, splats, squishy everything",
+    style: "wobbly", intensity: "bold", speed: "normal", skew: "off", stickers: "off", wipe: "on", jelly: "matched", over: {},
+    knobs: ["style wobbly", "intensity bold", "speed normal", "skew off", "stickers off", "jelly matched", "page wipe on (ink wall)"],
+    news: ["burst mask: splat", "wipe mask: ink wall", "art layer: corner splats"],
+    brand: "Turf", title: "Ink the settings page", rows: ["Ink the settings page", "Turf war: CSS vars", "Salmon run: logs", "Splatfest release", "Splatted: type error", "Lobby cleanup"],
+    msgs: ["Inked <code>settings.ts</code>, 72% coverage.", "Booyah! <span class='ok'>Build green</span>.", "Splashdown on the toast queue.", "Turf claimed."],
+    toast: ["Booyah!", "Thread finished · 72% turf"], sig: [],
+    why: "<b>Why it's fun:</b> the send button throws ink and everything squishes. <b>Watch:</b> lime-yellow as primary is loud; it is fine as a focus colour and fill, and the body text stays a calm lavender-grey.",
+    sw: ["#15121d", "#1e1a29", "#eaff3d", "#ff4fa3", "#2ee6a6", "#d9d3e8"] },
+  { id: "riso", name: "Risograph — “Riso”", src: "Riso print (zine culture): two spot inks, misregistration, halftone, paper grain",
+    style: "clean", intensity: "lively", speed: "normal", skew: "off", stickers: "on", wipe: "on", over: { chroma: 2 },
+    knobs: ["style clean", "intensity lively", "speed normal", "stickers always (pink ink)", "page wipe on (halftone)", "chroma 2 px in clean"],
+    news: ["misregister (chroma in clean, per-preset token)", "chroma color tokens", "art layer: grain overlay + halftone"],
+    brand: "Riso", title: "Second colour pass", rows: ["Second colour pass", "Zine: release notes", "Trim and bind docs", "Halftone the charts", "Jammed: drum error", "Paper stock audit"],
+    msgs: ["Pulled a proof of <code>README.md</code>.", "Registration off by 2 px, fixing.", "<span class='ok'>Clean print</span>.", "Bound and stapled."],
+    toast: ["Proof pulled", "1 thread finished"], sig: [],
+    why: "<b>Why it's fun:</b> the only light-first, print-born theme: warm paper, deep ink at 14.7:1, and pink as a second ink that only ever shows as shadow and misregistration, never as text. New rows land a little out of register and snap into place.",
+    sw: ["#f5efe3", "#fbf7ee", "#0070b8", "#ff48b0", "#c4126f", "#1d1b2c"] },
+  { id: "ukiyo", name: "Ukiyo-e — “Ukiyo”", src: "Edo woodblock prints (Hokusai's era, public domain): Prussian blue, washi, seigaiha waves, a vermilion seal; dark mode borrows Kanagawa's palette",
+    style: "clean", intensity: "subtle", speed: "relaxed", skew: "off", stickers: "off", wipe: "on", over: { blur: 3 },
+    knobs: ["style clean", "intensity subtle", "speed relaxed", "blur 3 px (ink bleed)", "page wipe on (brush)"],
+    news: ["sealStamp on success", "wipe mask: brush stroke", "art layer: wave + seigaiha"],
+    brand: "Ukiyo", title: "Fifty-three stations", rows: ["Fifty-three stations", "Under the wave: refactor", "Red Fuji release", "Washi texture pass", "Storm: failing deploy", "Seal the changelog"],
+    msgs: ["Carved a new block: <code>themes/ukiyo.css</code>.", "Second impression in blue.", "<span class='ok'>Printed</span>; the seal is on.", "The wave has passed."],
+    toast: ["Sealed", "Thread finished"], sig: [],
+    why: "<b>Why it's fun:</b> calm and literary: rows bleed in like ink, thread switches are a single brush stroke, and finished work gets a seal. Hokusai's era is public domain, so even the reference art carries no risk, but ours is drawn from scratch anyway.",
+    sw: ["#f1eadb", "#e8dfcc", "#1f4a85", "#a8432c", "#3f6b3a", "#1c2540"] },
+];
+
+/* ---------- build the cards ---------- */
+const root = document.getElementById("cands"), tpl = document.getElementById("mock");
+let reduced = false;
+for (const c of CANDS) {
+  const a = document.createElement("article");
+  a.className = "cand" + (c.hero ? " hero" : "");
+  Object.assign(a.dataset, { theme: c.id, style: c.style, intensity: c.intensity, speed: c.speed, skew: c.skew, stickers: c.stickers, wipe: c.wipe, hum: c.hum || "off", userart: "off" });
+  a.innerHTML = `<div class="meta"><h2>${CANDS.indexOf(c) + 1}. ${c.name}</h2><span class="src">${c.src}</span></div>
+    <div class="chips">${c.knobs.map((k) => `<span>${k}</span>`).join("")}${c.news.map((k) => `<span class="n">NEW ${k}</span>`).join("")}</div>`;
+  a.append(tpl.content.cloneNode(true));
+  a.insertAdjacentHTML("beforeend", `<div class="ctl">
+      <button data-do="msg">+ Message</button><button data-do="send">Send</button><button data-do="ok">✓ Finished</button><button data-do="bad">✗ Failed</button>
+      <button data-do="toast">Toast</button><button data-do="switch">Switch thread</button>
+      ${c.sig.map(([l, k]) => `<button class="sig" data-do="${k}">${l}</button>`).join("")}</div>
+    <div class="swatches">${c.sw.map((h) => `<i style="background:${h}" data-hex="${h}"></i>`).join("")}</div>
+    <p class="why">${c.why}</p>`);
+  a.querySelector(".bn").textContent = c.brand;
+  a.querySelector(".ttl").textContent = " " + c.title;
+  c.rows.forEach((r, i) => { const el = a.querySelector(".r" + i); el.textContent = r; el.parentElement.dataset.t = r; });
+  for (const [k, v] of Object.entries(ART)) a.style.setProperty(`--art-${k}`, v);
+  a._c = c; root.append(a); applyTokens(a);
+}
+function applyTokens(a) {
+  const c = a._c, d = a.dataset;
+  const base = (d.style === "wobbly" ? WOBBLY : CLEAN)[d.intensity];
+  let t = { ...base, ...c.over };
+  const f = SPEED[d.speed];
+  if (reduced) t = { pressMs: 120, releaseMs: 120, enterMs: 120, overlayMs: 120, exitMs: 120, pulseMs: 120, breatheMs: 0, overshoot: 0, peakAt: .4, rise: 0, lift: 0, blur: 0, stagger: 0, pressScale: 1, overlayScale: 1, rippleScale: 1, ringScale: 1, burst: 0, glow: .14, squash: 0, skew: 0, tilt: 0, sticker: 3, swell: 0, flash: 0, chroma: 0 };
+  const ms = (v) => `${Math.round(v * (reduced ? 1 : f))}ms`, s = a.style;
+  s.setProperty("--lv-press", ms(t.pressMs)); s.setProperty("--lv-release", ms(t.releaseMs)); s.setProperty("--lv-enter", ms(t.enterMs));
+  s.setProperty("--lv-overlay", ms(t.overlayMs)); s.setProperty("--lv-exit", ms(t.exitMs)); s.setProperty("--lv-pulse", ms(t.pulseMs));
+  s.setProperty("--lv-breathe", t.breatheMs ? ms(t.breatheMs) : "0ms"); s.setProperty("--lv-wipe-ms", ms(Math.max(t.enterMs, 400)));
+  s.setProperty("--lv-rise", t.rise + "px"); s.setProperty("--lv-lift", t.lift); s.setProperty("--lv-blur", t.blur + "px");
+  s.setProperty("--lv-press-scale", t.pressScale); s.setProperty("--lv-ripple-scale", t.rippleScale); s.setProperty("--lv-ring-scale", t.ringScale);
+  s.setProperty("--lv-squash", t.squash); s.setProperty("--lv-skew", t.skew + "deg"); s.setProperty("--lv-tilt", t.tilt + "deg");
+  s.setProperty("--lv-sticker", t.sticker + "px"); s.setProperty("--lv-swell", t.swell); s.setProperty("--lv-flash", t.flash); s.setProperty("--lv-chroma", t.chroma + "px");
+  s.setProperty("--lv-glow", t.glow); s.setProperty("--lv-pop-from", reduced ? 1 : Math.max(.25, .6 - t.overshoot)); s.setProperty("--lv-wobbly", d.style === "wobbly" && !reduced ? 1 : 0);
+  s.setProperty("--lv-burst-display", t.burst ? "block" : "none"); s.setProperty("--lv-hum", d.hum === "on" ? .012 : 0);
+  s.setProperty("--lv-spring", reduced ? "linear" : springEasing({ overshoot: t.overshoot, peakAt: t.peakAt }));
+  s.setProperty("--lv-ease", springEasing({ overshoot: 0 }));
+  const r = (c.jelly === "matched" ? t.overshoot : WOBBLY.lively.overshoot);
+  s.setProperty("--lv-j1", r.toFixed(3)); s.setProperty("--lv-j2", (r * r).toFixed(3)); s.setProperty("--lv-j3", (r ** 3).toFixed(3));
+  a.classList.toggle("reduced", reduced);
+}
+/* ---------- effects ---------- */
+const replay = (el, cls, ms = 1200) => { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); clearTimeout(el["_t" + cls]); el["_t" + cls] = setTimeout(() => el.classList.remove(cls), ms); };
+function addRow(a, html, kind = "agent") {
+  const tl = a.querySelector(".tl"), work = tl.querySelector(".working");
+  const m = document.createElement("div"); m.className = `msg ${kind} enter`; m.innerHTML = html; tl.insertBefore(m, work);
+  const all = [...tl.querySelectorAll(".msg, .diff")]; if (all.length > 6) all[0].remove();
+  return m;
+}
+const act = {
+  msg(a) { const c = a._c; const n = (a._n = ((a._n ?? -1) + 1) % c.msgs.length);
+    const m = addRow(a, c.msgs[n]); if (a.dataset.style === "wobbly" && !reduced) m.classList.add("last"); },
+  send(a) { const b = a.querySelector(".send"), i = b.querySelector(".icon"), inp = a.querySelector(".composer input");
+    replay(b, "fire", 700); i.textContent = i.textContent === "↑" ? "■" : "↑"; replay(i, "pop", 600);
+    addRow(a, inp.value || "Ship it, then open the PR.", "user"); inp.value = ""; },
+  ok(a) { const r = a.querySelectorAll(".sb .row")[1]; r.style.setProperty("--tone", "var(--success)"); r.dataset.score = "+40 chips"; r.classList.remove("bad"); r.classList.add("good"); replay(r, "pulse", 1300); },
+  bad(a) { const r = a.querySelectorAll(".sb .row")[4]; r.style.setProperty("--tone", "var(--destructive)"); r.dataset.score = "×0 bust"; r.classList.remove("good"); r.classList.add("bad"); replay(r, "pulse", 1100);
+    if (a.dataset.theme === "yorha" && !reduced) replay(r, "slice", 400); },
+  toast(a) { const box = a.querySelector(".toasts"), [h, s] = a._c.toast; const t = document.createElement("div"); t.className = "toast in"; t.innerHTML = `<b>${h}</b><span>${s}</span>`;
+    box.prepend(t); setTimeout(() => { t.classList.add("out"); setTimeout(() => t.remove(), 300); }, 2400); },
+  switch(a) { const rows = [...a.querySelectorAll(".sb .row")], cur = rows.findIndex((r) => r.classList.contains("sel"));
+    rows[cur].classList.remove("sel"); const nx = rows[(cur + 1) % 4]; nx.classList.add("sel");
+    a.querySelector(".ttl").textContent = " " + nx.dataset.t; replay(a.querySelector(".tw"), "page-in", 1400); },
+  turn(a) { if (a.classList.contains("turn")) return act.approve(a); a.classList.remove("executing"); a.classList.add("turn"); },
+  approve(a) { a.classList.remove("turn"); replay(a, "executing", 420); setTimeout(() => act.msg(a), 160); },
+  deny(a) { a.classList.remove("turn"); },
+  userart(a) { a.dataset.userart = a.dataset.userart === "on" ? "off" : "on"; },
+  cut(a) { act.ok(a); if (!reduced) replay(a, "cut", 800); },
+  slice(a) { act.bad(a); },
+};
+root.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-do], [data-act]"); if (!b) return; const a = b.closest(".cand");
+  (act[b.dataset.do || b.dataset.act] || (() => {}))(a);
+});
+root.addEventListener("pointerup", (e) => { const b = e.target.closest(".bb button"); if (b && !reduced) replay(b, "rel", 600); });
+document.querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", () => {
+  document.documentElement.classList.remove("dark", "light"); document.documentElement.classList.add(b.dataset.mode); document.querySelectorAll("[data-mode]").forEach((x) => x.setAttribute("aria-pressed", x === b)); }));
+document.querySelectorAll("[data-motion]").forEach((b) => b.addEventListener("click", () => {
+  reduced = b.dataset.motion === "reduced"; document.querySelectorAll("[data-motion]").forEach((x) => x.setAttribute("aria-pressed", x === b));
+  document.querySelectorAll(".cand").forEach(applyTokens); }));
+document.getElementById("playall").addEventListener("click", () => {
+  document.querySelectorAll(".cand").forEach((a, i) => { const seq = ["msg", "ok", "toast", "send", "switch", "msg"];
+    seq.forEach((k, j) => setTimeout(() => act[k](a), i * 90 + j * 520)); });
+});
+/* a URL hook for screenshots: ?state=turn freezes the Transistor card in Turn(); ?mode=light; ?motion=reduced */
+const q = new URLSearchParams(location.search);
+if (q.get("mode")) document.querySelector(`[data-mode="${q.get("mode")}"]`).click();
+if (q.get("motion")) document.querySelector(`[data-motion="${q.get("motion")}"]`).click();
+if (q.get("state") === "turn") act.turn(document.querySelector('[data-theme="transistor"]'));
+if (q.get("still")) document.documentElement.classList.add("still");
+if (q.get("only")) document.querySelectorAll(".cand").forEach((a) => { if (a.dataset.theme !== q.get("only")) a.remove(); else a.classList.add("hero"); });
+if (q.get("art") === "user") act.userart(document.querySelector('[data-theme="transistor"]'));
+</script>
+</body>
+</html>

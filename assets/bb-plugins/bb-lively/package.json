@@ -10,7 +10,7 @@
   },
   "bb": {
     "name": "Lively [Experimental]",
-    "description": "Motion for bb on any theme, subtle to bold, clean or wobbly (Zenless Zone Zero-style): springy presses, new messages rising in, menu springs, a send burst, status rings, breathing glows. Follows your OS reduced-motion setting. Plus optional Lively palettes, Lively ZZZ among them.",
+    "description": "Motion for bb on any theme, subtle to bold, clean or wobbly (Zenless Zone Zero-style): springy presses, new messages rising in, menu springs, a send burst, status rings, breathing glows. Follows your OS reduced-motion setting. Plus optional Lively palettes, Lively ZZZ, Cloudbank (Transistor) and YoRHa (NieR:Automata) among them.",
     "branding": {
       "icon": "Palette"
     },
@@ -46,6 +46,18 @@
         "name": "Lively ZZZ",
         "description": "After Zenless Zone Zero: near-black with lime and yellow accents and hard offset sticker shadows; pairs with the Wobbly style",
         "css": "./themes/lively-zzz.css"
+      },
+      {
+        "id": "lively-cloudbank",
+        "name": "Lively Cloudbank",
+        "description": "After Transistor's city at dusk: blue-violet night over an ember horizon, Turn() cyan and city-light gold; a warm-paper day mode",
+        "css": "./themes/lively-cloudbank.css"
+      },
+      {
+        "id": "lively-yorha",
+        "name": "Lively YoRHa",
+        "description": "After NieR:Automata's menus: parchment grey and umber ink, square corners, ink-outlined selection and one rust accent; a night mode inverts it",
+        "css": "./themes/lively-yorha.css"
       }
     ]
   },

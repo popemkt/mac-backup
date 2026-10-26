@@ -5,10 +5,10 @@ import { readFileSync } from "node:fs";
 import { afterEach, test } from "node:test";
 import { registerSettingDescriptors } from "@get-bb/plugin-sdk/internal/host-policy";
 import { Window } from "happy-dom";
-import { DEFAULT_SETTINGS, EFFECT_IDS } from "@popemkt/bb-lively-core/domain";
+import { DEFAULT_SETTINGS, EFFECT_IDS, PRESETS } from "@popemkt/bb-lively-core/domain";
 import { mountLively, selectorHealth, sent, syncSettings, threadsChanged, toneFor } from "../adapter/bb.ts";
 import { BBIM_ACTIVE } from "../adapter/selectors.ts";
-import { SETTINGS, settingsInput } from "../adapter/settings.ts";
+import { artImageUrl, effectiveRows, effectiveSettings, SETTINGS, settingsInput } from "../adapter/settings.ts";
 
 const FIXTURE = readFileSync(new URL("fixtures/bb-0.46.1.html", import.meta.url), "utf8");
 
@@ -51,10 +51,45 @@ test("settings: bb's own validator accepts the table; every default passes its o
   for (const { id, result } of results) assert.equal("issues" in result ? result.issues : undefined, undefined, id);
 });
 
-test("settings: stored values come back as core input; nothing stored is the defaults", () => {
-  assert.deepEqual(settingsInput({ motion: "reduced", press: false }).effects?.["press"], false);
+/** bb's values when nothing is stored: every descriptor's default. */
+const DEFAULTS = Object.fromEntries(Object.entries(SETTINGS).map(([key, descriptor]) => [key, descriptor.default]));
+
+test("settings: stored values come back as core input; nothing stored is the base defaults", () => {
+  assert.equal(settingsInput({ motion: "reduced", press: "off" }).effects?.["press"], false);
+  assert.equal(settingsInput({ press: "on" }).effects?.["press"], true);
   assert.equal(settingsInput({}).motion, undefined);
-  assert.equal(DEFAULT_SETTINGS.motion, SETTINGS.motion.default);
+  assert.deepEqual(effectiveSettings(DEFAULTS).settings, DEFAULT_SETTINGS);
+  assert.deepEqual(effectiveSettings(DEFAULTS).problems, []);
+  // Every presettable setting starts on From preset; the preset on custom.
+  for (const [key, descriptor] of Object.entries(SETTINGS)) {
+    if (key !== "preset" && key !== "artImage") assert.equal(descriptor.default, "preset", key);
+  }
+});
+
+test("settings: picking a preset moves what is still From preset; a tweak stays", () => {
+  const zzz = effectiveSettings({ ...DEFAULTS, preset: "zzz" });
+  assert.deepEqual([zzz.settings.style, zzz.settings.jelly, zzz.settings.effects.pageWipe], ["wobbly", "matched", true]);
+  const tweaked = effectiveSettings({ ...DEFAULTS, preset: "zzz", style: "clean", pageWipe: "off" });
+  assert.deepEqual([tweaked.settings.style, tweaked.settings.effects.pageWipe, tweaked.settings.jelly], ["clean", false, "matched"]);
+  const rows = new Map(effectiveRows(tweaked).map((row) => [row.key, row]));
+  assert.deepEqual([rows.get("style")?.value, rows.get("style")?.source], ["Clean", "you set"]);
+  assert.deepEqual([rows.get("jelly")?.value, rows.get("jelly")?.source], ["Matched", "from ZZZ"]);
+  assert.deepEqual([rows.get("motion")?.value, rows.get("motion")?.source], ["System", "default"]);
+  assert.deepEqual([rows.get("palette")?.value, rows.get("palette")?.source], ["lively-zzz", "from ZZZ"]);
+  assert.equal(rows.size, 9 + EFFECT_IDS.length);
+});
+
+test("settings: an art image path is served by lively's route; a URL is used as is", () => {
+  assert.equal(artImageUrl("https://example.com/a.png"), "https://example.com/a.png");
+  assert.equal(artImageUrl("~/art/my file.png"), "/api/v1/plugins/bb-lively/http/art?v=~%2Fart%2Fmy%20file.png");
+  assert.equal(artImageUrl(""), "");
+  assert.equal(effectiveSettings({ ...DEFAULTS, artImage: '/x/"a.png' }).settings.artImage, "/api/v1/plugins/bb-lively/http/art?v=%2Fx%2F%22a.png");
+});
+
+test("manifest: every preset's palette is one of lively's bb themes", () => {
+  const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { bb: { themes: ReadonlyArray<{ id: string; css: string }> } };
+  const themes = new Set(manifest.bb.themes.map((theme) => theme.id));
+  for (const preset of PRESETS) if ("palette" in preset) assert.ok(themes.has(preset.palette), `${preset.id}: ${preset.palette}`);
 });
 
 test("toneFor: finished, failed and waiting pulse; a first sighting or no change never does", () => {

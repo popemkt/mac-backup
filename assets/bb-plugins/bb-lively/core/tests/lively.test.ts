@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { effectAttribute } from "../src/domain/index.ts";
 import { createLively, type Lively, STYLE_ATTRIBUTE } from "../src/dom/lively.ts";
+import { createReachWatcher, REACH } from "../src/dom/reach.ts";
 import { CLASSES, PAGE_REPLAYED, ROOT_ATTRIBUTES } from "../src/dom/stylesheet.ts";
 import { page, type Page, rowHtml, TARGETS } from "./harness.ts";
 
@@ -259,4 +260,57 @@ test("a second mount replaces the first stylesheet instead of doubling it", () =
   createLively({ window: p.win, signal: again.signal, targets: TARGETS });
   assert.equal(p.doc.querySelectorAll(`style[${STYLE_ATTRIBUTE}]`).length, 1);
   again.abort();
+});
+
+/** Pin an element's box (happy-dom lays nothing out). */
+function pinBox(element: Element, right: number, bottom: number): void {
+  (element as HTMLElement).getBoundingClientRect = () => ({ right, bottom }) as DOMRect;
+}
+
+const REACH_HTML = `<div class="page"><div class="scroller"><div class="dock"></div></div></div><div class="dock"></div>`;
+
+test("reach: the dock band's art reaches its thread view's corner past a scrollbar, and is measured again on demand", () => {
+  const p = page(REACH_HTML);
+  cleanup.push(() => p.close());
+  const view = p.doc.querySelector(".page") as HTMLElement;
+  const band = p.doc.querySelector(".page .dock") as HTMLElement;
+  const stray = p.doc.querySelector("body > .dock") as HTMLElement;
+  pinBox(view, 1600, 1000);
+  pinBox(band, 1589, 1000);
+  const reach = createReachWatcher({ win: p.win, targets: TARGETS });
+  assert.equal(band.style.getPropertyValue(REACH.right), "11px");
+  assert.equal(band.style.getPropertyValue(REACH.bottom), "0px");
+  // A band outside any view is left alone.
+  assert.equal(stray.style.getPropertyValue(REACH.right), "");
+  // The scrollbar goes away (or the view resizes): measured again.
+  pinBox(band, 1600, 1000);
+  reach.measure();
+  assert.equal(band.style.getPropertyValue(REACH.right), "0px");
+  reach.dispose();
+  assert.equal(band.style.getPropertyValue(REACH.right), "");
+  assert.equal(band.style.getPropertyValue(REACH.bottom), "");
+});
+
+test("reach: a band bb mounts or swaps in later is found by the mutation, without polling", async () => {
+  const p = page(`<div class="page"><div class="scroller"></div></div>`);
+  cleanup.push(() => p.close());
+  const reach = createReachWatcher({ win: p.win, targets: TARGETS });
+  cleanup.push(() => reach.dispose());
+  const view = p.doc.querySelector(".page") as HTMLElement;
+  pinBox(view, 1600, 1000);
+  // happy-dom lays nothing out: pin the band's box as it is created.
+  const created = p.doc.createElement("div");
+  created.className = "dock";
+  pinBox(created, 1589, 1000);
+  p.doc.querySelector(".scroller")?.append(created);
+  await p.settle();
+  assert.equal(created.style.getPropertyValue(REACH.right), "11px");
+});
+
+test("reach: createLively runs the watcher and removes what it wrote", () => {
+  const { p, controller } = mounted(REACH_HTML);
+  const band = p.doc.querySelector(".page .dock") as HTMLElement;
+  assert.equal(band.style.getPropertyValue(REACH.right), "0px");
+  controller.abort();
+  assert.equal(band.style.getPropertyValue(REACH.right), "");
 });

@@ -39,6 +39,28 @@ export interface Targets {
   readonly checkbox: string;
   /** A page or panel view that mounts fresh on navigation (a thread's window); it eases in on mount. */
   readonly pageView: string;
+  /**
+   * A sidebar a preset's art can paint behind (with `pageView`, the art
+   * surfaces): it must have an opaque background and no descendant positioned
+   * against an outer box, since art positions and isolates it.
+   */
+  readonly sidebar: string;
+  /**
+   * The band the composer docks in at the bottom of a thread, opaque, inside
+   * a `pageView`. A preset's backdrop art repeats on it, so the art runs to the
+   * bottom edge; it must already be positioned. Its edges may stop short of the
+   * view's (a scrollbar between them): its art reaches the view's corner (reach.ts).
+   */
+  readonly dock: string;
+  /** The host's fade over the timeline's bottom edge, just above the dock; hidden under backdrop art. */
+  readonly dockFade: string;
+  /**
+   * A request waiting for the person inside a page view (an approval, a
+   * question, a plan to review): while one is present, turnFreeze freezes the
+   * view's timeline (`rowList`) and lights the request up. It must sit outside
+   * `rowList`, so the freeze never dims the request itself.
+   */
+  readonly pendingRequest: string;
   /** The host's "agent is working" line, which breathes a glow while present. */
   readonly working: string;
   /** The host's own enter/exit animations, stopped by `calmHost` under reduced motion. */
