@@ -17,7 +17,7 @@ for what a person gets, [core/README.md](core/README.md) for the engine, and the
 | `adapter/bb.ts` | Mounting, sends, sidebar indicator → pulse tone, and the canary for the settings page. |
 | `app.tsx` | The `motion` content script; a headless app overlay for settings and one for `experimental_useSidebarThreads` (feature-detected); an invisible composer action for `useComposer().onSubmitted` and the accent caret (`setTextEffect`); the Preset settings section (every effective value and its source, a one-click palette switch) and the selector-health one. |
 | `server.ts` | `bb.settings.define`, the palette switch on `settings.onChange`, and the art image route. |
-| `themes/` | `lively.css`, `lively-dracula.css`, their `-bold` variants, `lively-zzz.css`, `lively-cloudbank.css` and `lively-yorha.css` (manifest `bb.themes`): tokens only, no motion. A bold file is its base palette copied plus a Bold block at the end (one theme is active at a time, so it cannot import the base): keep each pair in step. |
+| `themes/` | `lively.css`, `lively-dracula.css`, their `-bold` variants, `lively-zzz.css`, `lively-cloudbank.css`, `lively-yorha.css` and `lively-control.css` (manifest `bb.themes`): tokens only, no motion. A bold file is its base palette copied plus a Bold block at the end (one theme is active at a time, so it cannot import the base): keep each pair in step. |
 | `ART-DIRECTION.md` | **Canonical** per-theme art direction: each theme's source analysis, its translation into UI concepts, and where each concept lives in code (shipped or planned). |
 | `skills/bb-lively/` | Tells agents what lively does, its settings, and how to report a broken selector. |
 | `tests/` | Adapter tests, and `fixtures/bb-0.46.1.html` and `fixtures/bb-0.46.1-request.html` (a thread waiting on a question): bb's markup captured from the web UI (structure and attributes only) that `selectors.test.ts` runs the table against. |
@@ -82,7 +82,10 @@ halftone-and-slash backdrop that runs to the bottom edge, hazard stripes under t
 directions: **Cloudbank** (after Transistor: clean at lively, a dusk skyline, a cyan cell
 wipe, and the `turnFreeze` effect) and **YoRHa** (after NieR:Automata: snappy, no
 overshoot or blur through its own `tokens`, a technical grid, a scan-bar wipe, and the
-`glitch` effect); each is mapped from source to code in `ART-DIRECTION.md`.
+`glitch` effect) and **Control** (after Remedy's Control: no overshoot or tilt, coffered
+concrete and the Board, a redaction wipe, and the `shiftWarp`, `prismEdge` and
+`hissResonance` effects, drawn on an HTML-in-Canvas layer when the browser has one); each
+is mapped from source to code in `ART-DIRECTION.md`.
 
 **Override semantics.** Every presettable setting is a select whose first option, and
 default, is **From preset**; switches are From preset / On / Off. The effective value is
@@ -141,6 +144,20 @@ window and outside the timeline, so `[data-thread-window]:has(<request>)` freeze
 timeline's rows (a filter), raises a grid veil behind them, and lights the request. The
 **glitch** (YoRHa) rides the status pulse: a sidebar row whose thread fails tears sideways
 in hard steps, even with the status rings off.
+
+**The HTML-in-Canvas layer** (Control; `core/src/dom/drawable.ts`, `core/src/dom/refraction.ts`).
+An effect with a `canvas` trigger (`navigate`, `send`, `waiting`) has two halves. When the
+browser has HTML-in-Canvas (Chrome's `CanvasDrawElement`, detected by method name across
+both API generations: `texElementImage2D` before 155, `texElementSubImage2D` and
+`content="drawable"` from 155, which Chromium 154 mixes) and WebGL 2, and motion is at the
+full level, lively sets `data-lively-canvas` on the root and the effect draws on one fixed
+canvas: `pointer-events: none`, `aria-hidden`, an `inert` stage, `display: none` at rest.
+Each scene uploads a sanitized clone (no ids, `data-*`, frames or media) of what it draws
+and runs one fragment shader for its length. Otherwise the CSS half runs, scoped
+`:not([data-lively-canvas])`. A thread switch snapshots the outgoing thread on the
+Navigation API's `navigate` event, before the router renders the next one. bb's desktop app
+gets the switch from the launcher in `modules/stacks/bb/launcher.nix`
+(`my.stacks.bb.desktopSwitches`); a browser needs the flag set.
 
 **Adding a preset** (the Transistor one, say): a row in `presets.ts`; its palette as
 `themes/<id>.css` plus a `bb.themes` entry in `package.json` (a test checks every preset's
