@@ -2,7 +2,8 @@
 // detection across both API generations.
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { CANVAS_TRIGGERS, EFFECT_IDS, EFFECTS, effectAttribute, NO_CHOICES, resolve, resolveMotion } from "../src/domain/index.ts";
+import { CANVAS_TRIGGERS, EFFECT_IDS, EFFECTS, effectAttribute, NO_CHOICES, PRESETS, resolve, resolveMotion } from "../src/domain/index.ts";
+import type { ArtLayer, Preset } from "../src/domain/presets.ts";
 import { type Drawable, detectDrawable } from "../src/dom/drawable.ts";
 import { createLively } from "../src/dom/lively.ts";
 import { createRefraction, REFRACTION_ATTRIBUTE, SCENE_MODES, WAITING_MS } from "../src/dom/refraction.ts";
@@ -186,4 +187,17 @@ test("refraction: the Hiss resonates once per request, again only when the card 
   layer.dispose();
   assert.equal(p.doc.querySelector(`[${REFRACTION_ATTRIBUTE}]`), null);
   assert.equal(lost.count, 1);
+});
+
+test("control: the art keeps to the free right margin, clear of the reading column and the dock", () => {
+  const preset = (PRESETS as ReadonlyArray<Preset>).find((row) => row.id === "control");
+  const mask = preset?.art?.backdrop?.mask ?? "";
+  // Right of bb's centered column (at most 728px, 16px padding), intersected with a bottom band clear of the dock.
+  assert.match(mask, /^linear-gradient\(to left, #000 calc\(50% - min\(364px, 50% - 16px\) - 48px\), transparent calc\(50% - min\(364px, 50% - 16px\) - 24px\)\) intersect, linear-gradient\(to top, transparent 0 250px, #000 290px\) right bottom/u);
+  // Every shape floats above the dock.
+  const layers: ReadonlyArray<ArtLayer> = preset?.art?.backdrop?.layers ?? [];
+  for (const layer of layers) {
+    const bottom = /bottom (\d+)px/u.exec(layer.position ?? "");
+    if (layer.repeat === "no-repeat" && bottom !== null && !layer.image.includes("radial")) assert.ok(Number(bottom[1]) >= 290, layer.image.slice(0, 40));
+  }
 });

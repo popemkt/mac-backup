@@ -251,6 +251,19 @@ const REDACT = "var(--lively-art-redact, #0b0b0c)";
 // opaque, so the sidebar only carries the prism's light down its inner edge (seen at its head and
 // foot). Colors come from themes/lively-control.css, else the accent; the slabs are pale by day
 // (text reads over them) and near-black at night.
+/**
+ * Control's art stays in the thread's free right margin. bb centers the reading column (the
+ * timeline and the composer) at most 728px wide with 16px padding, so the margin right of it is
+ * `50% - min(364px, 50% - 16px)` of the view; the art shows up to 48px short of the column, fading
+ * over 24px, and none at all when the margin is narrower than that. The dock band's copy shares the
+ * view's width (it starts at the view's left edge and reaches its right, reach.ts), so this
+ * horizontal mask matches across the two. Intersected with it, a bottom-anchored mask clears the
+ * dock: nothing within 290px of the bottom, where bb docks the composer and its requests.
+ */
+const CONTROL_GUTTER_MASK =
+  "linear-gradient(to left, #000 calc(50% - min(364px, 50% - 16px) - 48px), transparent calc(50% - min(364px, 50% - 16px) - 24px)) intersect, " +
+  "linear-gradient(to top, transparent 0 250px, #000 290px) right bottom / 6000px 4000px no-repeat";
+
 const CONTROL_ART = {
   colors: {
     monolith: token("--lively-art-monolith", "color-mix(in oklab, #000 70%, var(--lively-canvas))"),
@@ -259,26 +272,29 @@ const CONTROL_ART = {
     light: tint(token("--lively-art-light", "var(--lively-accent)"), 22),
     hiss: tint(token("--lively-art-hiss", "var(--destructive, #e01b24)"), 70),
   },
+  // All of it lives in the thread's free right margin, never behind the reading column or the dock
+  // (CONTROL_GUTTER_MASK): a cluster that fits a 140px gutter, floating clear of the dock, as the
+  // Astral Plane's slabs float. A narrow thread has no margin, and no art.
   backdrop: {
     layers: [
-      // The Board: an inverted triangle (a 60-degree wedge from its apex, which points down) floating
-      // over the monoliths, its edges split into the spectrum.
-      { image: `conic-gradient(from -30deg at 50% 100%, ${c("monolith")} 0 60deg, transparent 60deg)`, size: "104px 90px", position: "right 102px bottom 360px", repeat: "no-repeat" },
+      // The Board: an inverted triangle (a 60-degree wedge from its apex, which points down) above
+      // the monoliths, its edges split into the spectrum.
+      { image: `conic-gradient(from -30deg at 50% 100%, ${c("monolith")} 0 60deg, transparent 60deg)`, size: "104px 90px", position: "right 30px bottom 540px", repeat: "no-repeat" },
       {
         image: "conic-gradient(from -33deg at 50% 100%, #ff2a3a 0deg, #ffb000 1.2deg, #34c759 2.4deg, #2f9bff 3.6deg, transparent 3.8deg 62.2deg, #2f9bff 62.4deg, #34c759 63.6deg, #ffb000 64.8deg, #ff2a3a 66deg, transparent 66.2deg)",
         size: "116px 96px",
-        position: "right 96px bottom 357px",
+        position: "right 24px bottom 537px",
         repeat: "no-repeat",
       },
-      // Two monoliths: a lit top edge, then the slab; a thin Hiss-red seam at the foot of the taller one.
-      rect(c("rim"), 96, 312, 58, 2),
-      rect(c("hiss"), 96, 0, 58, 2),
-      rect(c("monolith"), 96, 0, 58, 312),
-      rect(c("rim"), 176, 196, 26, 2),
-      rect(c("monolith"), 176, 0, 26, 196),
-      // A lobby's round light: a ring and its soft pool.
-      { image: `radial-gradient(circle at right 420px bottom 520px, transparent 0 46px, ${c("light")} 46px 47px, transparent 48px)`, size: "1400px 900px", position: "right bottom", repeat: "no-repeat" },
-      { image: `radial-gradient(160px 160px at right 420px bottom 520px, ${tint(c("light"), 40)}, transparent 70%)`, size: "1400px 900px", position: "right bottom", repeat: "no-repeat" },
+      // Two floating monoliths: a lit top edge, then the slab; a thin Hiss-red seam under the taller one.
+      rect(c("rim"), 80, 488, 40, 2),
+      rect(c("hiss"), 80, 290, 40, 2),
+      rect(c("monolith"), 80, 292, 40, 196),
+      rect(c("rim"), 36, 438, 22, 2),
+      rect(c("monolith"), 36, 320, 22, 118),
+      // A lobby's round light above the Board: a ring and its soft pool.
+      { image: `radial-gradient(circle at right 82px bottom 712px, transparent 0 40px, ${c("light")} 40px 41px, transparent 42px)`, size: "400px 900px", position: "right bottom", repeat: "no-repeat" },
+      { image: `radial-gradient(130px 130px at right 82px bottom 712px, ${tint(c("light"), 40)}, transparent 70%)`, size: "400px 900px", position: "right bottom", repeat: "no-repeat" },
       // The coffered ceiling: a 96px grid, each coffer with a recessed inner edge 8px in.
       { image: `linear-gradient(to left, ${tint(c("line"), 9)} 1px, transparent 1px)`, size: "96px 96px", position: "right bottom" },
       { image: `linear-gradient(to top, ${tint(c("line"), 9)} 1px, transparent 1px)`, size: "96px 96px", position: "right bottom" },
@@ -288,7 +304,7 @@ const CONTROL_ART = {
       { image: `radial-gradient(circle, ${tint(c("line"), 16)} 1.4px, transparent 2px)`, size: "48px 48px", position: "right 24px bottom 24px" },
       { image: `linear-gradient(to top, ${tint(c("line"), 3)} 1px, transparent 1px)`, size: "7px 7px", position: "right bottom" },
     ],
-    mask: "radial-gradient(farthest-corner at 100% 100%, #000 14%, transparent 80%) right bottom / 1500px 1000px no-repeat",
+    mask: CONTROL_GUTTER_MASK,
   },
   sidebar: {
     layers: [
