@@ -40,7 +40,11 @@
 #
 # An exposed app is published as the Tailscale Service `<app>-<owner>`
 # (svc:notes-popemkt), so it still needs its grant and auto-approver in
-# configs/tailscale/policy.hujson, which CI checks.
+# configs/tailscale/policy.hujson, which CI checks. `<app>` is the entry's
+# name unless it sets `app`, which lets a second person run the same app on
+# one host under an entry of their own:
+#
+#   my.services.kb-bytetum = { app = "kb"; owner = "bytetum"; ... };  # svc:kb-bytetum
 let
   inherit (lib) mkOption types;
   # One meaning for an app's unit and each companion's: what may restart it.
@@ -83,9 +87,23 @@ in
     '';
     type = types.attrsOf (
       types.submodule (
-        { config, ... }:
+        { config, name, ... }:
         {
           options = {
+            app = mkOption {
+              type = types.str;
+              default = name;
+              defaultText = lib.literalMD "the entry's name";
+              example = "kb";
+              description = ''
+                The app this entry runs, which names its Tailscale Service
+                `<app>-<owner>`. Set it when a second person runs an app the
+                host already places, under an entry of their own: popemkt's
+                `my.services.kb` is svc:kb-popemkt, and
+                `my.services.kb-bytetum` with `app = "kb"` is svc:kb-bytetum.
+                Units are always named after the entry (`app-kb-bytetum`).
+              '';
+            };
             owner = mkOption {
               type = types.str;
               example = "popemkt";
@@ -219,7 +237,7 @@ in
             expose = mkOption {
               type = types.bool;
               default = true;
-              description = "Publish the app on the tailnet as the Tailscale Service `<app>-<owner>`.";
+              description = "Publish the app on the tailnet as the Tailscale Service `<app>-<owner>` (`app`, then `owner`).";
             };
             listenOrigin = mkOption {
               type = types.str;

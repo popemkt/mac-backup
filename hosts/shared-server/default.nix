@@ -8,6 +8,33 @@
 # Shared server: one NixOS host, two people, both administrators. Each runs
 # their own T3 Code server, published on the tailnet. Why it has this shape:
 # docs/shared-nixos-server-plan.md#decision.
+let
+  # A person's kb home store served as the my.services app `kb`, published as
+  # svc:kb-<person> on an owner-only socket; why it has this shape is beside
+  # the entries below. extraArgs follow the shared `kb ui` arguments.
+  kbHome =
+    person: extraArgs:
+    let
+      socket = "/run/kb-${person}/kb.sock";
+    in
+    {
+      app = "kb";
+      owner = person;
+      inherit socket;
+      package = pkgs.kb;
+      args = [
+        "--root"
+        "${config.users.users.${person}.home}/.local/share/kb/home"
+        "ui"
+        "--socket"
+        socket
+        "--no-open"
+        "--public-origin"
+        config.my.stacks.vpn.services."kb-${person}".publicOrigin
+      ]
+      ++ extraArgs;
+    };
+in
 {
   imports = [
     ./hardware-configuration.nix
@@ -123,44 +150,31 @@
   # device_select layer reads it; `!` hides every other device.
   environment.sessionVariables.MESA_VK_DEVICE_SELECT = "1002:1681!";
 
-  # popemkt's personal kb in the browser, as svc:kb-popemkt: their kb home
-  # store (kb DESIGN.md → Locations), a root outside any repository that
-  # kb ui creates on first start. Not the dotfiles' .kb, which changes only
-  # through commits: a live UI there dirtied the checkout with every edit
-  # and every kb upgrade's seed nodes, and rebuild refuses a dirty tree.
-  # The UI's request guard needs the browser
-  # origin, which is that Service's. A request with that Origin acts as
-  # popemkt, so the UI listens on a Unix socket only popemkt and root
-  # (tailscaled) can reach, not on a loopback port every account can.
+  # Each person's personal kb in the browser, as svc:kb-<person> (kbHome
+  # above): their kb home store (kb DESIGN.md → Locations), a root outside
+  # any repository that kb ui creates on first start. Not the dotfiles' .kb,
+  # which changes only through commits: a live UI there dirtied the checkout
+  # with every edit and every kb upgrade's seed nodes, and rebuild refuses a
+  # dirty tree. The UI's request guard needs the browser origin, which is
+  # that Service's. A request with that Origin acts as the person, so the UI
+  # listens on a Unix socket only they and root (tailscaled) can reach, not
+  # on a loopback port every account can.
   # GAP [[01M5HXHNERZR77Z0HX0SZCQZPP]]: a socket server writes no
   # .kb/ui.json, so the CLI's and MCP's ui.* calls see no tabs; their graph
   # reads and writes, and the page's live view of them, are unaffected.
-  my.services.kb = {
-    owner = "popemkt";
-    socket = "/run/kb-popemkt/kb.sock";
-    package = pkgs.kb;
-    args = [
-      "--root"
-      "${config.users.users.popemkt.home}/.local/share/kb/home"
-      "ui"
-      "--socket"
-      config.my.services.kb.socket
-      "--no-open"
-      "--public-origin"
-      config.my.stacks.vpn.services.kb-popemkt.publicOrigin
-      # bb frames the page beside a thread (assets/bb-plugins/kb), and the
-      # framed page tells bb its tab session (kb DESIGN.md → Surfaces →
-      # Embedding the page). No other page may frame it.
-      "--embed-origin"
-      config.my.stacks.vpn.services.bb-popemkt.publicOrigin
-      # Framed by bb, the page loads bbim's hint bridge from bb itself, so
-      # bb's keyboard hints, gi, gs and j/k reach into it and bb's chords
-      # typed in it come back (assets/bb-plugins/bbim/core/README.md →
-      # Iframes). Needs kb with `--embed-script`.
-      "--embed-script"
-      "${config.my.stacks.vpn.services.bb-popemkt.publicOrigin}/api/v1/plugins/bbim/http/bridge.js"
-    ];
-  };
+  my.services.kb = kbHome "popemkt" [
+    # bb frames the page beside a thread (assets/bb-plugins/kb), and the
+    # framed page tells bb its tab session (kb DESIGN.md → Surfaces →
+    # Embedding the page). No other page may frame it.
+    "--embed-origin"
+    config.my.stacks.vpn.services.bb-popemkt.publicOrigin
+    # Framed by bb, the page loads bbim's hint bridge from bb itself, so
+    # bb's keyboard hints, gi, gs and j/k reach into it and bb's chords
+    # typed in it come back (assets/bb-plugins/bbim/core/README.md →
+    # Iframes). Needs kb with `--embed-script`.
+    "--embed-script"
+    "${config.my.stacks.vpn.services.bb-popemkt.publicOrigin}/api/v1/plugins/bbim/http/bridge.js"
+  ];
 
   # popemkt's bb server, as svc:bb-popemkt. Its API is unauthenticated and
   # runs commands as popemkt, so the tailnet grant is its access boundary;
