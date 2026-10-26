@@ -2,7 +2,7 @@
 // motion, which level runs, at which intensity and style, and which effects are on. The
 // one place that decides; the DOM layer only writes the answer onto the root
 // element.
-import { EFFECT_IDS, EFFECTS, type EffectId } from "./effects.ts";
+import { EFFECT_IDS, EFFECTS, type EffectId, effectInPreset } from "./effects.ts";
 import { type Intensity, type MotionTokens, motionTokens, type Style } from "./motion.ts";
 import { type JellyMode, type Settings, type Speed, SPEED_FACTOR } from "./settings.ts";
 
@@ -26,11 +26,20 @@ export interface MotionPolicy {
   readonly stickers: boolean;
   readonly jelly: JellyMode;
   readonly speed: Speed;
+  /** The active preset: its art and fonts paint under `data-lively-preset`. */
+  readonly preset: string;
+  /** The preset's art layer and the person's own image show. Paint, not motion: it stays under `reduced`. */
+  readonly art: boolean;
+  /** The person's art image URL ("" for none); shown only with `art`. */
+  readonly artImage: string;
   /** The effects that run, in table order. Empty when the level is `off`. */
   readonly effects: ReadonlyArray<EffectId>;
+  /** The active preset's own tokens (presets.ts `tokens`), at the full level only; empty otherwise. */
+  readonly overrides: Partial<MotionTokens>;
 }
 
-export function resolveMotion(settings: Settings, systemReduced: boolean): MotionPolicy {
+/** `overrides` is the active preset's `tokens`: they apply at the full level only. */
+export function resolveMotion(settings: Settings, systemReduced: boolean, overrides: Partial<MotionTokens> = {}): MotionPolicy {
   const source = settings.motion === "system" ? "system" : "user";
   const level: MotionLevel =
     settings.motion === "system" ? (systemReduced ? "reduced" : "full") : settings.motion;
@@ -40,6 +49,7 @@ export function resolveMotion(settings: Settings, systemReduced: boolean): Motio
       : EFFECT_IDS.filter(
           (id) =>
             settings.effects[id] &&
+            effectInPreset(EFFECTS[id], settings.preset) &&
             (level === "full" ? id !== "calmHost" : EFFECTS[id].reducedSafe),
         );
   const stickers = level !== "off" && (settings.stickers === "always" || (settings.stickers === "wobbly" && settings.style === "wobbly"));
@@ -52,7 +62,11 @@ export function resolveMotion(settings: Settings, systemReduced: boolean): Motio
     stickers,
     jelly: settings.jelly,
     speed: settings.speed,
+    preset: settings.preset,
+    art: level !== "off" && settings.art,
+    artImage: level !== "off" && settings.art ? settings.artImage : "",
     effects,
+    overrides: level === "full" ? overrides : {},
   };
 }
 
@@ -94,7 +108,7 @@ export const REDUCED_TOKENS: MotionTokens = {
 /** The tokens in force for a policy, with speed applied to durations. */
 export function tokensFor(policy: MotionPolicy): MotionTokens {
   if (policy.level === "reduced") return REDUCED_TOKENS;
-  const base = motionTokens(policy.style, policy.intensity);
+  const base = { ...motionTokens(policy.style, policy.intensity), ...policy.overrides };
   const factor = SPEED_FACTOR[policy.speed];
   return {
     ...base,

@@ -1,5 +1,5 @@
 // The pure domain: effects, settings, the motion system and policy. No DOM.
-export { EFFECT_IDS, EffectId, type EffectInfo, EFFECTS, effectAttribute } from "./effects.ts";
+export { EFFECT_IDS, EffectId, type EffectInfo, EFFECTS, effectAttribute, effectInPreset } from "./effects.ts";
 export {
   BUDGETS,
   type DurationBudget,
@@ -20,12 +20,36 @@ export {
   STYLES,
 } from "./motion.ts";
 export {
+  ART_SURFACES,
+  type ArtImagePlacement,
+  type ArtLayer,
+  type ArtSurface,
+  type ArtSurfaceArt,
+  DEFAULT_IMAGE_PLACEMENT,
+  type Preset,
+  type PresetArt,
+  presetById,
+  type PresetFonts,
+  PresetId,
+  PRESET_IDS,
+  PRESETS,
+  type PresetValues,
+} from "./presets.ts";
+export { decodeSettings, resolve, type Resolved, type Source } from "./resolve.ts";
+export {
+  ArtImage,
+  type Choice,
+  type Choices,
+  decodeChoices,
   DEFAULT_SETTINGS,
-  decodeSettings,
+  FROM_PRESET,
+  type FromPreset,
   JELLY_MODES,
   JellyMode,
   MOTION_MODES,
   MotionMode,
+  NO_CHOICES,
+  type PresettableField,
   type Settings,
   type SettingsInput,
   type SettingsProblem,

@@ -126,7 +126,7 @@ test("the wobbly variants run at the full level only, so reduced motion is the c
   for (const [selector] of wobblyRules) assert.ok(selector.startsWith(':root[data-lively="full"][data-lively-style="wobbly"]'), selector);
   // Every effect has a wobbly rule, except those the same in both styles and toasts, which
   // the wobbly tokens alone retime (lively never animates a toast).
-  for (const effect of EFFECT_IDS.filter((id) => !["typingGlow", "calmHost", "pageWipe", "toastSpring"].includes(id))) {
+  for (const effect of EFFECT_IDS.filter((id) => !["typingGlow", "calmHost", "pageWipe", "toastSpring", "turnFreeze", "glitch"].includes(id))) {
     assert.ok(wobblyRules.some(([selector]) => selector.includes(`[${effectAttribute(effect)}]`)), effect);
   }
 });
@@ -191,7 +191,9 @@ test("host selectors are wrapped in :is(), so a list of them stays one compound"
 test("the page wipe slants with a mask and moves only by translate", () => {
   const wipe = rules(css).find(([selector]) => selector.includes(effectAttribute("pageWipe")) && selector.endsWith("::after"));
   assert.ok(wipe);
-  assert.match(wipe[1], /mask: linear-gradient\(105deg/u);
+  // The panel and its mask are paint properties a preset can replace; lively's own slants at 105°.
+  assert.match(wipe[1], /background: var\(--lively-wipe-fill\);[^}]*mask: var\(--lively-wipe-mask\);/u);
+  assert.match(css, /--lively-wipe-mask: linear-gradient\(105deg/u);
   assert.match(keyframes(css).get("lively-wipe") ?? "", /translate/u);
   assert.equal(INDIVIDUAL.has("translate"), true);
 });

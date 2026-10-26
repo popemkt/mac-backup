@@ -67,3 +67,20 @@ test("the table is the one source: every target selector comes from it", () => {
     assert.ok(selectors.has(value), role);
   }
 });
+
+const REQUEST_FIXTURE = readFileSync(new URL("fixtures/bb-0.46.1-request.html", import.meta.url), "utf8");
+
+test("a pending request sits in the thread window, outside its timeline (so Turn() freezes the timeline, never the request)", () => {
+  const win = new Window({ url: "https://bb.test/" });
+  win.document.body.innerHTML = REQUEST_FIXTURE;
+  const doc = win.document as unknown as Document;
+  const requests = [...doc.querySelectorAll(BB_TARGETS.pendingRequest)];
+  assert.equal(requests.length, 1);
+  const request = requests[0];
+  assert.ok(request?.closest(BB_TARGETS.pageView));
+  assert.equal(request?.closest(BB_TARGETS.rowList), null);
+  assert.ok(doc.querySelector(BB_TARGETS.pageView)?.querySelector(BB_TARGETS.rowList));
+  // The freeze's shape: the window that has a request, then its timeline's rows. (The stylesheet
+  // wraps each in :is(), which happy-dom cannot match around a combinator; Chrome was checked live.)
+  assert.ok(doc.querySelectorAll(`${BB_TARGETS.pageView}:has(${BB_TARGETS.pendingRequest}) ${BB_TARGETS.rowList} > ${BB_TARGETS.row}`).length > 0);
+});
