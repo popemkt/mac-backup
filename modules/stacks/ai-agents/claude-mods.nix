@@ -6,16 +6,8 @@
 
 # Claude Code mods: plugins built on function hooks that add panes and status
 # lines to the Claude Code UI. Catalogue: karanb192/awesome-claude-code-mods.
-# The executor is modules/darwin/home-manager/agent-plugins.nix; marketplace
+# The executor is modules/darwin/home-manager/agent-plugins/; marketplace
 # entries are "name=source".
-let
-  # The repo's own plugins are one folder marketplace. Claude Code reads a
-  # folder marketplace's relative-path plugins in place, so an edit there
-  # reaches a session with /reload-plugins and no reinstall.
-  # GAP [[01M5W9JKV26YK4R234A0F60X21]] so agents load the checkout, not the
-  # revision being applied.
-  repoMarketplace = "${config.users.users.${config.my.username}.home}/.dotfiles/assets/plugins";
-in
 lib.mkIf config.my.stacks.ai-agents.enable {
   my.pkgs = {
     # The terminal-browser plugin drives this binary (homebrew/cask, upstream
@@ -25,7 +17,9 @@ lib.mkIf config.my.stacks.ai-agents.enable {
     claudeMarketplaces = [
       "terminal-browser=zenbu-labs/terminal-browser"
       "claude-flightdeck=scasella/claude-flightdeck"
-      "dotfiles=${repoMarketplace}"
+      # The repo's own plugins (assets/plugins), as the revision applied
+      # has them; `agent-plugins-sync --path` tries a checkout's.
+      "dotfiles=./assets/plugins"
     ];
     claudePlugins = [
       # A browser pane beside the conversation: /browser.
