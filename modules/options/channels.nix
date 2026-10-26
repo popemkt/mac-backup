@@ -51,7 +51,7 @@
     installedBy = "executor";
   };
   bbPlugins = {
-    description = "bb plugins kept in this repo (paths relative to the dotfiles checkout) contributed by stacks.";
+    description = "bb plugins kept in this repo (folders relative to the repo root, installed from the Nix store) contributed by stacks.";
     installedBy = "executor";
   };
   # Attribute names in nixpkgs. NixOS's system module hands them to nix-ld,
