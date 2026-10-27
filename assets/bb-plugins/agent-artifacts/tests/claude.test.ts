@@ -1,7 +1,7 @@
 // Claude Code's own view, over plain data. Run: npm test
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildClaudeInventory, claudeMarkdown, endpoint, mergeSettings, type ClaudeLive, type ClaudeProbe, type LiveMcp } from "../lib/claude.ts";
+import { buildClaudeInventory, claudeMarkdown, endpoint, envValues, isPluginOn, mergeSettings, type ClaudeLive, type ClaudeProbe, type LiveMcp } from "../lib/claude.ts";
 
 function live(over: Partial<ClaudeLive> = {}): ClaudeLive {
   return {
@@ -221,4 +221,27 @@ test("output style: the session's active style first, then its other styles and 
       ["Terse", "off", "user"],
     ],
   );
+});
+
+test("settings arrays concatenate across sources without duplicates; scalars still take the later source", () => {
+  const merged = mergeSettings({
+    user: { enabledMcpjsonServers: ["a"], permissions: { allow: ["Read"], defaultMode: "plan" }, model: "opus" },
+    local: { enabledMcpjsonServers: ["b", "a"], permissions: { allow: ["Edit"] }, model: "sonnet" },
+  });
+  assert.deepEqual(merged.enabledMcpjsonServers, ["a", "b"]);
+  assert.deepEqual(merged.permissions, { allow: ["Read", "Edit"], defaultMode: "plan" });
+  assert.equal(merged.model, "sonnet");
+});
+
+test("enabledPlugins accepts true, version lists and enabled objects", () => {
+  assert.equal(isPluginOn(true), true);
+  assert.equal(isPluginOn(["^1.2"]), true);
+  assert.equal(isPluginOn({ enabled: false }), false);
+  assert.equal(isPluginOn(false), false);
+});
+
+test("env values never enter the inventory, only their masks", () => {
+  const p = probe({ settings: { user: { env: { TOKEN: "sk-secret-123" } } } });
+  assert.doesNotMatch(JSON.stringify(buildClaudeInventory(p)), /sk-secret-123/);
+  assert.equal(envValues(p).get("user:TOKEN")?.value, "sk-secret-123");
 });

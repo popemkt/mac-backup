@@ -6,10 +6,16 @@
 }:
 
 # NixOS side of the vpn stack: tailscaled (with its SSH server when
-# `ssh` is set), and the systemd job that
+# `ssh` is set), the `adhoc` command on top of it, and the systemd job that
 # reconciles the declared Tailscale Services.
 let
   cfg = config.my.stacks.vpn;
+  adhoc = import ./adhoc.nix {
+    inherit pkgs cfg;
+    inherit (config.my) hostname;
+    tailscale = "${config.services.tailscale.package}/bin/tailscale";
+    ssh = "${pkgs.openssh}/bin/ssh";
+  };
   reconcile = import ./services-reconcile.nix {
     inherit lib pkgs cfg;
     tailscale = "${config.services.tailscale.package}/bin/tailscale";
@@ -24,8 +30,10 @@ in
         # The UDP port for direct peer connections.
         openFirewall = true;
         # Applied with `tailscale set` once tailscaled is up.
-        extraSetFlags = lib.optional cfg.ssh "--ssh";
+        extraSetFlags =
+          lib.optional cfg.ssh "--ssh" ++ lib.optional (cfg.operator != null) "--operator=${cfg.operator}";
       };
+      my.everyone.home.packages = [ adhoc ];
     })
 
     (lib.mkIf reconcile.enable {

@@ -179,6 +179,7 @@ Rules for agents:
 |---|---|
 | Add software belonging to a functional stack | `modules/stacks/<stack>` and its matching `my.pkgs.*` channel list |
 | Add a functional stack | Declare `options.my.stacks.<name> = mkStack { ... }`, add its config, import it from the stack index for its platform (`modules/stacks/default.nix` when its schema is shared, otherwise `darwin.nix` or `nixos.nix`), then enable it in `hosts/<hostname>/default.nix` |
+| Connect a desktop app's AI to CLIProxyAPI | `modules/stacks/ai-agents/cli-proxy-clients/` (one client class in `converge.py`, plus its entry in `apps`); per-host toggles in `my.stacks.ai-agents.cliProxyClients` |
 | Add an unpacked browser extension checkout | `modules/stacks/browsers/` + `system-setup enroll <id>`; Load unpacked stays manual |
 | Add a CLI tool without a stack fit | `modules/common/home-manager/packages.nix` (every user, every platform); a build for macOS only goes in `modules/darwin/home-manager/packages.nix` |
 | Add a GUI cask without a stack fit | `modules/darwin/system/homebrew.nix` → `homebrew.casks` |

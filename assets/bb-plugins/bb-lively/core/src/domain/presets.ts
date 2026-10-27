@@ -383,8 +383,8 @@ export const PRESETS = [
     values: { intensity: "lively", style: "clean", stickers: "off", effects: { pageWipe: true, turnFreeze: true } },
     palette: "lively-cloudbank",
     art: CLOUDBANK_ART,
-    // A clean 1920s sans for reading, as kb's Transistor (Jost, OFL, if installed), then system
-    // geometric faces. No font file ships: lively has no way to serve one yet (GAP [[01M5SK4NQ90CRG9YAQC2GXNZJW]]).
+    // A clean 1920s sans for reading, as kb's Transistor (Jost, OFL), then system geometric faces.
+    // No font file ships: the Macs install Jost and Josefin Sans (modules/stacks/bb/darwin.nix).
     fonts: { sans: 'Jost, "Avenir Next", Futura, "Century Gothic", ui-sans-serif, system-ui, sans-serif' },
     // The sword's light runs brighter: every accent glow (focus, working line, rings) is stronger.
     tokens: { glow: 0.34 },

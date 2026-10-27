@@ -5,15 +5,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import {
   definePluginApp,
+  experimental_copyToClipboard as copyToClipboard,
   experimental_FileLink as FileLink,
   useBbNavigate,
+  useRealtime,
   useRpc,
   type PluginThreadHeaderActionProps,
   type PluginThreadPanelProps,
 } from "@get-bb/plugin-sdk/app";
 import { toast } from "sonner";
 import type { InventorySummary, rpcContract } from "./server";
-import { bySource, claudeMarkdown, itemMatches, mask, type ClaudeInventory, type Group, type Item, type Status } from "./lib/claude";
+import { bySource, claudeMarkdown, itemMatches, type ClaudeInventory, type Group, type Item, type Status } from "./lib/claude";
+import { CLAUDE_CHANNEL, INVENTORY_CHANNEL, type ClaudeSignal, type InventorySignal } from "./lib/signals";
 import {
   inventoryMarkdown,
   skillGroup,
@@ -38,60 +41,105 @@ const PANEL_TITLE = "Agent artifacts";
 
 const message = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause));
 
+/** Copies text through bb's own clipboard writer (works in bb Desktop without focus), with a toast either way. */
+async function copy(text: string, done = "Copied") {
+  if (await copyToClipboard({ text })) toast.success(done);
+  else toast.error("Could not copy to the clipboard");
+}
+
+/** Realtime signals are untyped on the wire: read one field without trusting the rest. */
+const field = (payload: unknown, key: string): unknown => (typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>)[key] : undefined);
+
+/**
+ * The thread's inventory. Only the latest request may land (a slow answer for a previous thread, or an older
+ * refresh, is dropped), and a rebuild announced by the server (another panel, the chip, `bb artifacts`) is picked up.
+ */
 function useInventory(threadId: string) {
   const rpc = useRpc<typeof rpcContract>();
   const [inv, setInv] = useState<Inventory | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const latest = useRef(0);
+  const builtAt = useRef(0);
   const load = useCallback(
     (fresh: boolean) => {
+      const ticket = ++latest.current;
       setLoading(true);
-      rpc
-        .call("inventory", { threadId, fresh })
-        .then(
-          next => {
-            setInv(next);
-            setError(null);
-          },
-          cause => setError(message(cause)),
-        )
-        .finally(() => setLoading(false));
+      rpc.call("inventory", { threadId, fresh }).then(
+        next => {
+          if (ticket !== latest.current) return;
+          builtAt.current = next.builtAt;
+          setInv(next);
+          setError(null);
+          setLoading(false);
+        },
+        cause => {
+          if (ticket !== latest.current) return;
+          setError(message(cause));
+          setLoading(false);
+        },
+      );
     },
     [rpc, threadId],
   );
-  useEffect(() => load(false), [load]);
+  useEffect(() => {
+    setInv(null);
+    setError(null);
+    builtAt.current = 0;
+    load(false);
+  }, [load]);
+  useRealtime(INVENTORY_CHANNEL, payload => {
+    const built = field(payload, "builtAt" satisfies keyof InventorySignal);
+    if (field(payload, "threadId") === threadId && typeof built === "number" && built > builtAt.current) load(false);
+  });
   return { inv, error, loading, refresh: () => load(true) };
 }
 
-/** Claude Code's own view of the workspace. Slower than the inventory (it starts a Claude Code session), so apart. */
-function useClaude(threadId: string, isClaude: boolean, refreshKey: number) {
+/**
+ * Claude Code's own view of the workspace. Slower than the inventory (it starts a Claude Code session), so apart.
+ * The server answers at once with its last probe and probes again behind it when that one is old; the new probe is
+ * announced over realtime and picked up here.
+ */
+function useClaude(threadId: string, workspace: { hostId: string; path: string | null } | null) {
   const rpc = useRpc<typeof rpcContract>();
   const [answer, setAnswer] = useState<{ inventory: ClaudeInventory | null; reason: string | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const isFirst = useRef(true);
-  useEffect(() => {
-    if (!isClaude) return;
-    let isCurrent = true;
-    const fresh = !isFirst.current;
-    isFirst.current = false;
-    setLoading(true);
-    rpc
-      .call("claude", { threadId, fresh })
-      .then(
+  const latest = useRef(0);
+  const isOn = workspace !== null;
+  const load = useCallback(
+    (fresh: boolean) => {
+      const ticket = ++latest.current;
+      setLoading(true);
+      rpc.call("claude", { threadId, fresh }).then(
         next => {
-          if (!isCurrent) return;
+          if (ticket !== latest.current) return;
           setAnswer(next);
           setError(null);
+          setLoading(false);
         },
-        cause => isCurrent && setError(message(cause)),
-      )
-      .finally(() => isCurrent && setLoading(false));
-    return () => {
-      isCurrent = false;
-    };
-  }, [rpc, threadId, isClaude, refreshKey]);
-  return { claude: answer?.inventory ?? null, reason: answer?.reason ?? null, error, loading };
+        cause => {
+          if (ticket !== latest.current) return;
+          setError(message(cause));
+          setLoading(false);
+        },
+      );
+    },
+    [rpc, threadId],
+  );
+  useEffect(() => {
+    setAnswer(null);
+    setError(null);
+    if (isOn) load(false);
+    else latest.current++;
+  }, [load, isOn]);
+  useRealtime(CLAUDE_CHANNEL, payload => {
+    if (workspace === null || field(payload, "hostId" satisfies keyof ClaudeSignal) !== workspace.hostId || field(payload, "path") !== workspace.path) return;
+    const probedAt = answer?.inventory?.probedAt ?? 0;
+    // Our own fresh probe lands through `load` too; only a newer one than what is shown is worth a fetch.
+    if (Date.now() - probedAt > 1000) load(false);
+  });
+  return { claude: answer?.inventory ?? null, reason: answer?.reason ?? null, error, loading, refresh: () => isOn && load(true) };
 }
 
 // ------------------------------------------------------------------ small pieces
@@ -153,10 +201,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
       aria-label={label}
       onClick={event => {
         event.stopPropagation();
-        navigator.clipboard.writeText(text).then(
-          () => toast.success("Copied"),
-          cause => toast.error(message(cause)),
-        );
+        void copy(text);
       }}
     >
       <Icon name="Copy" className="size-3.5" />
@@ -646,7 +691,7 @@ function PluginsList({ inv, query, open, toggle }: { inv: Inventory; query: stri
             className="flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-left text-xs text-muted-foreground hover:bg-state-hover"
           >
             <Icon name={isRestOpen ? "ChevronDown" : "ChevronRight"} className="size-3 shrink-0" />
-            UI-only and disabled plugins · {rest.length}
+            Not reaching the agent (UI-only, stopped, failed) · {rest.length}
           </button>
           {isRestOpen ? (
             <ul className="space-y-0.5 pl-3">
@@ -692,7 +737,7 @@ function groupSummary(group: Group): ReactNode {
   );
 }
 
-function ClaudeItemRow({ item, hostId, isOpen, onToggle, reveal }: { item: Item; hostId: string | null; isOpen: boolean; onToggle: () => void; reveal: boolean }) {
+function ClaudeItemRow({ item, hostId, isOpen, onToggle, revealed }: { item: Item; hostId: string | null; isOpen: boolean; onToggle: () => void; revealed: string | undefined }) {
   const hasMore = item.description !== undefined || item.list !== undefined || item.path !== undefined;
   return (
     <Row
@@ -702,7 +747,7 @@ function ClaudeItemRow({ item, hostId, isOpen, onToggle, reveal }: { item: Item;
         <>
           <span className={cn("shrink-0 truncate font-medium", (item.status === "off" || item.status === "disabled") && "text-muted-foreground")}>{item.name}</span>
           <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground">
-            {item.secret === undefined ? (item.detail ?? (item.description === undefined ? "" : item.description.split("\n", 1)[0])) : reveal ? item.secret : mask(item.secret)}
+            {item.masked === undefined ? (item.detail ?? (item.description === undefined ? "" : item.description.split("\n", 1)[0])) : (revealed ?? item.masked)}
           </span>
           {item.tokens === undefined ? null : <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">{tokens(item.tokens)} tok</span>}
           {item.fromDisk ? <Chip title="Read from a file now, not reported by the session">file</Chip> : null}
@@ -736,20 +781,40 @@ function ClaudeItemRow({ item, hostId, isOpen, onToggle, reveal }: { item: Item;
   );
 }
 
+/** Env values are fetched only when the user reveals them, and forgotten when masked again. */
+function useRevealedEnv(threadId: string) {
+  const rpc = useRpc<typeof rpcContract>();
+  const [values, setValues] = useState<Record<string, string> | null>(null);
+  const [busy, setBusy] = useState(false);
+  const toggle = () => {
+    if (values !== null) return setValues(null);
+    setBusy(true);
+    rpc.call("claudeEnv", { threadId }).then(
+      next => (setValues(next), setBusy(false)),
+      cause => (toast.error(message(cause)), setBusy(false)),
+    );
+  };
+  useEffect(() => setValues(null), [threadId]);
+  return { values, busy, toggle };
+}
+
 function ClaudeGroup({
   group,
+  threadId,
   hostId,
   query,
   open,
   toggle,
 }: {
   group: Group;
+  threadId: string;
   hostId: string | null;
   query: string;
   open: Set<string>;
   toggle: (key: string) => void;
 }) {
-  const [reveal, setReveal] = useState(false);
+  const env = useRevealedEnv(threadId);
+  const reveal = env.values !== null;
   const items = group.items.filter(i => itemMatches(i, query));
   if (query !== "" && items.length === 0) return null;
   const key = `cc:${group.kind}`;
@@ -769,8 +834,8 @@ function ClaudeGroup({
       onToggle={() => toggle(key)}
       aside={
         group.kind === "env" && group.items.length > 0 ? (
-          <Button variant="ghost" size="icon" className="size-7 shrink-0 text-muted-foreground" aria-label={reveal ? "Mask values" : "Reveal values"} onClick={() => setReveal(v => !v)}>
-            <Icon name={reveal ? "EyeOff" : "Eye"} className="size-3.5" />
+          <Button variant="ghost" size="icon" className="size-7 shrink-0 text-muted-foreground" aria-label={reveal ? "Mask values" : "Reveal values"} disabled={env.busy} onClick={env.toggle}>
+            <Icon name={env.busy ? "Spinner" : reveal ? "EyeOff" : "Eye"} className={cn("size-3.5", env.busy && "animate-spin")} />
           </Button>
         ) : null
       }
@@ -787,7 +852,7 @@ function ClaudeGroup({
             ) : null}
             <ul className="space-y-0.5">
               {run.items.map(item => (
-                <ClaudeItemRow key={item.id} item={item} hostId={hostId} isOpen={open.has(`${key}:${item.id}`)} onToggle={() => toggle(`${key}:${item.id}`)} reveal={reveal} />
+                <ClaudeItemRow key={item.id} item={item} hostId={hostId} isOpen={open.has(`${key}:${item.id}`)} onToggle={() => toggle(`${key}:${item.id}`)} revealed={env.values?.[item.id]} />
               ))}
             </ul>
           </div>
@@ -798,6 +863,7 @@ function ClaudeGroup({
 }
 
 function ClaudeView({
+  threadId,
   claude,
   reason,
   error,
@@ -807,6 +873,7 @@ function ClaudeView({
   open,
   toggle,
 }: {
+  threadId: string;
   claude: ClaudeInventory | null;
   reason: string | null;
   error: string | null;
@@ -832,6 +899,7 @@ function ClaudeView({
     );
   }
   const a = claude.account;
+  const errorLine = error === null ? null : <p className="px-1 text-xs text-destructive">Could not ask Claude Code again: {error}</p>;
   const groups = claude.groups.filter(g => query === "" || g.items.some(i => itemMatches(i, query)));
   return (
     <div className="space-y-2">
@@ -849,11 +917,12 @@ function ClaudeView({
               starts at {tokens(claude.baseline.totalTokens)} / {tokens(claude.baseline.maxTokens)}
             </Chip>
           )}
-          <Chip title="When Claude Code was asked; refresh to ask again">
+          <Chip title="When Claude Code was asked; refresh to ask again" tone={Date.now() - claude.probedAt > 120_000 ? "warning" : "muted"}>
             {new Date(claude.probedAt).toLocaleTimeString()} · {(claude.probeMs / 1000).toFixed(1)}s
           </Chip>
         </div>
       </div>
+      {errorLine}
       {claude.attention.length > 0 && query === "" ? (
         <div role="alert" className="space-y-0.5 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs">
           <div className="flex items-center gap-1.5 font-medium text-warning">
@@ -879,7 +948,7 @@ function ClaudeView({
         </details>
       ) : null}
       {groups.map(g => (
-        <ClaudeGroup key={g.kind} group={g} hostId={hostId} query={query} open={open} toggle={toggle} />
+        <ClaudeGroup key={g.kind} group={g} threadId={threadId} hostId={hostId} query={query} open={open} toggle={toggle} />
       ))}
     </div>
   );
@@ -910,11 +979,13 @@ function ViewTab({ view, current, onSelect, label, count }: { view: View; curren
 function ArtifactsPanel({ threadId }: PluginThreadPanelProps) {
   const { inv, error, loading, refresh: refreshInventory } = useInventory(threadId);
   const isClaude = inv?.thread.providerId === "claude-code";
-  const [refreshKey, setRefreshKey] = useState(0);
-  const cc = useClaude(threadId, isClaude, refreshKey);
+  const env = inv?.environment ?? null;
+  const workspace = useMemo(() => (isClaude && env !== null ? { hostId: env.hostId, path: env.path } : null), [isClaude, env?.hostId, env?.path]);
+  const cc = useClaude(threadId, workspace);
+  const busy = loading || cc.loading;
   const refresh = () => {
     refreshInventory();
-    setRefreshKey(n => n + 1);
+    cc.refresh();
   };
   const [query, setQuery] = useState("");
   const [view, setView] = useState<View>("all");
@@ -974,11 +1045,9 @@ function ArtifactsPanel({ threadId }: PluginThreadPanelProps) {
   const troubled = inv.plugins.filter(p => p.health === "error" || p.health === "warning");
   const otherCount = inv.skills.filter(s => s.tier === "other-provider").length;
   const copyAll = () =>
-    navigator.clipboard
-      .writeText([inventoryMarkdown(inv, { full: true, otherProviders: showOthers }), ...(cc.claude === null ? [] : [claudeMarkdown(cc.claude, { full: true })])].join("\n\n"))
-      .then(
-      () => toast.success("Copied the inventory as Markdown"),
-      cause => toast.error(message(cause)),
+    copy(
+      [inventoryMarkdown(inv, { full: true, otherProviders: showOthers }), ...(cc.claude === null ? [] : [claudeMarkdown(cc.claude, { full: true })])].join("\n\n"),
+      "Copied the inventory as Markdown",
     );
 
   return (
@@ -1004,8 +1073,8 @@ function ArtifactsPanel({ threadId }: PluginThreadPanelProps) {
               className="h-8 pl-8 text-sm"
             />
           </div>
-          <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={refresh} disabled={loading} aria-label="Refresh">
-            <Icon name="RotateCcw" className={cn("size-4", loading && "animate-spin")} />
+          <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={refresh} disabled={busy} aria-label={cc.loading && !loading ? "Asking Claude Code…" : "Refresh"}>
+            <Icon name="RotateCcw" className={cn("size-4", busy && "animate-spin")} />
           </Button>
           <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={copyAll} aria-label="Copy as Markdown">
             <Icon name="Copy" className="size-4" />
@@ -1018,7 +1087,7 @@ function ArtifactsPanel({ threadId }: PluginThreadPanelProps) {
           <ViewTab view="tools" current={view} onSelect={setView} label="Tools" count={tab.tools} />
           <ViewTab view="commands" current={view} onSelect={setView} label="Commands" count={tab.commands} />
           <ViewTab view="plugins" current={view} onSelect={setView} label="Plugins" count={tab.plugins} />
-          {isClaude ? <ViewTab view="claude" current={view} onSelect={setView} label="Claude Code" count={cc.claude === null ? undefined : query === "" ? cc.claude.groups.length : tab.claude} /> : null}
+          {isClaude ? <ViewTab view="claude" current={view} onSelect={setView} label="Claude Code" count={cc.claude === null ? undefined : tab.claude} /> : null}
         </div>
       </div>
 
@@ -1039,6 +1108,8 @@ function ArtifactsPanel({ threadId }: PluginThreadPanelProps) {
             ))}
           </div>
         ) : null}
+
+        {error === null ? null : <p className="px-1 text-xs text-destructive">Could not refresh: {error}</p>}
 
         {nothingMatches ? <Empty>Nothing matches “{query}”. Other providers' skills are searched only when shown.</Empty> : null}
 
@@ -1119,7 +1190,7 @@ function ArtifactsPanel({ threadId }: PluginThreadPanelProps) {
 
         {isClaude && show("claude") ? (
           <div className={cn(view === "all" && "pt-2")}>
-            <ClaudeView claude={cc.claude} reason={cc.reason} error={cc.error} loading={cc.loading} hostId={inv.environment?.hostId ?? null} query={query} open={open} toggle={toggle} />
+            <ClaudeView threadId={threadId} claude={cc.claude} reason={cc.reason} error={cc.error} loading={cc.loading} hostId={inv.environment?.hostId ?? null} query={query} open={open} toggle={toggle} />
           </div>
         ) : null}
       </div>
@@ -1140,6 +1211,7 @@ function HeaderChip({ threadId, isCompactViewport }: PluginThreadHeaderActionPro
   const rpc = useRpc<typeof rpcContract>();
   const navigate = useBbNavigate();
   const [summary, setSummary] = useState<InventorySummary | null>(null);
+  const [version, setVersion] = useState(0);
   useEffect(() => {
     let isCurrent = true;
     rpc.call("summary", { threadId }).then(
@@ -1149,7 +1221,11 @@ function HeaderChip({ threadId, isCompactViewport }: PluginThreadHeaderActionPro
     return () => {
       isCurrent = false;
     };
-  }, [rpc, threadId]);
+  }, [rpc, threadId, version]);
+  // A rebuilt inventory (the panel's refresh, `bb artifacts`) updates the count; the RPC hits the server's cache.
+  useRealtime(INVENTORY_CHANNEL, payload => {
+    if (field(payload, "threadId") === threadId) setVersion(v => v + 1);
+  });
   const total = summary === null ? null : summary.activeSkills + summary.tools + summary.instructions;
   const title =
     summary === null

@@ -27,6 +27,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Decide the home for the checklist in this repo, port R1-R20, and wire the mechanical subset the way the reference repo does before adding more skills.
 - **node** — `01M1M08W6Z70XV3KCQB5CWH3ZR`
 
+### GAP: bb desktop has no persistent Chromium switch setting
+
+- **expected** — bb starts with the Chromium switches the bb stack declares (desktopSwitches), however it is opened
+- **current** — Only bb Launcher / bb-launch pass them (open --args); a Dock, Spotlight or post-update relaunch starts bb without them, and the launcher must restart it
+- **impact** — HTML-in-Canvas effects (bb-lively Control) fall back to CSS until bb is relaunched through the launcher
+- **closes** — bb reads switches from a setting or env (app.commandLine.appendSwitch); then drop modules/stacks/bb/launcher.nix
+- **node** — `01M5WM2XP3AFV2AVMPM4S74GS5`
+
 ### GAP: bb plugin settings cannot inherit a value or describe it live
 
 - **expected** — A plugin setting can be left unset (inherit) from bb's UI, a boolean can be tri-state, and a description can show the effective value ("currently: wobbly, from ZZZ") next to the setting.
@@ -34,14 +42,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Effect switches are dropdowns instead of switches; a stored boolean from before presets falls back to From preset (bb coerces a type mismatch to the default); effective values live in a section below the settings, not beside each one.
 - **closes** — bb adds an inherit/unset state or dynamic descriptions to plugin settings; then bb-lively's adapter/settings.ts goes back to switches and per-setting descriptions.
 - **node** — `01M5RXXJV7Q5EWQF8EVK8VFX85`
-
-### GAP: bb-lively cannot ship a font face; presets name system and OFL families that show only if installed
-
-- **expected** — A preset's OFL faces (Cloudbank: Jost, Josefin Sans; kb ships them from @fontsource) load in bb whatever the machine has installed
-- **current** — bb-lively names families only; no route or bundle serves a font file, so Cloudbank falls back to Avenir Next and Futura (macOS) or the system sans
-- **impact** — Cloudbank's lettering and body type differ by machine and from kb's Transistor
-- **closes** — Serve @fontsource woff2 files (an npm dependency, never committed) from the plugin's HTTP route or app bundle and declare @font-face under the preset
-- **node** — `01M5SK4NQ90CRG9YAQC2GXNZJW`
 
 ### GAP: bb-lively not verified as an installed plugin
 
@@ -160,6 +160,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A fork of provider-claude-code (and provider-codex) under a new provider id that sets settingSources, strictMcpConfig, disallowedTools and skills (Codex: -c and CODEX_HOME) from the thread's composer record.
 - **node** — `01M5QKD7E3SR1DT4Z39TY3ZTGF`
 
+### GAP: per-machine adhoc serve rides the wildcard grant
+
+- **expected** — A grant that names the per-machine HTTPS ports adhoc publishes (443, 8443, 10000 on every host the policy covers), so tailnet access to them survives removing the wildcard grant.
+- **current** — adhoc <port> serves on the machine's own name; no grant covers it, only the final wildcard grant (src *, dst *, ip *) in configs/tailscale/policy.hujson lets members reach it.
+- **impact** — Dropping the wildcard grant silently stops every per-machine adhoc URL from being reachable; svc:adhoc-popemkt (adhoc --shared) keeps its own grant.
+- **closes** — A narrower grant for autogroup:member to the hosts' tailnet addresses on tcp:443, tcp:8443 and tcp:10000, added in the same change that removes the wildcard.
+- **node** — `01M5YXMSJVHNX6D090BCSP5816`
+
 ### GAP: pi enforcement of a composer manifest is unproven inside bb
 
 - **expected** — A bb pi thread spawned from a composition loads only the kept skills, tools, context files and MCP servers, and reports what pi sent.
@@ -211,9 +219,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: service ports are restated outside the module that owns them
 
 - **expected** — Each service port has one owner, exposed as a read-only option (or passthru) of its component, and every other reader derives from it.
-- **current** — CLIProxyAPI 8317 is a let binding in cli-proxy-api.nix and is retyped in ai-agents/system-setup.nix (four probes), cognee/server.nix LLM_ENDPOINT and modules/darwin/home-manager/default.nix. The Cognee gateway 8088 is retyped in system-setup.nix and hosts/popemkt-personal (vpn service target). The Cognee MCP port 8001 is a separate binding in server.nix and client.nix.
+- **current** — CLIProxyAPI 8317 is owned by the read-only option my.stacks.ai-agents.cliProxyApi.port, which cli-proxy-api.nix and cli-proxy-clients read; it is still retyped in ai-agents/system-setup.nix (four probes), cognee/server.nix LLM_ENDPOINT and modules/darwin/home-manager/default.nix. The Cognee gateway 8088 is retyped in system-setup.nix and hosts/popemkt-personal (vpn service target). The Cognee MCP port 8001 is a separate binding in server.nix and client.nix.
 - **impact** — Changing a port in its module silently breaks the health probes or the tailnet route.
-- **closes** — Give cli-proxy-api and cognee read-only port options and derive the other sites from them.
+- **closes** — Derive the remaining CLIProxyAPI sites from cliProxyApi.port, and give cognee read-only port options the same way.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M3E9VX8SQJKV3K2Q1JEKT309`
 
@@ -311,6 +319,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A merged plugin change silently does not reach bb; nothing reports it.
 - **closes** — Run the bb plugin installer on every rebuild (or at boot) regardless of closure change, or have rebuild/restart-app --status report plugins whose stamp differs from their source.
 - **node** — `01M5P3ET7FV0S3JJ7DH50EHNY4`
+
+### GAP: bb-lively cannot ship a font face; presets name system and OFL families that show only if installed
+
+- **expected** — A preset's OFL faces (Cloudbank: Jost, Josefin Sans; kb ships them from @fontsource) load in bb whatever the machine has installed
+- **current** — bb-lively names families only; no route or bundle serves a font file, so Cloudbank falls back to Avenir Next and Futura (macOS) or the system sans
+- **impact** — Cloudbank's lettering and body type differ by machine and from kb's Transistor
+- **closes** — Closed by installing the faces on the Macs, where bb is viewed: nix-darwin fonts.packages in the bb stack (modules/stacks/bb/darwin.nix). Serving @fontsource woff2 files from the plugin would still reach other devices (a phone)
+- **node** — `01M5SK4NQ90CRG9YAQC2GXNZJW`
 
 ### GAP: bbim gives no hints inside bb's browser tabs
 

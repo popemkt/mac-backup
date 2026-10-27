@@ -5,7 +5,9 @@
 import { defineRpcContract, type BbPluginApi, type PluginBbSdk } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { hostContract } from "./contract";
-import { buildClaudeInventory, claudeMarkdown, type ClaudeInventory } from "./lib/claude";
+import { buildClaudeInventory, claudeMarkdown, envValues, type ClaudeInventory } from "./lib/claude";
+import { promiseCache } from "./lib/cache";
+import { CLAUDE_CHANNEL, INVENTORY_CHANNEL, type ClaudeSignal, type InventorySignal } from "./lib/signals";
 import {
   buildInventory,
   homeFromDataDir,
@@ -38,6 +40,11 @@ export const rpcContract = defineRpcContract({
       inventory: z.custom<ClaudeInventory>(v => typeof v === "object" && v !== null, "not a Claude inventory").nullable(),
       reason: z.string().nullable(),
     }),
+  },
+  /** The env values Claude Code's settings set for the thread's workspace, by env item id: only when the user reveals them. */
+  claudeEnv: {
+    input: threadInput,
+    output: z.record(z.string(), z.string()),
   },
   /** The counts the thread header chip shows, served from the same cache. */
   summary: {
@@ -202,43 +209,65 @@ const HELP = [
 
 type ClaudeAnswer = { inventory: ClaudeInventory | null; reason: string | null };
 
-export default async function plugin(bb: BbPluginApi) {
-  const cache = new Map<string, { at: number; inv: Promise<Inventory> }>();
+/** One probe of a workspace: the inventory clients see, and the env values that stay here until revealed. */
+type ClaudeEntry = { inventory: ClaudeInventory; env: Record<string, string> };
 
-  /** The inventory for a thread, shared by every caller inside the cache window. A failed read is not kept. */
+export default async function plugin(bb: BbPluginApi) {
+  const inventories = promiseCache<Inventory>(CACHE_MS);
+
+  /** The inventory for a thread. A newly built one is announced so every open chip and panel picks it up. */
   function inventory(threadId: string, fresh = false): Promise<Inventory> {
-    const hit = cache.get(threadId);
-    if (!fresh && hit !== undefined && Date.now() - hit.at < CACHE_MS) return hit.inv;
-    const inv = snapshot(bb.sdk, threadId).then(s => buildInventory(s, Date.now()));
-    cache.set(threadId, { at: Date.now(), inv });
-    inv.catch(() => cache.delete(threadId));
-    return inv;
+    return inventories.get(threadId, () => snapshot(bb.sdk, threadId).then(s => buildInventory(s, Date.now())), {
+      fresh,
+      onRefreshed: inv => bb.realtime.publish(INVENTORY_CHANNEL, { threadId, builtAt: inv.builtAt } satisfies InventorySignal),
+    });
   }
 
   const host = bb.hosts.experimental_client({ contract: hostContract });
-  const claudeCache = new Map<string, { at: number; answer: Promise<ClaudeInventory> }>();
+  const probes = promiseCache<ClaudeEntry>(CLAUDE_CACHE_MS);
 
-  /** Claude Code's view of a thread's workspace, probed on the workspace's host and shared per workspace. */
-  async function claude(threadId: string, fresh = false): Promise<ClaudeAnswer> {
+  /** Where a Claude Code thread's workspace is, or why it cannot be probed. */
+  async function workspaceOf(threadId: string): Promise<{ hostId: string; path: string } | { reason: string }> {
     const thread = await bb.sdk.threads.get({ threadId });
-    if (thread.providerId !== "claude-code") return { inventory: null, reason: "Only Claude Code threads are probed so far." };
-    if (thread.environmentId === null) return { inventory: null, reason: "The thread has no environment yet." };
+    if (thread.providerId !== "claude-code") return { reason: "Only Claude Code threads are probed so far." };
+    if (thread.environmentId === null) return { reason: "The thread has no environment yet." };
     const env = await bb.sdk.environments.get({ environmentId: thread.environmentId });
-    if (env.path === null) return { inventory: null, reason: "The workspace is not on disk yet." };
-    const key = `${env.hostId}:${env.path}`;
-    const hit = claudeCache.get(key);
-    if (!fresh && hit !== undefined && Date.now() - hit.at < CLAUDE_CACHE_MS) return { inventory: await hit.answer, reason: null };
-    const cwd = env.path;
-    // Through JSON once: bb's RPC refuses `undefined` fields, which the inventory's optional ones may hold.
-    const answer = host.call("probeClaude", { cwd }, { hostId: env.hostId }).then(p => JSON.parse(JSON.stringify(buildClaudeInventory(p))) as ClaudeInventory);
-    claudeCache.set(key, { at: Date.now(), answer });
-    answer.catch(() => claudeCache.delete(key));
-    return { inventory: await answer, reason: null };
+    if (env.path === null) return { reason: "The workspace is not on disk yet." };
+    return { hostId: env.hostId, path: env.path };
+  }
+
+  /**
+   * Claude Code's view of a thread's workspace, probed on the workspace's host and shared per workspace. The panel
+   * gets a stale answer at once while a new probe runs (announced over realtime); the CLI waits for a current one.
+   */
+  async function claudeEntry(threadId: string, opts: { fresh?: boolean; stale: "serve" | "wait" }): Promise<ClaudeEntry | { reason: string }> {
+    const ws = await workspaceOf(threadId);
+    if ("reason" in ws) return ws;
+    const key = `${ws.hostId}:${ws.path}`;
+    return probes.get(
+      key,
+      () =>
+        host.call("probeClaude", { cwd: ws.path }, { hostId: ws.hostId }).then(p => ({
+          // Through JSON once: bb's RPC refuses `undefined` fields, which the inventory's optional ones may hold.
+          inventory: JSON.parse(JSON.stringify(buildClaudeInventory(p))) as ClaudeInventory,
+          env: Object.fromEntries([...envValues(p)].map(([id, v]) => [id, v.value])),
+        })),
+      { ...opts, onRefreshed: () => bb.realtime.publish(CLAUDE_CHANNEL, { hostId: ws.hostId, path: ws.path } satisfies ClaudeSignal) },
+    );
+  }
+
+  async function claude(threadId: string, opts: { fresh?: boolean; stale: "serve" | "wait" }): Promise<ClaudeAnswer> {
+    const entry = await claudeEntry(threadId, opts);
+    return "reason" in entry ? { inventory: null, reason: entry.reason } : { inventory: entry.inventory, reason: null };
   }
 
   bb.rpc.register(rpcContract, {
     inventory: ({ threadId, fresh }) => inventory(threadId, fresh === true),
-    claude: ({ threadId, fresh }) => claude(threadId, fresh === true),
+    claude: ({ threadId, fresh }) => claude(threadId, { fresh: fresh === true, stale: "serve" }),
+    claudeEnv: async ({ threadId }) => {
+      const entry = await claudeEntry(threadId, { stale: "serve" });
+      return "reason" in entry ? {} : entry.env;
+    },
     summary: async ({ threadId }) => {
       const inv = await inventory(threadId);
       return { providerName: inv.thread.providerName, ...inv.counts };
@@ -261,7 +290,7 @@ export default async function plugin(bb: BbPluginApi) {
           inventory(threadId, true),
           flags.has("--no-claude")
             ? Promise.resolve<ClaudeAnswer>({ inventory: null, reason: null })
-            : claude(threadId).catch((err): ClaudeAnswer => ({ inventory: null, reason: `Could not probe Claude Code: ${err instanceof Error ? err.message : String(err)}` })),
+            : claude(threadId, { stale: "wait" }).catch((err): ClaudeAnswer => ({ inventory: null, reason: `Could not probe Claude Code: ${err instanceof Error ? err.message : String(err)}` })),
         ]);
         if (flags.has("--json")) return { exitCode: 0, stdout: JSON.stringify({ ...inv, claude: provider.inventory }) };
         const full = flags.has("--full");
@@ -276,7 +305,7 @@ export default async function plugin(bb: BbPluginApi) {
   });
 
   bb.onDispose(() => {
-    cache.clear();
-    claudeCache.clear();
+    inventories.clear();
+    probes.clear();
   });
 }
