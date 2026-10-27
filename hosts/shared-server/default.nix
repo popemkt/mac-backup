@@ -131,6 +131,9 @@ in
       # Each person logs in as themselves over Tailscale SSH
       # (configs/tailscale/policy.hujson); there is no sshd.
       ssh = true;
+      # `adhoc <port>` publishes on this host's own tailnet name; tailscaled
+      # lets root and one operator do that, and popemkt is the one who does.
+      operator = "popemkt";
       # Each T3 Code server gets its own HTTPS name on the tailnet.
       services =
         lib.mapAttrs' (

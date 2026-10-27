@@ -160,6 +160,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A fork of provider-claude-code (and provider-codex) under a new provider id that sets settingSources, strictMcpConfig, disallowedTools and skills (Codex: -c and CODEX_HOME) from the thread's composer record.
 - **node** — `01M5QKD7E3SR1DT4Z39TY3ZTGF`
 
+### GAP: per-machine adhoc serve rides the wildcard grant
+
+- **expected** — A grant that names the per-machine HTTPS ports adhoc publishes (443, 8443, 10000 on every host the policy covers), so tailnet access to them survives removing the wildcard grant.
+- **current** — adhoc <port> serves on the machine's own name; no grant covers it, only the final wildcard grant (src *, dst *, ip *) in configs/tailscale/policy.hujson lets members reach it.
+- **impact** — Dropping the wildcard grant silently stops every per-machine adhoc URL from being reachable; svc:adhoc-popemkt (adhoc --shared) keeps its own grant.
+- **closes** — A narrower grant for autogroup:member to the hosts' tailnet addresses on tcp:443, tcp:8443 and tcp:10000, added in the same change that removes the wildcard.
+- **node** — `01M5YXMSJVHNX6D090BCSP5816`
+
 ### GAP: pi enforcement of a composer manifest is unproven inside bb
 
 - **expected** — A bb pi thread spawned from a composition loads only the kept skills, tools, context files and MCP servers, and reports what pi sent.

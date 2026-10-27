@@ -132,6 +132,44 @@ owner-only socket directory. Like any Service it needs a grant and an
 `autoApprovers.services` entry for the host's tag; the gate and CI fail until
 both exist.
 
+### Ad Hoc Apps
+
+`adhoc` (installed for every person on every host, by the vpn stack) puts a
+local web app on the tailnet for a while, two ways:
+
+| Command | Where it appears | Use it for |
+|---|---|---|
+| `adhoc <port> [--https=<p>]` | `https://<this-machine>.<tailnet-domain>` (`:<p>` for a second app) | an app running on this machine, reachable from the machine's own name |
+| `adhoc --shared <port>` | `https://adhoc-popemkt.<tailnet-domain>` | a stable name that survives which machine the app runs on |
+
+`adhoc <port>` runs `tailscale serve --bg` against `127.0.0.1:<port>` and prints
+the URL; HTTPS ports are 443 (default), 8443 and 10000. It refuses to replace an
+HTTPS port that is already served. `adhoc ls` shows what is published,
+`adhoc off --https=<p>` removes one entry, and `adhoc off` removes every entry
+of the machine's own. It deliberately avoids `tailscale serve reset`, which
+empties the whole serve config and would take the declared Tailscale Services
+down with it. These entries live only in tailscaled's state; a rebuild does not
+declare or remove them.
+
+`adhoc --shared <port>` runs `ssh -N -R 9001:localhost:<port>
+popemkt@shared-server` in the foreground (Ctrl-C ends it), so
+`svc:adhoc-popemkt` serves your port. Port 9001 is read from shared-server's
+`adhoc-popemkt.target`, not repeated. It first checks that nothing already
+listens on 9001 there and refuses, naming the holder (a systemd unit, say), if
+something does. On shared-server itself it only says to serve on 9001 directly.
+
+Two things it relies on:
+
+- Per-machine serve is reached through the policy's final wildcard grant
+  (`"src": ["*"], "dst": ["*"]`); no grant names these per-machine HTTPS ports.
+  Removing the wildcard breaks them until a narrower grant exists (see the
+  `GAP` node in `.kb/nodes.jsonl`). The shared endpoint has its own grant.
+- On NixOS `tailscale serve` needs root or tailscaled's one operator.
+  `my.stacks.vpn.operator` sets it (`popemkt` on shared-server) through
+  `tailscale set --operator`, which a rebuild applies; until then run `adhoc`
+  there as root. The macOS app needs nothing, and `adhoc` uses its CLI
+  (`/usr/local/bin/tailscale`), not a second daemon.
+
 ### First Tailnet Or Replacement Host
 
 The remaining manual control-plane steps are:
