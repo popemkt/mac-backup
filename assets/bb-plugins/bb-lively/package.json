@@ -10,7 +10,7 @@
   },
   "bb": {
     "name": "Lively [Experimental]",
-    "description": "Motion for bb on any theme, subtle to bold, clean or wobbly (Zenless Zone Zero-style): springy presses, new messages rising in, menu springs, a send burst, status rings, breathing glows. Follows your OS reduced-motion setting. Plus optional Lively palettes, Lively ZZZ, Cloudbank (Transistor) and YoRHa (NieR:Automata) among them.",
+    "description": "Motion for bb on any theme, subtle to bold, clean or wobbly (Zenless Zone Zero-style): springy presses, new messages rising in, menu springs, a send burst, status rings, breathing glows. Follows your OS reduced-motion setting. Plus optional Lively palettes, Lively ZZZ, Cloudbank (Transistor), YoRHa (NieR:Automata) and Control (Remedy, with HTML-in-Canvas effects when bb starts with it) among them.",
     "branding": {
       "icon": "Palette"
     },
@@ -58,6 +58,12 @@
         "name": "Lively YoRHa",
         "description": "After NieR:Automata's menus: parchment grey and umber ink, square corners, ink-outlined selection and one rust accent; a night mode inverts it",
         "css": "./themes/lively-yorha.css"
+      },
+      {
+        "id": "lively-control",
+        "name": "Lively Control",
+        "description": "After Remedy's Control: the Oldest House's concrete greys with the Bureau's off-white signage at night, the Astral Plane's white void and black monoliths by day; wayfinding green, and Hiss red only for what is wrong or waiting on you",
+        "css": "./themes/lively-control.css"
       }
     ]
   },

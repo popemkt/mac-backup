@@ -125,15 +125,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Canonical statements
 - **node** — `01M56SQJF52DWN2T00D510BRQ3`
 
-### GAP: main has no required branch protection
-
-- **expected** — Branch protection requires the Nix and KB validation checks before main can advance.
-- **current** — CI runs the checks, but enabling required branch protection remains a manual control-plane step.
-- **impact** — A failed or skipped check does not necessarily prevent direct progression of main.
-- **closes** — Enable branch protection for main with the documented Nix and KB checks required and verify the policy.
-- **rule** — Admission gate
-- **node** — `01M1PJXGKQ0HAYEWY2V0QPWVX1`
-
 ### GAP: my.services runs native apps on NixOS only
 
 - **expected** — An app declared in my.services runs on any host as its owner, under that platform's service manager (systemd on NixOS, a launchd agent on macOS), and is exposed the same way
@@ -168,6 +159,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A fork of provider-claude-code (and provider-codex) under a new provider id that sets settingSources, strictMcpConfig, disallowedTools and skills (Codex: -c and CODEX_HOME) from the thread's composer record.
 - **node** — `01M5QKD7E3SR1DT4Z39TY3ZTGF`
 
+### GAP: per-machine adhoc serve rides the wildcard grant
+
+- **expected** — A grant that names the per-machine HTTPS ports adhoc publishes (443, 8443, 10000 on every host the policy covers), so tailnet access to them survives removing the wildcard grant.
+- **current** — adhoc <port> serves on the machine's own name; no grant covers it, only the final wildcard grant (src *, dst *, ip *) in configs/tailscale/policy.hujson lets members reach it.
+- **impact** — Dropping the wildcard grant silently stops every per-machine adhoc URL from being reachable; svc:adhoc-popemkt (adhoc --shared) keeps its own grant.
+- **closes** — A narrower grant for autogroup:member to the hosts' tailnet addresses on tcp:443, tcp:8443 and tcp:10000, added in the same change that removes the wildcard.
+- **node** — `01M5YXMSJVHNX6D090BCSP5816`
+
 ### GAP: pi enforcement of a composer manifest is unproven inside bb
 
 - **expected** — A bb pi thread spawned from a composition loads only the kept skills, tools, context files and MCP servers, and reports what pi sent.
@@ -175,14 +174,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The only provider where per-item removal is enforced has never run in bb.
 - **closes** — Install pi and link the extension on the Mac, spawn a pi thread from a composition, read its report via a bb.host entry.
 - **node** — `01M5QKD8SDR9TX6Y5G2DM220HP`
-
-### GAP: popemkt's socket-served kb UI has no .kb/ui.json, so CLI/MCP ui.* calls see no tabs
-
-- **expected** — kb ui --socket on shared-server records its presence, so kb CLI and kb mcp ui.screen/navigate/select/capture reach the page's tabs
-- **current** — A socket server writes no .kb/ui.json (popemkt/kb GAP 01M5CMVS78WRBD760MNSS3BMJJ); ui.screen returns {tabs:[]}, ui.navigate/select/capture answer no-tab. Graph reads/writes and the page's live tx view are unaffected.
-- **impact** — Agents on shared-server (kb CLI or kb mcp --root ~/.local/share/kb/home) cannot see or drive popemkt's open kb page
-- **closes** — A kb release that writes presence for socket servers, pinned here (nix run .#github-sources -- update kb)
-- **node** — `01M5HXHNERZR77Z0HX0SZCQZPP`
 
 ### GAP: release pins are checked by hash only, never by provenance
 
@@ -219,9 +210,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: service ports are restated outside the module that owns them
 
 - **expected** — Each service port has one owner, exposed as a read-only option (or passthru) of its component, and every other reader derives from it.
-- **current** — CLIProxyAPI 8317 is a let binding in cli-proxy-api.nix and is retyped in ai-agents/system-setup.nix (four probes), cognee/server.nix LLM_ENDPOINT and modules/darwin/home-manager/default.nix. The Cognee gateway 8088 is retyped in system-setup.nix and hosts/popemkt-personal (vpn service target). The Cognee MCP port 8001 is a separate binding in server.nix and client.nix.
+- **current** — CLIProxyAPI 8317 is owned by the read-only option my.stacks.ai-agents.cliProxyApi.port, which cli-proxy-api.nix and cli-proxy-clients read; it is still retyped in ai-agents/system-setup.nix (four probes), cognee/server.nix LLM_ENDPOINT and modules/darwin/home-manager/default.nix. The Cognee gateway 8088 is retyped in system-setup.nix and hosts/popemkt-personal (vpn service target). The Cognee MCP port 8001 is a separate binding in server.nix and client.nix.
 - **impact** — Changing a port in its module silently breaks the health probes or the tailnet route.
-- **closes** — Give cli-proxy-api and cognee read-only port options and derive the other sites from them.
+- **closes** — Derive the remaining CLIProxyAPI sites from cliProxyApi.port, and give cognee read-only port options the same way.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M3E9VX8SQJKV3K2Q1JEKT309`
 
@@ -344,6 +335,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — publish v0.2.0, add [kb] to nvfetcher.toml, run github-sources update kb, delete the hand-written source
 - **node** — `01M56GS17DHFTQ4F64WKSMMAE1`
 
+### GAP: main has no required branch protection
+
+- **expected** — Branch protection requires the Nix and KB validation checks before main can advance.
+- **current** — CI runs the checks, but enabling required branch protection remains a manual control-plane step.
+- **impact** — A failed or skipped check does not necessarily prevent direct progression of main.
+- **closes** — Enable branch protection for main with the documented Nix and KB checks required and verify the policy.
+- **rule** — Admission gate
+- **node** — `01M1PJXGKQ0HAYEWY2V0QPWVX1`
+
 ### GAP: nothing audits this store's checks and rules
 
 - **expected** — the commit gate audits every store's checks and rules, so a check node in .kb that drifts from its hook fails a commit
@@ -351,6 +351,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Check: intent-record drifted from .githooks/pre-commit unnoticed when exec was dropped
 - **closes** — intent/gate.sh record runs the installed kb's check audit (a kb subcommand in the release) when .kb/, .githooks/ or a rule's home changes
 - **node** — `01M41YB3V2NC6NPXJYB9PH97D9`
+
+### GAP: popemkt's socket-served kb UI has no .kb/ui.json, so CLI/MCP ui.* calls see no tabs
+
+- **expected** — kb ui --socket on shared-server records its presence, so kb CLI and kb mcp ui.screen/navigate/select/capture reach the page's tabs
+- **current** — A socket server writes no .kb/ui.json (popemkt/kb GAP 01M5CMVS78WRBD760MNSS3BMJJ); ui.screen returns {tabs:[]}, ui.navigate/select/capture answer no-tab. Graph reads/writes and the page's live tx view are unaffected.
+- **impact** — Agents on shared-server (kb CLI or kb mcp --root ~/.local/share/kb/home) cannot see or drive popemkt's open kb page
+- **closes** — A kb release that writes presence for socket servers, pinned here (nix run .#github-sources -- update kb)
+- **node** — `01M5HXHNERZR77Z0HX0SZCQZPP`
 
 ### GAP: two launch paths for the kb binary
 

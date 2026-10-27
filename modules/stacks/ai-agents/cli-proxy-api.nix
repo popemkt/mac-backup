@@ -8,8 +8,9 @@
 let
   inherit (config.my) username;
   home = config.users.users.${username}.home;
-  # GAP [[01M3E9VX8SQJKV3K2Q1JEKT309]] other modules retype this port.
-  port = 8317;
+  # GAP [[01M3E9VX8SQJKV3K2Q1JEKT309]] other modules retype this port
+  # instead of reading the option.
+  inherit (config.my.stacks.ai-agents.cliProxyApi) port;
   configPath = "${home}/.config/cli-proxy-api/config.yaml";
   stateRoot = "${home}/.local/state/cli-proxy-api";
   secretFile = "${stateRoot}/secrets.env";

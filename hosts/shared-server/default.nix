@@ -131,6 +131,9 @@ in
       # Each person logs in as themselves over Tailscale SSH
       # (configs/tailscale/policy.hujson); there is no sshd.
       ssh = true;
+      # `adhoc <port>` publishes on this host's own tailnet name; tailscaled
+      # lets root and one operator do that, and popemkt is the one who does.
+      operator = "popemkt";
       # Each T3 Code server gets its own HTTPS name on the tailnet.
       services =
         lib.mapAttrs' (
@@ -159,9 +162,6 @@ in
   # that Service's. A request with that Origin acts as the person, so the UI
   # listens on a Unix socket only they and root (tailscaled) can reach, not
   # on a loopback port every account can.
-  # GAP [[01M5HXHNERZR77Z0HX0SZCQZPP]]: a socket server writes no
-  # .kb/ui.json, so the CLI's and MCP's ui.* calls see no tabs; their graph
-  # reads and writes, and the page's live view of them, are unaffected.
   my.services.kb = kbHome "popemkt" [
     # bb frames the page beside a thread (assets/bb-plugins/kb), and the
     # framed page tells bb its tab session (kb DESIGN.md → Surfaces →

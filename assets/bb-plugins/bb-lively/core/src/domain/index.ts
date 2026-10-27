@@ -1,5 +1,5 @@
 // The pure domain: effects, settings, the motion system and policy. No DOM.
-export { EFFECT_IDS, EffectId, type EffectInfo, EFFECTS, effectAttribute, effectInPreset } from "./effects.ts";
+export { CANVAS_TRIGGERS, type CanvasTrigger, EFFECT_IDS, EffectId, type EffectInfo, EFFECTS, effectAttribute, effectInPreset } from "./effects.ts";
 export {
   BUDGETS,
   type DurationBudget,
