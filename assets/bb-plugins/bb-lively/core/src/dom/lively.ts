@@ -89,8 +89,7 @@ export function createLively(options: CreateLivelyOptions): Lively {
   const write = () => {
     for (const name of ROOT_ATTRIBUTES) root.removeAttribute(name);
     root.style.removeProperty(ART_IMAGE_PROPERTY);
-    if (current.level === "off") return;
-    root.setAttribute(ROOT.level, current.level);
+    // The preset's art is paint: it stays with motion off (its own switch turns it off).
     root.setAttribute(ROOT.preset, current.preset);
     if (current.art) root.setAttribute(ROOT.art, "on");
     if (current.artImage !== "") {
@@ -98,6 +97,8 @@ export function createLively(options: CreateLivelyOptions): Lively {
       // ArtImage (domain/settings.ts) admits no quote, backslash or control character.
       root.style.setProperty(ART_IMAGE_PROPERTY, `url("${current.artImage}")`);
     }
+    if (current.level === "off") return;
+    root.setAttribute(ROOT.level, current.level);
     root.setAttribute(ROOT.source, current.source);
     root.setAttribute(ROOT.intensity, current.intensity);
     root.setAttribute(ROOT.style, current.style);

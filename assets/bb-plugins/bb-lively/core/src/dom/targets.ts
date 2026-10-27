@@ -72,6 +72,14 @@ export interface Targets {
    * `rowList`, so the freeze never dims the request itself.
    */
   readonly pendingRequest: string;
+  /** The open thread's title, as text (a preset's skin may set it as a sign). */
+  readonly threadTitle: string;
+  /** The bar across the top of a page (a thread's title and its actions). */
+  readonly pageHeader: string;
+  /** The panel beside a thread (its info, files, tabs). */
+  readonly sidePanel: string;
+  /** The page a new thread starts on, before there is a thread: a composer and empty space. */
+  readonly composeHome: string;
   /** The host's "agent is working" line, which breathes a glow while present. */
   readonly working: string;
   /** The host's own enter/exit animations, stopped by `calmHost` under reduced motion. */

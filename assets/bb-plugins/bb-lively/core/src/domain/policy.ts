@@ -66,8 +66,9 @@ export function resolveMotion(settings: Settings, systemReduced: boolean, overri
     jelly: settings.jelly,
     speed: settings.speed,
     preset: settings.preset,
-    art: level !== "off" && settings.art,
-    artImage: level !== "off" && settings.art ? settings.artImage : "",
+    // Art is paint, not motion: its own switch, which motion "off" leaves alone.
+    art: settings.art,
+    artImage: settings.art ? settings.artImage : "",
     effects,
     overrides: level === "full" ? overrides : {},
     send: send ?? defaultSendForm(settings.style),

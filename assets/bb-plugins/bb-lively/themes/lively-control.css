@@ -67,6 +67,8 @@
   --lively-art-redact: #0b0b0c;
   /* The Hiss's dust a send comes apart into: black geometry on the white void. */
   --lively-art-dust: #1c1c20;
+  /* The Board and the slabs on the empty new-thread page: the Astral Plane's black monoliths. */
+  --lively-art-board: #0b0b0c;
 }
 
 .dark {
@@ -113,4 +115,5 @@
   --lively-art-redact: #0b0b0c;
   /* Smoke a shade off the concrete, light enough to read against it. */
   --lively-art-dust: #77767e;
+  --lively-art-board: #050506;
 }

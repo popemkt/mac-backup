@@ -172,7 +172,7 @@ export const SETTINGS = {
   },
   art: toggle(
     "Art",
-    "The preset's art layer: a backdrop behind the open thread and the sidebar, and its fonts, plus your own art image. Paint, not motion: it stays under reduced motion.",
+    "The preset's art layer: a backdrop behind the open thread and the sidebar, its dress for bb's own controls (Control's Bureau forms and signage), and its fonts, plus your own art image. Paint, not motion: it stays under reduced motion and with Motion off.",
     DEFAULT_SETTINGS.art,
   ),
   artImage: {

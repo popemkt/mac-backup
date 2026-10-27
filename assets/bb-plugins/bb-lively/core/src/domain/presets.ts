@@ -20,7 +20,7 @@
 // Each row links its section of the art direction (ART-DIRECTION.md: topic
 // analysis, UI/UX concept, where it lives in source).
 import { Schema } from "effect";
-import { bracket, type Building, rect, skyline, tint, token, windows } from "./artkit.ts";
+import { bar, bracket, type Building, corners, rect, skyline, tint, token, windows } from "./artkit.ts";
 import type { EffectId } from "./effects.ts";
 import type { MotionTokens } from "./motion.ts";
 import type { SendForm } from "./send.ts";
@@ -53,6 +53,33 @@ export interface ArtSurfaceArt {
   readonly mask?: string;
 }
 
+/**
+ * The host roles a preset's skin can dress (dom/targets.ts names their selectors): the composer and
+ * its send button, the person's own messages, the thread's title and header, the side panel, the
+ * empty page a new thread starts on, menus and dialogs.
+ */
+export const SKIN_TARGETS = ["focusBox", "sendButton", "sentRow", "threadTitle", "pageHeader", "sidePanel", "composeHome", "overlayOpen", "dialogOpen"] as const;
+export type SkinTarget = (typeof SKIN_TARGETS)[number];
+
+/**
+ * A preset's dress for one host role: paint, at rest, so it holds with every effect (and motion) off.
+ * Declarations only (borders, backgrounds, type, a decoration); nothing that animates, and nothing
+ * that moves the host's layout but a label of the preset's own (`before`).
+ */
+export interface SkinRule {
+  /** Declarations on the element itself. */
+  readonly style?: string;
+  /** Background layers on the element itself, topmost first (its own background color stays). */
+  readonly layers?: ReadonlyArray<ArtLayer>;
+  /**
+   * Declarations on its `::before` (give it `content`). Only on a role lively draws no `::before`
+   * of its own on under this preset (tests/art.test.ts holds Control's to it).
+   */
+  readonly before?: string;
+  /** The same on its `::after`. */
+  readonly after?: string;
+}
+
 /** Where the person's own art image goes, and how strongly it shows (0–1; the rest is washed out by the canvas color). */
 export interface ArtImagePlacement {
   readonly surface: ArtSurface;
@@ -76,6 +103,8 @@ export interface PresetArt {
   readonly backdrop?: ArtSurfaceArt;
   readonly sidebar?: ArtSurfaceArt;
   readonly image?: ArtImagePlacement;
+  /** The preset's dress for bb's own controls and surfaces, keyed by role (art: it goes with the art switch). */
+  readonly skin?: Partial<Readonly<Record<SkinTarget, SkinRule>>>;
 }
 
 /** Font stacks (families only: no font file is committed); they override the host's own font tokens. */
@@ -267,6 +296,77 @@ const CONTROL_GUTTER_MASK =
   "linear-gradient(to left, #000 calc(50% - min(364px, 50% - 16px) - 48px), transparent calc(50% - min(364px, 50% - 16px) - 24px)) intersect, " +
   "linear-gradient(to top, transparent 0 250px, #000 290px) right bottom / 6000px 4000px no-repeat";
 
+/** Bureau labels: tracked capitals in the preset's lettering (the `--lively-letter-*` properties). */
+const LABEL = "font: 600 9px/1 var(--lively-letter-font, sans-serif); letter-spacing: 0.24em; text-transform: uppercase";
+
+/**
+ * Control's dress for bb's own controls (ART-DIRECTION.md#control): the Bureau's signage and forms
+ * over the Oldest House. Square everything; the composer is a form under corner brackets with a
+ * Hiss-red tab; the send button carries a red bar; what you send is filed as a directive, numbered
+ * by its place in the thread; the thread's title is a sign; menus and dialogs are case files with a
+ * red tab; and the empty page a thread starts on is the Astral Plane: the Board over the white void
+ * (concrete at night), stark light falling past two monoliths, the Bureau's name lettered on the
+ * floor. Paint at rest, so it holds with every effect off.
+ */
+const CONTROL_SKIN = {
+  focusBox: {
+    style: `border-radius: 0; border-color: ${tint(c("sign"), 38)}`,
+    layers: [bar(c("alarm"), "36px", "3px", "left 16px top 0"), ...corners(c("sign"), 10, 2)],
+  },
+  sendButton: {
+    style: `border-radius: 0; box-shadow: inset 0 -3px 0 ${c("alarm")}`,
+  },
+  // A directive's file line over each of your messages: its number in the thread, after a red tick.
+  sentRow: {
+    before: `content: "Directive \\2002 №\\00a0" attr(data-index); display: block; text-align: right; padding: 0 9px 6px 0; ${LABEL}; color: var(--muted-foreground, currentColor); background: linear-gradient(${c("alarm")}, ${c("alarm")}) right 2px top 0 / 2px 9px no-repeat`,
+  },
+  threadTitle: {
+    style: `${LABEL}; font-size: 12px; letter-spacing: 0.16em; font-weight: 700; color: ${c("sign")}`,
+  },
+  pageHeader: {
+    style: `border-bottom-color: ${tint(c("sign"), 45)}`,
+    layers: [bar(c("alarm"), "28px", "3px", "left 16px bottom 0")],
+  },
+  sidePanel: {
+    layers: [bar(c("alarm"), "3px", "48px", "left 0 top 0"), bar(tint(c("sign"), 35), "1px", "100%", "left 0 top 0")],
+  },
+  overlayOpen: {
+    style: "border-radius: 0",
+    layers: [bar(c("alarm"), "24px", "3px", "left 0 top 0"), bar(tint(c("sign"), 50), "100%", "1px", "left 0 top 0")],
+  },
+  dialogOpen: {
+    style: `border-radius: 0; box-shadow: 0 0 0 1px ${tint(c("sign"), 40)}, 0 28px 64px -24px #000c`,
+    layers: [bar(c("alarm"), "48px", "4px", "left 0 top 0"), ...corners(c("sign"), 14, 2)],
+  },
+  // The Astral Plane behind a new thread: the Board, stark light, two monoliths, and the Bureau's name.
+  composeHome: {
+    style: "position: relative; isolation: isolate",
+    layers: [
+      // The Board, its edges split into the spectrum, centered under the composer.
+      { image: `conic-gradient(from -30deg at 50% 100%, ${c("board")} 0 60deg, transparent 60deg)`, size: "176px 152px", position: "center top 300px", repeat: "no-repeat" },
+      {
+        image: "conic-gradient(from -33deg at 50% 100%, #ff2a3a 0deg, #ffb000 1.2deg, #34c759 2.4deg, #2f9bff 3.6deg, transparent 3.8deg 62.2deg, #2f9bff 62.4deg, #34c759 63.6deg, #ffb000 64.8deg, #ff2a3a 66deg, transparent 66.2deg)",
+        size: "196px 162px",
+        position: "center top 296px",
+        repeat: "no-repeat",
+      },
+      // Two monoliths floating either side, lit along their tops.
+      bar(c("rim"), "46px", "2px", "left 22% top 360px"),
+      bar(c("board"), "46px", "260px", "left 22% top 362px"),
+      bar(c("rim"), "28px", "2px", "right 20% top 420px"),
+      bar(c("board"), "28px", "150px", "right 20% top 422px"),
+      bar(c("alarm"), "28px", "2px", "right 20% top 572px"),
+      // Stark shafts of light from above.
+      { image: `linear-gradient(to bottom, ${tint(c("light"), 70)}, ${tint(c("light"), 20)} 50%, transparent 90%)`, size: "64px 100%", position: "left 21% top 0", repeat: "no-repeat" },
+      { image: `linear-gradient(to bottom, ${tint(c("light"), 50)}, transparent 80%)`, size: "120px 100%", position: "left 58% top 0", repeat: "no-repeat" },
+      { image: `linear-gradient(to bottom, ${tint(c("light"), 60)}, transparent 70%)`, size: "22px 100%", position: "right 19% top 0", repeat: "no-repeat" },
+    ],
+    // The Bureau's name, lettered large on the floor of the void.
+    before: `content: "Federal Bureau of Control"; position: absolute; left: 32px; bottom: 44px; z-index: -1; pointer-events: none; font: 800 clamp(28px, 4.4vw, 64px)/1 var(--lively-letter-font, sans-serif); letter-spacing: 0.06em; text-transform: uppercase; color: ${tint(c("sign"), 9)}`,
+    after: `content: "The Oldest House \\2002·\\2002 Designation 01-A \\2002·\\2002 Clearance on request"; position: absolute; left: 34px; bottom: 24px; z-index: -1; pointer-events: none; ${LABEL}; color: ${tint(c("sign"), 30)}`,
+  },
+} as const satisfies PresetArt["skin"];
+
 const CONTROL_ART = {
   colors: {
     monolith: token("--lively-art-monolith", "color-mix(in oklab, #000 70%, var(--lively-canvas))"),
@@ -274,7 +374,13 @@ const CONTROL_ART = {
     line: token("--lively-art-line", "var(--lively-accent)"),
     light: tint(token("--lively-art-light", "var(--lively-accent)"), 22),
     hiss: tint(token("--lively-art-hiss", "var(--destructive, #e01b24)"), 70),
+    // The Bureau's signage: off-white at night, ink by day; and the Hiss's red at full strength, for its tabs.
+    sign: token("--lively-art-sign", "var(--lively-accent)"),
+    alarm: token("--lively-art-hiss", "var(--destructive, #e01b24)"),
+    // The Board and the Astral Plane's slabs on the empty page: black on the white void, blacker than concrete at night.
+    board: token("--lively-art-board", "color-mix(in oklab, #000 80%, var(--lively-canvas))"),
   },
+  skin: CONTROL_SKIN,
   // All of it lives in the thread's free right margin, never behind the reading column or the dock
   // (CONTROL_GUTTER_MASK): a cluster that fits a 140px gutter, floating clear of the dock, as the
   // Astral Plane's slabs float. A narrow thread has no margin, and no art.
@@ -298,6 +404,9 @@ const CONTROL_ART = {
       // A lobby's round light above the Board: a ring and its soft pool.
       { image: `radial-gradient(circle at right 82px bottom 712px, transparent 0 40px, ${c("light")} 40px 41px, transparent 42px)`, size: "400px 900px", position: "right bottom", repeat: "no-repeat" },
       { image: `radial-gradient(130px 130px at right 82px bottom 712px, ${tint(c("light"), 40)}, transparent 70%)`, size: "400px 900px", position: "right bottom", repeat: "no-repeat" },
+      // Stark light shafts falling from the coffers, past the monoliths: the Oldest House's lobby light.
+      { image: `linear-gradient(to bottom, ${tint(c("light"), 60)}, ${tint(c("light"), 18)} 45%, transparent 80%)`, size: "18px 610px", position: "right 104px bottom 290px", repeat: "no-repeat" },
+      { image: `linear-gradient(to bottom, ${tint(c("light"), 40)}, transparent 70%)`, size: "8px 610px", position: "right 20px bottom 290px", repeat: "no-repeat" },
       // The coffered ceiling: a 96px grid, each coffer with a recessed inner edge 8px in.
       { image: `linear-gradient(to left, ${tint(c("line"), 9)} 1px, transparent 1px)`, size: "96px 96px", position: "right bottom" },
       { image: `linear-gradient(to top, ${tint(c("line"), 9)} 1px, transparent 1px)`, size: "96px 96px", position: "right bottom" },

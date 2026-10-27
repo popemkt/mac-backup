@@ -73,6 +73,10 @@ export const TARGETS: Targets = {
   dockFade: ".dock-fade",
   pendingRequest: ".request",
   working: ".working",
+  threadTitle: ".page .title",
+  pageHeader: ".page > header",
+  sidePanel: ".page > aside",
+  composeHome: ".home",
   hostAnimation: ".animate-in",
   suspendOn: ["data-measuring"],
 };

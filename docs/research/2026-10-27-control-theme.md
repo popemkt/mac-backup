@@ -142,7 +142,18 @@ Two related claims:
 - **Palette.** Concrete greys at night, a white void by day. Red stays the Hiss's alone. Green
   comes from the wayfinding signs.
 - **Type.** Akzidenz-like for reading, an Interstate-like face for labels. No font files ship.
-- **Art.** Coffered ceilings, form-tie holes, a round light, two monoliths and the Board.
+- **Art.** Coffered ceilings, form-tie holes, a round light, stark light shafts, two monoliths and
+  the Board.
+- **Dress at rest** (added 2026-10-28, after the owner found Control "any dark, blocky theme" with
+  the effects off). bb's own controls take the Bureau's forms and signage, from sections 2, 4 and 8:
+  - the composer as a form under corner brackets, with a red tab;
+  - your messages filed as numbered directives;
+  - the thread's title as a sign;
+  - menus and dialogs as case files;
+  - the new-thread page as the Astral Plane (the Board, monoliths, light shafts, the Bureau's name
+    lettered large, as the area title cards are).
+
+  It is paint, so it holds with every effect off.
 - **Motion and effects.**
   - Precise motion: no overshoot, no tilt.
   - Dispersion is the signature effect, and it runs only on motion.
