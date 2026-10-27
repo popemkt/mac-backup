@@ -36,6 +36,7 @@ a Cognee prerequisite.
 | Exact Python dependency graph | `tools/system-setup/uv.lock` |
 | Integration schema and manifest renderer | `modules/darwin/system/system-setup/default.nix` |
 | AI connective tissue | `modules/stacks/ai-agents/system-setup.nix` |
+| Desktop apps connected to CLIProxyAPI | `modules/stacks/ai-agents/cli-proxy-clients/` |
 | VPN connective tissue | `modules/stacks/vpn/system-setup.nix` |
 | Browser extension checkouts | `modules/stacks/browsers/system-setup.nix` |
 | Generated host manifest | `/etc/system-setup/integrations.json` |
