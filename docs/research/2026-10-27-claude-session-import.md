@@ -440,3 +440,60 @@ What it costs, which is why it stays a spike and not the plugin's import path:
 
 So a plugin can adopt today, on its own provider. The honest home for adoption is still bb's builtin Claude Code
 provider, which is what #3260 asks for. Section 12.2 is that change, prepared and not published.
+
+### 12.2 The Claude Code part of #3260, prepared and not published
+
+One commit, `522899c63` on branch `feat/claude-code-adopt-session`, in a scratch clone of get-bb/bb on shared-server
+(`~/wt/cc-import-bb`, on top of `12b6e21d8`). It is not pushed. Nothing was posted on #3260, and no upstream PR or
+issue exists. A PR body draft sits next to the branch, untracked, as `ADOPT-WRITEUP.md`.
+
+**API.** `POST /threads` (and `bb thread spawn --adopt-session <id>`) accepts `adopt: { providerThreadId }`. The
+contract refuses it without an explicit `providerId`, and together with `sourceThreadId` or `originKind`. A
+provider opts in with a new capability, `supportsSessionAdoption`: it is declared in the plugin SDK and carried in
+`ProviderServerCapabilities`. Only the builtin `claude-code` provider declares it.
+
+**Checks before any row exists** (`thread-create.ts`):
+- `400 invalid_request` when project defaults would run the thread on another provider.
+- `400 adopt_unsupported` when the provider cannot adopt.
+- `409 provider_session_owned` when a bb thread on that host has already announced the session id. This uses
+  `listProviderThreadClaimants`, the same earliest-claim rule (`readStoredProviderThreadClaim`) that guards resume
+  and fork.
+
+**Carrier.** `adopt` travels the same path as fork:
+startContext → provision payload → retry context → the daemon's `thread.start` command → `runtime.startThread`.
+When `adopt` is set, the runtime sends `thread/resume` with `adopt: true` instead of `thread/start`. The rest of
+the start is unchanged: identity is recorded from the resume result, and the first input is submitted after it.
+The daemon contract refuses `fork` together with `adopt`.
+
+**Validation in the Claude bridge.** A plain resume of an unknown id would quietly start an empty session. An
+adopted resume therefore calls `getSessionInfo(id, { dir: cwd })` first. When that returns nothing, the bridge
+answers `INVALID_PARAMS`: "No Claude Code session … for …: it does not exist on this machine, or it belongs to
+another directory". The adoption is validated by the real resume, as #3260 asks.
+
+**Tests** (all pass; typecheck is clean in all 10 touched packages):
+- server `thread-create-adopt` (4): accepted; unsupported; owned; provider mismatch.
+- server-contract: adopt without a provider, with a source thread, or with an empty id.
+- host-daemon-contract: adopt parses; refused with fork.
+- agent-runtime: adapter (2) and the identity ordering of an adopted start.
+- Claude bridge (2): a found session resumes; a missing one is refused.
+
+Full suites:
+- plugin-sdk 402, provider-bridge-protocol 312, db 633, agent-runtime 317, provider-claude-code 410.
+- server `test/threads` + `test/providers`: 638.
+- host-daemon 825 and cli: their only failures (3 environment-script tests; 8 `plugin-cli-broken-pipe` e2e tests)
+  also fail on the base commit without the change [measured].
+
+Not run live. That would need a bb server built from the branch, and this host's `app-bb` is not to be replaced.
+
+**Left out, for the maintainers or a follow-up:**
+- A failed adopted start (the session is missing, or belongs to another cwd) leaves a thread that failed to start.
+  It is not rolled back to no thread.
+- The old turns are not in the timeline: bb drops the replay, as in S6. A notice, or the plugin's Original session
+  panel, has to cover them.
+- Nothing guards against a terminal that is still writing the session (two writers). The 409 covers only bb's own
+  threads.
+- Codex adoption (`thread/resume` by rollout id).
+- A UI entry point.
+
+For this plugin, the change closes gap `01M5YQ7EX8GTERS32BT5G9H7Q7` for the same-machine case once a bb release
+carries it. `import` adopts when the target is the session's own host and cwd; otherwise it seeds, as now.
