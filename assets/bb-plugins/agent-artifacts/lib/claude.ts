@@ -121,8 +121,8 @@ export type Item = {
   /** Longer text shown when the row is opened. */
   description?: string;
   status?: Status;
-  /** An env value: shown masked until revealed. */
-  secret?: string;
+  /** An env value, already masked. The value itself never leaves the server: see `envValues`. */
+  masked?: string;
   /** Read from disk now, not reported by the session. */
   fromDisk?: boolean;
   /** A file on the probed host. */
@@ -195,20 +195,36 @@ export function endpoint(cfg: McpConfig): string {
 
 const transportOf = (cfg: McpConfig) => cfg.type ?? (cfg.url === undefined ? "stdio" : "http");
 
-/** The settings sources merged as Claude Code layers them: later wins; a few maps merge key by key. */
+/**
+ * The settings sources merged as Claude Code layers them: later wins for scalars, arrays (permission rules, MCP
+ * approval lists, hook entries) are concatenated without duplicates, and a few maps merge key by key.
+ */
 export function mergeSettings(settings: ClaudeProbe["settings"]): Json {
   const merged: Json = {};
   for (const source of SETTINGS_SOURCES) {
     const s = settings[source];
-    if (s === undefined) continue;
-    for (const [key, value] of Object.entries(s)) {
-      const prior = merged[key];
-      merged[key] = isRecord(prior) && isRecord(value) && MERGED_MAPS.has(key) ? { ...prior, ...value } : value;
-    }
+    if (s !== undefined) mergeInto(merged, s, true);
   }
   return merged;
 }
-const MERGED_MAPS = new Set(["enabledPlugins", "env", "extraKnownMarketplaces"]);
+const MERGED_MAPS = new Set(["enabledPlugins", "env", "extraKnownMarketplaces", "permissions", "hooks"]);
+
+function mergeInto(target: Json, layer: Json, isTop: boolean): void {
+  for (const [key, value] of Object.entries(layer)) {
+    const prior = target[key];
+    if (Array.isArray(prior) && Array.isArray(value)) {
+      const seen = new Set(prior.map(v => JSON.stringify(v)));
+      target[key] = [...prior, ...value.filter(v => !seen.has(JSON.stringify(v)))];
+    } else if (isRecord(prior) && isRecord(value) && (!isTop || MERGED_MAPS.has(key))) {
+      const next = { ...prior };
+      mergeInto(next, value, false);
+      target[key] = next;
+    } else target[key] = value;
+  }
+}
+
+/** An `enabledPlugins` value that turns a plugin on: `true`, a version-constraint list, or an object not disabled. */
+export const isPluginOn = (v: unknown): boolean => v === true || Array.isArray(v) || (isRecord(v) && v.enabled !== false);
 
 const labelOf = (source: SettingsSource): string => (source === "policy" ? "managed" : source);
 
@@ -423,9 +439,9 @@ type HookEntry = { matcher?: unknown; hooks?: unknown };
 function hookItems(hooks: unknown, source: string, fromDisk: boolean): Item[] {
   if (!isRecord(hooks)) return [];
   return Object.entries(hooks).flatMap(([event, entries]) =>
-    (Array.isArray(entries) ? (entries as HookEntry[]) : []).flatMap((entry, e) => {
+    (Array.isArray(entries) ? (entries.filter(isRecord) as HookEntry[]) : []).flatMap((entry, e) => {
       const matcher = typeof entry.matcher === "string" && entry.matcher !== "" ? `[${entry.matcher}] ` : "";
-      const list = Array.isArray(entry.hooks) ? (entry.hooks as Json[]) : [];
+      const list = Array.isArray(entry.hooks) ? entry.hooks.filter(isRecord) : [];
       return list.map<Item>((h, i) => {
         const type = typeof h.type === "string" ? h.type : "hook";
         const body = [h.command, h.url, h.prompt].find((v): v is string => typeof v === "string") ?? "";
@@ -459,22 +475,29 @@ function mods(s: ClaudeProbe): Group {
 
 // --- plugins and marketplaces
 
+/** installed_plugins.json entries for one plugin, tolerating older or hand-edited shapes. */
+const installsOf = (s: ClaudeProbe, id: string) => {
+  const v: unknown = s.disk.installed[id];
+  return (Array.isArray(v) ? v.filter(isRecord) : []) as ClaudeProbe["disk"]["installed"][string];
+};
+
 function plugins(s: ClaudeProbe, merged: Json): Group {
   const named = isRecord(merged.enabledPlugins) ? merged.enabledPlugins : {};
   const items: Item[] = Object.entries(named).map(([id, on]) => {
-    const installs = s.disk.installed[id] ?? [];
+    const installs = installsOf(s, id);
     const version = s.disk.plugins[id]?.version ?? installs[0]?.version;
     return {
       id,
       name: id,
       source: decidingSource(s.settings, x => isRecord(x.enabledPlugins) && id in x.enabledPlugins) ?? "user",
-      status: on === true ? "on" : "off",
+      status: isPluginOn(on) ? "on" : "off",
       detail: installs.length === 0 ? "not installed" : version === undefined ? "installed" : `v${version}`,
       path: s.disk.plugins[id]?.root,
     };
   });
-  for (const [id, installs] of Object.entries(s.disk.installed)) {
+  for (const id of Object.keys(s.disk.installed)) {
     if (id in named) continue;
+    const installs = installsOf(s, id);
     const here = installs.find(i => i.scope === "user" || i.projectPath === s.cwd);
     if (here === undefined) continue;
     items.push({ id, name: id, source: here.scope ?? "user", status: "off", detail: "installed, not in enabledPlugins", fromDisk: true });
@@ -501,7 +524,7 @@ function marketplaces(s: ClaudeProbe): Group {
   }
   for (const [name, v] of Object.entries(s.disk.marketplaces)) {
     if (declared.has(name)) continue;
-    items.push({ id: `installed:${name}`, name, source: "installed", detail: describeSource(v.source), fromDisk: true });
+    items.push({ id: `installed:${name}`, name, source: "installed", detail: describeSource(isRecord(v) ? v.source : undefined), fromDisk: true });
   }
   return group("marketplaces", items);
 }
@@ -588,13 +611,19 @@ function permissions(s: ClaudeProbe): Group {
   return group("permissions", items, { note, isOrdered: true });
 }
 
-function env(s: ClaudeProbe): Group {
-  const items: Item[] = [];
+/** The env vars the settings files set, keyed by the env group's item ids. Kept on the server; only revealed on request. */
+export function envValues(s: Pick<ClaudeProbe, "settings">): Map<string, { name: string; from: SettingsSource; value: string }> {
+  const out = new Map<string, { name: string; from: SettingsSource; value: string }>();
   for (const from of SETTINGS_SOURCES) {
     const vars = s.settings[from]?.env;
     if (!isRecord(vars)) continue;
-    for (const [name, value] of Object.entries(vars)) items.push({ id: `${from}:${name}`, name, source: labelOf(from), secret: String(value) });
+    for (const [name, value] of Object.entries(vars)) out.set(`${from}:${name}`, { name, from, value: String(value) });
   }
+  return out;
+}
+
+function env(s: ClaudeProbe): Group {
+  const items: Item[] = [...envValues(s)].map(([id, v]) => ({ id, name: v.name, source: labelOf(v.from), masked: mask(v.value) }));
   return group("env", items, { note: "From settings files only, not the shell. Values stay masked until revealed." });
 }
 
@@ -675,7 +704,7 @@ export function claudeMarkdown(inv: ClaudeInventory, { full = false }: { full?: 
         continue;
       }
       for (const i of run.items) {
-        const extra = [i.status, i.secret === undefined ? i.detail : mask(i.secret), i.tokens === undefined ? undefined : `${i.tokens} tok`].filter(x => x !== undefined && x !== "");
+        const extra = [i.status, i.masked ?? i.detail, i.tokens === undefined ? undefined : `${i.tokens} tok`].filter(x => x !== undefined && x !== "");
         lines.push(`- ${i.name} (${i.source})${extra.length === 0 ? "" : `: ${extra.join(" · ")}`}`);
       }
     }
