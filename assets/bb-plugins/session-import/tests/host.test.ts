@@ -11,6 +11,7 @@ import type { Transcript } from "../core/transcript.ts";
 const root = mkdtempSync(join(tmpdir(), "session-import-"));
 const projects = join(root, "projects");
 const PLAIN = "11111111-2222-4333-8444-555555555555";
+const GROWING = "33333333-4444-4555-8666-777777777777";
 const COMPACTED = "22222222-3333-4444-8555-666666666666";
 const fixture = (name: string) => new URL(`./fixtures/${name}`, import.meta.url);
 const files: string[] = [];
@@ -35,6 +36,7 @@ const digest = () => files.map(f => `${createHash("sha256").update(readFileSync(
 test("finds every session file under CLAUDE_CONFIG_DIR/projects", () => {
   assert.equal(host.projectsRoot(), projects);
   assert.deepEqual([...host.sessionFiles().keys()].sort(), [PLAIN, COMPACTED]);
+  assert.equal(host.sessionFiles().has(GROWING), false);
 });
 
 test("lists sessions through the Agent SDK, newest first, with titles and cwd", async () => {
@@ -93,6 +95,8 @@ test("a transcript too big for one RPC answer is clipped, not dropped", () => {
     version: null,
     startedAt: null,
     endedAt: null,
+    leafUuid: null,
+    brief: { filesChanged: [], filesRead: [], todos: null, endedMidTool: null, lastUser: null, lastClaude: null },
     turns: Array.from({ length: 50 }, (_, i) => ({ kind: "turn" as const, uuid: `t${i}`, at: null, user: { text: "x".repeat(100_000), images: 0 }, blocks: [] })),
   };
   const fit = host.fitForTransport(big, 1_000_000);
@@ -100,4 +104,28 @@ test("a transcript too big for one RPC answer is clipped, not dropped", () => {
   assert.equal(fit.transcript.turns.length, 50);
   assert.ok(JSON.stringify(fit.transcript).length <= 1_000_000);
   writeFileSync(join(root, "ok"), "");
+});
+
+test("a mark taken at import finds the turns appended since, and refuses a rewritten file", async () => {
+  const lines = readFileSync(fixture("brief.jsonl"), "utf8").trim().split("\n");
+  const dir = join(projects, "-home-user-growing");
+  mkdirSync(dir, { recursive: true });
+  const path = join(dir, `${GROWING}.jsonl`);
+  // imported while Claude Code was mid-write: eight records and a torn ninth
+  writeFileSync(path, `${lines.slice(0, 8).join("\n")}\n${lines[8]!.slice(0, 40)}`);
+  const signal = new AbortController().signal;
+  const first = await host.readTranscript(GROWING, signal);
+  assert.equal(first.source.lines, 8);
+  assert.equal(first.source.leafUuid, "00000000-0000-4000-8000-000000000008");
+  assert.equal(first.newTurns, null);
+  // the torn line completes and the session goes on
+  writeFileSync(path, `${lines.join("\n")}\n`);
+  const later = await host.readTranscript(GROWING, signal, first.source);
+  assert.equal(later.newTurns?.length, 1);
+  assert.equal(later.source.lines, 11);
+  const none = await host.readTranscript(GROWING, signal, later.source);
+  assert.deepEqual(none.newTurns, []);
+  // an earlier record changed: not the session the thread took
+  writeFileSync(path, `${[lines[0]!.replace("Rename", "Remove"), ...lines.slice(1)].join("\n")}\n`);
+  assert.equal((await host.readTranscript(GROWING, signal, first.source)).newTurns, null);
 });

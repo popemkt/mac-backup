@@ -21,18 +21,27 @@ export type SessionSummary = z.infer<typeof sessionSummary>;
 export const readStats = z.object({ bytes: z.number(), ms: z.number(), records: z.number(), peakRssMB: z.number(), clipped: z.boolean() });
 export type ReadStats = z.infer<typeof readStats>;
 
+/** Where an import ended: how many records it read, their sha256, and the last message's uuid. */
+export const sourceMark = z.object({ lines: z.number().int().min(0), sha256: z.string(), leafUuid: z.string() });
+export type SourceMark = z.infer<typeof sourceMark>;
+
 export const hostContract = defineRpcContract({
   /** Claude Code sessions on this machine, newest first, modified at or after `sinceMs` (0 = all). */
   listSessions: {
     input: z.object({ sinceMs: z.number().int().min(0), limit: z.number().int().min(1).max(1000) }).strict(),
     output: z.object({ machineHome: z.string(), sessions: z.array(sessionSummary), total: z.number() }),
   },
-  /** One session as a transcript: the whole conversation, across compactions, without tool output. */
+  /**
+   * One session as a transcript: the whole conversation, across compactions, without tool output; where it ends now
+   * (`source`); and with `since`, the turns after that mark, or null if the session changed before it.
+   */
   readTranscript: {
-    input: z.object({ sessionId }).strict(),
+    input: z.object({ sessionId, since: sourceMark.optional() }).strict(),
     output: z.object({
       transcript: z.custom<Transcript>(v => typeof v === "object" && v !== null, "not a transcript"),
       stats: readStats,
+      source: sourceMark,
+      newTurns: z.custom<Transcript["turns"]>(v => v === null || Array.isArray(v)).nullable(),
     }),
   },
   /** The output of one tool call, read again from the session file, at most `maxChars`. */

@@ -8,11 +8,11 @@ for why it is shaped this way.
 ## Layout
 | File | Role |
 |---|---|
-| `core/transcript.ts` | The session reader (records → turns, across compactions and rewinds), the Markdown, and the budget cuts. Pure. |
+| `core/transcript.ts` | The session reader (records → turns, across compactions and rewinds; the "Where the session stood" brief; the turns after a mark), the Markdown, and the budget cuts. Pure. |
 | `core/mapping.ts` | Which project, machine and directory a thread runs in. Pure. |
 | `contract.ts` | The server ↔ host RPC contract. |
-| `host.ts` | Host entry: lists sessions (Agent SDK `listSessions`), streams one through the reader, reads one tool output again, probes a cwd, writes the transcript file in the plugin's data dir. Never writes under `~/.claude`. |
-| `server.ts` | Machines, projects, the "already in bb" index, preview, the import (`threads.spawn`), the import records, `bb session-import`. |
+| `host.ts` | Host entry: lists sessions (Agent SDK `listSessions`), streams one through the reader (with a record count and sha256 that mark where an import ended), reads one tool output again, probes a cwd, writes the transcript file in the plugin's data dir. Never writes under `~/.claude`. |
+| `server.ts` | Machines, projects, the "already in bb" index, preview, the import (`threads.spawn`), sync (`threads.send`), the import records, `bb session-import`. |
 | `app.tsx` | The picker (nav page and New thread panel action) and the Original session thread panel. |
 | `skills/session-import/` | Tells agents about `bb session-import`. |
 | `tests/` | `npm test`: core over synthetic fixtures, host over a temporary config dir, server in bb's fake plugin host. |

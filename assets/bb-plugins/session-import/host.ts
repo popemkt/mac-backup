@@ -2,6 +2,7 @@
 // that machine's Claude Code sessions (read-only; nothing under ~/.claude is ever written) and stores transcript
 // files for threads in this plugin's own data dir.
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import { createReadStream, existsSync, readdirSync, statSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -9,7 +10,7 @@ import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { experimental_defineHostEntry } from "@get-bb/plugin-sdk/host";
 import { listSessions as sdkListSessions } from "@anthropic-ai/claude-agent-sdk";
-import { hostContract, type ReadStats, type SessionSummary } from "./contract.ts";
+import { hostContract, type ReadStats, type SessionSummary, type SourceMark } from "./contract.ts";
 import { SessionReader, type Transcript } from "./core/transcript.ts";
 
 /** bb's host RPC answers at most 8 MiB; leave room for the envelope. */
@@ -65,10 +66,22 @@ export async function listSessions(sinceMs: number, limit: number): Promise<{ ma
   return { machineHome: homedir(), sessions: sessions.slice(0, limit), total: sessions.length };
 }
 
-/** Streams a session file through `visit`, one parsed record at a time. Torn or non-JSON lines are skipped. */
-async function eachRecord(path: string, signal: AbortSignal, visit: (record: unknown) => boolean | void): Promise<void> {
+/**
+ * Streams a session file through `visit`, one parsed record at a time. Torn or non-JSON lines are skipped and not
+ * counted. Returns how many records it read and a sha256 over them (each line plus a newline), and, with `checkpointAt`,
+ * the hash of the first that many: a later read compares it to tell an appended file from a rewritten one.
+ */
+async function eachRecord(
+  path: string,
+  signal: AbortSignal,
+  visit: (record: unknown) => boolean | void,
+  checkpointAt?: number,
+): Promise<{ lines: number; sha256: string; checkpoint: string | null }> {
   const stream = createReadStream(path, { encoding: "utf8" });
   const lines = createInterface({ input: stream, crlfDelay: Infinity });
+  const hash = createHash("sha256");
+  let count = 0;
+  let checkpoint: string | null = checkpointAt === 0 ? hash.copy().digest("hex") : null;
   try {
     for await (const line of lines) {
       if (signal.aborted) throw new Error("cancelled");
@@ -79,12 +92,16 @@ async function eachRecord(path: string, signal: AbortSignal, visit: (record: unk
       } catch {
         continue;
       }
+      hash.update(line).update("\n");
+      count++;
+      if (count === checkpointAt) checkpoint = hash.copy().digest("hex");
       if (visit(record) === true) break;
     }
   } finally {
     lines.close();
     stream.destroy();
   }
+  return { lines: count, sha256: hash.digest("hex"), checkpoint };
 }
 
 /** Shortens every text until the transcript fits in one RPC answer. Only a many-megabyte conversation needs it. */
@@ -109,12 +126,23 @@ export function fitForTransport(t: Transcript, max = MAX_OUTPUT_CHARS): { transc
   return { transcript: { ...t, turns: t.turns.slice(-200) }, clipped: true };
 }
 
-export async function readTranscript(sessionId: string, signal: AbortSignal): Promise<{ transcript: Transcript; stats: ReadStats }> {
+/**
+ * One session as a transcript. With `since` (where an earlier import ended), also the turns after it, or null when
+ * the file no longer starts with what that import read (rewritten) or that record left the main chain (rewound).
+ */
+export async function readTranscript(
+  sessionId: string,
+  signal: AbortSignal,
+  since?: SourceMark,
+): Promise<{ transcript: Transcript; stats: ReadStats; source: SourceMark; newTurns: Transcript["turns"] | null }> {
   const path = fileOf(sessionId);
   const started = Date.now();
   const reader = new SessionReader();
-  await eachRecord(path, signal, r => reader.add(r));
-  const { transcript, clipped } = fitForTransport(reader.finish(sessionId));
+  const read = await eachRecord(path, signal, r => reader.add(r), since?.lines);
+  const full = reader.finish(sessionId);
+  const { transcript, clipped } = fitForTransport(full);
+  let newTurns: Transcript["turns"] | null = null;
+  if (since !== undefined && read.checkpoint === since.sha256) newTurns = reader.finish(sessionId, since.leafUuid)?.turns ?? null;
   return {
     transcript,
     stats: {
@@ -124,6 +152,8 @@ export async function readTranscript(sessionId: string, signal: AbortSignal): Pr
       peakRssMB: Math.round(process.resourceUsage().maxRSS / 1024),
       clipped,
     },
+    source: { lines: read.lines, sha256: read.sha256, leafUuid: full.leafUuid ?? "" },
+    newTurns,
   };
 }
 
@@ -169,7 +199,7 @@ export default experimental_defineHostEntry({
   contract: hostContract,
   handlers: {
     listSessions: ({ sinceMs, limit }) => listSessions(sinceMs, limit),
-    readTranscript: ({ sessionId }, context) => readTranscript(sessionId, context.signal),
+    readTranscript: ({ sessionId, since }, context) => readTranscript(sessionId, context.signal, since),
     toolOutput: ({ sessionId, toolUseId, maxChars }, context) => toolOutput(sessionId, toolUseId, maxChars, context.signal),
     inspectCwd: ({ cwd }) => inspectCwd(cwd),
     writeTranscript: ({ sessionId, markdown }, context) => writeTranscript(context.experimental_paths.dataDir, sessionId, markdown),

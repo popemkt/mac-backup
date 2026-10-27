@@ -8,11 +8,13 @@ Continue a Claude Code session that ran outside bb, as a bb thread.
 - Picking a session shows where the new thread would run: by default **the same machine and the session's own
   directory**, in the bb project that directory belongs to. Project and machine can be changed. It also shows how
   much of the transcript the thread gets.
-- **Import as a new thread** starts a thread whose first turn carries the cleaned transcript: every message,
-  one line per tool call, no tool output, no thinking. The complete transcript also goes along as a file. Your
+- **Import as a new thread** starts a thread whose first turn carries "Where the session stood" (files changed
+  and read, open todos, an unfinished tool call, the last words each way, all taken from the records) and then
+  the cleaned transcript: every message, one line per tool call, no tool output, no thinking. The complete transcript also goes along as a file. Your
   optional first message follows; without one, the agent summarises where the session stood in five lines.
 - On an imported thread, the side panel's **Original session** tab shows the source session read-only: every
-  turn, compactions, and each tool call's output on demand.
+  turn, compactions, and each tool call's output on demand. If the session went on after the import, it says how
+  many turns and **Send them to this thread** passes them on.
 - `bb session-import` does the same from a terminal or an agent.
 
 ## What it does not do

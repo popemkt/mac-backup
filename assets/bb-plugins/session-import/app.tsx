@@ -200,6 +200,12 @@ function Preview(props: { rpc: Rpc; hostId: string; machines: Machine[]; session
         <>
           <Markdown content={p.header} />
           <PlanLine plan={p.plan} />
+          <details className="text-xs" open>
+            <summary className="cursor-pointer text-muted-foreground">Where the session stood (goes first, never cut)</summary>
+            <div className="mt-2">
+              <Markdown content={p.brief.replace(/^## Where the session stood\n\n/, "")} />
+            </div>
+          </details>
           {p.imports.length > 0 ? (
             <p className="text-xs">
               Imported before:{" "}
@@ -315,12 +321,43 @@ function ToolRow({ call, threadId }: { call: ToolCall; threadId: string }) {
       <summary className="cursor-pointer truncate font-mono text-muted-foreground">
         {call.name}
         {call.summary.length > 0 ? `: ${call.summary}` : ""}
-        {call.failed ? " (failed)" : ""}
+        {call.failed ? ` (failed${call.error === undefined ? "" : `: ${call.error}`})` : ""}
         {call.outputChars > 0 ? ` · ${n(call.outputChars)} chars` : ""}
       </summary>
       <ErrorLine text={error} />
       {out !== null ? <pre className="mt-1 max-h-80 overflow-auto whitespace-pre-wrap rounded bg-muted/50 p-2">{out.text ?? "(not in the session file)"}</pre> : null}
     </details>
+  );
+}
+
+function SyncBar({ threadId, turns, onDone }: { threadId: string; turns: number; onDone: () => void }) {
+  const rpc = useRpc<typeof rpcContract>();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <div className="flex flex-col gap-1 rounded border border-border p-2 text-xs">
+      <div className="flex items-center gap-2">
+        <span className="flex-1">
+          The session went on: {turns} new turn{turns === 1 ? "" : "s"} since this thread took it.
+        </span>
+        <button
+          type="button"
+          disabled={busy}
+          className="rounded bg-foreground px-2 py-1 text-background disabled:opacity-50"
+          onClick={() => {
+            setBusy(true);
+            setError(null);
+            rpc
+              .call("sync", { threadId })
+              .then(onDone, e => setError(message(e)))
+              .finally(() => setBusy(false));
+          }}
+        >
+          {busy ? "Sending…" : "Send them to this thread"}
+        </button>
+      </div>
+      <ErrorLine text={error} />
+    </div>
   );
 }
 
@@ -340,6 +377,7 @@ function OriginalSession({ threadId }: PluginThreadPanelProps) {
           {record.plan.omitted > 0 ? `, ${record.plan.omitted} older turns left out` : ""}. Full transcript: {record.transcriptPath}
         </Muted>
       ) : null}
+      {o.value?.newTurns != null && o.value.newTurns > 0 ? <SyncBar threadId={threadId} turns={o.value.newTurns} onDone={o.reload} /> : null}
       {o.loading && t === null ? <Muted>Reading the session on its machine…</Muted> : null}
       {t?.turns.map(turn =>
         turn.kind === "compaction" ? (
@@ -354,7 +392,15 @@ function OriginalSession({ threadId }: PluginThreadPanelProps) {
                 <Markdown content={turn.user.text + (turn.user.images > 0 ? `\n\n[${turn.user.images} image(s)]` : "")} />
               </div>
             ) : null}
-            {turn.blocks.map((b, i) => (b.kind === "text" ? <Markdown key={i} content={b.text} /> : <ToolRow key={i} call={b.call} threadId={threadId} />))}
+            {turn.blocks.map((b, i) =>
+              b.kind === "text" ? (
+                <Markdown key={i} content={b.text} />
+              ) : b.kind === "notice" ? (
+                <Muted key={i}>Notification: {b.text}</Muted>
+              ) : (
+                <ToolRow key={i} call={b.call} threadId={threadId} />
+              ),
+            )}
           </section>
         ),
       )}

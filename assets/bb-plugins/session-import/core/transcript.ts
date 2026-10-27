@@ -15,9 +15,15 @@ export interface ToolCall {
   failed: boolean;
   /** Characters of the tool's result: the output this transcript leaves out. */
   outputChars: number;
+  /** The start of a failed call's output: the error message is what a continuation most often needs again. */
+  error?: string;
 }
 
-export type Block = { kind: "text"; text: string } | { kind: "tool"; call: ToolCall };
+/**
+ * `notice`: something Claude Code injected as a user message that the person did not type, such as a background
+ * task's completion. Rendered as a line in Claude's turn, never as `## User` (Codex's importer gets this wrong).
+ */
+export type Block = { kind: "text"; text: string } | { kind: "tool"; call: ToolCall } | { kind: "notice"; text: string };
 
 export interface ConversationTurn {
   kind: "turn";
@@ -39,6 +45,28 @@ export interface CompactionTurn {
 
 export type Turn = ConversationTurn | CompactionTurn;
 
+export interface Todo {
+  content: string;
+  status: string;
+}
+
+/**
+ * Where the session stood, built from the records alone (no model call) and placed above the transcript, so no cut
+ * removes it. Summaries lose the file trail most often; this keeps it.
+ */
+export interface Brief {
+  /** Paths written by Edit, MultiEdit, Write or NotebookEdit, oldest first. */
+  filesChanged: string[];
+  /** Paths only read (Read), oldest first. */
+  filesRead: string[];
+  /** The last TodoWrite list, or null if the session never wrote one. */
+  todos: Todo[] | null;
+  /** The last tool call, when it has no result: the session ended (or is) mid-tool. */
+  endedMidTool: ToolCall | null;
+  lastUser: string | null;
+  lastClaude: string | null;
+}
+
 export interface Transcript {
   sessionId: string;
   title: string | null;
@@ -48,6 +76,9 @@ export interface Transcript {
   version: string | null;
   startedAt: string | null;
   endedAt: string | null;
+  /** The record the conversation ends at: a later sync continues after it. */
+  leafUuid: string | null;
+  brief: Brief;
   turns: Turn[];
 }
 
@@ -90,6 +121,18 @@ export function cleanUserText(raw: string): string {
   return text.trim();
 }
 
+/** Background-task notifications Claude Code put in a user message, one line each: `<summary> (<status>)`. */
+export function notices(raw: string): string[] {
+  const out: string[] = [];
+  for (const m of raw.matchAll(/<task-notification>([\s\S]*?)<\/task-notification>/g)) {
+    const body = m[1]!;
+    const summary = /<summary>([\s\S]*?)<\/summary>/.exec(body)?.[1]?.trim() ?? "a background task reported back";
+    const status = /<status>([\s\S]*?)<\/status>/.exec(body)?.[1]?.trim();
+    out.push(oneLine(`${summary}${status === undefined || summary.toLowerCase().includes(status.toLowerCase()) ? "" : ` (${status})`}`, 200));
+  }
+  return out;
+}
+
 // ------------------------------------------------------------------ tool lines
 
 const PATH_KEYS = ["file_path", "notebook_path", "path"];
@@ -129,21 +172,45 @@ export function toolSummary(name: string, input: unknown): string {
 // ------------------------------------------------------------------ the reader
 
 type Content =
-  | { kind: "user"; text: string; images: number }
+  | { kind: "user"; text: string; images: number; notices: string[] }
   | { kind: "assistant"; blocks: Block[] }
   | { kind: "boundary"; preTokens: number | null }
   | { kind: "summary"; text: string };
 
 interface Node {
+  uuid: string;
   parent: string | null;
   at: string | null;
   content: Content | null;
 }
 
-function resultChars(content: unknown): number {
-  if (typeof content === "string") return content.length;
-  if (Array.isArray(content)) return content.reduce<number>((n, p) => n + (isObject(p) && typeof p.text === "string" ? p.text.length : 0), 0);
-  return 0;
+/** What the brief needs from a tool call's input; the rest of the input is dropped as it is read. */
+interface ToolFacts {
+  path?: string;
+  todos?: Todo[];
+}
+
+/** The brief's last words travel at most this long; briefMarkdown shows less. */
+const BRIEF_KEEP_CHARS = 20_000;
+const CHANGES_FILES = new Set(["Edit", "MultiEdit", "Write", "NotebookEdit"]);
+const ERROR_CHARS = 200;
+
+function resultText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) return content.map(p => (isObject(p) && typeof p.text === "string" ? p.text : "")).join("\n");
+  return "";
+}
+
+function toolFacts(name: string, input: unknown): ToolFacts | null {
+  const i = isObject(input) ? input : {};
+  if (name === "TodoWrite" && Array.isArray(i.todos)) {
+    return { todos: i.todos.filter(isObject).map(t => ({ content: oneLine(String(t.content ?? ""), 200), status: String(t.status ?? "pending") })) };
+  }
+  if (CHANGES_FILES.has(name) || name === "Read") {
+    const path = str(i.file_path) ?? str(i.notebook_path);
+    return path === null ? null : { path };
+  }
+  return null;
 }
 
 /**
@@ -152,7 +219,8 @@ function resultChars(content: unknown): number {
  */
 export class SessionReader {
   private readonly nodes = new Map<string, Node>();
-  private readonly results = new Map<string, { failed: boolean; chars: number }>();
+  private readonly results = new Map<string, { failed: boolean; chars: number; error?: string }>();
+  private readonly facts = new Map<string, ToolFacts>();
   private leaf: string | null = null;
   private customTitle: string | null = null;
   private aiTitle: string | null = null;
@@ -173,7 +241,7 @@ export class SessionReader {
     if (uuid === null) return;
     const sidechain = record.isSidechain === true;
     const at = str(record.timestamp);
-    const node: Node = { parent: str(record.parentUuid) ?? str(record.logicalParentUuid), at, content: null };
+    const node: Node = { uuid, parent: str(record.parentUuid) ?? str(record.logicalParentUuid), at, content: null };
     this.nodes.set(uuid, node);
     if (sidechain) return;
     if (str(record.cwd) !== null) this.cwd = str(record.cwd);
@@ -198,7 +266,7 @@ export class SessionReader {
     else {
       const model = str(message.model);
       if (model !== null && model !== "<synthetic>") this.model = model;
-      node.content = assistantContent(content);
+      node.content = this.assistantContent(content);
     }
   }
 
@@ -206,7 +274,9 @@ export class SessionReader {
     if (Array.isArray(content)) {
       for (const part of content) {
         if (isObject(part) && part.type === "tool_result" && typeof part.tool_use_id === "string") {
-          this.results.set(part.tool_use_id, { failed: part.is_error === true, chars: resultChars(part.content) });
+          const failed = part.is_error === true;
+          const text = resultText(part.content);
+          this.results.set(part.tool_use_id, { failed, chars: text.length, ...(failed ? { error: oneLine(text, ERROR_CHARS) } : {}) });
         }
       }
     }
@@ -223,10 +293,29 @@ export class SessionReader {
     if (record.isMeta === true) return null;
     const images = Array.isArray(content) ? content.filter(p => isObject(p) && p.type === "image").length : 0;
     const text = cleanUserText(raw);
-    return text.length > 0 || images > 0 ? { kind: "user", text, images } : null;
+    const found = notices(raw);
+    return text.length > 0 || images > 0 || found.length > 0 ? { kind: "user", text, images, notices: found } : null;
   }
 
-  finish(sessionId: string): Transcript {
+  private assistantContent(content: unknown): Content | null {
+    if (typeof content === "string") return content.trim().length > 0 ? { kind: "assistant", blocks: [{ kind: "text", text: content.trim() }] } : null;
+    if (!Array.isArray(content)) return null;
+    const blocks: Block[] = [];
+    for (const p of content) {
+      if (!isObject(p)) continue;
+      if (p.type === "text" && typeof p.text === "string" && p.text.trim().length > 0) blocks.push({ kind: "text", text: p.text.trim() });
+      else if (p.type === "tool_use" && typeof p.name === "string") {
+        const id = str(p.id) ?? "";
+        const facts = toolFacts(p.name, p.input);
+        if (facts !== null && id.length > 0) this.facts.set(id, facts);
+        blocks.push({ kind: "tool", call: { id, name: p.name, summary: toolSummary(p.name, p.input), failed: false, outputChars: 0 } });
+      }
+    }
+    return blocks.length > 0 ? { kind: "assistant", blocks } : null;
+  }
+
+  /** The main chain, oldest first: from the last message back through parents, across compaction boundaries. */
+  private chain(): Node[] {
     const chain: Node[] = [];
     const seen = new Set<string>();
     let at = this.leaf;
@@ -237,7 +326,39 @@ export class SessionReader {
       chain.push(node);
       at = node.parent;
     }
-    chain.reverse();
+    return chain.reverse();
+  }
+
+  /**
+   * The transcript. With `after` (a record uuid a previous import ended at), only the turns after it, or null when
+   * that record is no longer on the main chain (the session was rewound or rewritten since).
+   */
+  finish(sessionId: string): Transcript;
+  finish(sessionId: string, after: string): Transcript | null;
+  finish(sessionId: string, after?: string): Transcript | null {
+    const all = this.chain();
+    let chain = all;
+    if (after !== undefined) {
+      const i = all.findIndex(n => n.uuid === after);
+      if (i < 0) return null;
+      chain = all.slice(i + 1);
+    }
+    return {
+      sessionId,
+      title: this.customTitle ?? this.aiTitle,
+      cwd: this.cwd,
+      gitBranch: this.gitBranch,
+      model: this.model,
+      version: this.version,
+      startedAt: this.first,
+      endedAt: this.last,
+      leafUuid: this.leaf,
+      brief: this.brief(all),
+      turns: this.turns(chain),
+    };
+  }
+
+  private turns(chain: Node[]): Turn[] {
     const turns: Turn[] = [];
     let id = 0;
     const uuid = () => `t${id++}`;
@@ -246,9 +367,14 @@ export class SessionReader {
       if (c === null) continue;
       const prev = turns.at(-1);
       switch (c.kind) {
-        case "user":
-          turns.push({ kind: "turn", uuid: uuid(), at: node.at, user: { text: c.text, images: c.images }, blocks: [] });
+        case "user": {
+          const noticeBlocks = c.notices.map(text => ({ kind: "notice" as const, text }));
+          if (c.text.length === 0 && c.images === 0) {
+            if (prev?.kind === "turn") prev.blocks.push(...noticeBlocks);
+            else turns.push({ kind: "turn", uuid: uuid(), at: node.at, user: null, blocks: noticeBlocks });
+          } else turns.push({ kind: "turn", uuid: uuid(), at: node.at, user: { text: c.text, images: c.images }, blocks: noticeBlocks });
           break;
+        }
         case "assistant": {
           const blocks = c.blocks.map(b => (b.kind === "tool" ? { kind: "tool" as const, call: this.resolve(b.call) } : b));
           if (prev?.kind === "turn") prev.blocks.push(...blocks);
@@ -264,40 +390,48 @@ export class SessionReader {
           break;
       }
     }
+    return turns.filter(t => t.kind === "compaction" || t.user !== null || t.blocks.length > 0);
+  }
+
+  private brief(chain: Node[]): Brief {
+    const changed = new Map<string, true>();
+    const read = new Map<string, true>();
+    let todos: Todo[] | null = null;
+    let lastTool: ToolCall | null = null;
+    let lastUser: string | null = null;
+    let lastClaude: string | null = null;
+    const touch = (m: Map<string, true>, path: string) => {
+      m.delete(path);
+      m.set(path, true);
+    };
+    for (const node of chain) {
+      const c = node.content;
+      if (c?.kind === "user" && c.text.length > 0) lastUser = c.text;
+      if (c?.kind !== "assistant") continue;
+      for (const b of c.blocks) {
+        if (b.kind === "text") lastClaude = b.text;
+        if (b.kind !== "tool") continue;
+        lastTool = b.call;
+        const f = this.facts.get(b.call.id);
+        if (f?.todos !== undefined) todos = f.todos;
+        if (f?.path !== undefined) touch(CHANGES_FILES.has(b.call.name) ? changed : read, f.path);
+      }
+    }
     return {
-      sessionId,
-      title: this.customTitle ?? this.aiTitle,
-      cwd: this.cwd,
-      gitBranch: this.gitBranch,
-      model: this.model,
-      version: this.version,
-      startedAt: this.first,
-      endedAt: this.last,
-      turns: turns.filter(t => t.kind === "compaction" || t.user !== null || t.blocks.length > 0),
+      filesChanged: [...changed.keys()],
+      filesRead: [...read.keys()].filter(p => !changed.has(p)),
+      todos,
+      endedMidTool: lastTool !== null && !this.results.has(lastTool.id) ? lastTool : null,
+      lastUser: lastUser?.slice(0, BRIEF_KEEP_CHARS) ?? null,
+      lastClaude: lastClaude?.slice(0, BRIEF_KEEP_CHARS) ?? null,
     };
   }
 
   private resolve(call: ToolCall): ToolCall {
     const r = this.results.get(call.id);
-    return r === undefined ? call : { ...call, failed: r.failed, outputChars: r.chars };
+    if (r === undefined) return call;
+    return { ...call, failed: r.failed, outputChars: r.chars, ...(r.error === undefined ? {} : { error: r.error }) };
   }
-}
-
-function assistantContent(content: unknown): Content | null {
-  if (typeof content === "string") return content.trim().length > 0 ? { kind: "assistant", blocks: [{ kind: "text", text: content.trim() }] } : null;
-  if (!Array.isArray(content)) return null;
-  const blocks: Block[] = [];
-  for (const p of content) {
-    if (!isObject(p)) continue;
-    if (p.type === "text" && typeof p.text === "string" && p.text.trim().length > 0) blocks.push({ kind: "text", text: p.text.trim() });
-    else if (p.type === "tool_use" && typeof p.name === "string") {
-      blocks.push({
-        kind: "tool",
-        call: { id: str(p.id) ?? "", name: p.name, summary: toolSummary(p.name, p.input), failed: false, outputChars: 0 },
-      });
-    }
-  }
-  return blocks.length > 0 ? { kind: "assistant", blocks } : null;
 }
 
 /** Reads a whole JSONL text. For tests and small inputs; the host streams lines into a SessionReader instead. */
@@ -321,7 +455,8 @@ export const tokensOf = (text: string) => Math.ceil(text.length / 4);
 const when = (at: string | null) => (at === null ? "" : ` · ${at.replace("T", " ").slice(0, 16)}`);
 
 export function toolLine(call: ToolCall): string {
-  return `- ${call.name}${call.summary.length > 0 ? `: ${call.summary}` : ""}${call.failed ? " (failed)" : ""}`;
+  const failed = call.failed ? (call.error === undefined || call.error.length === 0 ? " (failed)" : ` (failed: ${call.error})`) : "";
+  return `- ${call.name}${call.summary.length > 0 ? `: ${call.summary}` : ""}${failed}`;
 }
 
 /** One turn as Markdown. `tools: false` replaces its tool lines with a count. */
@@ -346,6 +481,9 @@ export function turnMarkdown(turn: Turn, opts: { tools: boolean } = { tools: tru
       if (b.kind === "text") {
         flush();
         parts.push(b.text);
+      } else if (b.kind === "notice") {
+        flush();
+        parts.push(`_[notification, not from the person: ${b.text}]_`);
       } else if (opts.tools) tools.push(toolLine(b.call));
       else hidden++;
     }
@@ -369,9 +507,42 @@ export function headerMarkdown(t: Transcript, origin: Origin): string {
   return lines.join("\n");
 }
 
-/** The whole transcript: every turn, every tool line. */
+const BRIEF_CHANGED = 40;
+const BRIEF_READ = 15;
+const BRIEF_LAST_CHARS = 3_000;
+
+const pathList = (paths: string[], max: number) => {
+  const shown = paths.slice(-max).map(p => `\`${p}\``);
+  return `${paths.length > max ? `${paths.length - max} earlier, then ` : ""}${shown.join(", ")}`;
+};
+const clipText = (text: string, max: number) => (text.length > max ? `${text.slice(0, max)}… [${text.length - max} more characters in the transcript]` : text);
+
+/** "Where it stood": files, todos, an unfinished tool call and the last words, from the records alone. */
+export function briefMarkdown(t: Transcript): string {
+  const b = t.brief;
+  const lines = ["## Where the session stood", ""];
+  if (b.filesChanged.length > 0) lines.push(`- Files changed (${b.filesChanged.length}, most recent last): ${pathList(b.filesChanged, BRIEF_CHANGED)}`);
+  if (b.filesRead.length > 0) lines.push(`- Files only read (${b.filesRead.length}): ${pathList(b.filesRead, BRIEF_READ)}`);
+  if (b.filesChanged.length === 0 && b.filesRead.length === 0) lines.push("- No file was read or changed through Claude Code's file tools.");
+  if (b.todos !== null) {
+    const open = b.todos.filter(x => x.status !== "completed");
+    lines.push(
+      open.length === 0
+        ? `- Todos: all ${b.todos.length} done.`
+        : `- Open todos (${open.length} of ${b.todos.length}): ${open.map(x => `[${x.status}] ${x.content}`).join("; ")}`,
+    );
+  }
+  if (b.endedMidTool !== null) {
+    lines.push(`- The session ended mid-tool: \`${toolLine(b.endedMidTool).slice(2)}\` has no result. Check whether it took effect before repeating it.`);
+  }
+  if (b.lastUser !== null) lines.push("", "### The person's last message", "", clipText(b.lastUser, BRIEF_LAST_CHARS));
+  if (b.lastClaude !== null) lines.push("", "### Claude's last words", "", clipText(b.lastClaude, BRIEF_LAST_CHARS));
+  return lines.join("\n");
+}
+
+/** The whole transcript: header, brief, every turn, every tool line. */
 export function fullMarkdown(t: Transcript, origin: Origin): string {
-  return [headerMarkdown(t, origin), ...t.turns.map(turn => turnMarkdown(turn))].join("\n\n") + "\n";
+  return [headerMarkdown(t, origin), briefMarkdown(t), "## Transcript", ...t.turns.map(turn => turnMarkdown(turn))].join("\n\n") + "\n";
 }
 
 // ------------------------------------------------------------------ the budget
@@ -407,7 +578,8 @@ export interface Seed {
  * 4. as a last resort, the text is clipped.
  */
 export function seedMarkdown(t: Transcript, origin: Origin, budget = DEFAULT_BUDGET_TOKENS): Seed {
-  const header = headerMarkdown(t, origin);
+  // The brief rides with the header: every cut below keeps it.
+  const header = [headerMarkdown(t, origin), briefMarkdown(t), "## Transcript"].join("\n\n");
   const total = t.turns.length;
   const full = fullMarkdown(t, origin);
   const fullTokens = tokensOf(full);

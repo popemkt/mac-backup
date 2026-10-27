@@ -2,7 +2,7 @@
 // fixtures: listing with badges, the preview, the exact spawn of an import, the import record, the Original
 // session RPC, and the CLI. Run: npm test
 import assert from "node:assert/strict";
-import { copyFileSync, mkdirSync, mkdtempSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { before, test } from "node:test";
@@ -10,6 +10,7 @@ import { createFakePluginHost, makeHostResponse, makeThreadResponse } from "@get
 
 const PLAIN = "11111111-2222-4333-8444-555555555555";
 const COMPACTED = "22222222-3333-4444-8555-666666666666";
+const GROWING = "33333333-4444-4555-8666-777777777777";
 const root = mkdtempSync(join(tmpdir(), "session-import-server-"));
 const dataDir = join(root, "plugin-data");
 let hostEntry: typeof import("../host.ts");
@@ -24,6 +25,7 @@ before(async () => {
     mkdirSync(join(root, "projects", dir), { recursive: true });
     copyFileSync(new URL(`./fixtures/${name}`, import.meta.url), join(root, "projects", dir, `${id}.jsonl`));
   }
+  mkdirSync(join(root, "projects", "-home-user-growing"), { recursive: true });
   hostEntry = await import("../host.ts");
   plugin = await import("../server.ts");
 });
@@ -31,6 +33,8 @@ before(async () => {
 /** The fixtures' cwd, /home/user/project, does not exist here; the session machine says so unless told otherwise. */
 async function fake(opts: { cwdExists?: boolean; metadata?: Record<string, unknown>; ownedBy?: Record<string, string> } = {}) {
   const spawned: Record<string, unknown>[] = [];
+  const sent: Record<string, any>[] = [];
+  const updates: Record<string, any>[] = [];
   const signal = new AbortController().signal;
   const { bb, harness } = createFakePluginHost({
     pluginId: "session-import",
@@ -40,7 +44,7 @@ async function fake(opts: { cwdExists?: boolean; metadata?: Record<string, unkno
         case "listSessions":
           return hostEntry.listSessions(i.sinceMs, i.limit);
         case "readTranscript":
-          return hostEntry.readTranscript(i.sessionId, signal);
+          return hostEntry.readTranscript(i.sessionId, signal, i.since);
         case "toolOutput":
           return hostEntry.toolOutput(i.sessionId, i.toolUseId, i.maxChars, signal);
         case "inspectCwd":
@@ -84,11 +88,13 @@ async function fake(opts: { cwdExists?: boolean; metadata?: Record<string, unkno
         },
         spawn: async (args: Record<string, unknown>) => (spawned.push(args), makeThreadResponse({ id: `thr_new${spawned.length}` })),
         getPluginMetadata: async ({ threadId }: { threadId: string }) => opts.metadata?.[threadId] ?? {},
+        send: async (args: Record<string, unknown>) => (sent.push(args), { ok: true, delivery: "sent" }),
+        updatePluginMetadata: async (args: Record<string, unknown>) => (updates.push(args), {}),
       },
     },
   } as unknown as Parameters<typeof createFakePluginHost>[0]);
   await plugin.default(bb);
-  return { harness, spawned };
+  return { harness, spawned, sent, updates };
 }
 
 test("machines: the server first, then by name", async () => {
@@ -135,6 +141,8 @@ test("import: spawns in the session's cwd with the transcript agent-only, then t
   assert.deepEqual([file.type, file.hostId, file.path, file.visibility], ["localFile", "h_mac", r.transcriptPath, "agent-only"]);
   assert.deepEqual([first.type, first.text, first.visibility], ["text", "Carry on.", undefined]);
   assert.equal(args.pluginMetadata.imported.sessionId, PLAIN);
+  assert.equal(args.pluginMetadata.imported.mark.lines, 19);
+  assert.match(seed.text, /## Where the session stood/);
   // recorded, so the picker can say so next time
   const again = (await harness.behavior.callRpc("preview", { hostId: "h_mac", sessionId: PLAIN })) as { imports: { threadId: string }[] };
   assert.deepEqual(again.imports.map(i => i.threadId), ["thr_new1"]);
@@ -175,8 +183,9 @@ test("original: an imported thread reads its source session; another thread says
     },
   };
   const { harness } = await fake({ metadata });
-  const o = (await harness.behavior.callRpc("original", { threadId: "thr_imp" })) as { transcript: { turns: unknown[] } | null };
+  const o = (await harness.behavior.callRpc("original", { threadId: "thr_imp" })) as { transcript: { turns: unknown[] } | null; newTurns: number | null };
   assert.equal(o.transcript?.turns.length, 4);
+  assert.equal(o.newTurns, null); // imported before sync existed: no mark
   const none = (await harness.behavior.callRpc("original", { threadId: "thr_other" })) as { reason: string };
   assert.match(none.reason, /not imported/);
   const out = (await harness.behavior.callRpc("toolOutput", { threadId: "thr_imp", toolUseId: "t1" })) as { totalChars: number };
@@ -197,4 +206,49 @@ test("CLI: machines, list, show, import", async () => {
   assert.equal((spawned[0] as Record<string, any>).input[2].text, "go on");
   const bad = await harness.behavior.runCli(["list", "--machine", "nope"]);
   assert.equal(bad.exitCode, 2);
+});
+
+test("sync: the session's new turns go to the thread agent-only, the mark moves, a rewritten session is refused", async () => {
+  const lines = readFileSync(new URL("./fixtures/brief.jsonl", import.meta.url), "utf8").trim().split("\n");
+  const path = join(root, "projects", "-home-user-growing", `${GROWING}.jsonl`);
+  writeFileSync(path, `${lines.slice(0, 8).join("\n")}\n`);
+  const imported = await hostEntry.readTranscript(GROWING, new AbortController().signal);
+  writeFileSync(path, `${lines.join("\n")}\n`);
+  const record = {
+    source: "claude-code",
+    sessionId: GROWING,
+    hostId: "h_mac",
+    machine: "popemkt-work",
+    cwd: "/home/user/project",
+    title: null,
+    transcriptHostId: "h_srv",
+    transcriptPath: "/old.md",
+    importedAt: 1,
+    sourceModified: 1,
+    plan: { turns: 1, full: 1, condensed: 0, omitted: 0, cuts: [], tokens: 1, fullTokens: 1 },
+  };
+  const { harness, sent, updates } = await fake({ metadata: { thr_imp: { imported: { ...record, mark: imported.source } } } });
+  const o = (await harness.behavior.callRpc("original", { threadId: "thr_imp" })) as { newTurns: number | null };
+  assert.equal(o.newTurns, 1);
+  const r = (await harness.behavior.callRpc("sync", { threadId: "thr_imp" })) as { synced: number };
+  assert.equal(r.synced, 1);
+  const [agent, visible] = sent[0]!.input;
+  assert.equal(sent[0]!.mode, "queue-if-active");
+  assert.equal(agent.visibility, "agent-only");
+  assert.match(agent.text, /went on outside bb after it was imported\. Its 1 new turn follow/);
+  assert.match(agent.text, /## Where the session stood/);
+  assert.match(agent.text, /The build passed\. Running the tests next\./);
+  // only the new turns: the task message is in the brief, not as a turn
+  assert.doesNotMatch(agent.text, /## User/);
+  assert.equal(visible.visibility, undefined);
+  const next = updates[0]!.set.imported;
+  assert.equal(next.mark.lines, 11);
+  assert.equal(next.syncs, 1);
+  assert.equal(next.transcriptPath, join(dataDir, "h_srv", "transcripts", `${GROWING}.md`));
+  // rewritten before the mark: refused
+  writeFileSync(path, `${[lines[0]!.replace("Rename", "Remove"), ...lines.slice(1)].join("\n")}\n`);
+  await assert.rejects(harness.behavior.callRpc("sync", { threadId: "thr_imp" }), /changed before the point this thread took it from/);
+  // no mark: says how to get one
+  const old = await fake({ metadata: { thr_old: { imported: record } } });
+  await assert.rejects(old.harness.behavior.callRpc("sync", { threadId: "thr_old" }), /imported before sync existed/);
 });

@@ -5,9 +5,10 @@
 // import, in its own data dir on the machine the thread runs on.
 import { defineRpcContract, type BbPluginApi, type PluginBbSdk } from "@get-bb/plugin-sdk";
 import { z } from "zod";
-import { hostContract, readStats, sessionSummary, type ReadStats, type SessionSummary } from "./contract.ts";
+import { hostContract, readStats, sessionSummary, sourceMark, type ReadStats, type SessionSummary, type SourceMark } from "./contract.ts";
 import { environmentFor, resolveTarget, type CwdFacts, type ProjectInfo, type Target } from "./core/mapping.ts";
 import {
+  briefMarkdown,
   DEFAULT_BUDGET_TOKENS,
   fullMarkdown,
   headerMarkdown,
@@ -24,6 +25,8 @@ const DAY_MS = 86_400_000;
 const READ_TIMEOUT_MS = 5 * 60_000;
 const TRANSCRIPT_CACHE_MS = 2 * 60_000;
 const FIRST_MESSAGE_DEFAULT = "Summarise where this session stood in at most 5 lines, then wait for my next message.";
+const SYNC_MESSAGE_DEFAULT = "The original session went on; its new turns are attached. Say in at most 3 lines what changed, then wait for my next message.";
+const NOT_IMPORTED = "This thread was not imported from a Claude Code session.";
 
 const importRecord = z.object({
   threadId: z.string(),
@@ -46,6 +49,10 @@ const threadRecord = z.object({
   importedAt: z.number(),
   sourceModified: z.number(),
   plan: z.custom<Plan>(v => typeof v === "object" && v !== null),
+  /** Where the imported (or last synced) transcript ended; absent on threads imported before sync existed. */
+  mark: sourceMark.optional(),
+  syncs: z.number().optional(),
+  syncedAt: z.number().optional(),
 });
 export type ThreadRecord = z.infer<typeof threadRecord>;
 
@@ -77,6 +84,7 @@ export const rpcContract = defineRpcContract({
     input: targetInput,
     output: z.object({
       header: z.string(),
+      brief: z.string(),
       opening: z.string(),
       ending: z.string(),
       plan: z.custom<Plan>(v => typeof v === "object" && v !== null),
@@ -100,8 +108,14 @@ export const rpcContract = defineRpcContract({
     output: z.object({
       record: threadRecord.nullable(),
       transcript: z.custom<Transcript>(v => v === null || (typeof v === "object" && v !== null)).nullable(),
+      /** Turns the session gained since the import (or the last sync); null when it cannot be synced. */
+      newTurns: z.number().nullable(),
       reason: z.string().nullable(),
     }),
+  },
+  sync: {
+    input: z.object({ threadId: z.string().min(1), message: z.string().optional() }),
+    output: z.object({ synced: z.number() }),
   },
   toolOutput: {
     input: z.object({ threadId: z.string().min(1), toolUseId: z.string().min(1) }),
@@ -120,6 +134,15 @@ type HostCall = <M extends keyof typeof hostContract & string>(
 export function parseThreadRecord(value: unknown): ThreadRecord | null {
   const r = threadRecord.safeParse((value as { imported?: unknown } | null)?.imported);
   return r.success ? r.data : null;
+}
+
+/** The text of a sync's agent-only part, before the new turns. */
+export function syncPreamble(record: ThreadRecord, turns: number, transcriptPath: string): string {
+  return [
+    `The Claude Code session this thread continues (${record.sessionId} on ${record.machine}) went on outside bb after it was imported.`,
+    `Its ${turns} new turn${turns === 1 ? "" : "s"} follow, cleaned as before, under an updated "Where the session stood".`,
+    `The transcript file ${transcriptPath} now holds the whole session again.`,
+  ].join(" ");
 }
 
 /** The text of the thread's first turn before the person's own message: what the agent is, and the transcript. */
@@ -199,7 +222,7 @@ export default async function plugin(bb: BbPluginApi) {
   }
 
   // ---------------------------------------------------------------- reading, shared by preview and import
-  const transcripts = new Map<string, { at: number; value: Promise<{ transcript: Transcript; stats: ReadStats }> }>();
+  const transcripts = new Map<string, { at: number; value: Promise<{ transcript: Transcript; stats: ReadStats; source: SourceMark }> }>();
   function read(hostId: string, sessionId: string, fresh = false) {
     const key = `${hostId}:${sessionId}`;
     const hit = transcripts.get(key);
@@ -211,7 +234,7 @@ export default async function plugin(bb: BbPluginApi) {
   }
 
   async function plan(input: z.infer<typeof targetInput>, fresh = false) {
-    const [{ transcript, stats }, all, name] = await Promise.all([read(input.hostId, input.sessionId, fresh), projects(), machineName(input.hostId)]);
+    const [{ transcript, stats, source }, all, name] = await Promise.all([read(input.hostId, input.sessionId, fresh), projects(), machineName(input.hostId)]);
     const facts: CwdFacts | null = transcript.cwd === null ? null : await host("inspectCwd", { cwd: transcript.cwd }, input.hostId).catch(() => null);
     const target = resolveTarget({
       projects: all,
@@ -223,7 +246,7 @@ export default async function plugin(bb: BbPluginApi) {
     const env = environmentFor(target, all);
     const origin: Origin = { machine: name };
     const seed = seedMarkdown(transcript, origin, input.budget ?? DEFAULT_BUDGET_TOKENS);
-    return { transcript, stats, all, target, env, origin, seed };
+    return { transcript, stats, source, all, target, env, origin, seed };
   }
 
   async function preview(input: z.infer<typeof targetInput>) {
@@ -231,6 +254,7 @@ export default async function plugin(bb: BbPluginApi) {
     const turns = p.transcript.turns;
     return {
       header: headerMarkdown(p.transcript, p.origin),
+      brief: briefMarkdown(p.transcript),
       opening: turns.slice(0, 2).map(t => turnMarkdown(t)).join("\n\n"),
       ending: turns.length <= 2 ? "" : turns.slice(-2).map(t => turnMarkdown(t)).join("\n\n"),
       plan: p.seed.plan,
@@ -260,6 +284,7 @@ export default async function plugin(bb: BbPluginApi) {
       importedAt: Date.now(),
       sourceModified,
       plan: p.seed.plan,
+      mark: p.source,
     };
     const first = input.firstMessage?.trim() ?? "";
     const providerId = input.providerId ?? PROVIDER_ID;
@@ -297,6 +322,42 @@ export default async function plugin(bb: BbPluginApi) {
     return parseThreadRecord(await sdk.threads.getPluginMetadata({ threadId, pluginId: bb.pluginId }).catch(() => null));
   }
 
+  /** Reads the session again; with a mark, also what came after it. */
+  function readSince(record: ThreadRecord) {
+    return host("readTranscript", { sessionId: record.sessionId, ...(record.mark === undefined ? {} : { since: record.mark }) }, record.hostId, READ_TIMEOUT_MS);
+  }
+
+  /**
+   * Sends the turns the session gained since the import (or the last sync) to the thread, agent-only, with a visible
+   * message, and moves the mark. Refuses when the session changed before the mark: a rewound or rewritten session is
+   * a different story, and a new import is the honest way to take it.
+   */
+  async function sync(threadId: string, message?: string): Promise<{ synced: number }> {
+    const record = await recordOf(threadId);
+    if (record === null) throw new Error(NOT_IMPORTED);
+    if (record.mark === undefined) throw new Error("This thread was imported before sync existed: import the session again to take its new turns.");
+    const r = await readSince(record);
+    if (r.newTurns === null) {
+      throw new Error(`The session on ${record.machine} changed before the point this thread took it from (rewound or rewritten): import it again instead.`);
+    }
+    if (r.newTurns.length === 0) return { synced: 0 };
+    const t = r.transcript;
+    const origin: Origin = { machine: record.machine };
+    const delta = seedMarkdown({ ...t, turns: r.newTurns }, origin);
+    const written = await host("writeTranscript", { sessionId: t.sessionId, markdown: fullMarkdown(t, origin) }, record.transcriptHostId);
+    await sdk.threads.send({
+      threadId,
+      mode: "queue-if-active",
+      input: [
+        { type: "text", text: `${syncPreamble(record, r.newTurns.length, written.path)}\n\n${delta.markdown}`, mentions: [], visibility: "agent-only" },
+        { type: "text", text: message?.trim() || SYNC_MESSAGE_DEFAULT, mentions: [] },
+      ],
+    });
+    const next: ThreadRecord = { ...record, mark: r.source, transcriptPath: written.path, syncs: (record.syncs ?? 0) + 1, syncedAt: Date.now() };
+    await sdk.threads.updatePluginMetadata({ threadId, pluginId: bb.pluginId, set: JSON.parse(JSON.stringify({ imported: next })) });
+    return { synced: r.newTurns.length };
+  }
+
   bb.rpc.register(rpcContract, {
     machines: async () => ({ machines: await machines() }),
     sessions: ({ hostId, sinceDays }) => sessions(hostId, sinceDays),
@@ -304,16 +365,18 @@ export default async function plugin(bb: BbPluginApi) {
     importSession: input => importSession(input),
     original: async ({ threadId }) => {
       const record = await recordOf(threadId);
-      if (record === null) return { record: null, transcript: null, reason: "This thread was not imported from a Claude Code session." };
+      if (record === null) return { record: null, transcript: null, newTurns: null, reason: NOT_IMPORTED };
       try {
-        return { record, transcript: (await read(record.hostId, record.sessionId)).transcript, reason: null };
+        const r = await readSince(record);
+        return { record, transcript: r.transcript, newTurns: r.newTurns?.length ?? null, reason: null };
       } catch (err) {
-        return { record, transcript: null, reason: `Could not read the session on ${record.machine}: ${err instanceof Error ? err.message : String(err)}` };
+        return { record, transcript: null, newTurns: null, reason: `Could not read the session on ${record.machine}: ${err instanceof Error ? err.message : String(err)}` };
       }
     },
+    sync: ({ threadId, message }) => sync(threadId, message),
     toolOutput: async ({ threadId, toolUseId }) => {
       const record = await recordOf(threadId);
-      if (record === null) throw new Error("This thread was not imported from a Claude Code session.");
+      if (record === null) throw new Error(NOT_IMPORTED);
       return host("toolOutput", { sessionId: record.sessionId, toolUseId, maxChars: 50_000 }, record.hostId, READ_TIMEOUT_MS);
     },
   });
@@ -326,6 +389,7 @@ export default async function plugin(bb: BbPluginApi) {
       { name: "list", summary: "Sessions on a machine", usage: "bb session-import list [--machine <name|id>] [--days N|--all] [--cwd <text>] [--json]" },
       { name: "show", summary: "Preview a session as a handoff", usage: "bb session-import show <session-id> [--machine <name|id>] [--full]" },
       { name: "import", summary: "Start a thread from a session", usage: "bb session-import import <session-id> [--machine m] [--to m] [--project id] [--prompt text] [--budget N]" },
+      { name: "sync", summary: "Send an imported thread the session's new turns", usage: "bb session-import sync <thread-id> [--prompt text]" },
     ],
     run: argv => cli(argv),
   });
@@ -366,6 +430,12 @@ export default async function plugin(bb: BbPluginApi) {
           });
           return { exitCode: 0, stdout: `${m.name}: ${shown.length} of ${total} sessions${days > 0 ? ` from the last ${days} days` : ""}\n${lines.join("\n")}` };
         }
+        case "sync": {
+          const threadId = positionals[0];
+          if (threadId === undefined) return { exitCode: 2, stderr: "Usage: bb session-import sync <thread-id> [--prompt text]" };
+          const { synced } = await sync(threadId, opts.get("--prompt"));
+          return { exitCode: 0, stdout: synced === 0 ? "Nothing new: the session has no turns after the last import or sync." : `Sent ${synced} new turn${synced === 1 ? "" : "s"} to ${threadId}.` };
+        }
         case "show":
         case "import": {
           const sessionId = positionals[0];
@@ -385,6 +455,7 @@ export default async function plugin(bb: BbPluginApi) {
             const where = `${p.target.projectName ?? "(no project)"} on ${(all.find(x => x.id === p.target.hostId) ?? m).name} in ${p.target.path ?? "the project's source"}`;
             const out = [
               p.header,
+              p.brief,
               `Handoff: ${p.plan.tokens.toLocaleString("en-US")} tokens (full transcript ${p.plan.fullTokens.toLocaleString("en-US")}); ${p.plan.full} turns full, ${p.plan.condensed} without tool lines, ${p.plan.omitted} omitted.`,
               `Would run: ${where}.${p.environmentError === null ? "" : ` Cannot: ${p.environmentError}`}`,
               ...p.target.notes.map(n => `Note: ${n}`),
@@ -426,6 +497,7 @@ const HELP = [
   "                                    what an import would send and where it would run",
   "  import <id> [--machine m] [--to m] [--project id] [--prompt text] [--budget N]",
   "                                    start the thread; --to runs it on another machine",
+  "  sync <thread-id> [--prompt text]  send an imported thread the turns its session gained since",
 ].join("\n");
 
 export type { SessionSummary };

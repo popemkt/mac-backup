@@ -14,16 +14,22 @@ bb session-import list --all --cwd .dotfiles        # every session whose direct
 bb session-import show <session-id> --machine m     # what an import would send, and where it would run
 bb session-import import <session-id> --machine m --prompt "Finish the migration"
 bb session-import import <session-id> --machine m --to shared-server   # run the thread on another machine
+bb session-import sync <thread-id>                  # send an imported thread the turns its session gained since
 ```
 
 Without `--machine`, the bb server's own machine is used. The thread runs on the session's machine, in its
 directory, in the bb project that directory belongs to (`--project <id>` overrides; `--to` picks another
 machine, which then uses the project's own source there).
 
-What the new thread gets: the transcript with every message, one line per tool call, no tool output and no
+What the new thread gets: first a short "Where the session stood", built from the records (files changed and
+only read, the last todo list, a tool call left without a result, the last message each way); then the transcript with every message, one line per tool call, no tool output and no
 thinking, cut to about 40k tokens (`--budget N`). Older history goes first: before the latest compaction it
 becomes Claude Code's own summary, then older turns lose their tool lines, then the oldest turns are left out,
-keeping the first request. The complete transcript is attached as a file for anything left out.
+keeping the first request; the "Where the session stood" part is never cut. Failed tool calls keep the start of
+their error. The complete transcript is attached as a file for anything left out.
+
+If the source session goes on after the import, `sync` sends the new turns to the thread (agent-only, with a
+visible message) and refuses when the session was rewound or rewritten before the import point.
 
 This is a handoff, not a resume: the new thread runs a new Claude Code session and the source session file is
 never changed. A session that a bb thread already runs shows `[in bb: <thread>]`; continue that thread instead.

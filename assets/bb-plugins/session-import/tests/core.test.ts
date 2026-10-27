@@ -5,7 +5,10 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { environmentFor, matchProject, normalizeRemote, resolveTarget, type ProjectInfo } from "../core/mapping.ts";
 import {
+  briefMarkdown,
   cleanUserText,
+  notices,
+  SessionReader,
   fullMarkdown,
   readSession,
   seedMarkdown,
@@ -19,6 +22,8 @@ const fixture = (name: string) => readFileSync(new URL(`./fixtures/${name}`, imp
 const origin = { machine: "devbox" };
 const plain = () => readSession("11111111-2222-4333-8444-555555555555", fixture("plain.jsonl"));
 const compacted = () => readSession("22222222-3333-4444-8555-666666666666", fixture("compacted.jsonl"));
+const BRIEF = "33333333-4444-4555-8666-777777777777";
+const briefSession = () => readSession(BRIEF, fixture("brief.jsonl"));
 const convo = (t: Transcript) => t.turns.filter((x): x is ConversationTurn => x.kind === "turn");
 
 test("a plain session: turns, tool lines with outcomes, metadata", () => {
@@ -52,7 +57,9 @@ test("dropped: thinking, isMeta records, reminders, sidechains, tool output, the
   assert.doesNotMatch(md, /Caveat/);
   assert.doesNotMatch(md, /internal note/);
   assert.doesNotMatch(md, /subagent prompt/);
-  assert.doesNotMatch(md, /builder failed/);
+  // tool output stays out, except the start of a failed call's error
+  assert.match(md, /\(failed: error: builder failed[^\n]{0,200}\)\n/);
+  assert.doesNotMatch(md, /-k flaky/);
   assert.match(md, /- Agent: general-purpose: check other tests/);
   assert.match(md, /\[1 image\]/);
 });
@@ -73,7 +80,7 @@ test("Markdown: a header, a section per speaker, one line per tool call", () => 
   assert.match(md, /- Session `11111111-2222-4333-8444-555555555555` on devbox/);
   assert.match(md, /- Directory `\/home\/user\/project`, branch `main`/);
   assert.match(md, /## User · 2026-10-20 10:01\n\nFix the flaky test/);
-  assert.match(md, /## Claude\n\nLooking at the test first\.\n\n- Bash: nix build \.#checks --keep-going 2>&1 \| tail \(failed\)\n- Edit: \/home\/user\/project\/build\.nix\n- Grep: "flaky" in tests\/\n\nThe test raced/);
+  assert.match(md, /## Claude\n\nLooking at the test first\.\n\n- Bash: nix build \.#checks --keep-going 2>&1 \| tail \(failed: error: builder failed[^\n]*\)\n- Edit: \/home\/user\/project\/build\.nix\n- Grep: "flaky" in tests\/\n\nThe test raced/);
 });
 
 test("user text: slash commands, bash mode, reminders", () => {
@@ -226,4 +233,65 @@ test("a gone or bb-managed directory falls back to the project's source; no proj
   assert.ok("error" in environmentFor(none, projects));
   const chosen = resolveTarget({ projects, session: { hostId: "h_mac", cwd: "/Users/me/elsewhere" }, facts: { exists: true, gitRemote: null }, projectId: "p_dot" });
   assert.deepEqual(environmentFor(chosen, projects), { type: "host", hostId: "h_mac", workspace: { type: "unmanaged", path: "/Users/me/elsewhere" } });
+});
+
+// ------------------------------------------------------------------ the brief, notices, sync
+
+test("brief: files changed and only read, the last todo list, an unfinished tool call, the last words", () => {
+  const b = briefSession().brief;
+  assert.deepEqual(b.filesChanged, ["/home/user/project/src/config.ts", "/home/user/project/src/main.ts"]);
+  assert.deepEqual(b.filesRead, []);
+  assert.deepEqual(b.todos?.map(x => x.status), ["in_progress", "pending", "pending"]);
+  assert.equal(b.endedMidTool?.summary, "npm test");
+  assert.equal(b.lastUser, "Rename the config loader and update its callers.");
+  assert.equal(b.lastClaude, "The build passed. Running the tests next.");
+  const md = briefMarkdown(briefSession());
+  assert.match(md, /- Files changed \(2, most recent last\): `\/home\/user\/project\/src\/config\.ts`, `\/home\/user\/project\/src\/main\.ts`/);
+  assert.match(md, /- Open todos \(3 of 3\): \[in_progress\] Rename load to loadConfig; \[pending\] Update callers/);
+  assert.match(md, /ended mid-tool: `Bash: npm test` has no result/);
+  assert.match(md, /### Claude's last words\n\nThe build passed/);
+});
+
+test("brief: a session whose every tool call was answered did not end mid-tool", () => {
+  const b = plain().brief;
+  assert.equal(b.endedMidTool, null);
+  assert.ok(b.filesChanged.includes("/home/user/project/build.nix"));
+});
+
+test("a background-task notification is a line in Claude's turn, never the person's message", () => {
+  assert.deepEqual(notices("<task-notification><status>completed</status><summary>Background command \"x\" completed</summary></task-notification>"), [
+    'Background command "x" completed',
+  ]);
+  assert.deepEqual(notices("<task-notification><status>failed</status><summary>Agent \"y\" stopped</summary></task-notification>"), ['Agent "y" stopped (failed)']);
+  const t = briefSession();
+  const users = convo(t).map(x => x.user?.text ?? null);
+  assert.ok(users.every(u => u === null || !u.includes("npm run build")));
+  const md = fullMarkdown(t, origin);
+  assert.match(md, /## Claude\n\n[\s\S]*_\[notification, not from the person: Background command "npm run build" completed \(exit code 0\)\]_\n\nThe build passed/);
+  assert.doesNotMatch(md, /## User[^\n]*\n\n[^\n]*task-notification/);
+});
+
+test("the brief goes first and survives every cut", () => {
+  const seed = seedMarkdown(briefSession(), origin, 300);
+  assert.ok(seed.plan.cuts.length > 0);
+  assert.match(seed.markdown, /## Where the session stood[\s\S]*## Transcript/);
+  assert.match(seed.markdown, /ended mid-tool/);
+});
+
+test("sync: the turns after a record, or null when that record left the chain", () => {
+  const r = new SessionReader();
+  for (const line of fixture("brief.jsonl").split("\n")) if (line.trim().length > 0) r.add(JSON.parse(line));
+  const all = r.finish(BRIEF);
+  assert.equal(all.leafUuid, "00000000-0000-4000-8000-000000000011");
+  const after = r.finish(BRIEF, "00000000-0000-4000-8000-000000000008");
+  assert.equal(after?.turns.length, 1);
+  const only = after!.turns[0] as ConversationTurn;
+  assert.equal(only.user, null);
+  assert.deepEqual(only.blocks.map(b => b.kind), ["notice", "text", "tool"]);
+  assert.deepEqual(r.finish(BRIEF, all.leafUuid!)?.turns, []);
+  assert.equal(r.finish(BRIEF, "not-a-record"), null);
+  // the abandoned branch of the compacted fixture is not on the chain
+  const c = new SessionReader();
+  for (const line of fixture("compacted.jsonl").split("\n")) if (line.trim().length > 0) c.add(JSON.parse(line));
+  assert.equal(c.finish("x", "00000000-0000-4000-8000-000000000005"), null);
 });
