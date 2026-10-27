@@ -400,3 +400,43 @@ server in bb's fake plugin host); `tsc` clean; bb builds and runs it (`session-i
 
 Recorded as gap `01M5YQ7EX8GTERS32BT5G9H7Q7` and marked at the spawn in `server.ts`. Spike S6 (a plugin-registered ACP
 provider that resumes through `claude-agent-acp`) and the upstream #3260 preparation follow in section 12.
+
+## 12. Native adoption: spike S6 and the upstream preparation
+
+### 12.1 S6: a plugin-registered ACP provider that resumes through `claude-agent-acp`
+
+Built as a throwaway plugin in a scratch directory (not in this repo), installed on shared-server with
+`bb-plugins-sync --path`, then removed with `bb plugin uninstall`. Pieces:
+
+- `bb.providers.register` with `experimental_bridgeOptions.acpLaunchSpec` whose command is a 40-line Node wrapper,
+  and the host entry re-exporting `experimental_acpProviderBridge`;
+- the wrapper launches `@agentclientprotocol/claude-agent-acp` 0.97.0, passes stdio through, and adds
+  `_meta.claudeCode.options.resume` to bb's `session/new` when its environment holds a session id;
+- `bb.providers.experimental_contributeEnv(<provider>, ctx)` gets the thread id per start, reads the thread's plugin
+  metadata (`{ adopt: <session id> }`, set at spawn), and contributes `S6_ADOPT_SESSION`.
+
+The test session was a throwaway `claude -p` session (three replies, `ok one`, `ok two`, `ok three`).
+
+| Question | Answer |
+|---|---|
+| Does the wrapper get a per-thread session id? | **Yes**, through the contributed environment. ACP dialects have no `session/new` hook; the bridge's child environment is its own plus `envVars`, so a launch wrapper is the only plugin-side place to add `_meta` [code: `packages/provider-bridge-acp/src/bridge/bridge.ts`]. |
+| Does bb record the returned id, and is it the outside session's? | **Yes and yes.** `claude-agent-acp` returns the resumed id unchanged (`createSession`: `sessionId = creationOpts.resume`) and bb wrote `thread/identity { providerThreadId: <the outside id> }` [measured]. |
+| Does the thread resume natively? | **Yes.** The first turn listed all three earlier replies, and the turn was appended to the same session file (61 → 74 lines). After `bb thread stop`, the next message went through bb's own `thread/resume` → `session/load` with that id and still had the history [measured]. |
+
+Standalone (an ACP client and no bb), the same `session/new` + `_meta` resume returned the same id and the same
+recall.
+
+What it costs, which is why it stays a spike and not the plugin's import path:
+
+- The thread runs on a **second Claude stack**, a plugin provider that is not bb's builtin `claude-code`: bb's own
+  Claude provider settings, model catalog (the spike had none), permission modes and Claude-specific tool rendering do
+  not apply, and `claude-agent-acp` adds about 100 packages to the host artifact.
+- The **timeline stays empty** of old turns: bb drops the replay that `session/load` sends (section 2.2 and the
+  survey's 3.3). The Original session panel still covers them.
+- **Two writers.** The bb thread now appends to the outside session file; a terminal still running that session
+  would interleave with it (Claude Code's docs say two resumers interleave). An adoption needs an ownership guard
+  (refuse while the file is being written, and badge the session as owned by the thread).
+- `experimental_contributeEnv` is experimental, and its values show in `provider.env-resolved` timeline events.
+
+So a plugin can adopt today, on its own provider. The honest home for adoption is still bb's builtin Claude Code
+provider, which is what #3260 asks for. Section 12.2 is that change, prepared and not published.
