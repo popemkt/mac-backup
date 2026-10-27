@@ -25,6 +25,7 @@ in
     ./canvas-links # which tldraw canvases each agent session linked (CLI + bb panel)
     ./claude-mods.nix # Claude Code UI mods (function-hook plugins)
     ./cli-proxy-api.nix # local OAuth provider proxy (loopback :8317)
+    ./cli-proxy-clients # desktop apps whose AI settings route through it
     # Alternative/companion: OmniRoute (https://github.com/diegosouzapw/OmniRoute)
     # npm i -g omniroute → dashboard/API :20128 — not installed; note only.
     ./cognee # server and remote-client roles, plus their agent plugins
@@ -45,6 +46,28 @@ in
         type = types.bool;
         default = true;
         description = "Install the Archon agent command center (tap + formula).";
+      };
+      cliProxyApi.port = mkOption {
+        type = types.port;
+        default = 8317;
+        readOnly = true;
+        description = "Loopback port CLIProxyAPI listens on; its clients derive their URL from it.";
+      };
+      cliProxyClients.tinycast = {
+        enable = mkEnableOption "the Tinycast AI connection to CLIProxyAPI";
+        models = mkOption {
+          type = types.nonEmptyListOf types.str;
+          default = [
+            "gemini-3.8-flash-high" # Antigravity
+            "gpt-6.1-sol" # Codex
+          ];
+          description = ''
+            CLIProxyAPI model IDs a new Tinycast connection offers; Tinycast
+            does not list the proxy's models itself. Once the connection
+            exists, the models it offers and the one in use are edited in
+            Tinycast.
+          '';
+        };
       };
       cognee = mkOption {
         default = { };

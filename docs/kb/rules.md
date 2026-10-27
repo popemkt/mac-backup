@@ -219,9 +219,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: service ports are restated outside the module that owns them
 
 - **expected** — Each service port has one owner, exposed as a read-only option (or passthru) of its component, and every other reader derives from it.
-- **current** — CLIProxyAPI 8317 is a let binding in cli-proxy-api.nix and is retyped in ai-agents/system-setup.nix (four probes), cognee/server.nix LLM_ENDPOINT and modules/darwin/home-manager/default.nix. The Cognee gateway 8088 is retyped in system-setup.nix and hosts/popemkt-personal (vpn service target). The Cognee MCP port 8001 is a separate binding in server.nix and client.nix.
+- **current** — CLIProxyAPI 8317 is owned by the read-only option my.stacks.ai-agents.cliProxyApi.port, which cli-proxy-api.nix and cli-proxy-clients read; it is still retyped in ai-agents/system-setup.nix (four probes), cognee/server.nix LLM_ENDPOINT and modules/darwin/home-manager/default.nix. The Cognee gateway 8088 is retyped in system-setup.nix and hosts/popemkt-personal (vpn service target). The Cognee MCP port 8001 is a separate binding in server.nix and client.nix.
 - **impact** — Changing a port in its module silently breaks the health probes or the tailnet route.
-- **closes** — Give cli-proxy-api and cognee read-only port options and derive the other sites from them.
+- **closes** — Derive the remaining CLIProxyAPI sites from cliProxyApi.port, and give cognee read-only port options the same way.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M3E9VX8SQJKV3K2Q1JEKT309`
 

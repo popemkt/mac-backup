@@ -20,6 +20,7 @@
         enable = true;
         dataset = "work";
       };
+      cliProxyClients.tinycast.enable = true;
     };
     bb.enable = true;
     browsers.enable = true;
