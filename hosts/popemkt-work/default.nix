@@ -23,7 +23,10 @@
     };
     bb.enable = true;
     browsers.enable = true;
-    kb.enable = true;
+    kb = {
+      enable = true;
+      server.enable = true;
+    };
     office-docs.enable = true;
     t3-code.enable = true;
     vpn = {
