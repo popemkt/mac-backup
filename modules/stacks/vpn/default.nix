@@ -53,6 +53,43 @@ in
           Linux only; neither macOS app variant can host it.
         '';
       };
+      operator = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        example = "popemkt";
+        description = ''
+          The account that may change Tailscale settings, `tailscale serve`
+          included (`adhoc`), without root. tailscaled allows exactly one.
+          Linux only: on macOS the app already lets the signed-in user do it.
+        '';
+      };
+      sharedAdhoc = mkOption {
+        description = ''
+          The fixed endpoint for temporary apps that one host serves for
+          everyone, which `adhoc --shared` forwards a local port to. It is read
+          from that host's own declaration (wired in flake.nix), never
+          repeated, so every host agrees with it.
+        '';
+        type = types.submodule {
+          options = {
+            host = mkOption {
+              type = types.str;
+              example = "shared-server";
+              description = "Hostname of the machine serving the endpoint.";
+            };
+            origin = mkOption {
+              type = types.str;
+              example = "https://adhoc-popemkt.example-tailnet.ts.net";
+              description = "The endpoint's public HTTPS origin.";
+            };
+            target = mkOption {
+              type = types.str;
+              example = "http://127.0.0.1:9001";
+              description = "The loopback address the endpoint proxies to on that host.";
+            };
+          };
+        };
+      };
       services = mkOption {
         default = { };
         description = ''

@@ -215,6 +215,19 @@
                 pocoF8Pro = "100.70.17.62";
                 xiaomiPad7 = "100.124.163.25";
               };
+              # popemkt's endpoint for temporary apps, on shared-server: what
+              # `adhoc --shared` forwards to, read from that host's own
+              # declaration so the two cannot drift.
+              sharedAdhoc =
+                let
+                  host = "shared-server";
+                  service = self.nixosConfigurations.${host}.config.my.stacks.vpn.services.adhoc-popemkt;
+                in
+                {
+                  inherit host;
+                  origin = service.publicOrigin;
+                  inherit (service) target;
+                };
             };
           };
           nixpkgs.overlays = [ self.overlays.default ];
