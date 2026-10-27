@@ -23,6 +23,7 @@ import { Schema } from "effect";
 import { bracket, type Building, rect, skyline, tint, token, windows } from "./artkit.ts";
 import type { EffectId } from "./effects.ts";
 import type { MotionTokens } from "./motion.ts";
+import type { SendForm } from "./send.ts";
 import type { Settings } from "./settings.ts";
 
 /** One CSS background layer: an `<image>` (a gradient) and how it tiles. */
@@ -134,6 +135,8 @@ export interface Preset {
   readonly tokens?: Partial<MotionTokens>;
   readonly paint?: PresetPaint;
   readonly lettering?: PresetLettering;
+  /** The form a send takes (domain/send.ts); unset, the style's own (glide when clean, slap when wobbly). */
+  readonly send?: SendForm;
 }
 
 /** A soft accent, as a color-mix of the theme's accent. */
@@ -352,6 +355,8 @@ export const PRESETS = [
     artDirection: "ART-DIRECTION.md#zzz",
     values: { intensity: "bold", style: "wobbly", skew: true, stickers: "wobbly", jelly: "matched", effects: { pageWipe: true } },
     palette: "lively-zzz",
+    // A send is a hit: the words jump and cut, the message slaps in with a flash and a sticker shadow.
+    send: "slap",
     art: {
       // ZZZ's panels: a halftone field and two accent slashes rising out of the lower right.
       backdrop: {
@@ -383,6 +388,8 @@ export const PRESETS = [
     values: { intensity: "lively", style: "clean", stickers: "off", effects: { pageWipe: true, turnFreeze: true } },
     palette: "lively-cloudbank",
     art: CLOUDBANK_ART,
+    // A send is a function executing: the words whitewash into the Process's cells, the message assembles along a trace.
+    send: "process",
     // A clean 1920s sans for reading, as kb's Transistor (Jost, OFL), then system geometric faces.
     // No font file ships: the Macs install Jost and Josefin Sans (modules/stacks/bb/darwin.nix).
     fonts: { sans: 'Jost, "Avenir Next", Futura, "Century Gothic", ui-sans-serif, system-ui, sans-serif' },
@@ -414,6 +421,8 @@ export const PRESETS = [
     values: { intensity: "lively", style: "clean", stickers: "off", speed: "snappy", effects: { pageWipe: true, glitch: true } },
     palette: "lively-yorha",
     art: YORHA_ART,
+    // A send is a transmission: a scan bar erases the words; the message prints in under one.
+    send: "scan",
     fonts: { sans: '"Helvetica Neue", Helvetica, "Nimbus Sans", Arial, ui-sans-serif, system-ui, sans-serif' },
     tokens: { overshoot: 0, blur: 0, tilt: 0, liftShadow: 0 },
     paint: {
@@ -428,16 +437,18 @@ export const PRESETS = [
     id: "control",
     label: "Control",
     description:
-      "After Remedy's Control: the Oldest House's concrete, the Bureau's grotesque and wayfinding capitals, precise motion with no overshoot, documents redacted in black bars as you switch threads, the architecture shifting with prismatic fringes, the Board's prism at the composer and in the sidebar, and the Hiss's red resonance while an agent waits for you. Uses HTML-in-Canvas when bb is started with it (bb Launcher), CSS otherwise. The Lively Control palette: concrete at night, the Astral Plane by day.",
+      "After Remedy's Control: the Oldest House's concrete, the Bureau's grotesque and wayfinding capitals, precise motion with no overshoot, documents redacted in black bars as you switch threads, the architecture shifting with prismatic fringes, the Board's prism in the sidebar, what you send coming apart into the Hiss's dark, prismatic dust drifting up and your message condensing out of it, and the Hiss's red resonance while an agent waits for you. Uses HTML-in-Canvas when bb is started with it (bb Launcher), CSS otherwise. The Lively Control palette: concrete at night, the Astral Plane by day.",
     artDirection: "ART-DIRECTION.md#control",
     values: {
       intensity: "lively",
       style: "clean",
       stickers: "off",
-      effects: { pageWipe: true, shiftWarp: true, hissResonance: true, prismEdge: true },
+      effects: { pageWipe: true, shiftWarp: true, hissResonance: true },
     },
     palette: "lively-control",
     art: CONTROL_ART,
+    // A send is taken by the Hiss: the words come apart into dark, prismatic dust drifting up, and the message condenses out of it.
+    send: "dust",
     // Documents in a Swiss grotesque (the Bureau's case files), then system ones. No font file ships.
     fonts: { sans: '"Basic Commercial", "Akzidenz-Grotesk", "Helvetica Neue", Helvetica, Inter, Arial, ui-sans-serif, system-ui, sans-serif' },
     // Bureau precision: nothing passes its mark, nothing tilts; a little blur as things come into focus.

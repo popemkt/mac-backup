@@ -4,6 +4,7 @@
 // element.
 import { EFFECT_IDS, EFFECTS, type EffectId, effectInPreset } from "./effects.ts";
 import { type Intensity, type MotionTokens, motionTokens, type Style } from "./motion.ts";
+import { defaultSendForm, type SendForm } from "./send.ts";
 import { type JellyMode, type Settings, type Speed, SPEED_FACTOR } from "./settings.ts";
 
 /** `full` animates; `reduced` keeps short opacity fades only; `off` writes nothing. */
@@ -36,10 +37,12 @@ export interface MotionPolicy {
   readonly effects: ReadonlyArray<EffectId>;
   /** The active preset's own tokens (presets.ts `tokens`), at the full level only; empty otherwise. */
   readonly overrides: Partial<MotionTokens>;
+  /** The form a send takes (domain/send.ts): the preset's, else the style's. Under reduced motion every form is the same fade. */
+  readonly send: SendForm;
 }
 
-/** `overrides` is the active preset's `tokens`: they apply at the full level only. */
-export function resolveMotion(settings: Settings, systemReduced: boolean, overrides: Partial<MotionTokens> = {}): MotionPolicy {
+/** `overrides` is the active preset's `tokens`: they apply at the full level only; `send` is its send form, if it names one. */
+export function resolveMotion(settings: Settings, systemReduced: boolean, overrides: Partial<MotionTokens> = {}, send?: SendForm): MotionPolicy {
   const source = settings.motion === "system" ? "system" : "user";
   const level: MotionLevel =
     settings.motion === "system" ? (systemReduced ? "reduced" : "full") : settings.motion;
@@ -67,6 +70,7 @@ export function resolveMotion(settings: Settings, systemReduced: boolean, overri
     artImage: level !== "off" && settings.art ? settings.artImage : "",
     effects,
     overrides: level === "full" ? overrides : {},
+    send: send ?? defaultSendForm(settings.style),
   };
 }
 
@@ -103,6 +107,7 @@ export const REDUCED_TOKENS: MotionTokens = {
   swell: 0,
   flash: 0,
   chroma: 0,
+  travel: 0,
 };
 
 /** The tokens in force for a policy, with speed applied to durations. */

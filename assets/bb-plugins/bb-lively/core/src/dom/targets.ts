@@ -23,6 +23,17 @@ export interface Targets {
   readonly sendButton: string;
   /** The send button's icon, which pops when it swaps (Send ↔ Stop). */
   readonly sendIcon: string;
+  /**
+   * Inside `focusBox`, the box the person's words show in (it may scroll): the
+   * send copies what it shows the moment before it is sent, to see the words off.
+   */
+  readonly composerText: string;
+  /** A `row` holding the person's own message (a send's echo lands as one). */
+  readonly sentRow: string;
+  /** A `row` holding the agent's reply (the first of a turn arrives like the send). */
+  readonly replyRow: string;
+  /** Inside a `row`, the message's own box: where a send's path ends and its art sits. */
+  readonly bubble: string;
   /** A status row that can pulse; must already be positioned. */
   readonly statusRow: string;
   /** A toast whose transform transition gets a spring. */

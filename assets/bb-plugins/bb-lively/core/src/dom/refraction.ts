@@ -1,23 +1,26 @@
-// The refraction layer: lively's HTML-in-Canvas effects (drawable.ts). One
-// fixed canvas over the window, invisible to the pointer and to assistive
-// tech, holding a stage of laid-out HTML it uploads as a texture and draws
-// through one shader. It exists only while a scene runs; at rest the window
+// The canvas layer: lively's WebGL effects, most of them HTML-in-Canvas
+// (drawable.ts). One fixed canvas over the window, invisible to the pointer
+// and to assistive tech, holding a stage of laid-out HTML it uploads as a
+// texture and draws through one shader, and the dust a send may come apart
+// into (dust.ts). It exists only while something draws; at rest the window
 // is bb's own crisp DOM and nothing else.
 //
 // A scene's stage is either a snapshot of bb's real DOM (a sanitized clone:
 // no ids, no data attributes, no frames or media, inert) placed where the
-// original sits, or lively's own lettering. Three scenes, one per canvas
-// effect (domain/effects.ts `canvas`):
+// original sits, or lively's own lettering. Two scenes, one per canvas
+// effect (domain/effects.ts `canvas`), both needing HTML-in-Canvas:
 // - `navigate` (shiftWarp): the thread you leave breaks into slabs that slide
 //   apart with prismatic fringes and fade, over the thread you open;
-// - `send` (prismEdge): a prism slides along the composer's top edge,
-//   refracting the transcript just above it into its colors;
 // - `waiting` (hissResonance): the waiting request resonates outward in red
 //   echoes, the card itself left untouched, and a chant overlaps in the
 //   thread's side margins, for a few seconds once per request (then the
 //   CSS half's still state holds: nothing moves on its own for long).
+// The dust runs beside a scene, with or without HTML-in-Canvas (WebGL 2 is
+// enough: its pixels then come from canvas 2D).
 import type { CanvasTrigger } from "../domain/effects.ts";
 import type { Drawable } from "./drawable.ts";
+import { createDust, type Dust, type DustSource } from "./dust.ts";
+import { sanitizedCopy } from "./snapshot.ts";
 import type { Targets } from "./targets.ts";
 
 /** A scene per canvas trigger: an effect's `canvas` names the scene it plays. */
@@ -26,7 +29,8 @@ export type SceneKind = CanvasTrigger;
 export interface RefractionOptions {
   readonly win: Window;
   readonly targets: Targets;
-  readonly drawable: Drawable;
+  /** The browser's HTML-in-Canvas; without it there are no scenes, only dust. */
+  readonly drawable: Drawable | undefined;
   /** A scene's length in ms (the motion tokens, speed applied); `waiting` has its own (WAITING_MS). */
   readonly duration: (kind: Exclude<SceneKind, "waiting">) => number;
   /** The words the waiting scene chants in the margins (the active preset's). */
@@ -34,10 +38,12 @@ export interface RefractionOptions {
 }
 
 export interface Refraction {
-  /** Snapshot the open thread now and break it apart; false when there is none, or no GL. */
+  /** Snapshot the open thread now and break it apart; false when there is none, or no HTML-in-Canvas. */
   navigate(): boolean;
-  /** Refract the transcript above the composer; false when there is no composer. */
-  send(): boolean;
+  /** Turn a source into dust (dust.ts); false when it cannot. */
+  dust(source: DustSource): boolean;
+  /** Whether the dust draws from the real rendering (HTML-in-Canvas) and so wants a source's `copy`. */
+  readonly copies: boolean;
   /** The open thread waits for the person (true: resonate once for this request, again if it moved) or no longer does (false). */
   waiting(on: boolean): void;
   /** Whether a scene is on screen now. */
@@ -49,7 +55,7 @@ export interface Refraction {
 export const REFRACTION_ATTRIBUTE = "data-lively-refraction";
 
 /** The shader mode of each scene; every canvas trigger has one (tests/control.test.ts holds the table to it). */
-export const SCENE_MODES: Readonly<Record<SceneKind, number>> = { navigate: 0, send: 1, waiting: 2 };
+export const SCENE_MODES: Readonly<Record<SceneKind, number>> = { navigate: 0, waiting: 2 };
 /** The waiting scene's frame rate: a slow ripple needs no more. */
 const WAITING_FPS = 30;
 /** How long the Hiss resonates per request: under five seconds, so it needs no pause control (WCAG 2.2.2). */
@@ -71,7 +77,7 @@ uniform sampler2D u_tex;
 uniform int u_mode;
 uniform float u_t;      // progress 0..1 (navigate, send), seconds (waiting)
 uniform vec2 u_res;     // window size, CSS px
-uniform vec4 u_rect;    // send: the refracting band; waiting: the request card (x0, y0, x1, y1 in 0..1)
+uniform vec4 u_rect;    // navigate: the thread's box; waiting: the request card (x0, y0, x1, y1 in 0..1)
 uniform vec3 u_hiss;
 uniform float u_seed;
 
@@ -117,27 +123,6 @@ void main() {
     c.a *= smoothstep(0.0, gap, f) * smoothstep(0.0, gap, 1.0 - f);
     c.a *= 1.0 - smoothstep(0.3, 0.95, t);
     o = premul(c);
-  } else if (u_mode == 1) {
-    // A prism slides along the band above the composer (u_rect), refracting what is under it; it enters
-    // and leaves at the band's ends, never past them.
-    float t = clamp(u_t, 0.0, 1.0);
-    float e = t * t * (3.0 - 2.0 * t);
-    float w = 0.09;
-    float cx = mix(u_rect.x - w, u_rect.z + w, e);
-    float d = (p.x - cx) / w;
-    bool inside = all(greaterThan(p, u_rect.xy)) && all(lessThan(p, u_rect.zw)) && abs(d) < 1.0;
-    if (!inside) { o = vec4(0.0); return; }
-    float lens = 1.0 - d * d;
-    float edge = smoothstep(u_rect.y, u_rect.y + 0.04, p.y);
-    vec2 q = p + vec2(d * 0.02 * lens, -0.012 * lens);
-    vec4 c = disperse(q, 0.008 * lens + 3.0 * px.x);
-    c.a = lens * edge * sin(3.14159 * t);
-    // The prism's lit edge along the composer's top: a spectral line.
-    float line = 1.0 - smoothstep(0.0, 2.0 * px.y, abs(p.y - u_rect.w + 1.0 * px.y));
-    vec3 spectrum = 0.5 + 0.5 * cos(6.28318 * (d * 0.5 + vec3(0.0, 0.33, 0.67)));
-    c.rgb = mix(c.rgb, spectrum, line);
-    c.a = max(c.a, line * lens * sin(3.14159 * t));
-    o = premul(c);
   } else {
     // The Hiss: the request echoes outward in red, rippling; the chant in the margins doubles over itself.
     // The card itself (u_rect) is left alone, so it stays crisp and usable.
@@ -165,36 +150,6 @@ void main() {
   }
 }`;
 
-/** Attributes a snapshot never keeps: nothing may find it by bb's or lively's own hooks. */
-const DROP_ELEMENTS = "iframe, frame, object, embed, video, audio, canvas, script, [autofocus]";
-
-/**
- * The scrolled descendants of `original` paired with the same nodes in `clone`, taken before
- * the clone is sanitized (which removes nodes and so breaks a walk in tree order).
- */
-function scrolled(original: Element, clone: Element): ReadonlyArray<readonly [Element, number, number]> {
-  const from = [original, ...original.querySelectorAll("*")];
-  const to = [clone, ...clone.querySelectorAll("*")];
-  const pairs: Array<readonly [Element, number, number]> = [];
-  for (const [index, element] of from.entries()) {
-    const target = to[index];
-    if (target !== undefined && (element.scrollTop !== 0 || element.scrollLeft !== 0)) pairs.push([target, element.scrollTop, element.scrollLeft]);
-  }
-  return pairs;
-}
-
-function sanitize(clone: Element): void {
-  for (const element of clone.querySelectorAll(DROP_ELEMENTS)) {
-    if (element.matches("[autofocus]")) element.removeAttribute("autofocus");
-    else element.remove();
-  }
-  for (const element of [clone, ...clone.querySelectorAll("*")]) {
-    for (const name of element.getAttributeNames()) {
-      if (name === "id" || name === "name" || name === "for" || name.startsWith("data-") || name === "contenteditable") element.removeAttribute(name);
-    }
-  }
-}
-
 interface Scene {
   readonly kind: SceneKind;
   readonly start: number;
@@ -203,7 +158,7 @@ interface Scene {
   readonly seed: number;
 }
 
-/** The refraction layer, or undefined when WebGL 2 does not start (lively then keeps to CSS). */
+/** The canvas layer, or undefined when WebGL 2 does not start (lively then keeps to CSS). */
 export function createRefraction(options: RefractionOptions): Refraction | undefined {
   const { win, targets, drawable } = options;
   const doc = win.document;
@@ -214,11 +169,17 @@ export function createRefraction(options: RefractionOptions): Refraction | undef
   canvas.setAttribute("aria-hidden", "true");
   canvas.setAttribute("role", "presentation");
   canvas.style.cssText = "position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:2147483000;display:none;contain:strict";
-  const stage = doc.createElement("div");
-  stage.setAttribute("inert", "");
-  stage.style.cssText = "position:absolute;inset:0;width:100vw;height:100vh;overflow:hidden;pointer-events:none";
-  canvas.append(stage);
-  drawable.prepare(canvas, stage);
+  /** Two stages: a scene's snapshot, and the copies the dust is made of; each uploads on its own. */
+  const makeStage = () => {
+    const stage = doc.createElement("div");
+    stage.setAttribute("inert", "");
+    stage.style.cssText = "position:absolute;inset:0;width:100vw;height:100vh;overflow:hidden;pointer-events:none";
+    canvas.append(stage);
+    drawable?.prepare(canvas, stage);
+    return stage;
+  };
+  const stage = makeStage();
+  const dustStage = makeStage();
 
   const gl = canvas.getContext("webgl2", { premultipliedAlpha: true, alpha: true, antialias: false });
   if (gl === null) return undefined;
@@ -227,12 +188,15 @@ export function createRefraction(options: RefractionOptions): Refraction | undef
     gl.getExtension("WEBGL_lose_context")?.loseContext();
     return undefined;
   }
+  const quad = gl.createVertexArray();
+  gl.bindVertexArray(quad);
   const buffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
   const position = gl.getAttribLocation(program, "a_pos");
   gl.enableVertexAttribArray(position);
   gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+  gl.bindVertexArray(null);
   const texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, texture);
   for (const [key, value] of [
@@ -252,7 +216,9 @@ export function createRefraction(options: RefractionOptions): Refraction | undef
     hiss: uniform("u_hiss"),
     seed: uniform("u_seed"),
   };
+  gl.useProgram(program);
   gl.uniform3f(at.hiss, ...HISS);
+  const dust: Dust | undefined = createDust({ win, gl, unit: 1, fromStage: drawable !== undefined });
   doc.body.append(canvas);
 
   let scene: Scene | undefined;
@@ -263,88 +229,119 @@ export function createRefraction(options: RefractionOptions): Refraction | undef
   let lastDrawn = 0;
   let disposed = false;
 
-  const stop = () => {
-    scene = undefined;
-    uploaded = false;
+  const size = () => {
+    const ratio = Math.min(2, win.devicePixelRatio || 1);
+    const width = Math.round(win.innerWidth * ratio);
+    const height = Math.round(win.innerHeight * ratio);
+    if (canvas.width !== width) canvas.width = width;
+    if (canvas.height !== height) canvas.height = height;
+  };
+  const hideIfIdle = () => {
+    if (scene !== undefined || dust?.live(win.performance.now()) === true) return;
     win.cancelAnimationFrame(frame);
     frame = 0;
-    stage.replaceChildren();
     canvas.style.display = "none";
   };
-
-  const render = (now: number) => {
+  const stopScene = () => {
+    scene = undefined;
+    uploaded = false;
+    stage.replaceChildren();
+    hideIfIdle();
+  };
+  const render = (now: number): void => {
     frame = 0;
+    if (disposed) return;
     const current = scene;
-    if (current === undefined || disposed) return;
-    const elapsed = now - current.start;
-    const waiting = current.kind === "waiting";
-    if (elapsed >= current.duration) {
-      stop();
+    if (current !== undefined && now - current.start >= current.duration) stopScene();
+    const dusty = dust?.live(now) === true;
+    if (scene === undefined && !dusty) {
+      hideIfIdle();
       return;
     }
     frame = win.requestAnimationFrame(render);
-    if (!uploaded) return;
-    if (waiting && now - lastDrawn < 1000 / WAITING_FPS) return;
+    const active = scene;
+    const drawScene = active !== undefined && uploaded;
+    // The waiting scene ripples at a lower frame rate, unless dust is drifting over it.
+    if (!dusty && active?.kind === "waiting" && now - lastDrawn < 1000 / WAITING_FPS) return;
     lastDrawn = now;
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.uniform1i(at.mode, SCENE_MODES[current.kind]);
-    gl.uniform1f(at.t, waiting ? elapsed / 1000 : elapsed / current.duration);
-    gl.uniform2f(at.res, win.innerWidth, win.innerHeight);
-    gl.uniform4f(at.rect, ...current.rect);
-    gl.uniform1f(at.seed, current.seed);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    if (drawScene) {
+      const elapsed = now - active.start;
+      gl.disable(gl.BLEND);
+      gl.useProgram(program);
+      gl.bindVertexArray(quad);
+      gl.uniform1i(at.mode, SCENE_MODES[active.kind]);
+      gl.uniform1f(at.t, active.kind === "waiting" ? elapsed / 1000 : elapsed / active.duration);
+      gl.uniform2f(at.res, win.innerWidth, win.innerHeight);
+      gl.uniform4f(at.rect, ...active.rect);
+      gl.uniform1f(at.seed, active.seed);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      gl.bindVertexArray(null);
+    }
+    if (dusty) {
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      dust.draw(now);
+    }
+  };
+  const show = () => {
+    size();
+    canvas.style.display = "block";
+    if (frame === 0) frame = win.requestAnimationFrame(render);
   };
 
-  // The stage's rendering is ready: upload it once per scene (a snapshot does not change).
+
+  // A stage's rendering is ready: upload a scene once (a snapshot does not change), and the dust's
+  // copies whenever a new one waits.
   const painted = () => {
-    if (scene === undefined || uploaded || disposed) return;
-    try {
-      drawable.draw(gl, canvas, stage);
-      uploaded = true;
-    } catch {
-      stop();
+    if (disposed || drawable === undefined) return;
+    if (scene !== undefined && !uploaded) {
+      try {
+        drawable.draw(gl, canvas, stage);
+        uploaded = true;
+      } catch {
+        stopScene();
+      }
+    }
+    if (dust?.waiting() === true) {
+      try {
+        dust.upload(() => drawable.draw(gl, canvas, dustStage));
+        dust.ready(win.performance.now());
+      } catch {
+        dust.clear();
+        dustStage.replaceChildren();
+        hideIfIdle();
+      }
     }
   };
   canvas.addEventListener("paint", painted);
 
   const begin = (kind: SceneKind, children: ReadonlyArray<Element>, rect: Scene["rect"]) => {
-    stop();
-    const ratio = Math.min(2, win.devicePixelRatio || 1);
-    canvas.width = Math.round(win.innerWidth * ratio);
-    canvas.height = Math.round(win.innerHeight * ratio);
+    stopScene();
     stage.replaceChildren(...children);
-    canvas.style.display = "block";
     const start = win.performance.now();
     // A different break-up each time, from the clock: no randomness needed.
     scene = { kind, start, duration: kind === "waiting" ? WAITING_MS : options.duration(kind), rect, seed: (start % 997) / 997 };
-    drawable.requestPaint(canvas);
-    frame = win.requestAnimationFrame(render);
+    show();
+    drawable?.requestPaint(canvas);
   };
 
   /**
    * A sanitized copy of `original`, placed where it sits on screen, on the page's own background;
    * `settle` matches its scroll positions to the original's once it is in the document (laid out).
    * bb virtualizes its timeline, so a thread view is ~400–500 nodes on any thread: 20–45 ms to
-   * clone and lay out on a CPU-rendered headless Chromium, once per switch or send.
+   * clone and lay out on a CPU-rendered headless Chromium, once per switch.
    */
   const snapshot = (original: Element): { readonly copy: HTMLElement; readonly settle: () => void } => {
     const box = original.getBoundingClientRect();
     const copy = doc.createElement("div");
     copy.style.cssText = `position:absolute;left:${box.left}px;top:${box.top}px;width:${box.width}px;height:${box.height}px;overflow:hidden;background:var(--canvas, var(--background, Canvas));color:var(--ink, CanvasText)`;
-    const clone = original.cloneNode(true) as HTMLElement;
-    const scroll = scrolled(original, clone);
-    sanitize(clone);
+    const { clone, settle } = sanitizedCopy(original);
     clone.style.width = "100%";
     clone.style.height = "100%";
     copy.append(clone);
-    const settle = () => {
-      for (const [element, top, left] of scroll) {
-        element.scrollTop = top;
-        element.scrollLeft = left;
-      }
-    };
     return { copy, settle };
   };
 
@@ -360,34 +357,34 @@ export function createRefraction(options: RefractionOptions): Refraction | undef
   };
 
   return {
+    copies: drawable !== undefined,
     navigate: () => {
-      if (disposed) return false;
+      if (disposed || drawable === undefined) return false;
       const view = doc.querySelector(targets.pageView);
       if (view === null) return false;
+      // The thread is going: so is any dust over it.
+      dust?.clear();
       const { copy, settle } = snapshot(view);
       begin("navigate", [copy], unit(view.getBoundingClientRect()));
       settle();
       return true;
     },
-    send: () => {
-      if (disposed || scene?.kind === "navigate") return false;
-      const box = doc.querySelector(targets.focusBox);
-      if (box === null) return false;
-      const view = box.closest(targets.pageView) ?? doc.querySelector(targets.pageView);
-      if (view === null) return false;
-      const composer = box.getBoundingClientRect();
-      const { copy, settle } = snapshot(view);
-      // The band: the transcript's last ~140px above the composer, across its width.
-      const band = { left: composer.left, top: Math.max(0, composer.top - 140), right: composer.right, bottom: Math.max(0, composer.top - 140) + 140 };
-      begin("send", [copy], unit(band));
-      settle();
+    dust: (source) => {
+      if (disposed || dust === undefined) return false;
+      if (source.copy !== undefined) {
+        if (drawable === undefined) return false;
+        dustStage.append(source.copy);
+      }
+      dust.add(source);
+      show();
+      if (source.copy !== undefined) drawable?.requestPaint(canvas);
       return true;
     },
     waiting: (on) => {
-      if (disposed) return;
+      if (disposed || drawable === undefined) return;
       if (!on) {
         resonated = undefined;
-        if (scene?.kind === "waiting") stop();
+        if (scene?.kind === "waiting") stopScene();
         return;
       }
       const request = doc.querySelector(`:is(${targets.pageView}) :is(${targets.pendingRequest})`);
@@ -418,11 +415,14 @@ export function createRefraction(options: RefractionOptions): Refraction | undef
       }
       begin("waiting", children, rect);
     },
-    running: () => scene !== undefined,
+    running: () => scene !== undefined || dust?.live(win.performance.now()) === true,
     dispose: () => {
       if (disposed) return;
       disposed = true;
-      stop();
+      dust?.clear();
+      stopScene();
+      win.cancelAnimationFrame(frame);
+      canvas.style.display = "none";
       canvas.removeEventListener("paint", painted);
       canvas.remove();
       gl.getExtension("WEBGL_lose_context")?.loseContext();

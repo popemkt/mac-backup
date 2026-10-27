@@ -38,6 +38,7 @@ import {
   STYLES,
 } from "../domain/motion.ts";
 import { REDUCED_TOKENS } from "../domain/policy.ts";
+import { SEND_FORM_INFO, SEND_FORMS, type SendForm } from "../domain/send.ts";
 import { type Preset, PRESETS } from "../domain/presets.ts";
 import { ART_ROOT, buildArtStylesheet } from "./art.ts";
 import { cssString } from "./css.ts";
@@ -53,6 +54,10 @@ export const CLASSES = {
   typing: "lively-typing",
   /** A thread switch replays the page entrance on the window that stayed mounted. */
   page: "lively-page-in",
+  /** A send's ghost on its way out of the composer, the send's echo landing, and the turn's first reply (send.ts). */
+  depart: "lively-depart",
+  arrive: "lively-arrive",
+  reply: "lively-reply",
 } as const;
 
 /**
@@ -60,6 +65,13 @@ export const CLASSES = {
  * mount rule stops matching, so taking the replay class off later never restarts it.
  */
 export const PAGE_REPLAYED = "data-lively-paged";
+
+/**
+ * A send's ghost (lively's own copy of the words, send.ts) and its parts; and the mark on a ghost
+ * or a landing message the canvas draws in its stead (the dust).
+ */
+export const GHOST_ATTRIBUTE = "data-lively-ghost";
+export const DRAWN_ATTRIBUTE = "data-lively-drawn";
 
 /** Attributes the DOM layer sets on a pulsing element beside its class. */
 export const PULSE_ATTRIBUTES = {
@@ -84,6 +96,8 @@ export const ROOT = {
   speed: "data-lively-speed",
   /** `on` while lively's HTML-in-Canvas layer draws the canvas effects; their CSS fallbacks stand down. */
   canvas: "data-lively-canvas",
+  /** The form a send takes (domain/send.ts). */
+  send: "data-lively-send",
   ...ART_ROOT,
 } as const;
 
@@ -284,6 +298,15 @@ function motionStylesheet(targets: Targets): string {
   /* The preset's lettering (presets.ts lettering): tracked capitals in its face and color. */
   --lively-letter-font: var(--font-sans, sans-serif);
   --lively-letter-color: var(--lively-accent-2);
+  /* A send (domain/send.ts): its form's length, and how far in a swapped row carries on. */
+  --lively-send-k: 1;
+  --lively-send-span: calc(var(--lively-enter) * var(--lively-send-k));
+  --lively-send-delay: 0ms;
+}
+${SEND_FORMS.map((form) => `:root[${ROOT.send}="${form}"] { --lively-send-k: ${SEND_FORM_INFO[form].span}; }`).join("\n")}
+:root[${ROOT.send}="dust"] {
+  --lively-dust: var(--lively-art-dust, color-mix(in oklab, var(--ink, CanvasText) 50%, var(--canvas, Canvas)));
+  --lively-dust-ember: var(--lively-art-hiss, var(--destructive, #e01b24));
 }
 :root[${ROOT.speed}="snappy"] { --lively-speed: 0.8; }
 :root[${ROOT.speed}="relaxed"] { --lively-speed: 1.25; }
@@ -373,13 +396,12 @@ ${INTENSITIES.map(jellyKeyframes).join("\n")}
   46% { translate: calc(var(--lively-tear) * 0.3) 0; filter: none; }
   60%, 100% { translate: 0 0; filter: none; }
 }
-/* Control: the slabs (shiftWarp's CSS half) and the prism's sweep (prismEdge's). */
+/* Control: the slabs (shiftWarp's CSS half). */
 @keyframes lively-slab {
   from { translate: var(--lively-slab) 0; filter: drop-shadow(calc(var(--lively-chroma) + 3px) 0 0 var(--lively-chroma-a)) drop-shadow(calc(-3px - var(--lively-chroma)) 0 0 var(--lively-chroma-b)); }
   60% { filter: drop-shadow(1px 0 0 var(--lively-chroma-a)) drop-shadow(-1px 0 0 var(--lively-chroma-b)); }
   to { translate: 0 0; filter: none; }
 }
-@keyframes lively-prism-sweep { from { translate: -100% 0; opacity: 1; } to { translate: 260% 0; opacity: 0; } }
 ${pageKeyframes}
 
 /* press: clean sinks and springs back; wobbly squashes and wobbles back like jelly. */
@@ -579,7 +601,7 @@ ${wobbly("sendPulse")} .${CLASSES.send}::after {
 ${wobbly("sendPulse")} ${is(targets.sendIcon)} {
   animation: lively-sticker-pop var(--lively-overlay) var(--lively-spring) backwards;
 }
-
+${sendStylesheet(on, suspend)}
 /* statusPulse: two rings in a gradient of the status color, with a soft halo.
    Wobbly: the rings land hard once; the row splits into color and swells; a failure shudders. */
 ${on("statusPulse")} .${CLASSES.pulse} { --lively-tone: var(--lively-accent); }
@@ -770,22 +792,6 @@ ${noCanvas("shiftWarp")} ${replayed} ${is(targets.rowList)} > ${is(targets.row)}
   --lively-slab: calc(var(--lively-rise) * 2.4);
 }
 
-/* prismEdge (Control: the Board's prism). The canvas layer refracts the transcript above the composer;
-   this CSS half, without it, sweeps a spectral line along the composer's top edge on a send. */
-${noCanvas("prismEdge")} ${is(targets.focusBox)}:has(.${CLASSES.send})::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 40%;
-  height: 2px;
-  pointer-events: none;
-  background: linear-gradient(90deg, transparent, var(--lively-chroma-a), #ffb000, #34c759, #2f9bff, var(--lively-chroma-b), transparent);
-  filter: drop-shadow(0 0 calc(var(--lively-glow) * 16px) var(--lively-chroma-b));
-  opacity: 0;
-  animation: lively-prism-sweep calc(var(--lively-pulse) * 1.6) var(--lively-ease-out) backwards;
-}
-
 /* hissResonance (Control: the Hiss). While the open thread waits for the person, the timeline takes a
    red cast (still readable), a red resonance veil comes up behind it, and the request card burns Hiss
    red with the preset's chant printed doubled over itself in its corner. A state, so at every level,
@@ -831,5 +837,310 @@ ${on("typingGlow")} .${CLASSES.typing} { caret-color: var(--lively-accent); }
 
 /* calmHost: set only under reduced motion (the policy). */
 ${on("calmHost")} ${is(targets.hostAnimation)} { animation: none !important; }
+`;
+}
+
+/** A 4×4 ordered-dither matrix: the order the Process's cells blank out in. */
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5] as const;
+/** One third of a 32px tile's 8px cells, by dither order, as a mask: three of them whitewash a box in three steps. */
+function cellMask(third: number): string {
+  const cells = BAYER.flatMap((rank, index) => (Math.floor((rank * 3) / 16) === third ? [`M${(index % 4) * 8} ${Math.floor(index / 4) * 8}h8v8h-8z`] : []));
+  return `url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'><path d='${cells.join("")}'/></svg>") 0 0 / 32px 32px`;
+}
+/** The Process's blank cells: Process white, ruled in the accent. */
+const CELLS =
+  "linear-gradient(90deg, color-mix(in oklab, var(--lively-accent) 45%, transparent) 1px, transparent 1px) 0 0 / 8px 8px, linear-gradient(color-mix(in oklab, var(--lively-accent) 45%, transparent) 1px, transparent 1px) 0 0 / 8px 8px, var(--lively-art-process, #f2efe6)";
+/** A scan bar: a 2px rule in the ink with scanlines above it. */
+const SCAN_BAR =
+  "linear-gradient(to bottom, transparent 0 9px, var(--lively-accent) 9px 11px, transparent 11px), repeating-linear-gradient(to bottom, color-mix(in oklab, var(--lively-accent) 22%, transparent) 0 1px, transparent 1px 3px) 0 0 / 100% 9px no-repeat";
+
+/** A pseudo-element over the message's own box in its row. */
+const onBubble = (inflate: string) => `  content: "";
+  position: absolute;
+  left: calc(var(--lively-bx) - ${inflate});
+  top: calc(var(--lively-by) - ${inflate});
+  width: calc(var(--lively-bw) + ${inflate} * 2);
+  height: calc(var(--lively-bh) + ${inflate} * 2);
+  pointer-events: none;`;
+
+/**
+ * sendPulse's sequence (domain/send.ts, dom/send.ts): the ghost of the words leaving the composer,
+ * the echo landing along the path from them (`--lively-send-dx/-dy`, the bubble's box in its row as
+ * `--lively-bx/-by/-bw/-bh`), and the turn's first reply landing where it is. At every level the
+ * ghost fades and the message comes in as listEnter does (a fade under reduced motion); at the full
+ * level each form is its own art. Only composited properties move; pseudo-elements and the ghost's
+ * three layers carry the rest.
+ */
+function sendStylesheet(on: (effect: EffectId) => string, suspend: string): string {
+  const base = on("sendPulse");
+  const form = (name: SendForm) => `:root[${ROOT.level}="full"][${ROOT.send}="${name}"][${effectAttribute("sendPulse")}]${suspend}`;
+  const skewedSlap = `:root[${ROOT.level}="full"][${ROOT.send}="slap"][${ROOT.skew}="on"][${effectAttribute("sendPulse")}]${suspend}`;
+  const ghost = `[${GHOST_ATTRIBUTE}]`;
+  const leaving = `${ghost}.${CLASSES.depart}`;
+  const words = `${leaving} > [${GHOST_ATTRIBUTE}-words]`;
+  const layer = (n: number) => `${leaving} > [${GHOST_ATTRIBUTE}-layer="${n}"]`;
+  const landing = `:is(.${CLASSES.arrive}, .${CLASSES.reply})`;
+  const drawn = `${landing}[${DRAWN_ATTRIBUTE}]`;
+  const dx = "var(--lively-send-dx, 0px)";
+  const dy = "var(--lively-send-dy, 0px)";
+  const keyframes = `
+@keyframes lively-depart {
+  from { opacity: 1; translate: 0 0; filter: blur(0); }
+  55% { opacity: 0; }
+  to { opacity: 0; translate: calc(${dx} * var(--lively-travel)) calc(${dy} * var(--lively-travel)); filter: blur(var(--lively-blur)); }
+}
+@keyframes lively-glide-in {
+  from { opacity: 0; translate: calc(${dx} * var(--lively-travel)) calc(${dy} * var(--lively-travel) + var(--lively-rise)); filter: blur(var(--lively-blur)); }
+  40% { opacity: 1; }
+  to { opacity: 1; translate: 0 0; filter: blur(0); }
+}
+@keyframes lively-slap-out {
+  0% { opacity: 1; translate: 0 0; filter: brightness(calc(1 + var(--lively-flash))); }
+  24% { opacity: 1; translate: calc(${dx} * 0.2) calc(${dy} * 0.2); filter: drop-shadow(var(--lively-chroma) 0 0 var(--lively-chroma-a)) drop-shadow(calc(var(--lively-chroma) * -1) 0 0 var(--lively-chroma-b)); }
+  25%, 100% { opacity: 0; translate: calc(${dx} * 0.2) calc(${dy} * 0.2); filter: none; }
+}
+@keyframes lively-slap-in {
+  from { opacity: 0; translate: calc(${dx} * var(--lively-travel)) calc(${dy} * var(--lively-travel)); filter: brightness(calc(1 + var(--lively-flash))) drop-shadow(var(--lively-sticker) var(--lively-sticker) 0 var(--lively-accent)); }
+  20% { opacity: 1; }
+  to { opacity: 1; translate: 0 0; filter: brightness(1) drop-shadow(0 0 0 transparent); }
+}
+@keyframes lively-hide { from, to { opacity: 0; } }
+@keyframes lively-show { from, to { opacity: 1; } }
+@keyframes lively-process-out {
+  0%, 45% { opacity: 1; translate: 0 0; }
+  100% { opacity: 0; translate: calc(${dx} * var(--lively-travel) * 0.5) calc(${dy} * var(--lively-travel) * 0.5); }
+}
+@keyframes lively-process-in {
+  from { opacity: 0; translate: calc(${dx} * var(--lively-travel)) calc(${dy} * var(--lively-travel)); }
+  30% { opacity: 1; }
+  to { opacity: 1; translate: 0 0; }
+}
+@keyframes lively-trace {
+  0% { opacity: 1; scale: 1 0; }
+  35% { opacity: 1; scale: 1 1; }
+  100% { opacity: 0; scale: 1 1; }
+}
+@keyframes lively-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes lively-scan-out {
+  0%, 62% { opacity: 1; translate: 0 0; }
+  100% { opacity: 0; translate: calc(${dx} * var(--lively-travel) * 0.15) calc(${dy} * var(--lively-travel) * 0.15); }
+}
+@keyframes lively-scan-bar { from { translate: 0 -12px; } to { translate: 0 var(--lively-gh); } }
+@keyframes lively-scan-cover { from { scale: 1 0; } to { scale: 1 1; } }
+@keyframes lively-scan-in {
+  from { opacity: 0; translate: calc(${dx} * var(--lively-travel) * 0.12) calc(${dy} * var(--lively-travel) * 0.12 + var(--lively-rise)); }
+  10% { opacity: 1; }
+  40%, 100% { opacity: 1; translate: 0 0; }
+}
+@keyframes lively-scan-uncover { from { scale: 1 1; } to { scale: 1 0; } }
+@keyframes lively-scan-ride { from { opacity: 1; translate: 0 -6px; } to { opacity: 1; translate: 0 calc(var(--lively-bh) - 6px); } }
+@keyframes lively-blink { from { opacity: 1; } to { opacity: 0; } }
+@keyframes lively-dust-out {
+  from { opacity: 1; translate: 0 0; filter: blur(0) drop-shadow(0 0 0 var(--lively-chroma-a)) drop-shadow(0 0 0 var(--lively-chroma-b)); }
+  to { opacity: 0; translate: calc(var(--lively-rise) * 3) calc(var(--lively-rise) * -9); filter: blur(calc(var(--lively-blur) * 3 + 2px)) drop-shadow(calc(var(--lively-chroma) + 2px) 0 0 var(--lively-chroma-a)) drop-shadow(calc(-2px - var(--lively-chroma)) 0 0 var(--lively-chroma-b)); }
+}
+@keyframes lively-dust-grain {
+  from { opacity: 0; translate: 0 0; filter: blur(0); }
+  25% { opacity: 0.85; }
+  to { opacity: 0; translate: calc(var(--lively-rise) * 5) calc(var(--lively-rise) * -16); filter: blur(calc(var(--lively-blur) + 1px)); }
+}
+@keyframes lively-dust-in {
+  from { opacity: 0; translate: calc(${dx} * var(--lively-travel) * 0.1) calc(${dy} * var(--lively-travel) * 0.25 + var(--lively-rise) * 2); filter: blur(calc(var(--lively-blur) * 4 + 2px)); }
+  55% { opacity: 0.9; }
+  to { opacity: 1; translate: 0 0; filter: blur(0); }
+}
+@keyframes lively-dust-reveal {
+  0%, 80% { opacity: 0; filter: blur(calc(var(--lively-blur) * 2)); }
+  100% { opacity: 1; filter: blur(0); }
+}
+@keyframes lively-motes {
+  from { opacity: 0; translate: 0 0; filter: blur(0); }
+  20% { opacity: 1; }
+  to { opacity: 0; translate: calc(var(--lively-rise) * 1.5) calc(var(--lively-rise) * -4); filter: blur(2px); }
+}`;
+  return `${keyframes}
+
+/* sendPulse, every level: the ghost fades on its way, the message comes in as a row does. */
+${base} ${ghost} > [${GHOST_ATTRIBUTE}-layer] { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
+${base} ${leaving} { animation: lively-depart var(--lively-enter) var(--lively-ease-out) backwards; }
+${base} ${landing} { animation: lively-enter var(--lively-enter) var(--lively-spring) var(--lively-send-delay) backwards; }
+${base} ${ghost}[${DRAWN_ATTRIBUTE}] { visibility: hidden; }
+
+/* glide (clean): the words and the message travel one path together, crossing over as they go. */
+${form("glide")} ${leaving} { animation: lively-depart var(--lively-send-span) var(--lively-spring) backwards; }
+${form("glide")} ${landing} { animation: lively-glide-in var(--lively-send-span) var(--lively-spring) var(--lively-send-delay) backwards; }
+
+/* slap (wobbly, ZZZ): the words jump once and cut; the message slaps in with a flash and a sticker
+   shadow, skewing in when skew is on, over a halftone pop behind it. */
+${form("slap")} ${leaving} { animation: lively-slap-out var(--lively-send-span) linear backwards; }
+${form("slap")} ${landing} {
+  position: relative;
+  isolation: isolate;
+  animation: lively-slap-in var(--lively-send-span) var(--lively-spring) var(--lively-send-delay) backwards;
+}
+${skewedSlap} ${landing} {
+  animation:
+    lively-slap-in var(--lively-send-span) var(--lively-spring) var(--lively-send-delay) backwards,
+    lively-skew-in var(--lively-send-span) var(--lively-spring) var(--lively-send-delay) backwards;
+  animation-composition: replace, add;
+  transform-origin: 0 100%;
+}
+${form("slap")} ${landing}::before {
+${onBubble("14px")}
+  z-index: -1;
+  background: radial-gradient(circle, var(--lively-accent) 1.4px, transparent 1.8px) 0 0 / 7px 7px;
+  mask: radial-gradient(closest-side, #000 40%, transparent);
+  opacity: 0;
+  animation: lively-halftone var(--lively-pulse) var(--lively-ease-out) var(--lively-send-delay);
+}
+
+/* process (Cloudbank): the words whitewash into the Process's cells in three dithered steps, then
+   jaunt toward the thread; the message comes along the path in steps under a veil of cells, a
+   turquoise trace drawn up to it from the composer. The button throws function sparks. */
+${form("process")} ${leaving} { animation: lively-process-out var(--lively-send-span) steps(4, end) backwards; }
+${form("process")} ${words} { opacity: 0; animation: lively-fade-out calc(var(--lively-send-span) * 0.4) steps(3, end) backwards; }
+${[1, 2, 3]
+  .map(
+    (n) => `${form("process")} ${layer(n)} {
+  background: ${CELLS};
+  mask: ${cellMask(n - 1)};
+  opacity: 1;
+  animation: lively-hide calc(var(--lively-send-span) * ${(0.08 * n).toFixed(2)}) linear backwards;
+}`,
+  )
+  .join("\n")}
+${form("process")} ${landing} {
+  position: relative;
+  isolation: isolate;
+  animation: lively-process-in var(--lively-send-span) steps(6, end) var(--lively-send-delay) backwards;
+}
+${form("process")} ${landing}::after {
+${onBubble("0px")}
+  z-index: 1;
+  background: ${CELLS};
+  opacity: 0;
+  animation: lively-fade-out calc(var(--lively-send-span) * 0.7) steps(4, end) var(--lively-send-delay);
+}
+${form("process")} ${landing}::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--lively-bx) + var(--lively-bw) - 10px);
+  top: calc(var(--lively-by) + var(--lively-bh));
+  width: 2px;
+  height: max(0px, calc(var(--lively-send-dy, 0px) - var(--lively-bh)));
+  pointer-events: none;
+  background: var(--lively-accent);
+  filter: drop-shadow(0 0 calc(var(--lively-glow) * 20px) var(--lively-accent));
+  transform-origin: 50% 100%;
+  opacity: 0;
+  animation: lively-trace calc(var(--lively-send-span) * 0.8) var(--lively-ease-out) var(--lively-send-delay);
+}
+${form("process")} .${CLASSES.send}::after {
+  inset: -16px;
+  border-radius: 50%;
+  box-shadow: none;
+  background: repeating-conic-gradient(var(--lively-accent) 0 5deg, transparent 5deg 30deg, var(--lively-accent-2) 30deg 33deg, transparent 33deg 45deg);
+  mask: radial-gradient(circle, transparent 34%, #000 36% 64%, transparent 72%);
+  animation: lively-burst var(--lively-pulse) var(--lively-ease-out);
+}
+
+/* scan (YoRHa): a scan bar erases the words line by line under the composer's own ground; the
+   message prints in under a bar riding down it, a rust marker at the bar's end. Linear, stepped. */
+${form("scan")} ${leaving} { animation: lively-scan-out var(--lively-send-span) linear backwards; }
+${form("scan")} ${layer(1)} {
+  inset: 0 0 auto;
+  height: 12px;
+  z-index: 1;
+  background: ${SCAN_BAR};
+  opacity: 1;
+  translate: 0 var(--lively-gh);
+  animation: lively-scan-bar calc(var(--lively-send-span) * 0.6) steps(6, end) backwards;
+}
+${form("scan")} ${layer(2)} {
+  background: var(--lively-ghost-ground);
+  transform-origin: 50% 0;
+  opacity: 1;
+  animation: lively-scan-cover calc(var(--lively-send-span) * 0.6) steps(6, end) backwards;
+}
+${form("scan")} ${layer(3)} {
+  inset: 4px auto auto 4px;
+  width: 6px;
+  height: 6px;
+  z-index: 2;
+  background: var(--lively-accent-2);
+  animation: lively-blink calc(var(--lively-send-span) * 0.2) steps(2, jump-none) 3;
+}
+${form("scan")} ${landing} {
+  position: relative;
+  isolation: isolate;
+  animation: lively-scan-in var(--lively-send-span) linear var(--lively-send-delay) backwards;
+}
+${form("scan")} ${landing}::after {
+${onBubble("0px")}
+  z-index: 1;
+  background: var(--canvas, var(--background, Canvas));
+  transform-origin: 50% 100%;
+  scale: 1 0;
+  animation: lively-scan-uncover calc(var(--lively-send-span) * 0.75) steps(6, end) var(--lively-send-delay) backwards;
+}
+${form("scan")} ${landing}::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--lively-bx) - 10px);
+  top: var(--lively-by);
+  width: calc(var(--lively-bw) + 20px);
+  height: 12px;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(var(--lively-accent-2), var(--lively-accent-2)) 0 3px / 6px 6px no-repeat, ${SCAN_BAR};
+  opacity: 0;
+  animation: lively-scan-ride calc(var(--lively-send-span) * 0.75) steps(6, end) var(--lively-send-delay);
+}
+${form("scan")} .${CLASSES.send}::after {
+  border-radius: 0;
+  box-shadow: 0 0 0 1px var(--lively-accent);
+  animation: lively-ripple var(--lively-pulse) steps(3, end);
+}
+${form("scan")} .${CLASSES.send}::before {
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 0;
+  background: var(--lively-accent-2);
+  box-shadow: none;
+  animation: lively-blink calc(var(--lively-pulse) / 2) steps(2, jump-none) 2;
+}
+
+/* dust (Control, the Hiss): drawn on the canvas layer when it can run (dust.ts), the ghost and the
+   message hidden in its stead until the dust settles into the message. Without it: the words blur,
+   split into the dispersion colors and drift up and away in a cloud of grain; the message comes into
+   focus out of a blur rising from below. The button lets off a few motes, an ember among them. */
+${form("dust")} ${leaving} { animation: lively-dust-out var(--lively-send-span) var(--lively-ease-out) backwards; }
+${[1, 2]
+  .map(
+    (n) => `${form("dust")} ${layer(n)} {
+  inset: -30% -10%;
+  background: radial-gradient(circle, ${n === 1 ? "var(--lively-dust)" : "var(--lively-dust-ember)"} 0.9px, transparent 1.5px) 0 0 / ${n === 1 ? 5 : 11}px ${n === 1 ? 5 : 11}px;
+  mask: radial-gradient(closest-side, #000, transparent);
+  animation: lively-dust-grain var(--lively-send-span) var(--lively-ease-out) calc(var(--lively-send-span) * ${n === 1 ? 0 : 0.1}) backwards;
+}`,
+  )
+  .join("\n")}
+${form("dust")} ${landing} { animation: lively-dust-in var(--lively-send-span) var(--lively-ease-out) var(--lively-send-delay) backwards; }
+${form("dust")} ${drawn} { animation: lively-dust-reveal var(--lively-send-span) linear var(--lively-send-delay) backwards; }
+${form("dust")} .${CLASSES.send}::after { box-shadow: none; animation: none; }
+${form("dust")} .${CLASSES.send}::before {
+  width: 3px;
+  height: 3px;
+  margin: -1.5px 0 0 -1.5px;
+  box-shadow:
+    6px -2px 0 0 var(--lively-dust),
+    -5px -4px 0 0.5px var(--lively-dust),
+    1px -9px 0 0 var(--lively-dust-ember),
+    -8px 3px 0 0 var(--lively-dust),
+    9px 4px 0 0.5px var(--lively-dust),
+    -2px -12px 0 0 var(--lively-dust);
+  animation: lively-motes calc(var(--lively-pulse) * 2.2) var(--lively-ease-out);
+}
 `;
 }

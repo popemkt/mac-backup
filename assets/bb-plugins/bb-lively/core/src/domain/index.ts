@@ -35,6 +35,7 @@ export {
   PRESETS,
   type PresetValues,
 } from "./presets.ts";
+export { defaultSendForm, SEND_FORM_INFO, SEND_FORMS, SendForm, type SendFormInfo } from "./send.ts";
 export { decodeSettings, resolve, type Resolved, type Source } from "./resolve.ts";
 export {
   ArtImage,

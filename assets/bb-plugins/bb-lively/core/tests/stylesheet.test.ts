@@ -126,7 +126,7 @@ test("the wobbly variants run at the full level only, so reduced motion is the c
   for (const [selector] of wobblyRules) assert.ok(selector.startsWith(':root[data-lively="full"][data-lively-style="wobbly"]'), selector);
   // Every effect has a wobbly rule, except those the same in both styles and toasts, which
   // the wobbly tokens alone retime (lively never animates a toast).
-  for (const effect of EFFECT_IDS.filter((id) => !["typingGlow", "calmHost", "pageWipe", "toastSpring", "turnFreeze", "glitch", "shiftWarp", "hissResonance", "prismEdge"].includes(id))) {
+  for (const effect of EFFECT_IDS.filter((id) => !["typingGlow", "calmHost", "pageWipe", "toastSpring", "turnFreeze", "glitch", "shiftWarp", "hissResonance"].includes(id))) {
     assert.ok(wobblyRules.some(([selector]) => selector.includes(`[${effectAttribute(effect)}]`)), effect);
   }
 });

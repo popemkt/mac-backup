@@ -1,8 +1,8 @@
-// Control: the preset, its three canvas effects and their CSS halves, and HTML-in-Canvas
-// detection across both API generations.
+// Control: the preset, its two canvas effects and their CSS halves, its send's dust on the
+// same layer, and HTML-in-Canvas detection across both API generations.
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { CANVAS_TRIGGERS, EFFECT_IDS, EFFECTS, effectAttribute, NO_CHOICES, PRESETS, resolve, resolveMotion } from "../src/domain/index.ts";
+import { CANVAS_TRIGGERS, EFFECT_IDS, EFFECTS, effectAttribute, NO_CHOICES, presetById, PRESETS, resolve, resolveMotion, SEND_FORM_INFO } from "../src/domain/index.ts";
 import type { ArtLayer, Preset } from "../src/domain/presets.ts";
 import { type Drawable, detectDrawable } from "../src/dom/drawable.ts";
 import { createLively } from "../src/dom/lively.ts";
@@ -15,9 +15,9 @@ afterEach(() => {
   for (const done of close.splice(0)) done();
 });
 
-const CANVAS_EFFECTS = ["shiftWarp", "hissResonance", "prismEdge"] as const;
+const CANVAS_EFFECTS = ["shiftWarp", "hissResonance"] as const;
 
-test("control: the whole look in one choice, its three effects its own", () => {
+test("control: the whole look in one choice, its canvas effects its own, its send the Hiss's dust", () => {
   const { settings } = resolve({ ...NO_CHOICES, preset: "control" });
   assert.deepEqual([settings.style, settings.intensity, settings.stickers, settings.palette, settings.effects.pageWipe], ["clean", "lively", "off", "lively-control", true]);
   const full = resolveMotion(settings, false).effects;
@@ -28,9 +28,13 @@ test("control: the whole look in one choice, its three effects its own", () => {
   }
   assert.deepEqual(
     CANVAS_EFFECTS.map((effect) => EFFECTS[effect].canvas),
-    ["navigate", "waiting", "send"],
+    ["navigate", "waiting"],
   );
-  // The Hiss is a state and stays under reduced motion; the slabs and the prism are movement and go.
+  const control = presetById("control");
+  assert.equal(control.send, "dust");
+  assert.equal(resolveMotion(settings, false, control.tokens, control.send).send, "dust");
+  assert.ok(SEND_FORM_INFO.dust.canvas);
+  // The Hiss is a state and stays under reduced motion; the slabs are movement and go.
   const reduced = resolveMotion(settings, true).effects;
   assert.deepEqual(
     CANVAS_EFFECTS.filter((effect) => reduced.includes(effect)),
@@ -40,7 +44,7 @@ test("control: the whole look in one choice, its three effects its own", () => {
 
 test("control: the CSS halves of the canvas effects stand down while the layer draws them", () => {
   const css = buildStylesheet(TARGETS);
-  for (const effect of ["shiftWarp", "prismEdge"] as const) {
+  for (const effect of ["shiftWarp"] as const) {
     const rules = [...css.matchAll(new RegExp(`^([^{}\\n]*\\[${effectAttribute(effect)}\\][^{]*)\\{`, "gmu"))].map((match) => match[1] ?? "");
     assert.ok(rules.length > 0, effect);
     for (const selector of rules) assert.ok(selector.includes(`:not([${ROOT.canvas}])`), selector);
@@ -140,19 +144,17 @@ const withGl = (p: ReturnType<typeof page>, lost: { count: number }) => {
   close.push(() => (proto.getContext = original));
 };
 
-test("lively: the layer is made at its first scene, snapshots a sanitized copy, and lets its GL go below the full level", () => {
+test("refraction: a scene snapshots a sanitized copy of the thread, scroll kept, frames dropped", () => {
   const p = page('<div class="page"><div class="timeline"><iframe></iframe><div class="rows" id="rows" data-x="1" style="overflow:auto;height:10px"><p>a</p><p>b</p></div></div><form class="composer"></form></div>');
   close.push(() => p.close());
   const lost = { count: 0 };
   withGl(p, lost);
-  const controller = new AbortController();
-  const lively = createLively({ window: p.win, signal: controller.signal, targets: TARGETS, settings: { preset: "control", motion: "full" }, drawable: FAKE_DRAWABLE });
-  assert.ok(p.root.hasAttribute(ROOT.canvas), "the CSS halves stand down at once");
-  assert.equal(p.doc.querySelector(`[${REFRACTION_ATTRIBUTE}]`), null, "no GL context before a scene");
+  const layer = createRefraction({ win: p.win, targets: TARGETS, drawable: FAKE_DRAWABLE, duration: () => 100, chant: () => [] });
+  assert.ok(layer !== undefined);
   const rows = p.doc.querySelector(".rows");
   assert.ok(rows !== null);
   rows.scrollTop = 7;
-  lively.sent();
+  assert.ok(layer.navigate());
   const canvas = p.doc.querySelector<HTMLCanvasElement>(`[${REFRACTION_ATTRIBUTE}]`);
   assert.ok(canvas !== null && canvas.style.display === "block" && canvas.getAttribute("aria-hidden") === "true");
   const copy = canvas.querySelector(".rows");
@@ -160,11 +162,56 @@ test("lively: the layer is made at its first scene, snapshots a sanitized copy, 
   assert.equal(canvas.querySelector("iframe"), null, "frames dropped");
   assert.ok(!copy.hasAttribute("id") && !copy.hasAttribute("data-x"), "nothing finds the copy by bb's hooks");
   assert.equal(copy.scrollTop, 7, "scroll kept past a dropped element");
+  layer.dispose();
+  assert.equal(lost.count, 1);
+});
+
+test("refraction: without HTML-in-Canvas there are no scenes, only dust", () => {
+  const p = page('<div class="page"><div class="timeline"></div><div class="request">Approve?</div></div>');
+  close.push(() => p.close());
+  withGl(p, { count: 0 });
+  const layer = createRefraction({ win: p.win, targets: TARGETS, drawable: undefined, duration: () => 100, chant: () => [] });
+  assert.ok(layer !== undefined && !layer.copies);
+  assert.equal(layer.navigate(), false);
+  layer.waiting(true);
+  assert.ok(!layer.running());
+  layer.dispose();
+});
+
+/** Type into the composer and send with Enter: the host clears it in its own handler, after lively copied it. */
+async function sendWords(p: ReturnType<typeof page>, words: string): Promise<void> {
+  const text = p.doc.querySelector(".composer .text") as HTMLElement;
+  // happy-dom lays nothing out: give the composer's text box a place.
+  text.getBoundingClientRect = () => new p.win.DOMRect(40, 600, 480, 48);
+  text.innerHTML = `<div contenteditable="true"><p>${words}</p></div>`;
+  const editor = text.querySelector("[contenteditable]") as HTMLElement;
+  editor.dispatchEvent(new p.win.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  editor.innerHTML = "<p><br></p>";
+  await p.settle();
+}
+
+test("lively: Control's send makes the layer at the send, dissolves a sanitized copy of the words, and lets its GL go below the full level", async () => {
+  const p = page('<div class="page"><div class="timeline"></div><form class="composer"><div class="text"></div></form></div>');
+  close.push(() => p.close());
+  const lost = { count: 0 };
+  withGl(p, lost);
+  const controller = new AbortController();
+  const lively = createLively({ window: p.win, signal: controller.signal, targets: TARGETS, settings: { preset: "control", motion: "full" }, drawable: FAKE_DRAWABLE });
+  assert.ok(p.root.hasAttribute(ROOT.canvas), "the CSS halves stand down at once");
+  assert.equal(p.root.getAttribute(ROOT.send), "dust");
+  assert.equal(p.doc.querySelector(`[${REFRACTION_ATTRIBUTE}]`), null, "no GL context before a scene or a send");
+  await sendWords(p, '<span id="m" data-mention="1">Hold</span> the line');
+  const canvas = p.doc.querySelector<HTMLCanvasElement>(`[${REFRACTION_ATTRIBUTE}]`);
+  assert.ok(canvas !== null && canvas.style.display === "block");
+  const copy = [...canvas.querySelectorAll("span")].find((span) => span.textContent === "Hold");
+  assert.ok(copy !== undefined && !copy.hasAttribute("id") && !copy.hasAttribute("data-mention"), "the dust's copy is sanitized");
+  assert.ok(p.doc.querySelector("[data-lively-ghost]") !== null, "the ghost stands in until the dust's first frame");
   lively.setSettings({ preset: "control", motion: "reduced" });
   assert.equal(p.doc.querySelector(`[${REFRACTION_ATTRIBUTE}]`), null);
   assert.ok(!p.root.hasAttribute(ROOT.canvas));
   assert.equal(lost.count, 1, "its GL context is released");
   controller.abort();
+  assert.equal(p.doc.querySelector("[data-lively-ghost]"), null, "nothing of lively's is left behind");
 });
 
 test("refraction: the Hiss resonates once per request, again only when the card moves or a new request comes", () => {

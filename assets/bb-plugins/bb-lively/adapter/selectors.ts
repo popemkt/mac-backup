@@ -86,6 +86,37 @@ export const SELECTORS = {
     where: "the composer",
     purpose: "sendPulse: the Send/Stop icon that pops as it swaps",
   },
+  composerText: {
+    selector: "form[data-promptbox] [data-promptbox-editor-scroll]",
+    rating: "M",
+    verified: LIVE,
+    where: "the composer",
+    purpose: "sendPulse: the box the words show in, copied the moment before they are sent",
+  },
+  sentRow: {
+    // bb renders a local send at once as an optimistic row, then swaps it for the stored one (same
+    // index) when the server confirms; earlier messages keep the stored id. No row attribute names the
+    // author, so this reads the id's shape (an upstream ask: `data-row-kind`).
+    selector: '[data-timeline-row-id^="optimistic-user-"], [data-timeline-row-id*=":user-seed:"]',
+    rating: "H",
+    verified: LIVE,
+    where: "an open thread with a message of yours",
+    purpose: "sendPulse: the person's own message row, where a send lands",
+  },
+  replyRow: {
+    selector: '[data-timeline-row-id*=":assistant:"]',
+    rating: "H",
+    verified: LIVE,
+    where: "an open thread with an agent reply",
+    purpose: "sendPulse: an agent's message row; the first of a turn arrives like the send",
+  },
+  bubble: {
+    selector: "[data-message-column] > *",
+    rating: "H",
+    verified: LIVE,
+    where: "an open thread (a message row)",
+    purpose: "sendPulse: the message's own box inside its row, where a send's path ends",
+  },
   threadRow: {
     selector: "[data-sidebar-thread-id]",
     rating: "M",
@@ -225,6 +256,10 @@ export const BB_TARGETS: Targets = {
   focusBox: SELECTORS.focusBox.selector,
   sendButton: SELECTORS.sendButton.selector,
   sendIcon: SELECTORS.sendIcon.selector,
+  composerText: SELECTORS.composerText.selector,
+  sentRow: SELECTORS.sentRow.selector,
+  replyRow: SELECTORS.replyRow.selector,
+  bubble: SELECTORS.bubble.selector,
   statusRow: SELECTORS.statusRow.selector,
   toast: SELECTORS.toast.selector,
   overlayOpen: SELECTORS.overlayOpen.selector,

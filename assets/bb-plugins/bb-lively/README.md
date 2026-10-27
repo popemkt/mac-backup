@@ -83,9 +83,16 @@ directions: **Cloudbank** (after Transistor: clean at lively, a dusk skyline, a 
 wipe, and the `turnFreeze` effect) and **YoRHa** (after NieR:Automata: snappy, no
 overshoot or blur through its own `tokens`, a technical grid, a scan-bar wipe, and the
 `glitch` effect) and **Control** (after Remedy's Control: no overshoot or tilt, coffered
-concrete and the Board, a redaction wipe, and the `shiftWarp`, `prismEdge` and
-`hissResonance` effects, drawn on an HTML-in-Canvas layer when the browser has one); each
-is mapped from source to code in `ART-DIRECTION.md`.
+concrete and the Board, a redaction wipe, the `shiftWarp` and `hissResonance` effects
+drawn on an HTML-in-Canvas layer when the browser has one, and a send the Hiss takes as
+dust); each is mapped from source to code in `ART-DIRECTION.md`.
+
+**The send.** Each preset sends in its own form (`core/src/domain/send.ts`), through one
+sequence (`core/src/dom/send.ts`): the words you send leave the composer as a ghost and the
+message lands in the thread along the same path. Calm, Lively and Custom glide; ZZZ slaps;
+Cloudbank runs as a Process function; YoRHa scans; Control turns the words into the Hiss's
+dust drifting up, on WebGL 2 particles, and condenses the message out of it. Reduced motion
+keeps a fade; the `sendPulse` switch turns the whole send off.
 
 **Override semantics.** Every presettable setting is a select whose first option, and
 default, is **From preset**; switches are From preset / On / Off. The effective value is
