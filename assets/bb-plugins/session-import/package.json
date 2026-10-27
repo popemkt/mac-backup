@@ -12,7 +12,7 @@
     "name": "Session Import",
     "description": "Continue a Claude Code session started outside bb: pick it from any machine, and a new thread starts in its directory with the cleaned transcript. The original stays readable beside the thread.",
     "branding": {
-      "icon": "Import"
+      "icon": "ArchiveRestore"
     },
     "server": "./server.ts",
     "app": "./app.tsx",

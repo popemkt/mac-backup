@@ -377,12 +377,12 @@ function ImportPanel(_: PluginNewThreadPanelProps) {
 }
 
 export default definePluginApp(app => {
-  app.slots.navPanel({ id: PAGE, title: "Import sessions", icon: "Import", path: PAGE, component: ImportPage });
-  app.slots.experimental_newThreadPanelAction({ id: "import", title: "Import Claude Code session", icon: "Import", layout: "flush", component: ImportPanel });
+  app.slots.navPanel({ id: PAGE, title: "Import sessions", icon: "ArchiveRestore", path: PAGE, component: ImportPage });
+  app.slots.experimental_newThreadPanelAction({ id: "import", title: "Import Claude Code session", icon: "ArchiveRestore", layout: "flush", component: ImportPanel });
   app.slots.threadPanelAction({
     id: "original",
     title: "Original session",
-    icon: "History",
+    icon: "Clock",
     layout: "padded",
     component: OriginalSession,
     run: ({ openPanel }) => {

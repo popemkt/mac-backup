@@ -263,6 +263,8 @@ export default async function plugin(bb: BbPluginApi) {
     };
     const first = input.firstMessage?.trim() ?? "";
     const providerId = input.providerId ?? PROVIDER_ID;
+    // GAP [[01M5YQ7EX8GTERS32BT5G9H7Q7]]: bb cannot adopt the session itself (no create-thread providerThreadId,
+    // no timeline append), so this starts a new thread seeded with the transcript; get-bb/bb#3260 would close it.
     const thread = await sdk.threads.spawn({
       projectId: p.target.projectId!,
       environment: p.env,
@@ -387,6 +389,7 @@ export default async function plugin(bb: BbPluginApi) {
               `Would run: ${where}.${p.environmentError === null ? "" : ` Cannot: ${p.environmentError}`}`,
               ...p.target.notes.map(n => `Note: ${n}`),
               p.imports.length > 0 ? `Imported before: ${p.imports.map(i => i.threadId).join(", ")}` : "",
+              `Read ${(p.stats.bytes / 1e6).toFixed(1)} MB (${p.stats.records} records) in ${p.stats.ms} ms on ${m.name}; the reader's process peaked at ${p.stats.peakRssMB} MB.${p.stats.clipped ? " Texts were clipped to fit one answer." : ""}`,
               flags.has("--full") ? `\n${p.opening}\n\n…\n\n${p.ending}` : "",
             ];
             return { exitCode: 0, stdout: out.filter(x => x.length > 0).join("\n") };
