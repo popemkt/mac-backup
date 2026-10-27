@@ -271,7 +271,14 @@ export function createSendSequence(options: SendSequenceOptions): SendSequence {
     if (send.flown) return;
     send.flown = true;
     if (send.timer !== undefined) win.clearTimeout(send.timer);
-    if (!sends.some((other) => other !== send && !other.flown && other.capture.form === send.capture.form)) send.capture.form.removeAttribute(SENDING_ATTRIBUTE);
+    // The placeholder comes back once the words have mostly cleared the composer (half the send's span).
+    const form = send.capture.form;
+    win.setTimeout(
+      () => {
+        if (!sends.some((other) => other !== send && !other.flown && other.capture.form === form)) form.removeAttribute(SENDING_ATTRIBUTE);
+      },
+      Math.max(0, send.at + span() / 2 - now()),
+    );
     const ghost = send.ghost;
     if (ghost === undefined || disposed) return;
     // Alone, it goes up toward the thread, as far as an echo above the composer would be.

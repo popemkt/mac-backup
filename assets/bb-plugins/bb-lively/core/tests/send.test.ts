@@ -57,7 +57,8 @@ test("send: the words leave as a ghost when the composer empties, and only then"
   const form = p.doc.querySelector(".composer") as HTMLElement;
   assert.ok(form.hasAttribute("data-lively-sending"), "the placeholder waits while the words stand in the composer");
   await append(p, '<div class="row mine" data-id="e" data-index="1"><div class="bubble">Hold the line</div></div>');
-  assert.ok(!form.hasAttribute("data-lively-sending"), "and comes back as they go");
+  await new Promise((done) => setTimeout(done, 400));
+  assert.ok(!form.hasAttribute("data-lively-sending"), "and comes back once they have cleared it");
 });
 
 test("send: the button gathers itself the moment Enter goes down, and lets go as the words leave", async () => {
