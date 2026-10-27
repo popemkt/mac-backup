@@ -9,6 +9,7 @@ Evaluations, contrast numbers, build costs and recommendations live in the resea
 - [docs/research/2026-10-24-bb-lively-zzz-wobble.md](../../../docs/research/2026-10-24-bb-lively-zzz-wobble.md)
 - [docs/research/2026-10-25-lively-theme-candidates.md](../../../docs/research/2026-10-25-lively-theme-candidates.md), which includes the
   proposed art-layer contract that the *planned* rows below refer to.
+- [docs/research/2026-10-27-control-theme.md](../../../docs/research/2026-10-27-control-theme.md): the sources behind Control.
 
 The visual mock of every candidate is
 [docs/research/assets/2026-10-25-lively-theme-candidates.html](../../../docs/research/assets/2026-10-25-lively-theme-candidates.html).
@@ -299,6 +300,102 @@ request for "a nice, warm beige".
 | Condensed, letter-spaced labels | UI | needs a label target and a letter-spacing token | planned |
 | Bracket focus instead of glow | UI | `focusRing` variant: an outline with an offset (`--lively-focus-shape`) | planned |
 | User's own art | (owner's art) | setting `artImage` · `yorha.art.image`: backdrop at 12% | shipped |
+
+<a id="control"></a>
+## Control (shipped as the Control preset)
+
+**A. Topic analysis.** Remedy Entertainment's *Control* (2019). Sources are cited in
+`docs/research/2026-10-27-control-theme.md`. "From play" marks cues that no source we could read
+confirms.
+- **World**:
+  - The Oldest House is the brutalist headquarters of the Federal Bureau of Control. It is a "Place
+    of Power" whose rooms rearrange themselves.
+  - It is a bureaucracy that files, classifies and redacts the paranatural.
+  - The Hiss, a resonance from another dimension, possesses its staff.
+  - The Board speaks from the Astral Plane.
+  - The genre is "New Weird": the mundane meets the incomprehensible.
+- **Art**:
+  - raw, board-formed concrete (béton brut) with granite, wood and brass;
+  - coffered ceilings (Boston City Hall), light slits (Ando), rows of large round lights in the
+    lobbies;
+  - cassette-futurist office technology;
+  - the Hiss in one intense red, on bodies floating in midair;
+  - the Astral Plane as a white void with no horizon and black geometry;
+  - the Board as a giant black inverted pyramid;
+  - Altered Items that look mundane and waver "as though seen through water".
+- **UI**:
+  - a clean, institutional voice;
+  - green highway-style wayfinding signs in Interstate;
+  - case files in Basic Commercial (Akzidenz-Grotesk), with lines redacted in solid black bars;
+  - huge area title cards in ITC Avant Garde Gothic Bold that stay on screen;
+  - the Board's speech as slash-separated alternatives ("approved/elusive");
+  - from play: a white, minimal HUD, menu rows that invert to white when selected, and all-caps
+    labels on thin rules.
+- **Motion**:
+  - Architecture shifts. Walls and floors slide, flip and extend, and the Ashtray Maze twists
+    around the player while keeping one exit.
+  - Paranatural events leave "a small, isolated distortion" whose trail is "broken into the colors
+    of dispersion".
+  - Otherwise the UI is precise and still.
+- **Sound → motion**: the Hiss is a chanted incantation that overlaps itself (from play). Its
+  resonance is the cue for a slow, rippling distortion. Everything else is office quiet.
+- **Anchors** (all `~`): concrete `#18191b`–`#8a8a86`, sign off-white `#e8e6e1`, Hiss red `#e01b24`,
+  wayfinding green `#1d6b47`, void white `#f4f4f2`, monolith black `#0b0b0c`.
+
+**B. bb translation.** The UI/UX concept:
+- At rest, Control is a quiet, institutional workspace:
+  - concrete greys at night and the white void by day;
+  - Bureau type and square corners;
+  - text always crisp, with nothing moving.
+- The paranatural happens only on motion or in the margins:
+  - a thread switch shifts the architecture;
+  - a send refracts the transcript through the Board's prism;
+  - an agent waiting for you brings on the Hiss.
+- Those three draw on lively's HTML-in-Canvas layer when bb runs with `CanvasDrawElement`, and fall
+  back to CSS that keeps the same look.
+
+| Concept | From | Lives in | Status |
+|---|---|---|---|
+| Concrete at night, the Astral Plane by day; red only for the Hiss (destructive, attention), green for the timeline | Art, UI (wayfinding) | `themes/lively-control.css` · `.dark` `--canvas #18191b` `--primary #e8e6e1` `--timeline-accent #5fb88a` `--destructive #ff4d55`; `:root, .light` `--canvas #f4f4f2` `--ink #0b0b0c` | shipped |
+| Selection inverts toward the sign's off-white; square corners, hairline shadows | UI (inverted menu rows, thin rules) | same file · `--surface-selected`, `--surface-selected-border`, `--radius 2px`, `--shadow-*` | shipped |
+| The whole look in one choice | (all) | `presets.ts` · `control` row: `clean` at `lively`, `stickers: off`, `pageWipe`, `shiftWarp`, `hissResonance` and `prismEdge` on, palette `lively-control` | shipped |
+| Precise motion: nothing passes its mark, nothing tilts | Motion (still UI) | `presets.ts` · `control.tokens`: `overshoot: 0`, `tilt: 0`, `glow: 0.18` | shipped |
+| Coffered ceiling, form-tie holes, board grain, a lobby's round light | Art | `presets.ts` · `CONTROL_ART.backdrop` (96px coffers with an 8px recess, a 48px tie-hole grid, 7px grain, a ring and its pool) · colors `--lively-art-line/-light` | shipped |
+| Two floating monoliths under the Board, with spectral edges, in the thread's free right margin | Art (Astral Plane, Board) | `CONTROL_ART.backdrop` · `rect()` slabs with a lit top and a Hiss-red seam; a 60° `conic-gradient` wedge and a spectral fringe wedge · `--lively-art-monolith/-rim/-hiss` (pale by day) | shipped |
+| Art never behind reading text or the dock | UI (clean HUD) | `CONTROL_GUTTER_MASK` in `presets.ts`: shows only right of bb's centered 728px column (48px clear), intersected with nothing in the bottom 290px; a thread narrower than ~860px has no margin, so no backdrop art (checked at 420, 560, 760 and 1100px) | shipped |
+| The prism's light down the sidebar's edge | Art (dispersion) | `CONTROL_ART.sidebar` · a 1px spectral line (bb's sidebar content is opaque, so it shows at the head and foot) | shipped |
+| The Board's prism in the sidebar | Art | needs a transparent sidebar surface, which bb does not offer; moved to the backdrop | gap |
+| Documents for reading, labels for wayfinding | UI | `control.fonts.sans` (Basic Commercial, Akzidenz-Grotesk, Helvetica Neue, …); `control.lettering.font` (Overpass, Barlow, Interstate, DIN, …); no font file ships, so the system fallbacks show unless they are installed (gap `01M5SK4NQ90CRG9YAQC2GXNZJW`) | shipped |
+| The Oldest House's sectors down the sidebar | UI (wayfinding) | `control.lettering.sidebar` ("Executive Research Maintenance Containment Astral Plane") | shipped |
+| **Redaction on page transitions**: a Bureau page sweeps across the thread, every line blacked out to its own length, stamped `REDACTED` in Hiss red | UI (redacted files) | `control.paint.wipe` (three 13px bar layers at a 22px pitch on `--lively-art-paper`, `--lively-art-redact`; label in `--lively-art-hiss`) · effect `pageWipe` | shipped |
+| **Shifting architecture on a thread switch** | Motion (rooms rearranging), Art (dispersion) | effect **`shiftWarp`** (`canvas: "navigate"`, `presets: ["control"]`) | shipped |
+| ↳ with HTML-in-Canvas: the thread you leave, its real pixels, breaks into slabs that slide apart, some splitting at a cut, with prismatic fringes in proportion to their speed; the gaps open onto the thread you open | | `core/src/dom/refraction.ts` · scene `navigate`: a sanitized clone of `pageView`, taken on the Navigation API's `navigate` event before the router renders, uploaded once (`dom/drawable.ts`), shader mode 0; 2.2 × the entrance | shipped |
+| ↳ without: the thread you open assembles from slabs, its rows sliding in from alternating sides in hard steps, split into the dispersion colors | | `stylesheet.ts` · `shiftWarp` under `:not([data-lively-canvas])` · `lively-slab` on `rowList > row` during the replay | shipped |
+| **The Board's prism at the composer** on a send | Art (dispersion, the Board) | effect **`prismEdge`** (`canvas: "send"`) | shipped |
+| ↳ with HTML-in-Canvas: a lens slides along the 140px of transcript above the composer, refracting and splitting it, with a spectral line on the composer's edge | | `refraction.ts` · scene `send`, shader mode 1; 2.4 × the entrance | shipped |
+| ↳ without: a spectral line sweeps the composer's top edge | | `stylesheet.ts` · `prismEdge` · `focusBox:has(.lively-send)::before`, `lively-prism-sweep` | shipped |
+| **The Hiss while an agent waits for you** | World (the Hiss), Sound (the chant) | effect **`hissResonance`** (`canvas: "waiting"`, `reducedSafe`) · `pageView:has(pendingRequest)`, as Cloudbank's `turnFreeze` | shipped |
+| ↳ the timeline takes a red cast (still readable) under a red scanline veil; the request burns Hiss red | | `stylesheet.ts` · `hissResonance` · `--lively-hiss` | shipped |
+| ↳ the chant, the Board's way (slash alternatives, our own words), printed doubled over itself in the request's corner | Sound (overlapping chant), UI (the Board's speech) | `control.lettering.chant` → `--lively-chant` · `pendingRequest::before` with three red `text-shadow` ghosts | shipped |
+| ↳ with HTML-in-Canvas: the request resonates outward in rippling red echoes, the card itself untouched and usable, and the chant fills the side margins beside a wide timeline; for 4.5 s once per request (again if the card moves), then the still state above holds, so nothing moves on its own past five seconds (WCAG 2.2.2) | | `refraction.ts` · scene `waiting`, shader mode 2, `WAITING_MS`, at 30 fps; polled every 800 ms only while the effect can draw | shipped |
+| Large area title cards that stay | UI | a new target for a thread's title | planned |
+| A boiling Hiss distortion over the possessed, a failed thread | World (the Hiss) | a `glitch`-like effect on `statusRow` with a red resonance | planned |
+| The game's own art, logo, fonts or words | — | never committed (public repo); the chant and captions are ours | — |
+
+How the HTML-in-Canvas layer keeps bb usable:
+- It is one `position: fixed` canvas with `pointer-events: none` and `aria-hidden`. Its stage is
+  `inert`.
+- It is made at its first scene (no WebGL context before), and draws only while a scene runs.
+  At rest it is `display: none`, its stage is empty, and bb's own DOM is all there is.
+- A scene's snapshot is one clone of the thread view: bb virtualizes its timeline, so that is
+  about 400–500 nodes on any thread, 20–45 ms on shared-server's CPU-rendered headless Chromium,
+  once per switch or send.
+- Snapshots are sanitized clones: no ids, no `data-*`, no frames or media. Neither bb nor lively
+  can find them.
+- It runs only at the full motion level. Under reduced motion every effect is CSS: the Hiss's
+  static state, nothing else.
+- It is detected by method name across both API generations (`dom/drawable.ts`). Without the API
+  or WebGL 2, the CSS halves run.
 
 ## Hollow Knight — "Hallownest" (candidate)
 

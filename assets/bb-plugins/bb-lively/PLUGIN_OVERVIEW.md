@@ -20,6 +20,15 @@ palette and an art layer.
   Lively YoRHa palette (parchment grey, umber ink, square corners; a night mode), a
   technical grid with a corner bracket, a scan-bar wipe, and a **glitch** when a thread
   fails.
+- **Control** (after Remedy's Control): precise motion (no overshoot, no tilt), the Lively
+  Control palette (concrete greys at night, the Astral Plane's white by day, Hiss red only
+  for what waits on you), coffered concrete, two monoliths under the Board's prism, a
+  **redaction** wipe that blacks out every line, and three effects of its own:
+  **shifting architecture** on a thread switch, **the Board's prism** at the composer on a
+  send, and **the Hiss** while an agent waits for you. When bb runs with HTML-in-Canvas
+  (`--enable-blink-features=CanvasDrawElement`), the first two break and refract the
+  thread's real pixels, and the Hiss resonates in red echoes; without it, CSS draws them.
+  Text is never covered at rest.
 - **Custom**: no preset.
 
 Every setting below starts on **From preset**. Set one yourself and it stays as you set it
@@ -72,7 +81,7 @@ positioning and never touches toasts. Nothing moves while bbim's hints are up.
 
 ## Settings
 
-- **Preset:** Custom (the default), Calm, Lively, ZZZ, Cloudbank or YoRHa. Every other setting can be left on
+- **Preset:** Custom (the default), Calm, Lively, ZZZ, Cloudbank, YoRHa or Control. Every other setting can be left on
   From preset (the default) or set to a value of its own.
 - **Motion:** System (follows your OS "reduce motion"), Full, Reduced (short fades only, no
   movement), or Off.
@@ -101,6 +110,6 @@ accent) and **Lively Dracula** (bb's Dracula with Lively's rounder corners and s
 transitions), each with a **Bold** variant that carries the accent further (tinted
 selection, accent focus ring, glowing elevation, rounder corners) to pair with Bold
 intensity. **Lively ZZZ** is near-black with lime and yellow accents and hard offset
-shadows, to pair with Wobbly. **Lively Cloudbank** and **Lively YoRHa** are the Cloudbank
-and YoRHa presets' palettes, each with a light and a dark mode. The motion works without
+shadows, to pair with Wobbly. **Lively Cloudbank**, **Lively YoRHa** and **Lively Control** are the
+Cloudbank, YoRHa and Control presets' palettes, each with a light and a dark mode. The motion works without
 any of them.

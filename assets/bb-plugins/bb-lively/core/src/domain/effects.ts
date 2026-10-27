@@ -21,6 +21,9 @@ export const EFFECT_IDS = [
   "typingGlow",
   "turnFreeze",
   "glitch",
+  "shiftWarp",
+  "hissResonance",
+  "prismEdge",
   "calmHost",
 ] as const;
 
@@ -44,7 +47,19 @@ export interface EffectInfo {
    * these presets (presets.ts) is active, and its switch is on. Absent: every preset.
    */
   readonly presets?: ReadonlyArray<string>;
+  /**
+   * Drawn on lively's HTML-in-Canvas layer (dom/refraction.ts) when the
+   * browser has the API, from the moment that starts it: a thread switch
+   * (`navigate`), a send (`send`), or a request waiting for the person
+   * (`waiting`). Its CSS rules are the fallback and stand down while the
+   * layer runs (`data-lively-canvas` on the root). Absent: CSS only.
+   */
+  readonly canvas?: CanvasTrigger;
 }
+
+/** What starts an effect's scene on the HTML-in-Canvas layer. */
+export const CANVAS_TRIGGERS = ["navigate", "send", "waiting"] as const;
+export type CanvasTrigger = (typeof CANVAS_TRIGGERS)[number];
 
 /** Whether an effect belongs to the active preset (every effect without `presets` does). */
 export function effectInPreset(info: EffectInfo, preset: string): boolean {
@@ -165,6 +180,37 @@ export const EFFECTS: Readonly<Record<EffectId, EffectInfo>> = {
     default: true,
     reducedSafe: false,
     presets: ["yorha"],
+  },
+  shiftWarp: {
+    label: "Shifting architecture",
+    wobbly: "The same under either style.",
+    description:
+      "Switching threads, the thread you leave breaks into concrete slabs that slide apart with prismatic fringes, as the Oldest House rearranges itself (Control). With HTML-in-Canvas it is the real thread's pixels; without, the new thread assembles from slabs in a chromatic split. Control only.",
+    default: true,
+    reducedSafe: false,
+    presets: ["control"],
+    canvas: "navigate",
+  },
+  hissResonance: {
+    label: "Hiss resonance",
+    wobbly: "The same under either style.",
+    description:
+      "While the open thread waits for you (an approval, a question, a plan to review), the Hiss takes it: the timeline dims under a red resonance, the request card burns Hiss red, and an overlapping chant fills the margins. With HTML-in-Canvas the request resonates outward in red echoes; the card itself stays crisp and usable. Control only.",
+    default: true,
+    // A state: under reduced motion it shows at once and never ripples.
+    reducedSafe: true,
+    presets: ["control"],
+    canvas: "waiting",
+  },
+  prismEdge: {
+    label: "Prismatic composer",
+    wobbly: "The same under either style.",
+    description:
+      "Sending refracts the end of the transcript through a prism along the composer's top edge: a spectral sweep splits it into its colors for a moment, like the Board's prism. With HTML-in-Canvas it refracts the real transcript; without, a spectral line sweeps the edge. Control only.",
+    default: true,
+    reducedSafe: false,
+    presets: ["control"],
+    canvas: "send",
   },
   calmHost: {
     label: "Calm bb's own motion",

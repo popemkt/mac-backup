@@ -111,6 +111,8 @@ export interface PresetLettering {
   readonly color: string;
   /** Set vertically down the sidebar's inner edge, in its gutter. */
   readonly sidebar?: string;
+  /** Lines an effect chants (hissResonance's margins, on the HTML-in-Canvas layer), and its CSS label (the first). */
+  readonly chant?: ReadonlyArray<string>;
 }
 
 export interface Preset {
@@ -240,6 +242,86 @@ const YORHA_ART = {
   image: { surface: "backdrop", strength: 0.12, size: "cover", position: "center" },
 } as const satisfies PresetArt;
 
+/** The black of a redaction bar. */
+const REDACT = "var(--lively-art-redact, #0b0b0c)";
+
+// Control (Remedy): the Oldest House. Board-formed concrete (fine grain and a grid of form-tie
+// holes), a coffered ceiling grid, a lobby's round light, and in the lower right the Astral Plane:
+// two monoliths under the Board, an inverted prism with spectral fringes. bb's sidebar content is
+// opaque, so the sidebar only carries the prism's light down its inner edge (seen at its head and
+// foot). Colors come from themes/lively-control.css, else the accent; the slabs are pale by day
+// (text reads over them) and near-black at night.
+/**
+ * Control's art stays in the thread's free right margin. bb centers the reading column (the
+ * timeline and the composer) at most 728px wide with 16px padding, so the margin right of it is
+ * `50% - min(364px, 50% - 16px)` of the view; the art shows up to 48px short of the column, fading
+ * over 24px, and none at all when the margin is narrower than that. The dock band's copy shares the
+ * view's width (it starts at the view's left edge and reaches its right, reach.ts), so this
+ * horizontal mask matches across the two. Intersected with it, a bottom-anchored mask clears the
+ * dock: nothing within 290px of the bottom, where bb docks the composer and its requests.
+ */
+const CONTROL_GUTTER_MASK =
+  "linear-gradient(to left, #000 calc(50% - min(364px, 50% - 16px) - 48px), transparent calc(50% - min(364px, 50% - 16px) - 24px)) intersect, " +
+  "linear-gradient(to top, transparent 0 250px, #000 290px) right bottom / 6000px 4000px no-repeat";
+
+const CONTROL_ART = {
+  colors: {
+    monolith: token("--lively-art-monolith", "color-mix(in oklab, #000 70%, var(--lively-canvas))"),
+    rim: tint(token("--lively-art-rim", "var(--lively-accent)"), 55),
+    line: token("--lively-art-line", "var(--lively-accent)"),
+    light: tint(token("--lively-art-light", "var(--lively-accent)"), 22),
+    hiss: tint(token("--lively-art-hiss", "var(--destructive, #e01b24)"), 70),
+  },
+  // All of it lives in the thread's free right margin, never behind the reading column or the dock
+  // (CONTROL_GUTTER_MASK): a cluster that fits a 140px gutter, floating clear of the dock, as the
+  // Astral Plane's slabs float. A narrow thread has no margin, and no art.
+  backdrop: {
+    layers: [
+      // The Board: an inverted triangle (a 60-degree wedge from its apex, which points down) above
+      // the monoliths, its edges split into the spectrum.
+      { image: `conic-gradient(from -30deg at 50% 100%, ${c("monolith")} 0 60deg, transparent 60deg)`, size: "104px 90px", position: "right 30px bottom 540px", repeat: "no-repeat" },
+      {
+        image: "conic-gradient(from -33deg at 50% 100%, #ff2a3a 0deg, #ffb000 1.2deg, #34c759 2.4deg, #2f9bff 3.6deg, transparent 3.8deg 62.2deg, #2f9bff 62.4deg, #34c759 63.6deg, #ffb000 64.8deg, #ff2a3a 66deg, transparent 66.2deg)",
+        size: "116px 96px",
+        position: "right 24px bottom 537px",
+        repeat: "no-repeat",
+      },
+      // Two floating monoliths: a lit top edge, then the slab; a thin Hiss-red seam under the taller one.
+      rect(c("rim"), 80, 488, 40, 2),
+      rect(c("hiss"), 80, 290, 40, 2),
+      rect(c("monolith"), 80, 292, 40, 196),
+      rect(c("rim"), 36, 438, 22, 2),
+      rect(c("monolith"), 36, 320, 22, 118),
+      // A lobby's round light above the Board: a ring and its soft pool.
+      { image: `radial-gradient(circle at right 82px bottom 712px, transparent 0 40px, ${c("light")} 40px 41px, transparent 42px)`, size: "400px 900px", position: "right bottom", repeat: "no-repeat" },
+      { image: `radial-gradient(130px 130px at right 82px bottom 712px, ${tint(c("light"), 40)}, transparent 70%)`, size: "400px 900px", position: "right bottom", repeat: "no-repeat" },
+      // The coffered ceiling: a 96px grid, each coffer with a recessed inner edge 8px in.
+      { image: `linear-gradient(to left, ${tint(c("line"), 9)} 1px, transparent 1px)`, size: "96px 96px", position: "right bottom" },
+      { image: `linear-gradient(to top, ${tint(c("line"), 9)} 1px, transparent 1px)`, size: "96px 96px", position: "right bottom" },
+      { image: `linear-gradient(to left, ${tint(c("line"), 5)} 1px, transparent 1px)`, size: "96px 96px", position: "right 8px bottom 0px" },
+      { image: `linear-gradient(to top, ${tint(c("line"), 5)} 1px, transparent 1px)`, size: "96px 96px", position: "right 0px bottom 8px" },
+      // Form-tie holes and the boards' grain.
+      { image: `radial-gradient(circle, ${tint(c("line"), 16)} 1.4px, transparent 2px)`, size: "48px 48px", position: "right 24px bottom 24px" },
+      { image: `linear-gradient(to top, ${tint(c("line"), 3)} 1px, transparent 1px)`, size: "7px 7px", position: "right bottom" },
+    ],
+    mask: CONTROL_GUTTER_MASK,
+  },
+  sidebar: {
+    layers: [
+      // The prism's light: a spectral hairline down the sidebar's inner edge.
+      {
+        image: "linear-gradient(to bottom, transparent, #ff2a3a99 20%, #ffb00099 38%, #34c75999 56%, #2f9bff99 74%, transparent)",
+        size: "1px 100%",
+        position: "right 0 top 0",
+        repeat: "no-repeat",
+      },
+      // A thin rule across the foot, as on a Bureau form.
+      { image: `linear-gradient(${tint(c("line"), 30)}, ${tint(c("line"), 30)})`, size: "calc(100% - 24px) 1px", position: "center bottom 48px", repeat: "no-repeat" },
+    ],
+  },
+  image: { surface: "backdrop", strength: 0.14, size: "cover", position: "center" },
+} as const satisfies PresetArt;
+
 export const PRESETS = [
   {
     id: "custom",
@@ -340,6 +422,50 @@ export const PRESETS = [
         mask: "linear-gradient(90deg, transparent 10%, #000 22% 78%, transparent 90%)",
       },
       chroma: ["var(--lively-art-rim, var(--lively-accent-2))", "#4a7a8c"],
+    },
+  },
+  {
+    id: "control",
+    label: "Control",
+    description:
+      "After Remedy's Control: the Oldest House's concrete, the Bureau's grotesque and wayfinding capitals, precise motion with no overshoot, documents redacted in black bars as you switch threads, the architecture shifting with prismatic fringes, the Board's prism at the composer and in the sidebar, and the Hiss's red resonance while an agent waits for you. Uses HTML-in-Canvas when bb is started with it (bb Launcher), CSS otherwise. The Lively Control palette: concrete at night, the Astral Plane by day.",
+    artDirection: "ART-DIRECTION.md#control",
+    values: {
+      intensity: "lively",
+      style: "clean",
+      stickers: "off",
+      effects: { pageWipe: true, shiftWarp: true, hissResonance: true, prismEdge: true },
+    },
+    palette: "lively-control",
+    art: CONTROL_ART,
+    // Documents in a Swiss grotesque (the Bureau's case files), then system ones. No font file ships.
+    fonts: { sans: '"Basic Commercial", "Akzidenz-Grotesk", "Helvetica Neue", Helvetica, Inter, Arial, ui-sans-serif, system-ui, sans-serif' },
+    // Bureau precision: nothing passes its mark, nothing tilts; a little blur as things come into focus.
+    tokens: { overshoot: 0, tilt: 0, glow: 0.18 },
+    // Wayfinding: tracked capitals in a highway-sign grotesque, in the sign's off-white (or black by day).
+    lettering: {
+      font: 'Overpass, "Barlow Semi Condensed", Barlow, Interstate, "DIN Alternate", "Helvetica Neue", Arial, sans-serif',
+      color: "var(--lively-art-sign, var(--lively-accent))",
+      sidebar: "Executive   Research   Maintenance   Containment   Astral Plane",
+      // The Board speaks in alternatives; these are ours, not the game's.
+      chant: ["Awaiting/clearance", "Approve/withhold", "The request is/was/will be open", "Sign/do not sign", "Hold/release"],
+    },
+    paint: {
+      // A Bureau document sweeps across: off-white paper, every line redacted in a black bar of its own length.
+      wipe: {
+        fill: [
+          // Three lines to a 66px tile: bars 13px tall at a 22px pitch, each line its own length.
+          `linear-gradient(to bottom, ${REDACT} 0 13px, transparent 13px) 34% 40px / 30% 66px repeat-y`,
+          `linear-gradient(to bottom, ${REDACT} 0 13px, transparent 13px) 36% 62px / 20% 66px repeat-y`,
+          `linear-gradient(to bottom, ${REDACT} 0 13px, transparent 13px) 38% 84px / 26% 66px repeat-y`,
+          "var(--lively-art-paper, #e8e6e1)",
+        ].join(", "),
+        mask: "linear-gradient(90deg, transparent 16%, #000 16% 84%, transparent 84%)",
+        label: "Redacted",
+        ink: "var(--lively-art-hiss, #e01b24)",
+      },
+      // Dispersion: Hiss red and the cold side of the spectrum.
+      chroma: ["var(--lively-art-hiss, #ff2a3a)", "#2fb8ff"],
     },
   },
 ] as const satisfies ReadonlyArray<Preset>;
