@@ -176,14 +176,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Install pi and link the extension on the Mac, spawn a pi thread from a composition, read its report via a bb.host entry.
 - **node** — `01M5QKD8SDR9TX6Y5G2DM220HP`
 
-### GAP: popemkt's socket-served kb UI has no .kb/ui.json, so CLI/MCP ui.* calls see no tabs
-
-- **expected** — kb ui --socket on shared-server records its presence, so kb CLI and kb mcp ui.screen/navigate/select/capture reach the page's tabs
-- **current** — A socket server writes no .kb/ui.json (popemkt/kb GAP 01M5CMVS78WRBD760MNSS3BMJJ); ui.screen returns {tabs:[]}, ui.navigate/select/capture answer no-tab. Graph reads/writes and the page's live tx view are unaffected.
-- **impact** — Agents on shared-server (kb CLI or kb mcp --root ~/.local/share/kb/home) cannot see or drive popemkt's open kb page
-- **closes** — A kb release that writes presence for socket servers, pinned here (nix run .#github-sources -- update kb)
-- **node** — `01M5HXHNERZR77Z0HX0SZCQZPP`
-
 ### GAP: release pins are checked by hash only, never by provenance
 
 - **expected** — github-sources verify also proves where each pinned artifact was built, for every source whose upstream publishes provenance (kb: gh attestation verify --repo popemkt/kb, signer release.yml at the pinned tag), declared beside the source in nvfetcher.toml
@@ -351,6 +343,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Check: intent-record drifted from .githooks/pre-commit unnoticed when exec was dropped
 - **closes** — intent/gate.sh record runs the installed kb's check audit (a kb subcommand in the release) when .kb/, .githooks/ or a rule's home changes
 - **node** — `01M41YB3V2NC6NPXJYB9PH97D9`
+
+### GAP: popemkt's socket-served kb UI has no .kb/ui.json, so CLI/MCP ui.* calls see no tabs
+
+- **expected** — kb ui --socket on shared-server records its presence, so kb CLI and kb mcp ui.screen/navigate/select/capture reach the page's tabs
+- **current** — A socket server writes no .kb/ui.json (popemkt/kb GAP 01M5CMVS78WRBD760MNSS3BMJJ); ui.screen returns {tabs:[]}, ui.navigate/select/capture answer no-tab. Graph reads/writes and the page's live tx view are unaffected.
+- **impact** — Agents on shared-server (kb CLI or kb mcp --root ~/.local/share/kb/home) cannot see or drive popemkt's open kb page
+- **closes** — A kb release that writes presence for socket servers, pinned here (nix run .#github-sources -- update kb)
+- **node** — `01M5HXHNERZR77Z0HX0SZCQZPP`
 
 ### GAP: two launch paths for the kb binary
 
