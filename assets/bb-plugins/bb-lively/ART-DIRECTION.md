@@ -221,7 +221,7 @@ all-day use.
 | Function sparks on send | UI (functions) | effect `sendPulse` with a radial-ray burst paint (`paint.burst`) | planned |
 | Sword hum while working | Sound (hum), Motion | effect `workingGlow` (clean breathing in Turn() cyan, at `glow` 0.34); a slower `breatheMs` via `tokens` | shipped (glow); planned (slower hum) |
 | A clean 1920s sans for reading | Art | `presets.ts` · `cloudbank.fonts.sans`: Jost (OFL, as kb's Transistor, if installed), Avenir Next, Futura, system | shipped |
-| The faces themselves, on every machine | Art | lively cannot serve a font file: gap `01M5SK4NQ90CRG9YAQC2GXNZJW` (kb ships Federant, Josefin Sans and Jost from `@fontsource`) | gap |
+| The faces themselves, on the Macs | Art | installed on the Macs by the bb stack (`modules/stacks/bb/darwin.nix`, nix-darwin `fonts.packages`): Jost, Josefin Sans and Federant, so bb's pages find them wherever the server runs; another device (a phone) still falls back, as lively serves no font file (gap `01M5SK4NQ90CRG9YAQC2GXNZJW`, closed by the install) | shipped |
 | A thin display face for headers | Art (Art Nouveau lettering) | a `--lively-font-display` token and a *new target* for headers | planned |
 | Red's colours in the chromatic split | Art | `presets.ts` · `cloudbank.paint.chroma`: Turn() cyan and `--lively-art-sky-1` | shipped |
 | User's own key art behind the timeline | (owner's art) | setting `artImage` · `cloudbank.art.image`: backdrop, 20%, cover, center bottom, under the preset's own layers | shipped |

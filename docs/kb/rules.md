@@ -43,14 +43,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — bb adds an inherit/unset state or dynamic descriptions to plugin settings; then bb-lively's adapter/settings.ts goes back to switches and per-setting descriptions.
 - **node** — `01M5RXXJV7Q5EWQF8EVK8VFX85`
 
-### GAP: bb-lively cannot ship a font face; presets name system and OFL families that show only if installed
-
-- **expected** — A preset's OFL faces (Cloudbank: Jost, Josefin Sans; kb ships them from @fontsource) load in bb whatever the machine has installed
-- **current** — bb-lively names families only; no route or bundle serves a font file, so Cloudbank falls back to Avenir Next and Futura (macOS) or the system sans
-- **impact** — Cloudbank's lettering and body type differ by machine and from kb's Transistor
-- **closes** — Serve @fontsource woff2 files (an npm dependency, never committed) from the plugin's HTTP route or app bundle and declare @font-face under the preset
-- **node** — `01M5SK4NQ90CRG9YAQC2GXNZJW`
-
 ### GAP: bb-lively not verified as an installed plugin
 
 - **expected** — bb-lively installed (bb plugin install) and checked live on the web UI and the 0.47 desktop app: real composer sends (onSubmitted), real sidebar indicator changes (experimental_useSidebarThreads), real timeline arrivals, the settings page with Selector health, the Lively and Lively Dracula themes in Settings > Appearance, reduced motion from the OS, and the selectors not on screen when checked (toast, switch thumb, checkbox, dialog, hover-lift cards)
@@ -319,6 +311,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A merged plugin change silently does not reach bb; nothing reports it.
 - **closes** — Run the bb plugin installer on every rebuild (or at boot) regardless of closure change, or have rebuild/restart-app --status report plugins whose stamp differs from their source.
 - **node** — `01M5P3ET7FV0S3JJ7DH50EHNY4`
+
+### GAP: bb-lively cannot ship a font face; presets name system and OFL families that show only if installed
+
+- **expected** — A preset's OFL faces (Cloudbank: Jost, Josefin Sans; kb ships them from @fontsource) load in bb whatever the machine has installed
+- **current** — bb-lively names families only; no route or bundle serves a font file, so Cloudbank falls back to Avenir Next and Futura (macOS) or the system sans
+- **impact** — Cloudbank's lettering and body type differ by machine and from kb's Transistor
+- **closes** — Closed by installing the faces on the Macs, where bb is viewed: nix-darwin fonts.packages in the bb stack (modules/stacks/bb/darwin.nix). Serving @fontsource woff2 files from the plugin would still reach other devices (a phone)
+- **node** — `01M5SK4NQ90CRG9YAQC2GXNZJW`
 
 ### GAP: bbim gives no hints inside bb's browser tabs
 
