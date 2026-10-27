@@ -974,7 +974,6 @@ ${form("glide")} ${landing} { animation: lively-glide-in var(--lively-send-span)
    shadow, skewing in when skew is on, over a halftone pop behind it. */
 ${form("slap")} ${leaving} { animation: lively-slap-out var(--lively-send-span) linear backwards; }
 ${form("slap")} ${landing} {
-  position: relative;
   isolation: isolate;
   animation: lively-slap-in var(--lively-send-span) var(--lively-spring) var(--lively-send-delay) backwards;
 }
@@ -1010,7 +1009,6 @@ ${[1, 2, 3]
   )
   .join("\n")}
 ${form("process")} ${landing} {
-  position: relative;
   isolation: isolate;
   animation: lively-process-in var(--lively-send-span) steps(6, end) var(--lively-send-delay) backwards;
 }
@@ -1071,7 +1069,6 @@ ${form("scan")} ${layer(3)} {
   animation: lively-blink calc(var(--lively-send-span) * 0.2) steps(2, jump-none) 3;
 }
 ${form("scan")} ${landing} {
-  position: relative;
   isolation: isolate;
   animation: lively-scan-in var(--lively-send-span) linear var(--lively-send-delay) backwards;
 }

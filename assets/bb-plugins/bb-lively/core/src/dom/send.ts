@@ -89,6 +89,9 @@ interface Flight {
   drawn: boolean;
 }
 
+/** A row in one of these is already a containing block for the form's covers and traces. */
+const POSITIONED = new Set(["relative", "absolute", "fixed", "sticky"]);
+
 const px = (value: number) => `${Math.round(value * 10) / 10}px`;
 
 /** The path from where the words were to where `bubble` sits, as the message travels it. */
@@ -351,8 +354,13 @@ export function createSendSequence(options: SendSequenceOptions): SendSequence {
     const style = (flight.row as HTMLElement).style;
     for (const [name, value] of Object.entries(flight.vars)) style.setProperty(name, value);
     style.setProperty("--lively-send-delay", `${-Math.round(elapsed)}ms`);
+    // The form's covers and traces are placed in the row; a host's own positioning (bb's rows are
+    // absolute, placed by its virtualizer) is kept, a static row is anchored for the flight only.
+    const anchored = !POSITIONED.has(win.getComputedStyle(flight.row).position);
+    if (anchored) style.position = "relative";
     const clean = () => {
       for (const name of [...Object.keys(flight.vars), "--lively-send-delay"]) style.removeProperty(name);
+      if (anchored) style.removeProperty("position");
     };
     win.setTimeout(clean, Math.max(0, flight.span - elapsed) + 250);
     flights.push(flight);

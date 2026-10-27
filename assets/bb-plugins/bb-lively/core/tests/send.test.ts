@@ -72,6 +72,20 @@ test("send: the echo lands along the path from the words, and the turn's first r
   assert.ok(!later.classList.contains(CLASSES.reply), "only the turn's first reply");
 });
 
+test("send: a host's absolute rows keep their place; a static row is anchored for the flight only", async () => {
+  const { p } = mounted({ preset: "zzz" });
+  await send(p, "Hold the line");
+  const placed = await append(p, '<div class="row mine" data-id="e" data-index="1" style="position: absolute; top: 40px"><div class="bubble">Hold</div></div>');
+  assert.ok(placed.classList.contains(CLASSES.arrive));
+  assert.equal((placed as HTMLElement).style.position, "absolute", "the virtualizer's placement stands");
+  await send(p, "Again");
+  const flowing = await append(p, '<div class="row mine" data-id="f" data-index="2"><div class="bubble">Again</div></div>');
+  assert.ok(flowing.classList.contains(CLASSES.arrive));
+  assert.equal((flowing as HTMLElement).style.position, "relative");
+  const css = buildStylesheet(TARGETS);
+  assert.ok(!/lively-arrive[^{]*\{\s*position: relative/u.test(css), "no stylesheet rule repositions a landing row");
+});
+
 test("send: the host swapping the echo's row for its stored one carries the motion on", async () => {
   const { p } = mounted();
   await send(p, "Hold the line");
