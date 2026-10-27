@@ -54,6 +54,20 @@ test("send: the words leave as a ghost when the composer empties, and only then"
   assert.equal(ghost.textContent, "Hold the line");
   assert.equal(ghost.querySelector("[contenteditable]"), null, "the copy is not editable");
   assert.ok(!ghost.classList.contains(CLASSES.depart), "it holds where the words were until its echo lands");
+  const form = p.doc.querySelector(".composer") as HTMLElement;
+  assert.ok(form.hasAttribute("data-lively-sending"), "the placeholder waits while the words stand in the composer");
+  await append(p, '<div class="row mine" data-id="e" data-index="1"><div class="bubble">Hold the line</div></div>');
+  assert.ok(!form.hasAttribute("data-lively-sending"), "and comes back as they go");
+});
+
+test("send: the button gathers itself the moment Enter goes down, and lets go as the words leave", async () => {
+  const { p } = mounted();
+  const button = p.doc.querySelector("button.send") as HTMLElement;
+  await send(p, "not yet", false);
+  assert.ok(button.classList.contains(CLASSES.arm) && !button.classList.contains(CLASSES.send), "anticipation, before bb acts");
+  (p.doc.querySelector(".composer .text [contenteditable]") as HTMLElement).innerHTML = "<p><br></p>";
+  await p.settle();
+  assert.ok(button.classList.contains(CLASSES.send) && !button.classList.contains(CLASSES.arm), "the release, ahead of bb's confirmation");
 });
 
 test("send: the echo lands along the path from the words, and the turn's first reply arrives the same way", async () => {
@@ -144,5 +158,5 @@ test("send: the root names the form; each form's art runs at the full level only
   }
   // The fade every level shares.
   assert.ok(css.includes(`[${effectAttribute("sendPulse")}]:not([data-measuring]) :is(.${CLASSES.arrive}, .${CLASSES.reply}) { animation: lively-enter`));
-  assert.ok(EFFECT_IDS.includes("sendPulse") && !(EFFECT_IDS as ReadonlyArray<string>).includes("prismEdge"), "the prism's send is the dust now");
+  assert.ok(EFFECT_IDS.includes("sendPulse") && EFFECT_IDS.includes("prismEdge"), "the dust and the Board's prism both play on a send");
 });

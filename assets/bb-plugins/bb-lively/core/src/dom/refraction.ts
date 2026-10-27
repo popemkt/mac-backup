@@ -7,10 +7,12 @@
 //
 // A scene's stage is either a snapshot of bb's real DOM (a sanitized clone:
 // no ids, no data attributes, no frames or media, inert) placed where the
-// original sits, or lively's own lettering. Two scenes, one per canvas
-// effect (domain/effects.ts `canvas`), both needing HTML-in-Canvas:
+// original sits, or lively's own lettering. Three scenes, one per canvas
+// effect (domain/effects.ts `canvas`), all needing HTML-in-Canvas:
 // - `navigate` (shiftWarp): the thread you leave breaks into slabs that slide
 //   apart with prismatic fringes and fade, over the thread you open;
+// - `send` (prismEdge): a prism slides along the composer's top edge,
+//   refracting the transcript just above it into its colors;
 // - `waiting` (hissResonance): the waiting request resonates outward in red
 //   echoes, the card itself left untouched, and a chant overlaps in the
 //   thread's side margins, for a few seconds once per request (then the
@@ -40,6 +42,8 @@ export interface RefractionOptions {
 export interface Refraction {
   /** Snapshot the open thread now and break it apart; false when there is none, or no HTML-in-Canvas. */
   navigate(): boolean;
+  /** Refract the transcript above the composer; false when there is no composer, or no HTML-in-Canvas. */
+  send(): boolean;
   /** Turn a source into dust (dust.ts); false when it cannot. */
   dust(source: DustSource): boolean;
   /** Whether the dust draws from the real rendering (HTML-in-Canvas) and so wants a source's `copy`. */
@@ -55,7 +59,7 @@ export interface Refraction {
 export const REFRACTION_ATTRIBUTE = "data-lively-refraction";
 
 /** The shader mode of each scene; every canvas trigger has one (tests/control.test.ts holds the table to it). */
-export const SCENE_MODES: Readonly<Record<SceneKind, number>> = { navigate: 0, waiting: 2 };
+export const SCENE_MODES: Readonly<Record<SceneKind, number>> = { navigate: 0, send: 1, waiting: 2 };
 /** The waiting scene's frame rate: a slow ripple needs no more. */
 const WAITING_FPS = 30;
 /** How long the Hiss resonates per request: under five seconds, so it needs no pause control (WCAG 2.2.2). */
@@ -77,7 +81,7 @@ uniform sampler2D u_tex;
 uniform int u_mode;
 uniform float u_t;      // progress 0..1 (navigate, send), seconds (waiting)
 uniform vec2 u_res;     // window size, CSS px
-uniform vec4 u_rect;    // navigate: the thread's box; waiting: the request card (x0, y0, x1, y1 in 0..1)
+uniform vec4 u_rect;    // navigate: the thread's box; send: the refracting band; waiting: the request card (x0, y0, x1, y1 in 0..1)
 uniform vec3 u_hiss;
 uniform float u_seed;
 
@@ -122,6 +126,27 @@ void main() {
     float gap = 0.004 + 0.07 * e;
     c.a *= smoothstep(0.0, gap, f) * smoothstep(0.0, gap, 1.0 - f);
     c.a *= 1.0 - smoothstep(0.3, 0.95, t);
+    o = premul(c);
+  } else if (u_mode == 1) {
+    // A prism slides along the band above the composer (u_rect), refracting what is under it; it enters
+    // and leaves at the band's ends, never past them.
+    float t = clamp(u_t, 0.0, 1.0);
+    float e = t * t * (3.0 - 2.0 * t);
+    float w = 0.09;
+    float cx = mix(u_rect.x - w, u_rect.z + w, e);
+    float d = (p.x - cx) / w;
+    bool inside = all(greaterThan(p, u_rect.xy)) && all(lessThan(p, u_rect.zw)) && abs(d) < 1.0;
+    if (!inside) { o = vec4(0.0); return; }
+    float lens = 1.0 - d * d;
+    float edge = smoothstep(u_rect.y, u_rect.y + 0.04, p.y);
+    vec2 q = p + vec2(d * 0.02 * lens, -0.012 * lens);
+    vec4 c = disperse(q, 0.008 * lens + 3.0 * px.x);
+    c.a = lens * edge * sin(3.14159 * t);
+    // The prism's lit edge along the composer's top: a spectral line.
+    float line = 1.0 - smoothstep(0.0, 2.0 * px.y, abs(p.y - u_rect.w + 1.0 * px.y));
+    vec3 spectrum = 0.5 + 0.5 * cos(6.28318 * (d * 0.5 + vec3(0.0, 0.33, 0.67)));
+    c.rgb = mix(c.rgb, spectrum, line);
+    c.a = max(c.a, line * lens * sin(3.14159 * t));
     o = premul(c);
   } else {
     // The Hiss: the request echoes outward in red, rippling; the chant in the margins doubles over itself.
@@ -332,7 +357,7 @@ export function createRefraction(options: RefractionOptions): Refraction | undef
    * A sanitized copy of `original`, placed where it sits on screen, on the page's own background;
    * `settle` matches its scroll positions to the original's once it is in the document (laid out).
    * bb virtualizes its timeline, so a thread view is ~400–500 nodes on any thread: 20–45 ms to
-   * clone and lay out on a CPU-rendered headless Chromium, once per switch.
+   * clone and lay out on a CPU-rendered headless Chromium, once per switch or send.
    */
   const snapshot = (original: Element): { readonly copy: HTMLElement; readonly settle: () => void } => {
     const box = original.getBoundingClientRect();
@@ -366,6 +391,20 @@ export function createRefraction(options: RefractionOptions): Refraction | undef
       dust?.clear();
       const { copy, settle } = snapshot(view);
       begin("navigate", [copy], unit(view.getBoundingClientRect()));
+      settle();
+      return true;
+    },
+    send: () => {
+      if (disposed || drawable === undefined || scene?.kind === "navigate") return false;
+      const box = doc.querySelector(targets.focusBox);
+      if (box === null) return false;
+      const view = box.closest(targets.pageView) ?? doc.querySelector(targets.pageView);
+      if (view === null) return false;
+      const composer = box.getBoundingClientRect();
+      const { copy, settle } = snapshot(view);
+      // The band: the transcript's last ~140px above the composer, across its width.
+      const band = { left: composer.left, top: Math.max(0, composer.top - 140), right: composer.right, bottom: Math.max(0, composer.top - 140) + 140 };
+      begin("send", [copy], unit(band));
       settle();
       return true;
     },

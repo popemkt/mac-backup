@@ -437,13 +437,13 @@ export const PRESETS = [
     id: "control",
     label: "Control",
     description:
-      "After Remedy's Control: the Oldest House's concrete, the Bureau's grotesque and wayfinding capitals, precise motion with no overshoot, documents redacted in black bars as you switch threads, the architecture shifting with prismatic fringes, the Board's prism in the sidebar, what you send coming apart into the Hiss's dark, prismatic dust drifting up and your message condensing out of it, and the Hiss's red resonance while an agent waits for you. Uses HTML-in-Canvas when bb is started with it (bb Launcher), CSS otherwise. The Lively Control palette: concrete at night, the Astral Plane by day.",
+      "After Remedy's Control: the Oldest House's concrete, the Bureau's grotesque and wayfinding capitals, precise motion with no overshoot, documents redacted in black bars as you switch threads, the architecture shifting with prismatic fringes, the Board's prism at the composer and in the sidebar, what you send coming apart into the Hiss's dark, prismatic dust drifting up and your message condensing out of it, and the Hiss's red resonance while an agent waits for you. Uses HTML-in-Canvas when bb is started with it (bb Launcher), CSS otherwise. The Lively Control palette: concrete at night, the Astral Plane by day.",
     artDirection: "ART-DIRECTION.md#control",
     values: {
       intensity: "lively",
       style: "clean",
       stickers: "off",
-      effects: { pageWipe: true, shiftWarp: true, hissResonance: true },
+      effects: { pageWipe: true, shiftWarp: true, hissResonance: true, prismEdge: true },
     },
     palette: "lively-control",
     art: CONTROL_ART,

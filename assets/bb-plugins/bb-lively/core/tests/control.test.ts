@@ -1,4 +1,4 @@
-// Control: the preset, its two canvas effects and their CSS halves, its send's dust on the
+// Control: the preset, its three canvas effects and their CSS halves, its send's dust on the
 // same layer, and HTML-in-Canvas detection across both API generations.
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
@@ -15,7 +15,7 @@ afterEach(() => {
   for (const done of close.splice(0)) done();
 });
 
-const CANVAS_EFFECTS = ["shiftWarp", "hissResonance"] as const;
+const CANVAS_EFFECTS = ["shiftWarp", "hissResonance", "prismEdge"] as const;
 
 test("control: the whole look in one choice, its canvas effects its own, its send the Hiss's dust", () => {
   const { settings } = resolve({ ...NO_CHOICES, preset: "control" });
@@ -28,13 +28,13 @@ test("control: the whole look in one choice, its canvas effects its own, its sen
   }
   assert.deepEqual(
     CANVAS_EFFECTS.map((effect) => EFFECTS[effect].canvas),
-    ["navigate", "waiting"],
+    ["navigate", "waiting", "send"],
   );
   const control = presetById("control");
   assert.equal(control.send, "dust");
   assert.equal(resolveMotion(settings, false, control.tokens, control.send).send, "dust");
   assert.ok(SEND_FORM_INFO.dust.canvas);
-  // The Hiss is a state and stays under reduced motion; the slabs are movement and go.
+  // The Hiss is a state and stays under reduced motion; the slabs and the prism are movement and go.
   const reduced = resolveMotion(settings, true).effects;
   assert.deepEqual(
     CANVAS_EFFECTS.filter((effect) => reduced.includes(effect)),
@@ -44,7 +44,7 @@ test("control: the whole look in one choice, its canvas effects its own, its sen
 
 test("control: the CSS halves of the canvas effects stand down while the layer draws them", () => {
   const css = buildStylesheet(TARGETS);
-  for (const effect of ["shiftWarp"] as const) {
+  for (const effect of ["shiftWarp", "prismEdge"] as const) {
     const rules = [...css.matchAll(new RegExp(`^([^{}\\n]*\\[${effectAttribute(effect)}\\][^{]*)\\{`, "gmu"))].map((match) => match[1] ?? "");
     assert.ok(rules.length > 0, effect);
     for (const selector of rules) assert.ok(selector.includes(`:not([${ROOT.canvas}])`), selector);
@@ -173,6 +173,7 @@ test("refraction: without HTML-in-Canvas there are no scenes, only dust", () => 
   const layer = createRefraction({ win: p.win, targets: TARGETS, drawable: undefined, duration: () => 100, chant: () => [] });
   assert.ok(layer !== undefined && !layer.copies);
   assert.equal(layer.navigate(), false);
+  assert.equal(layer.send(), false);
   layer.waiting(true);
   assert.ok(!layer.running());
   layer.dispose();

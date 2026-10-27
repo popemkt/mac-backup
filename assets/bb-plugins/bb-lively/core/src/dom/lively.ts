@@ -53,6 +53,8 @@ function elementOf(target: EventTarget | null): Element | null {
 
 /** Deadline for one pulse: its CSS duration (the policy's tokens, speed applied), plus slack. */
 const deadline = (ms: number) => ms + 200;
+/** bb confirms a send (`sent`) well within this of its words leaving the composer. */
+const SENT_ECHO_MS = 5000;
 
 const REDUCED_QUERY = "(prefers-reduced-motion: reduce)";
 
@@ -143,7 +145,7 @@ export function createLively(options: CreateLivelyOptions): Lively {
         targets,
         drawable,
         // Slower than an entrance (the tokens, speed applied): the architecture shifts, it does not snap.
-        duration: () => 2.2 * tokens().enterMs,
+        duration: (kind) => (kind === "navigate" ? 2.2 : 2.4) * tokens().enterMs,
         chant: () => resolved.preset.lettering?.chant ?? [],
       });
       if (refraction === undefined) {
@@ -188,7 +190,14 @@ export function createLively(options: CreateLivelyOptions): Lively {
     form: () => current.send,
     tokens,
     layer: () => (sendWanted() && may("sendPulse") ? canvasLayer() : undefined),
+    // The words left: the button lets go and the Board's prism passes, ahead of bb's confirmation.
+    launched: (button) => release(button === null ? doc.querySelectorAll(targets.sendButton) : [button]),
   });
+  function release(buttons: Iterable<Element>): void {
+    if (mayDraw("send")) canvasLayer()?.send();
+    if (!may("sendPulse")) return;
+    for (const button of buttons) pulser.pulse(button, CLASSES.send, deadline(2 * tokens().pulseMs));
+  }
 
   const rows = createRowWatcher({
     win,
@@ -271,8 +280,9 @@ export function createLively(options: CreateLivelyOptions): Lively {
     sent: () => {
       if (disposed) return;
       rows.armSend();
-      if (!may("sendPulse")) return;
-      for (const button of doc.querySelectorAll(targets.sendButton)) pulser.pulse(button, CLASSES.send, deadline(tokens().pulseMs));
+      // A send lively saw leave the composer has rung already; one it did not (another way in) rings now.
+      if (send.launchedWithin(SENT_ECHO_MS)) return;
+      release(doc.querySelectorAll(targets.sendButton));
     },
     // A failure also glitches under a preset that has the glitch, even with the rings off.
     pulseStatus: (row, tone) =>

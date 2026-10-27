@@ -49,6 +49,8 @@ export const CLASSES = {
   enter: "lively-enter",
   pressOut: "lively-press-out",
   send: "lively-send",
+  /** The send button gathering itself, from Enter or a press until the words leave (send.ts). */
+  arm: "lively-send-arm",
   pulse: "lively-pulse",
   check: "lively-check",
   typing: "lively-typing",
@@ -72,6 +74,8 @@ export const PAGE_REPLAYED = "data-lively-paged";
  */
 export const GHOST_ATTRIBUTE = "data-lively-ghost";
 export const DRAWN_ATTRIBUTE = "data-lively-drawn";
+/** On the composer's form from a send's words leaving until its ghost goes: the host's placeholder waits. */
+export const SENDING_ATTRIBUTE = "data-lively-sending";
 
 /** Attributes the DOM layer sets on a pulsing element beside its class. */
 export const PULSE_ATTRIBUTES = {
@@ -284,6 +288,9 @@ function motionStylesheet(targets: Targets): string {
   --lively-pop-from: calc(var(--lively-press-scale) * var(--lively-overlay-scale) * var(--lively-overlay-scale));
   --lively-check-from: calc(var(--lively-press-scale) * var(--lively-overlay-scale));
   --lively-exit-scale: calc((1 + var(--lively-overlay-scale)) / 2);
+  /* The send button's anticipation: three presses deep, and a little down, away from where it sends. */
+  --lively-arm-scale: calc(1 - (1 - var(--lively-press-scale)) * 3);
+  --lively-arm-drop: calc(var(--lively-rise) * 0.2);
   /* Status rings sit on rows about three times wider than tall, inside a list that clips
      sideways: growing x a third as much grows the ring by about the same pixels each way. */
   --lively-ring-scale-x: calc(1 + (var(--lively-ring-scale) - 1) / 3);
@@ -339,6 +346,22 @@ ${reducedRoot} {${reducedTokens}
 }
 @keyframes lively-pop { from { opacity: 0; scale: var(--lively-pop-from); } to { opacity: 1; scale: 1; } }
 @keyframes lively-check { from { scale: var(--lively-check-from); } to { scale: 1; } }
+/* The send button: it gathers itself (arm) and lets go (launch) on the preset's spring, its ring
+   drawing in toward it as it gathers. */
+@keyframes lively-arm {
+  0% { scale: 1; translate: 0 0; }
+  40% { scale: var(--lively-arm-scale); translate: 0 var(--lively-arm-drop); }
+  100% { scale: 1; translate: 0 0; }
+}
+@keyframes lively-launch {
+  from { scale: var(--lively-arm-scale); translate: 0 var(--lively-arm-drop); }
+  to { scale: 1; translate: 0 0; }
+}
+@keyframes lively-gather {
+  0% { opacity: 0; scale: var(--lively-ripple-scale); }
+  40% { opacity: 0.5; scale: 1; }
+  100% { opacity: 0; scale: 1; }
+}
 @keyframes lively-ripple { from { opacity: 0.5; scale: 1; } to { opacity: 0; scale: var(--lively-ripple-scale); } }
 @keyframes lively-burst {
   0% { opacity: 0; scale: 0.35; rotate: 0deg; }
@@ -396,7 +419,8 @@ ${INTENSITIES.map(jellyKeyframes).join("\n")}
   46% { translate: calc(var(--lively-tear) * 0.3) 0; filter: none; }
   60%, 100% { translate: 0 0; filter: none; }
 }
-/* Control: the slabs (shiftWarp's CSS half). */
+/* Control: the slabs (shiftWarp's CSS half) and the prism's sweep (prismEdge's). */
+@keyframes lively-prism-sweep { from { translate: -100% 0; opacity: 1; } to { translate: 260% 0; opacity: 0; } }
 @keyframes lively-slab {
   from { translate: var(--lively-slab) 0; filter: drop-shadow(calc(var(--lively-chroma) + 3px) 0 0 var(--lively-chroma-a)) drop-shadow(calc(-3px - var(--lively-chroma)) 0 0 var(--lively-chroma-b)); }
   60% { filter: drop-shadow(1px 0 0 var(--lively-chroma-a)) drop-shadow(-1px 0 0 var(--lively-chroma-b)); }
@@ -601,7 +625,30 @@ ${wobbly("sendPulse")} .${CLASSES.send}::after {
 ${wobbly("sendPulse")} ${is(targets.sendIcon)} {
   animation: lively-sticker-pop var(--lively-overlay) var(--lively-spring) backwards;
 }
-${sendStylesheet(on, suspend)}
+/* The send button answers Enter or a press at once: its icon gathers (down and in, eased out, so it
+   moves on the first frame) while a ring draws in; when the words leave it lets go on the preset's
+   spring, past rest where the spring overshoots, and the ripple carries the motion out. */
+${on("sendPulse")} .${CLASSES.arm} { position: relative; }
+${on("sendPulse")} .${CLASSES.arm} ${is(targets.sendIcon)} {
+  animation: lively-arm calc(var(--lively-press) * 3) var(--lively-ease-out) backwards;
+}
+${on("sendPulse")} .${CLASSES.arm}::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 0 0 1.5px var(--lively-accent);
+  opacity: 0;
+  animation: lively-gather calc(var(--lively-press) * 3) var(--lively-ease-out);
+}
+${on("sendPulse")} .${CLASSES.send} ${is(targets.sendIcon)} {
+  animation: lively-launch var(--lively-pulse) var(--lively-spring) backwards;
+}
+${wobbly("sendPulse")} .${CLASSES.send} ${is(targets.sendIcon)} {
+  animation: lively-launch var(--lively-pulse) var(--lively-jelly-ease) backwards;
+}
+${sendStylesheet(on, suspend, targets)}
 /* statusPulse: two rings in a gradient of the status color, with a soft halo.
    Wobbly: the rings land hard once; the row splits into color and swells; a failure shudders. */
 ${on("statusPulse")} .${CLASSES.pulse} { --lively-tone: var(--lively-accent); }
@@ -792,6 +839,22 @@ ${noCanvas("shiftWarp")} ${replayed} ${is(targets.rowList)} > ${is(targets.row)}
   --lively-slab: calc(var(--lively-rise) * 2.4);
 }
 
+/* prismEdge (Control: the Board's prism). The canvas layer refracts the transcript above the composer;
+   this CSS half, without it, sweeps a spectral line along the composer's top edge on a send. */
+${noCanvas("prismEdge")} ${is(targets.focusBox)}:has(.${CLASSES.send})::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40%;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--lively-chroma-a), #ffb000, #34c759, #2f9bff, var(--lively-chroma-b), transparent);
+  filter: drop-shadow(0 0 calc(var(--lively-glow) * 16px) var(--lively-chroma-b));
+  opacity: 0;
+  animation: lively-prism-sweep calc(var(--lively-pulse) * 1.6) var(--lively-ease-out) backwards;
+}
+
 /* hissResonance (Control: the Hiss). While the open thread waits for the person, the timeline takes a
    red cast (still readable), a red resonance veil comes up behind it, and the request card burns Hiss
    red with the preset's chant printed doubled over itself in its corner. A state, so at every level,
@@ -871,7 +934,7 @@ const onBubble = (inflate: string) => `  content: "";
  * level each form is its own art. Only composited properties move; pseudo-elements and the ghost's
  * three layers carry the rest.
  */
-function sendStylesheet(on: (effect: EffectId) => string, suspend: string): string {
+function sendStylesheet(on: (effect: EffectId) => string, suspend: string, targets: Targets): string {
   const base = on("sendPulse");
   const form = (name: SendForm) => `:root[${ROOT.level}="full"][${ROOT.send}="${name}"][${effectAttribute("sendPulse")}]${suspend}`;
   const skewedSlap = `:root[${ROOT.level}="full"][${ROOT.send}="slap"][${ROOT.skew}="on"][${effectAttribute("sendPulse")}]${suspend}`;
@@ -935,6 +998,7 @@ function sendStylesheet(on: (effect: EffectId) => string, suspend: string): stri
 @keyframes lively-scan-uncover { from { scale: 1 1; } to { scale: 1 0; } }
 @keyframes lively-scan-ride { from { opacity: 1; translate: 0 -6px; } to { opacity: 1; translate: 0 calc(var(--lively-bh) - 6px); } }
 @keyframes lively-blink { from { opacity: 1; } to { opacity: 0; } }
+@keyframes lively-flicker { 0%, 100% { opacity: 0; } 20%, 60% { opacity: 1; } 40% { opacity: 0.25; } }
 @keyframes lively-dust-out {
   from { opacity: 1; translate: 0 0; filter: blur(0) drop-shadow(0 0 0 var(--lively-chroma-a)) drop-shadow(0 0 0 var(--lively-chroma-b)); }
   to { opacity: 0; translate: calc(var(--lively-rise) * 3) calc(var(--lively-rise) * -9); filter: blur(calc(var(--lively-blur) * 3 + 2px)) drop-shadow(calc(var(--lively-chroma) + 2px) 0 0 var(--lively-chroma-a)) drop-shadow(calc(-2px - var(--lively-chroma)) 0 0 var(--lively-chroma-b)); }
@@ -950,7 +1014,7 @@ function sendStylesheet(on: (effect: EffectId) => string, suspend: string): stri
   to { opacity: 1; translate: 0 0; filter: blur(0); }
 }
 @keyframes lively-dust-reveal {
-  0%, 80% { opacity: 0; filter: blur(calc(var(--lively-blur) * 2)); }
+  0%, 82% { opacity: 0; filter: blur(calc(var(--lively-blur) * 2)); }
   100% { opacity: 1; filter: blur(0); }
 }
 @keyframes lively-motes {
@@ -965,6 +1029,10 @@ ${base} ${ghost} > [${GHOST_ATTRIBUTE}-layer] { position: absolute; inset: 0; po
 ${base} ${leaving} { animation: lively-depart var(--lively-enter) var(--lively-ease-out) backwards; }
 ${base} ${landing} { animation: lively-enter var(--lively-enter) var(--lively-spring) var(--lively-send-delay) backwards; }
 ${base} ${ghost}[${DRAWN_ATTRIBUTE}] { visibility: hidden; }
+/* The host's placeholder would show through the words still standing in the composer: it waits for
+   them to go, then fades in. */
+${base} ${is(targets.composerText)} *::before { transition: opacity var(--lively-enter) var(--lively-ease-out); }
+${base} [${SENDING_ATTRIBUTE}] ${is(targets.composerText)} *::before { opacity: 0; transition: none; }
 
 /* glide (clean): the words and the message travel one path together, crossing over as they go. */
 ${form("glide")} ${leaving} { animation: lively-depart var(--lively-send-span) var(--lively-spring) backwards; }
@@ -1093,11 +1161,11 @@ ${form("scan")} ${landing}::before {
   opacity: 0;
   animation: lively-scan-ride calc(var(--lively-send-span) * 0.75) steps(6, end) var(--lively-send-delay);
 }
-${form("scan")} .${CLASSES.send}::after {
+${form("scan")} :is(.${CLASSES.send}, .${CLASSES.arm})::after {
   border-radius: 0;
   box-shadow: 0 0 0 1px var(--lively-accent);
-  animation: lively-ripple var(--lively-pulse) steps(3, end);
 }
+${form("scan")} .${CLASSES.send}::after { animation: lively-ripple var(--lively-pulse) var(--lively-ease-out); }
 ${form("scan")} .${CLASSES.send}::before {
   width: 6px;
   height: 6px;
@@ -1105,7 +1173,7 @@ ${form("scan")} .${CLASSES.send}::before {
   border-radius: 0;
   background: var(--lively-accent-2);
   box-shadow: none;
-  animation: lively-blink calc(var(--lively-pulse) / 2) steps(2, jump-none) 2;
+  animation: lively-flicker var(--lively-pulse) var(--lively-ease-out);
 }
 
 /* dust (Control, the Hiss): drawn on the canvas layer when it can run (dust.ts), the ghost and the
@@ -1125,7 +1193,7 @@ ${[1, 2]
   .join("\n")}
 ${form("dust")} ${landing} { animation: lively-dust-in var(--lively-send-span) var(--lively-ease-out) var(--lively-send-delay) backwards; }
 ${form("dust")} ${drawn} { animation: lively-dust-reveal var(--lively-send-span) linear var(--lively-send-delay) backwards; }
-${form("dust")} .${CLASSES.send}::after { box-shadow: none; animation: none; }
+${form("dust")} :is(.${CLASSES.send}, .${CLASSES.arm})::after { box-shadow: none; animation: none; }
 ${form("dust")} .${CLASSES.send}::before {
   width: 3px;
   height: 3px;

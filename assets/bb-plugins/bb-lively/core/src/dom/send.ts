@@ -23,7 +23,7 @@ import type { DustSource } from "./dust.ts";
 import type { Pulser } from "./pulser.ts";
 import type { Refraction } from "./refraction.ts";
 import { type Box, glyphsOf, type Glyph, sanitizedCopy, textBounds } from "./snapshot.ts";
-import { CLASSES, DRAWN_ATTRIBUTE, GHOST_ATTRIBUTE } from "./stylesheet.ts";
+import { CLASSES, DRAWN_ATTRIBUTE, GHOST_ATTRIBUTE, SENDING_ATTRIBUTE } from "./stylesheet.ts";
 import type { Targets } from "./targets.ts";
 
 /** A copy is a send's only if the composer empties within this long of it (ms). */
@@ -36,6 +36,8 @@ const ECHO_WINDOW_MS = 2500;
 const REPLY_WINDOW_MS = 180_000;
 /** Ghosts on screen at once; an older one goes at once. */
 const MAX_GHOSTS = 3;
+/** The send button's anticipation at most (its animation, `lively-arm`, ends sooner and lets the class go). */
+const ARM_MS = 600;
 
 export interface SendSequenceOptions {
   readonly win: Window;
@@ -49,11 +51,15 @@ export interface SendSequenceOptions {
   readonly tokens: () => MotionTokens;
   /** The canvas layer, when the form draws there and it can run (full level, WebGL 2). */
   readonly layer: () => Refraction | undefined;
+  /** The words left the composer: the send button lets go (`sent`'s work, ahead of the host's confirmation). */
+  readonly launched: (button: Element | null) => void;
 }
 
 export interface SendSequence {
   /** Rows the row watcher reports: claims the send's echo and the turn's first reply, returns the rest. */
   rows(arriving: ReadonlyArray<Element>, rekeyed: ReadonlyArray<Element>): ReadonlyArray<Element>;
+  /** Whether a send left the composer within `ms` (so the host's confirmation need not ring the button again). */
+  launchedWithin(ms: number): boolean;
   dispose(): void;
 }
 
@@ -65,6 +71,10 @@ interface Capture {
   readonly copy: ReturnType<typeof sanitizedCopy>;
   readonly style: { readonly font: string; readonly color: string; readonly background: string };
   readonly glyphs: ReadonlyArray<Glyph>;
+  /** The form's send button, which gathers itself now and lets go at launch. */
+  readonly button: Element | null;
+  /** The composer's form, whose placeholder waits while the words stand in it. */
+  readonly form: Element;
 }
 
 /** A send between its composer emptying and its echo landing. */
@@ -112,6 +122,7 @@ export function createSendSequence(options: SendSequenceOptions): SendSequence {
   /** Where the last echo landed, until its turn's first reply does. */
   let awaiting: { readonly list: Element | null; readonly until: number } | undefined;
   let disposed = false;
+  let lastLaunch = Number.NEGATIVE_INFINITY;
 
   const span = () => options.tokens().enterMs * (options.level() === "full" ? SEND_FORM_INFO[options.form()].span : 1);
   const dustDrawn = () => options.level() === "full" && SEND_FORM_INFO[options.form()].canvas ? options.layer() : undefined;
@@ -125,7 +136,10 @@ export function createSendSequence(options: SendSequenceOptions): SendSequence {
     if (rect.width === 0 || rect.height === 0) return;
     const editor = box.querySelector("[contenteditable]") ?? box;
     const computed = win.getComputedStyle(editor);
+    const button = form.querySelector(targets.sendButton) ?? doc.querySelector(targets.sendButton);
     capture = {
+      button,
+      form,
       at: now(),
       box: rect,
       text: textBounds(win, editor, rect),
@@ -134,6 +148,9 @@ export function createSendSequence(options: SendSequenceOptions): SendSequence {
       // Only the dust draws glyphs, and only without HTML-in-Canvas.
       glyphs: dustDrawn() !== undefined && dustDrawn()?.copies !== true ? glyphsOf(win, editor, rect) : [],
     };
+    // Anticipation: the send button gathers itself the moment Enter goes down or it is pressed,
+    // well inside 100 ms; it lets go when the words leave (launch), or settles back if they do not.
+    if (button !== null) pulser.pulse(button, CLASSES.arm, ARM_MS);
     watch(form);
   };
   const keydown = (event: KeyboardEvent) => {
@@ -210,6 +227,10 @@ export function createSendSequence(options: SendSequenceOptions): SendSequence {
     }
     const send: Send = { capture: taken, at: now(), ghost: ghostOf(taken), timer: undefined, flown: false };
     sends.push(send);
+    lastLaunch = send.at;
+    taken.form.setAttribute(SENDING_ATTRIBUTE, "");
+    if (taken.button !== null) pulser.end(taken.button, CLASSES.arm);
+    options.launched(taken.button);
     // The dust: the words come apart where they are, now; the ghost stands in until the first frame.
     const layer = dustDrawn();
     if (layer !== undefined && send.ghost !== undefined) {
@@ -225,7 +246,8 @@ export function createSendSequence(options: SendSequenceOptions): SendSequence {
     let copy: HTMLElement | undefined;
     if (layer.copies) {
       copy = doc.createElement("div");
-      copy.style.cssText = ghost.style.cssText.replace("position:fixed", "position:absolute");
+      copy.style.cssText = ghost.style.cssText;
+      copy.style.position = "absolute";
       copy.append(sanitizedCopy(ghost.firstElementChild ?? ghost).clone);
     } else if (taken.glyphs.length === 0) return undefined;
     // Up and with the wind: a quarter of the way across, a long way up.
@@ -249,6 +271,7 @@ export function createSendSequence(options: SendSequenceOptions): SendSequence {
     if (send.flown) return;
     send.flown = true;
     if (send.timer !== undefined) win.clearTimeout(send.timer);
+    if (!sends.some((other) => other !== send && !other.flown && other.capture.form === send.capture.form)) send.capture.form.removeAttribute(SENDING_ATTRIBUTE);
     const ghost = send.ghost;
     if (ghost === undefined || disposed) return;
     // Alone, it goes up toward the thread, as far as an echo above the composer would be.
@@ -324,7 +347,11 @@ export function createSendSequence(options: SendSequenceOptions): SendSequence {
     const copy = doc.createElement("div");
     copy.style.cssText = `position:absolute;left:${px(box.left)};top:${px(box.top)};width:${px(box.width)};height:${px(box.height)};margin:0;overflow:hidden`;
     const { clone, settle } = sanitizedCopy(bubble);
+    // Its own box, not one its old parent gave it (bb's bubble is at most 70% of its column).
     clone.style.margin = "0";
+    clone.style.width = px(box.width);
+    clone.style.maxWidth = "none";
+    clone.style.minWidth = "0";
     copy.append(clone);
     win.queueMicrotask(settle);
     return copy;
@@ -371,6 +398,7 @@ export function createSendSequence(options: SendSequenceOptions): SendSequence {
   };
 
   return {
+    launchedWithin: (ms) => now() - lastLaunch <= ms,
     rows: (arriving, rekeyed) => {
       if (disposed) return arriving;
       // The host swapped a landing message's row for another at its place: carry the motion on.
@@ -417,6 +445,7 @@ export function createSendSequence(options: SendSequenceOptions): SendSequence {
       for (const send of sends) {
         if (send.timer !== undefined) win.clearTimeout(send.timer);
         send.ghost?.remove();
+        send.capture.form.removeAttribute(SENDING_ATTRIBUTE);
       }
       sends.length = 0;
       flights.length = 0;

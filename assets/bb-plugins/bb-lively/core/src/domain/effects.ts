@@ -23,6 +23,7 @@ export const EFFECT_IDS = [
   "glitch",
   "shiftWarp",
   "hissResonance",
+  "prismEdge",
   "calmHost",
 ] as const;
 
@@ -49,15 +50,16 @@ export interface EffectInfo {
   /**
    * Drawn on lively's HTML-in-Canvas layer (dom/refraction.ts) when the
    * browser has the API, from the moment that starts it: a thread switch
-   * (`navigate`) or a request waiting for the person (`waiting`). (A send's
-   * canvas form is the send's own: domain/send.ts.) Its CSS rules are the fallback and stand down while the
+   * (`navigate`), a send (`send`), or a request waiting for the person
+   * (`waiting`). (The words a send carries off are the send form's own:
+   * domain/send.ts.) Its CSS rules are the fallback and stand down while the
    * layer runs (`data-lively-canvas` on the root). Absent: CSS only.
    */
   readonly canvas?: CanvasTrigger;
 }
 
 /** What starts an effect's scene on the HTML-in-Canvas layer. */
-export const CANVAS_TRIGGERS = ["navigate", "waiting"] as const;
+export const CANVAS_TRIGGERS = ["navigate", "send", "waiting"] as const;
 export type CanvasTrigger = (typeof CANVAS_TRIGGERS)[number];
 
 /** Whether an effect belongs to the active preset (every effect without `presets` does). */
@@ -96,10 +98,10 @@ export const EFFECTS: Readonly<Record<EffectId, EffectInfo>> = {
     reducedSafe: true,
   },
   sendPulse: {
-    label: "Send",
+    label: "Message motion",
     wobbly: "The default form becomes the slap: the words jump once and cut, the message slaps in with a flash and bounces; the button throws a halftone burst and its icon pops in like a sticker.",
     description:
-      "Sending is one motion in the preset's own form: the send button answers, the words you sent leave the composer, and your message lands in the thread along the path from where you wrote it; the agent's first reply arrives the same way. Clean glides, wobbly slaps, and Cloudbank, YoRHa and Control each have their own (cells, a scan, the Hiss's dust).",
+      "The motion of a message being sent and arriving, in the preset's own form: the send button gathers itself as you press Enter and lets go as the words leave the composer, your message lands in the thread along the path from where you wrote it, and the agent's first reply arrives the same way. Clean glides, wobbly slaps, and Cloudbank, YoRHa and Control each have their own (cells, a scan, the Hiss's dust). Off: messages come and go as bb shows them, while the rest of lively's motion stays. Independent of Motion (which, set to off, stops everything).",
     default: true,
     reducedSafe: true,
   },
@@ -200,6 +202,16 @@ export const EFFECTS: Readonly<Record<EffectId, EffectInfo>> = {
     reducedSafe: true,
     presets: ["control"],
     canvas: "waiting",
+  },
+  prismEdge: {
+    label: "Prismatic composer",
+    wobbly: "The same under either style.",
+    description:
+      "Sending refracts the end of the transcript through a prism along the composer's top edge: a spectral sweep splits it into its colors for a moment, like the Board's prism. With HTML-in-Canvas it refracts the real transcript; without, a spectral line sweeps the edge. Control only.",
+    default: true,
+    reducedSafe: false,
+    presets: ["control"],
+    canvas: "send",
   },
   calmHost: {
     label: "Calm bb's own motion",
