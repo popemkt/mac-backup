@@ -162,9 +162,6 @@ in
   # that Service's. A request with that Origin acts as the person, so the UI
   # listens on a Unix socket only they and root (tailscaled) can reach, not
   # on a loopback port every account can.
-  # GAP [[01M5HXHNERZR77Z0HX0SZCQZPP]]: a socket server writes no
-  # .kb/ui.json, so the CLI's and MCP's ui.* calls see no tabs; their graph
-  # reads and writes, and the page's live view of them, are unaffected.
   my.services.kb = kbHome "popemkt" [
     # bb frames the page beside a thread (assets/bb-plugins/kb), and the
     # framed page tells bb its tab session (kb DESIGN.md → Surfaces →
