@@ -117,15 +117,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Canonical statements
 - **node** — `01M56SQJF52DWN2T00D510BRQ3`
 
-### GAP: main has no required branch protection
-
-- **expected** — Branch protection requires the Nix and KB validation checks before main can advance.
-- **current** — CI runs the checks, but enabling required branch protection remains a manual control-plane step.
-- **impact** — A failed or skipped check does not necessarily prevent direct progression of main.
-- **closes** — Enable branch protection for main with the documented Nix and KB checks required and verify the policy.
-- **rule** — Admission gate
-- **node** — `01M1PJXGKQ0HAYEWY2V0QPWVX1`
-
 ### GAP: my.services runs native apps on NixOS only
 
 - **expected** — An app declared in my.services runs on any host as its owner, under that platform's service manager (systemd on NixOS, a launchd agent on macOS), and is exposed the same way
@@ -335,6 +326,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Until it is pinned, nix build .#kb, the dev shell (so nix develop, and both CI jobs) and the darwin systems fail on the hash; nothing on this branch can be switched to or go green
 - **closes** — publish v0.2.0, add [kb] to nvfetcher.toml, run github-sources update kb, delete the hand-written source
 - **node** — `01M56GS17DHFTQ4F64WKSMMAE1`
+
+### GAP: main has no required branch protection
+
+- **expected** — Branch protection requires the Nix and KB validation checks before main can advance.
+- **current** — CI runs the checks, but enabling required branch protection remains a manual control-plane step.
+- **impact** — A failed or skipped check does not necessarily prevent direct progression of main.
+- **closes** — Enable branch protection for main with the documented Nix and KB checks required and verify the policy.
+- **rule** — Admission gate
+- **node** — `01M1PJXGKQ0HAYEWY2V0QPWVX1`
 
 ### GAP: nothing audits this store's checks and rules
 

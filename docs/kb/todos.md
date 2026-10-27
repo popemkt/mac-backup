@@ -23,6 +23,7 @@
 ### todo
 
 - Decide how the policy reapply after a new Tailscale Service should work (today: tailscale-services.yml dispatches tailscale-policy.yml when a GET 404s and it creates the Service; untested, and the user wants to rethink it)
+- revisit later: backup provider and account (D2). Recommended R2 with Litestream (~/.bb/bb.db and kb SQLite, 1m sync) plus nightly restic; module NOT built, owner will revisit. Plan: .kb/assets/overnight/2026-10-26/proposals.md
 
 ### done
 
