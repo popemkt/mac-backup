@@ -1,6 +1,7 @@
 # Claude Code session import: what bb allows, options, design
 
-Date: 2026-10-27. Design only; nothing is built. It continues bb thread `thr_9cfkgc2v3x` (2026-10-23), which sized
+Date: 2026-10-27. Written as a design, then built: section 11 records what the build measured and where it departed
+from this design (the reader, the brief, sync). It continues bb thread `thr_9cfkgc2v3x` (2026-10-23), which sized
 options A–D on an older bb. Claims are tagged **[measured]** (run here), **[code]** (read in source or in the installed
 bundle), **[doc]** or **[unverified]**. Sources: installed bb 0.46.1 on shared-server
 (`~/.local/lib/node_modules/bb-app/`); plugin SDK `@get-bb/plugin-sdk` 0.6.49 (the version our plugins pin), checked
@@ -180,6 +181,9 @@ concept. The session format belongs to Claude Code. The host entry therefore rea
 (`listSessions`, `getSessionMessages`) and does not keep a second JSONL parser. That is a bridge, not a mirror. A
 hand-written streaming reader is the fallback, and only if spike S1 fails.
 
+**Built differently (section 11.2):** S2 failed, since `getSessionMessages` returns only the chain after the latest
+compaction, so transcripts are read by the plugin's own streaming reader. The SDK still lists sessions.
+
 Only Claude Code is in v1. A Codex reader would later be a second implementation of the same reader port
 (`list`, `read` → a neutral transcript), with one contract test over both. The port is not built until there is a
 second reader, because a seam with one implementation that no code path varies is a dead seam.
@@ -324,7 +328,12 @@ decision belongs to the import step.
 - **S5, version skew:** the Mac's daemon (app 0.47.0) has to run a host entry served by the 0.46.1 server.
   agent-artifacts is evidence that it does, but this was not checked for a new plugin.
 
-## 10. Open questions for the owner
+## 10. Open questions for the owner (answered 2026-10-27)
+
+Answers: (1) both: build the handoff plugin now, then prepare the Claude Code part of #3260 as a bb change, without
+publishing it until the owner confirms. (2) Default: the session's own machine, in its own directory, with the
+per-import switch kept.
+
 
 1. **Handoff now, or wait for native adoption?** Recommended: build A+ now (about 3 days). Native resume is a named
    gap that closes with upstream #3260. The other choice is to contribute the Claude Code part of #3260 to bb
@@ -335,3 +344,59 @@ decision belongs to the import step.
    uncommitted work, but it uses the Mac's memory. Running it on shared-server is lighter, but it gets the
    project's committed state only. The design defaults to the session's own machine and lets you change it per
    import. Say if shared-server should be the default instead.
+
+## 11. Build (2026-10-27)
+
+Built as `assets/bb-plugins/session-import` on this branch, installed on shared-server for trial with
+`bb-plugins-sync --path`. Tests: 38 pass (`npm test`: core over synthetic fixtures, host over a temporary config dir,
+server in bb's fake plugin host); `tsc` clean; bb builds and runs it (`session-import@0.1.0 running`).
+
+### 11.1 Spikes S1–S5
+
+| | Question | Result |
+|---|---|---|
+| S1 | Reader memory on a 160 MB session | **Pass, with the plugin's own reader.** Synthetic 192 MB on shared-server: 317 ms, peak RSS 195 MB; `getSessionMessages` on the same file: 1,233 ms, 527 MB. The real 160 MB Mac session (44,842 records) through the Mac's daemon: 490 ms, peak 206 MB [measured]. The handoff survey measured txcript at 1.0 GB on that file. |
+| S2 | Does `getSessionMessages` cross compaction? | **Fail.** It returns only the chain after the latest compaction [measured]. Adapted: the reader follows `logicalParentUuid` across `compact_boundary` records; an 18.6 MB session with 4 compactions gives 17 turns and all 4 summaries [measured]. |
+| S3 | A large agent-only input at spawn | **Pass.** About 229 KB of agent-only text (a 238,827-byte request event, `--budget 60000`, 57,168 tokens) was accepted and reached Claude intact [measured]. |
+| S4 | `localFile` outside the cwd, read without a prompt | **Pass in `auto`.** The agent read the transcript in the plugin's data dir with no interaction event; the thread's permission mode was `auto` (the project default). `accept-edits` was not tried. |
+| S5 | The Mac's 0.47.0 daemon running a host entry served by 0.46.1 | **Pass.** `bb session-import list --machine popemkt-work` answered in 1.7 s (18 sessions over 3 days), and later builds' host code reached the Mac without a restart. |
+
+### 11.2 Where the build departs from sections 7–9
+
+- **Reader (S2).** `core/transcript.ts` holds a streaming reader fed one record at a time: it keeps per record only
+  its parent link and, for main-chain messages, condensed text and tool lines, and it walks back from the last
+  message through `parentUuid`, then `logicalParentUuid` across compactions. Rewound branches and sidechains drop out.
+  The SDK's `listSessions` (head and tail reads) still lists sessions. When a second reader comes (Codex), the
+  survey's txcript is the candidate, behind the reader port of 7.1.
+- **"Where the session stood" (from the survey, item 1).** Above the transcript and never cut: files changed (Edit,
+  MultiEdit, Write, NotebookEdit) and files only read, the last TodoWrite list, a final tool call without a result
+  ("ended mid-tool: check whether it took effect"), and the person's and Claude's last messages verbatim (3,000
+  characters each). Built from the records, with no model call. TodoWrite appears in none of this owner's sessions on
+  either machine [measured: 0 calls], so the todo line rarely shows.
+- **Injected blocks (survey item 2).** `<task-notification>` user messages (69 in the last 24 shared-server sessions,
+  none `isMeta` [measured]) render as `_[notification, not from the person: …]_` inside Claude's turn, never as
+  `## User`. Reminders, local-command output and `isMeta` skill bodies stay dropped.
+- **Errors (survey item 5).** A failed call keeps the first 200 characters of its error: `(failed: …)`.
+- **Mark and sync (survey item 6, built).** An import records how many records it read, their sha256 and the last
+  message's uuid in the thread's plugin metadata. `bb session-import sync <thread>`, and **Send them to this thread**
+  in the Original session tab (shown when the session gained turns), send the turns after that uuid to the thread
+  through `threads.send` (`queue-if-active`): the turns agent-only, under an updated brief, plus a visible message.
+  The transcript file is rewritten and the mark moves. Sync refuses when the first N records' hash differs
+  (rewritten) or the uuid left the main chain (rewound). Torn last lines are not counted, so a file caught mid-write
+  still matches later. Live: a throwaway `claude -p` session imported, extended with `--resume`, synced; the thread
+  got both parts and answered; a second sync said nothing new [measured].
+- **Surfaces.** Besides the New thread right-panel action, an **Import sessions** page in bb's navigation hosts the same
+  picker. Icons are `ArchiveRestore` and `Clock`; bb's icon map has no `Import` or `History`.
+- **Not built from 7.3:** per-row token estimates (a whole read per row), `CLI`/`SDK` entrypoint badges, provider and
+  model pickers in the preview (the RPC and CLI accept `providerId` and `model`), and the budget as a plugin setting
+  (it is per import: `--budget`). The CLI uses `--days N | --all` and `--prompt text`. The in-bb index is cached in memory
+  for each plugin load, not in storage.
+- **Not built from the survey:** range import (item 7), the windowed Original session panel (item 12; the host clips
+  texts to stay under the 8 MiB answer), the brief as an editable visible draft (item 13; the preview shows it
+  read-only), redaction (item 14), the `claude --resume` escape hatch (item 16), and a format-version warning (item
+  17; the version is in the header).
+
+### 11.3 Native adoption
+
+Recorded as gap `01M5YQ7EX8GTERS32BT5G9H7Q7` and marked at the spawn in `server.ts`. Spike S6 (a plugin-registered ACP
+provider that resumes through `claude-agent-acp`) and the upstream #3260 preparation follow in section 12.
