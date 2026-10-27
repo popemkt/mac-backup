@@ -235,7 +235,7 @@ export function instructionCandidates(input: {
       native(`${ws}/CLAUDE.md`, "Claude Code project memory");
       native(`${ws}/.claude/CLAUDE.md`, "Claude Code project memory");
       native(`${ws}/CLAUDE.local.md`, "Claude Code local memory");
-      native(`${ws}/AGENTS.md`, "AGENTS.md", "Claude Code reads it when no CLAUDE.md takes precedence");
+      native(`${ws}/AGENTS.md`, "AGENTS.md", "Claude Code loads it only through an @AGENTS.md import in a CLAUDE.md");
     }
   } else if (providerId === "codex") {
     if (home !== null) native(`${home}/.codex/AGENTS.md`, "Codex user instructions");
@@ -406,7 +406,7 @@ function plugin(p: PluginRecord, threadProvider: string): Plugin {
     statusDetail: p.statusDetail,
     health: healthOf(p),
     isThreadProvider,
-    reachesAgent: p.enabled && (tools.length > 0 || skills.length > 0 || integrations.length > 0 || cli !== null || isThreadProvider),
+    reachesAgent: (healthOf(p) === "ok" || healthOf(p) === "warning") && (tools.length > 0 || skills.length > 0 || integrations.length > 0 || cli !== null || isThreadProvider),
     tools,
     skills,
     integrations,
@@ -433,7 +433,8 @@ function byPluginOrder(a: Plugin, b: Plugin): number {
 export function buildInventory(s: Snapshot, builtAt: number): Inventory {
   const skills = resolveSkills(s.skills, s.thread.providerId, s.providerNames);
   const plugins = s.plugins.map(p => plugin(p, s.thread.providerId)).sort(byPluginOrder);
-  const running = s.plugins.filter(p => p.enabled && healthOf(p) !== "error");
+  // Starting or with a service down still counts (its tools are registered); stopped or failed does not.
+  const running = s.plugins.filter(p => healthOf(p) === "ok" || healthOf(p) === "warning");
   const tools: Tool[] = running.flatMap(p =>
     p.capabilities.filter(c => c.kind === "agent-tool").map(c => ({ name: c.label, detail: (c.detail ?? "").trim(), pluginId: p.id, pluginName: p.name })),
   );

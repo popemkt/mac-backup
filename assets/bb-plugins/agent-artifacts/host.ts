@@ -11,6 +11,7 @@ import { hostContract } from "./contract";
 import {
   SETTINGS_SOURCES,
   endpoint,
+  isPluginOn,
   isRecord,
   mergeSettings,
   strings,
@@ -39,8 +40,9 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 
 const sleep = (ms: number, signal: AbortSignal) =>
   new Promise<void>(resolve => {
-    const timer = setTimeout(resolve, ms);
-    signal.addEventListener("abort", () => (clearTimeout(timer), resolve()), { once: true });
+    const onAbort = () => (clearTimeout(timer), resolve());
+    const timer = setTimeout(() => (signal.removeEventListener("abort", onAbort), resolve()), ms);
+    signal.addEventListener("abort", onAbort, { once: true });
   });
 
 // ------------------------------------------------------------------ files
@@ -101,7 +103,7 @@ type Paths = { cwd: string; roots: string[]; home: string; configDir: string; us
 
 function paths(cwd: string): Paths {
   const home = homedir();
-  const custom = process.env.CLAUDE_CONFIG_DIR;
+  const custom = process.env.CLAUDE_CONFIG_DIR || undefined;
   const configDir = custom ?? join(home, ".claude");
   const root = gitRoot(cwd);
   return { cwd, roots: root === null || root === cwd ? [cwd] : [cwd, root], home, configDir, userJson: custom === undefined ? join(home, ".claude.json") : join(custom, ".claude.json") };
@@ -150,7 +152,7 @@ function pluginFolder(id: string, root: string, problems: string[]): PluginDisk 
 
 /** Where an installed plugin lives for this workspace: a project install here, else the user install. */
 function installPath(installed: Json, id: string, roots: string[]): string | null {
-  const installs = Array.isArray(installed[id]) ? (installed[id] as Json[]) : [];
+  const installs = Array.isArray(installed[id]) ? (installed[id] as unknown[]).filter(isRecord) : [];
   const install = installs.find(i => typeof i.projectPath === "string" && roots.includes(i.projectPath)) ?? installs.find(i => i.scope === "user") ?? installs[0];
   return typeof install?.installPath === "string" ? install.installPath : null;
 }
@@ -162,7 +164,7 @@ function readDisk(p: Paths, settings: ClaudeProbe["settings"], live: ClaudeLive 
   const enabled = isRecord(merged.enabledPlugins) ? merged.enabledPlugins : {};
   const plugins: Record<string, PluginDisk> = {};
   for (const [id, on] of Object.entries(enabled)) {
-    const root = on === true ? installPath(installed, id, p.roots) : null;
+    const root = isPluginOn(on) ? installPath(installed, id, p.roots) : null;
     if (root !== null && existsSync(root)) plugins[id] = pluginFolder(id, root, problems);
   }
 
@@ -173,7 +175,7 @@ function readDisk(p: Paths, settings: ClaudeProbe["settings"], live: ClaudeLive 
   const styles = (dir: string, source: string) => listNames(dir, ".md").map(f => ({ name: f.slice(0, -3), source, path: join(dir, f) }));
 
   // The auto-memory folder: where the session loaded MEMORY.md from, else where Claude Code keeps it.
-  const auto = live?.context?.memoryFiles.find(f => f.type === "AutoMem");
+  const auto = live?.context?.memoryFiles?.find(f => f.type === "AutoMem");
   const memoryDirs = auto === undefined ? p.roots.map(r => join(p.configDir, "projects", r.replace(/[^A-Za-z0-9]/g, "-"), "memory")) : [dirname(auto.path)];
   const memoryDir = memoryDirs.find(d => existsSync(d)) ?? null;
   const memoryFiles = memoryDir === null ? [] : listNames(memoryDir, ".md");
@@ -277,9 +279,9 @@ async function liveSession(p: Paths, mcpWaitMs: number, signal: AbortSignal, pro
       account: init.account ?? null,
       permissionMode: typeof ext.current_permission_mode === "string" ? ext.current_permission_mode : null,
       outputStyle: init.output_style,
-      outputStyles: init.available_output_styles,
-      models: init.models.map(m => ({ value: m.value, displayName: m.displayName })),
-      commands: init.commands.map(c => ({ name: c.name, description: c.description, argumentHint: c.argumentHint, builtin: c.builtin === true })),
+      outputStyles: init.available_output_styles ?? [],
+      models: (init.models ?? []).map(m => ({ value: m.value, displayName: m.displayName })),
+      commands: (init.commands ?? []).map(c => ({ name: c.name, description: c.description, argumentHint: c.argumentHint, builtin: c.builtin === true })),
       agents: agents.map(a => ({ name: a.name, description: a.description, model: a.model ?? null })),
       mcp: mcp.servers.map(liveMcp),
       mcpSettled: mcp.settled,
@@ -291,17 +293,17 @@ async function liveSession(p: Paths, mcpWaitMs: number, signal: AbortSignal, pro
               maxTokens: ctx.maxTokens,
               model: ctx.model,
               autoCompactAt: ctx.autoCompactThreshold ?? null,
-              categories: ctx.categories.map(c => ({ id: c.id ?? null, name: c.name, tokens: c.tokens, kind: c.kind })),
-              memoryFiles: ctx.memoryFiles.map(f => ({ path: f.path, type: f.type, tokens: f.tokens })),
-              mcpTools: ctx.mcpTools.map(t => ({ name: t.name, serverName: t.serverName, tokens: t.tokens })),
-              agents: ctx.agents.map(a => ({ agentType: a.agentType, source: a.source, pluginId: a.pluginId ?? null, path: a.path ?? null, tokens: a.tokens })),
+              categories: (ctx.categories ?? []).map(c => ({ id: c.id ?? null, name: c.name, tokens: c.tokens, kind: c.kind })),
+              memoryFiles: (ctx.memoryFiles ?? []).map(f => ({ path: f.path, type: f.type, tokens: f.tokens })),
+              mcpTools: (ctx.mcpTools ?? []).map(t => ({ name: t.name, serverName: t.serverName, tokens: t.tokens })),
+              agents: (ctx.agents ?? []).map(a => ({ agentType: a.agentType, source: a.source, pluginId: a.pluginId ?? null, path: a.path ?? null, tokens: a.tokens })),
               skills:
                 ctx.skills === undefined
                   ? null
                   : {
                       total: ctx.skills.totalSkills,
                       included: ctx.skills.includedSkills,
-                      items: ctx.skills.skillFrontmatter.map(k => ({ name: k.name, source: k.source, pluginName: k.pluginName ?? null, pluginId: k.pluginId ?? null, path: k.path ?? null, tokens: k.tokens })),
+                      items: (ctx.skills.skillFrontmatter ?? []).map(k => ({ name: k.name, source: k.source, pluginName: k.pluginName ?? null, pluginId: k.pluginId ?? null, path: k.path ?? null, tokens: k.tokens })),
                     },
             },
     };
