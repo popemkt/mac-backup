@@ -215,3 +215,10 @@ test("YoRHa moves nothing in steps: its send, its button, its failure glitch and
   assert.match(css, /:root\[data-lively-preset="yorha"\]\[data-lively\] \{[^}]*--lively-wipe-ease: var\(--lively-ease-steady\)/u);
   assert.match(css, /--lively-wipe-ease: linear;/u, "every other wipe still cuts");
 });
+
+test("the send icon's pop stays first while the button gathers and lets go, so it never replays as a class goes", () => {
+  const icon = rules(css).filter(([selector]) => /lively-send(-arm)? :is\(button\.send > svg\)$/u.test(selector));
+  assert.ok(icon.length >= 3);
+  for (const [selector, body] of icon) assert.match(animationsOf(body)[0] ?? "", /^lively-(sticker-)?pop /u, selector);
+});
+

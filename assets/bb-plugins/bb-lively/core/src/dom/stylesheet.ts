@@ -634,8 +634,12 @@ ${wobbly("sendPulse")} ${is(targets.sendIcon)} {
    moves on the first frame) while a ring draws in; when the words leave it lets go on the preset's
    spring, past rest where the spring overshoots, and the ripple carries the motion out. */
 ${on("sendPulse")} .${CLASSES.arm} { position: relative; }
+/* The icon's pop stays first in each list: a CSS animation restarts when its name leaves the list, so
+   dropping it while a class plays would replay the pop (the icon blinking out) as the class goes. */
 ${on("sendPulse")} .${CLASSES.arm} ${is(targets.sendIcon)} {
-  animation: lively-arm calc(var(--lively-press) * 3) var(--lively-ease-out) backwards;
+  animation:
+    lively-pop var(--lively-overlay) var(--lively-spring) backwards,
+    lively-arm calc(var(--lively-press) * 3) var(--lively-ease-out) backwards;
 }
 ${on("sendPulse")} .${CLASSES.arm}::after {
   content: "";
@@ -648,10 +652,14 @@ ${on("sendPulse")} .${CLASSES.arm}::after {
   animation: lively-gather calc(var(--lively-press) * 3) var(--lively-ease-out);
 }
 ${on("sendPulse")} .${CLASSES.send} ${is(targets.sendIcon)} {
-  animation: lively-launch var(--lively-pulse) var(--lively-spring) backwards;
+  animation:
+    lively-pop var(--lively-overlay) var(--lively-spring) backwards,
+    lively-launch var(--lively-pulse) var(--lively-spring) backwards;
 }
 ${wobbly("sendPulse")} .${CLASSES.send} ${is(targets.sendIcon)} {
-  animation: lively-launch var(--lively-pulse) var(--lively-jelly-ease) backwards;
+  animation:
+    lively-sticker-pop var(--lively-overlay) var(--lively-spring) backwards,
+    lively-launch var(--lively-pulse) var(--lively-jelly-ease) backwards;
 }
 ${sendStylesheet(on, suspend, targets)}
 /* statusPulse: two rings in a gradient of the status color, with a soft halo.
