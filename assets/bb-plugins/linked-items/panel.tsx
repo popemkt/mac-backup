@@ -94,7 +94,7 @@ function useRead(read: (() => Promise<Listed>) | null) {
 
 const ACTIONS: { action: Action; label: string; icon: string; variant: "default" | "outline" }[] = [
   { action: "link", label: "Link to this thread", icon: "Link", variant: "default" },
-  { action: "unlink", label: "Unlink", icon: "Unlink", variant: "outline" },
+  { action: "unlink", label: "Unlink", icon: "Minus", variant: "outline" },
   { action: "open", label: "Open", icon: "ExternalLink", variant: "outline" },
 ];
 

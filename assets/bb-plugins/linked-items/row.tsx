@@ -69,7 +69,7 @@ function Check({ checked }: { checked: boolean }) {
     <span
       aria-hidden
       className={cls(
-        "flex size-4 shrink-0 items-center justify-center rounded-sm border",
+        "flex size-4 shrink-0 items-center justify-center rounded border",
         checked ? "border-foreground bg-foreground text-background" : "border-muted-foreground",
       )}
     >
