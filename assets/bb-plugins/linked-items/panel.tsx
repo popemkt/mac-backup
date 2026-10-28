@@ -14,7 +14,7 @@ export type Listed = {
   rows: LinkRow[];
   titles: Readonly<Record<string, string | null>>;
   error: string | null;
-  /** A line under the list: "central log unreachable", "may be incomplete", … */
+  /** A line under the list ("central log unreachable", "may be incomplete", …); for `available`, shown in search. */
   note: ReactNode;
 };
 
@@ -268,6 +268,7 @@ export function LinkedItemsPanel({
             {heading(LINKED_HEADING[scope])}
             {sections.linked.length === 0 ? <p className="px-2 pb-1 text-xs text-muted-foreground">No linked {noun.one} matches.</p> : rowsOf(sections.linked, scope !== "session")}
             {heading(`Other ${noun.many}`)}
+            {all.answer?.note != null ? <p className="px-2 pb-1 text-xs text-muted-foreground">{all.answer.note}</p> : null}
             {all.answer === null ? (
               <div className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground">
                 <Icon name="Spinner" className="size-3.5 animate-spin" /> Searching every {noun.one}…

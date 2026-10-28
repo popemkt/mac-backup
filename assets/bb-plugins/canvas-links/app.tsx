@@ -26,7 +26,7 @@ function listed(answer: ListAnswer): Listed {
     rows: (answer.listing?.canvases ?? []).map(rowOf),
     titles: Object.fromEntries(Object.entries(answer.threads).map(([id, t]) => [id, t.title])),
     error: answer.error,
-    note: answer.listing?.central === "unreachable" ? "Central log unreachable: this machine's links only." : null,
+    note: answer.note ?? (answer.listing?.central === "unreachable" ? "Central log unreachable: this machine's links only." : null),
   };
 }
 

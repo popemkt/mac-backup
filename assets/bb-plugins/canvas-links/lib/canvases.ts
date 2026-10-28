@@ -125,6 +125,20 @@ export function hostOfKey(key: string): string | null {
   return m === null ? null : m[1];
 }
 
+/** The document id or path after a key's machine: what a canvas-link that does not take keys is given instead. */
+export function identOfKey(key: string): string | null {
+  const host = hostOfKey(key);
+  return host === null ? null : key.slice(host.length + 1);
+}
+
+/**
+ * Whether a canvas-link's help says it takes keys in `add`/`rm` and has `ls --available`. One that predates them
+ * (until a machine is rebuilt) is still driven, the old way: a bare id or path, on the canvas's own machine.
+ */
+export function cliTakesKeys(help: string): boolean {
+  return help.includes("--available");
+}
+
 /** `canvas-link open` answers "on <host>" with exit 3 for a canvas on another machine. */
 export function elsewhereHost(exitCode: number, stdout: string): string | null {
   if (exitCode !== 3) return null;
