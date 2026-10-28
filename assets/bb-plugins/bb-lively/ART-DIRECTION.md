@@ -458,13 +458,18 @@ the Hiss. One sequence plays every preset's form (`core/src/dom/send.ts`); the f
   id-shape selectors `sentRow`/`replyRow` (rated H) and the Enter/clear inference; a `composer.willSubmit` with the
   text would replace the capture.
 
-| Preset | Form | The send |
-|---|---|---|
-| Custom (clean), Calm, Lively | `glide` | the words glide toward where the message lands and fade, the message comes along the same path on the spring, sharpening; at subtle it only lifts a little |
-| Custom (wobbly), ZZZ | `slap` | the words jump once and cut; the message slaps in with a flash, a sticker shadow, a skew and a halftone pop |
-| Cloudbank | `process` | the words whitewash into cells and jaunt; the message assembles in steps under a cell veil along a turquoise trace; function sparks |
-| YoRHa | `scan` | a scan bar erases the words; the message prints in under a riding bar with a rust marker |
-| Control | `dust` | the words come apart into the Hiss's dark, prismatic dust drifting up; the message condenses out of it |
+| Preset | Form | The send | Its button (gathers on Enter, lets go as the words leave) |
+|---|---|---|---|
+| Custom (clean), Calm, Lively | `glide` | the words glide toward where the message lands and fade, the message comes along the same path on the spring, sharpening; at subtle it only lifts a little | the icon dips and springs back; an accent ring draws in, then ripples out, with a ring of sparks at lively and bold |
+| Custom (wobbly), ZZZ | `slap` | the words jump once and cut; the message slaps in with a flash, a sticker shadow, a skew and a halftone pop | a halftone comic burst; the icon lets go on the jelly ease and pops like a sticker |
+| Cloudbank | `process` | the words whitewash into cells and jaunt; the message assembles in steps under a cell veil along a turquoise trace; function sparks | function sparks: rays in Turn() cyan and gold |
+| YoRHa | `scan` | a scan bar erases the words; the message prints in under a riding bar with a rust marker | corner brackets lock on, then open out, a rust marker blinking once at the corner; still brackets on hover |
+| Control | `dust` | the words come apart into the Hiss's dark, prismatic dust drifting up; the message condenses out of it | no ring (the Bureau's red bar stays): a few motes, an ember among them, drift up off it |
+
+One mechanism plays every row's button: lively puts its gather and let-go classes on bb's send button (on
+whichever button stands in `sendSlot` for the let-go) and the form's rules, picked by the preset's `send`, are
+the flavour, at the full level. Under reduced motion every preset's ring only fades in place (no dip, scale
+or sparks); with `motion=off` or Message motion off the button is bb's own.
 
 ## Hollow Knight — "Hallownest" (candidate)
 
