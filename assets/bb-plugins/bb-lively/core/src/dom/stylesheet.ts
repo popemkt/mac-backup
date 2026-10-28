@@ -198,6 +198,7 @@ function presetMotion(presets: ReadonlyArray<Preset>): string {
       preset.paint?.chroma === undefined ? "" : `  --lively-chroma-a: ${preset.paint.chroma[0]};\n  --lively-chroma-b: ${preset.paint.chroma[1]};`,
       preset.paint?.wipe?.label === undefined ? "" : `  --lively-wipe-label: ${cssString(preset.paint.wipe.label)};`,
       preset.paint?.wipe?.ink === undefined ? "" : `  --lively-wipe-ink: ${preset.paint.wipe.ink};`,
+      preset.paint?.wipe?.ease === undefined ? "" : `  --lively-wipe-ease: ${preset.paint.wipe.ease};`,
       preset.lettering === undefined ? "" : `  --lively-letter-font: ${preset.lettering.font};\n  --lively-letter-color: ${preset.lettering.color};`,
       preset.lettering?.chant?.[0] === undefined ? "" : `  --lively-chant: ${cssString(preset.lettering.chant[0])};`,
     ].filter(Boolean);
@@ -277,6 +278,8 @@ function motionStylesheet(targets: Targets): string {
   /* Wobbly's hard stop (ZZZ's tab cut), the ease between jelly stops, and the jelly in use. */
   --lively-snap: ${snapEasing()};
   --lively-jelly-ease: cubic-bezier(0.3, 0, 0.4, 1);
+  /* A steady machine's ease: in and out, never past the mark (YoRHa's scans, wipe and tear). */
+  --lively-ease-steady: cubic-bezier(0.4, 0, 0.2, 1);
   --lively-jelly: ${jellyName("lively")};
   /* A hover shadow tweens with the lift; a sticker shadow snaps in. */
   --lively-filter-time: var(--lively-overlay);
@@ -302,6 +305,7 @@ function motionStylesheet(targets: Targets): string {
   --lively-wipe-mask: linear-gradient(105deg, transparent 18%, #000 18% 82%, transparent 82%);
   --lively-wipe-label: "";
   --lively-wipe-ink: var(--canvas, Canvas);
+  --lively-wipe-ease: linear;
   /* The preset's lettering (presets.ts lettering): tracked capitals in its face and color. */
   --lively-letter-font: var(--font-sans, sans-serif);
   --lively-letter-color: var(--lively-accent-2);
@@ -411,13 +415,14 @@ ${INTENSITIES.map(jellyKeyframes).join("\n")}
 /* turnFreeze: the veil comes up, the Turn() bar fills. */
 @keyframes lively-veil { from { opacity: 0; } }
 @keyframes lively-turn-bar { from { scale: 0 1; } }
-/* glitch: hard sideways jumps, split into the two signal colors, then still. */
+/* glitch: a quick sideways tear, split into the two signal colors (translucent, a little soft, so the
+   row stays readable), dying out and still. */
 @keyframes lively-glitch {
-  0% { translate: 0 0; filter: none; }
-  12% { translate: var(--lively-tear) 0; filter: drop-shadow(var(--lively-tear) 0 0 var(--lively-chroma-a)) drop-shadow(calc(var(--lively-tear) * -1) 0 0 var(--lively-chroma-b)); }
-  30% { translate: calc(var(--lively-tear) * -0.6) 0; filter: drop-shadow(calc(var(--lively-tear) * -1) 0 0 var(--lively-chroma-a)) drop-shadow(var(--lively-tear) 0 0 var(--lively-chroma-b)); }
-  46% { translate: calc(var(--lively-tear) * 0.3) 0; filter: none; }
-  60%, 100% { translate: 0 0; filter: none; }
+  0% { translate: 0 0; filter: drop-shadow(0 0 0 transparent) drop-shadow(0 0 0 transparent); }
+  12% { translate: var(--lively-tear) 0; filter: drop-shadow(var(--lively-tear) 0 0.5px var(--lively-tear-a)) drop-shadow(calc(var(--lively-tear) * -1) 0 0.5px var(--lively-tear-b)); }
+  30% { translate: calc(var(--lively-tear) * -0.6) 0; filter: drop-shadow(calc(var(--lively-tear) * -0.6) 0 0.5px var(--lively-tear-a)) drop-shadow(calc(var(--lively-tear) * 0.6) 0 0.5px var(--lively-tear-b)); }
+  46% { translate: calc(var(--lively-tear) * 0.3) 0; filter: drop-shadow(calc(var(--lively-tear) * 0.3) 0 0.5px var(--lively-tear-a)) drop-shadow(calc(var(--lively-tear) * -0.3) 0 0.5px var(--lively-tear-b)); }
+  60%, 100% { translate: 0 0; filter: drop-shadow(0 0 0 transparent) drop-shadow(0 0 0 transparent); }
 }
 /* Control: the slabs (shiftWarp's CSS half) and the prism's sweep (prismEdge's). */
 @keyframes lively-prism-sweep { from { translate: -100% 0; opacity: 1; } to { translate: 260% 0; opacity: 0; } }
@@ -533,10 +538,10 @@ ${onFull("pageWipe")} ${is(targets.pageView)}::after {
   translate: 140% 0;
 }
 ${onFull("pageWipe")} ${mounted}::after {
-  animation: lively-wipe var(--lively-enter) linear backwards;
+  animation: lively-wipe var(--lively-enter) var(--lively-wipe-ease) backwards;
 }
 ${onFull("pageWipe")} ${replayed}::after {
-  animation: lively-wipe${AGAIN} var(--lively-enter) linear backwards;
+  animation: lively-wipe${AGAIN} var(--lively-enter) var(--lively-wipe-ease) backwards;
 }
 
 /* focusRing: a glow drawn once on a pseudo-element; its opacity moves, and breathes at full
@@ -820,11 +825,14 @@ ${onFull("turnFreeze")} ${waiting} ${is(targets.pendingRequest)}::after {
   animation: lively-turn-bar calc(var(--lively-enter) * 1.4) steps(8, end) var(--lively-overlay) backwards;
 }
 
-/* glitch (YoRHa): a failed thread's row tears sideways in hard steps, in the two signal colors.
-   The tear is a third of the rise, so it scales with the intensity. */
+/* glitch (YoRHa): a failed thread's row tears sideways and back, in the two signal colors. The tear is a
+   third of the rise, so it scales with the intensity, in whole pixels so the row's text is never resampled
+   at rest on a tear; it slides between tears on the steady ease (a shudder, not a stepped jump). */
 ${onFull("glitch")} .${CLASSES.pulse}[${PULSE_ATTRIBUTES.tone}="error"] {
-  --lively-tear: calc(var(--lively-rise) / 3);
-  animation: lively-glitch var(--lively-pulse) steps(1, end);
+  --lively-tear: round(calc(var(--lively-rise) / 3), 1px);
+  --lively-tear-a: color-mix(in oklab, var(--lively-chroma-a) 60%, transparent);
+  --lively-tear-b: color-mix(in oklab, var(--lively-chroma-b) 60%, transparent);
+  animation: lively-glitch var(--lively-pulse) var(--lively-ease-steady);
 }
 
 /* shiftWarp (Control: the Oldest House rearranging). The canvas layer breaks the thread you leave into
@@ -913,9 +921,16 @@ function cellMask(third: number): string {
 /** The Process's blank cells: Process white, ruled in the accent. */
 const CELLS =
   "linear-gradient(90deg, color-mix(in oklab, var(--lively-accent) 45%, transparent) 1px, transparent 1px) 0 0 / 8px 8px, linear-gradient(color-mix(in oklab, var(--lively-accent) 45%, transparent) 1px, transparent 1px) 0 0 / 8px 8px, var(--lively-art-process, #f2efe6)";
-/** A scan bar: a 2px rule in the ink with scanlines above it. */
+/**
+ * A scan bar: a 2px rule in the ink with scanlines above it. Every edge is a short ramp, not a hard stop,
+ * so the bar stays even as it moves through fractions of a pixel (hard 1px lines flicker between sharp and
+ * smeared as they travel).
+ */
 const SCAN_BAR =
-  "linear-gradient(to bottom, transparent 0 9px, var(--lively-accent) 9px 11px, transparent 11px), repeating-linear-gradient(to bottom, color-mix(in oklab, var(--lively-accent) 22%, transparent) 0 1px, transparent 1px 3px) 0 0 / 100% 9px no-repeat";
+  "linear-gradient(to bottom, transparent 0 8.5px, var(--lively-accent) 9.5px 10.5px, transparent 11.5px), repeating-linear-gradient(to bottom, transparent 0, color-mix(in oklab, var(--lively-accent) 22%, transparent) 1.5px, transparent 3px) 0 0 / 100% 9px no-repeat";
+/** Four corner brackets (YoRHa's lock-on), as a mask over a hairline ring. */
+const CORNERS =
+  "linear-gradient(#000 0 0) 0 0 / 6px 6px no-repeat, linear-gradient(#000 0 0) 100% 0 / 6px 6px no-repeat, linear-gradient(#000 0 0) 0 100% / 6px 6px no-repeat, linear-gradient(#000 0 0) 100% 100% / 6px 6px no-repeat";
 
 /** A pseudo-element over the message's own box in its row. */
 const onBubble = (inflate: string) => `  content: "";
@@ -1111,7 +1126,9 @@ ${form("process")} .${CLASSES.send}::after {
 }
 
 /* scan (YoRHa): a scan bar erases the words line by line under the composer's own ground; the
-   message prints in under a bar riding down it, a rust marker at the bar's end. Linear, stepped. */
+   message prints in under a bar riding down it, a rust marker at the bar's end. Mechanical but "a little
+   moist", as the game's menus: the bars travel at a scanner's constant speed (linear, never stepped), the
+   message settles on the ease, the marker blinks on the steady ease; nothing passes its mark. */
 ${form("scan")} ${leaving} { animation: lively-scan-out var(--lively-send-span) linear backwards; }
 ${form("scan")} ${layer(1)} {
   inset: 0 0 auto;
@@ -1120,13 +1137,13 @@ ${form("scan")} ${layer(1)} {
   background: ${SCAN_BAR};
   opacity: 1;
   translate: 0 var(--lively-gh);
-  animation: lively-scan-bar calc(var(--lively-send-span) * 0.6) steps(6, end) backwards;
+  animation: lively-scan-bar calc(var(--lively-send-span) * 0.6) linear backwards;
 }
 ${form("scan")} ${layer(2)} {
   background: var(--lively-ghost-ground);
   transform-origin: 50% 0;
   opacity: 1;
-  animation: lively-scan-cover calc(var(--lively-send-span) * 0.6) steps(6, end) backwards;
+  animation: lively-scan-cover calc(var(--lively-send-span) * 0.6) linear backwards;
 }
 ${form("scan")} ${layer(3)} {
   inset: 4px auto auto 4px;
@@ -1134,11 +1151,11 @@ ${form("scan")} ${layer(3)} {
   height: 6px;
   z-index: 2;
   background: var(--lively-accent-2);
-  animation: lively-blink calc(var(--lively-send-span) * 0.2) steps(2, jump-none) 3;
+  animation: lively-blink calc(var(--lively-send-span) * 0.2) var(--lively-ease-steady) 3 alternate;
 }
 ${form("scan")} ${landing} {
   isolation: isolate;
-  animation: lively-scan-in var(--lively-send-span) linear var(--lively-send-delay) backwards;
+  animation: lively-scan-in var(--lively-send-span) var(--lively-ease-out) var(--lively-send-delay) backwards;
 }
 ${form("scan")} ${landing}::after {
 ${onBubble("0px")}
@@ -1146,7 +1163,7 @@ ${onBubble("0px")}
   background: var(--canvas, var(--background, Canvas));
   transform-origin: 50% 100%;
   scale: 1 0;
-  animation: lively-scan-uncover calc(var(--lively-send-span) * 0.75) steps(6, end) var(--lively-send-delay) backwards;
+  animation: lively-scan-uncover calc(var(--lively-send-span) * 0.75) linear var(--lively-send-delay) backwards;
 }
 ${form("scan")} ${landing}::before {
   content: "";
@@ -1159,21 +1176,39 @@ ${form("scan")} ${landing}::before {
   pointer-events: none;
   background: linear-gradient(var(--lively-accent-2), var(--lively-accent-2)) 0 3px / 6px 6px no-repeat, ${SCAN_BAR};
   opacity: 0;
-  animation: lively-scan-ride calc(var(--lively-send-span) * 0.75) steps(6, end) var(--lively-send-delay);
+  animation: lively-scan-ride calc(var(--lively-send-span) * 0.75) linear var(--lively-send-delay);
 }
-${form("scan")} :is(.${CLASSES.send}, .${CLASSES.arm})::after {
+/* The send button: corner brackets lock on as Enter goes down (the gather) and open out as the words
+   leave (the ripple), a rust marker blinking once at the top right corner; on hover the brackets show
+   still, as the game marks the item under its cursor. Hairlines and opacity only. */
+${form("scan")} ${is(targets.sendButton)} { position: relative; }
+${form("scan")} :is(.${CLASSES.send}, .${CLASSES.arm})::after,
+${form("scan")} ${is(targets.sendButton)}::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
   border-radius: 0;
-  box-shadow: 0 0 0 1px var(--lively-accent);
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px var(--lively-accent);
+  mask: ${CORNERS};
+  opacity: 0;
 }
-${form("scan")} .${CLASSES.send}::after { animation: lively-ripple var(--lively-pulse) var(--lively-ease-out); }
+${form("scan")} .${CLASSES.send}::after { animation: lively-ripple var(--lively-pulse) var(--lively-ease-steady); }
 ${form("scan")} .${CLASSES.send}::before {
-  width: 6px;
-  height: 6px;
-  margin: -3px 0 0 -3px;
+  top: -5px;
+  left: auto;
+  right: -5px;
+  width: 4px;
+  height: 4px;
+  margin: 0;
   border-radius: 0;
   background: var(--lively-accent-2);
   box-shadow: none;
-  animation: lively-flicker var(--lively-pulse) var(--lively-ease-out);
+  animation: lively-flicker var(--lively-pulse) var(--lively-ease-steady);
+}
+@media (hover: hover) {
+${form("scan")} ${is(targets.sendButton)}::after { transition: opacity var(--lively-overlay) var(--lively-ease-out); }
+${form("scan")} ${is(targets.sendButton)}:hover:not(:disabled)::after { opacity: 0.7; }
 }
 
 /* dust (Control, the Hiss): drawn on the canvas layer when it can run (dust.ts), the ghost and the

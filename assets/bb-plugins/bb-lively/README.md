@@ -160,7 +160,7 @@ question, plan review or plugin request as a banner in the composer's dock
 window and outside the timeline, so `[data-thread-window]:has(<request>)` freezes the
 timeline's rows (a filter), raises a grid veil behind them, and lights the request. The
 **glitch** (YoRHa) rides the status pulse: a sidebar row whose thread fails tears sideways
-in hard steps, even with the status rings off.
+and back in a quick shudder, even with the status rings off.
 
 **The HTML-in-Canvas layer** (Control; `core/src/dom/drawable.ts`, `core/src/dom/refraction.ts`).
 An effect with a `canvas` trigger (`navigate`, `send`, `waiting`) has two halves. When the

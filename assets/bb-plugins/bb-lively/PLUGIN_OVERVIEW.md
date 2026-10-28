@@ -18,8 +18,9 @@ palette and an art layer.
   request lights up as its segmented Turn() bar fills.
 - **YoRHa** (after NieR:Automata): mechanical motion (snappy, never past its target), the
   Lively YoRHa palette (parchment grey, umber ink, square corners; a night mode), a
-  technical grid with a corner bracket, a scan-bar wipe, and a **glitch** when a thread
-  fails.
+  technical grid with a corner bracket, a soft scan-bar wipe, a send that scans the words
+  out and prints the message in, a send button that locks on with corner brackets, and a
+  **glitch** when a thread fails.
 - **Control** (after Remedy's Control): precise motion (no overshoot, no tilt), the Lively
   Control palette (concrete greys at night, the Astral Plane's white by day, Hiss red only
   for what waits on you), coffered concrete, two monoliths under the Board's prism, a
