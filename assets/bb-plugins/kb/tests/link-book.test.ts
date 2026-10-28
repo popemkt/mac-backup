@@ -57,7 +57,13 @@ function setup({ page = 500, linksMax = 5000, places = {} as Record<string, Wher
   const sql = db as unknown as Sql;
   const book = linkBook(sql, kb, async id => places[id] ?? { project: null, host: null }, { page, linksMax });
   const label = (store: string) => store.split("/").at(-1) ?? store;
-  return { db, kb, book, list: (thread: string, scope: "session" | "project" | "all") => book.list(thread, scope, label) };
+  return {
+    db,
+    kb,
+    book,
+    list: (thread: string, scope: "session" | "project" | "all") => book.list(thread, scope, label),
+    available: (thread: string) => book.available(thread, label),
+  };
 }
 
 describe("reading kb's log of thread writes", () => {
@@ -163,5 +169,40 @@ describe("reading kb's log of thread writes", () => {
     const stale = await list("thr_a", "session");
     assert.match(stale.error ?? "", /socket closed/);
     assert.deepEqual(stale.items.map(i => i.id), ["c1"]);
+  });
+
+  test("unlink ends only the thread's own link, made by hand or by its writes, and a later write links again", async () => {
+    const { kb, list, book, db } = setup();
+    kb.write("bb:thr_a", "c1", "Roadmap");
+    kb.write("bb:thr_b", "c1", "Roadmap");
+    await book.link("/srv/kb/home", "canvas", "c2", "Plan", "thr_a", "linked", Date.parse("2026-10-24T00:00:00.000Z"));
+    kb.canvases.set("c2", "Plan");
+    await list("thr_a", "session");
+
+    assert.equal(book.unlink("/srv/kb/home", "c1", "thr_a"), true);
+    assert.equal(book.unlink("/srv/kb/home", "c2", "thr_a"), true);
+    assert.equal(book.unlink("/srv/kb/home", "c2", "thr_a"), false, "nothing left to end");
+    assert.deepEqual((await list("thr_a", "session")).items, []);
+    assert.deepEqual((await list("thr_b", "session")).items.map(i => i.id), ["c1"]);
+    // An item nothing links any more is forgotten; one another thread links stays.
+    assert.deepEqual(db.prepare("SELECT id FROM items ORDER BY id").all().map(r => r.id), ["c1"]);
+
+    kb.write("bb:thr_a", "c1", "Roadmap");
+    assert.deepEqual((await list("thr_a", "session")).items.map(i => i.id), ["c1"]);
+  });
+
+  test("available: every linked canvas with its threads, then the canvases nobody linked, by name", async () => {
+    const { kb, available } = setup();
+    kb.write("bb:thr_a", "c1", "Roadmap");
+    kb.canvases.set("c8", "Zebra board");
+    kb.canvases.set("c7", "Atlas");
+    const all = await available("thr_b");
+    assert.equal(all.error, null);
+    assert.deepEqual(all.items.map(i => [i.id, i.name, i.threads.map(t => t.id), i.linkedAt === null]), [
+      ["c1", "Roadmap", ["thr_a"], false],
+      ["c7", "Atlas", [], true],
+      ["c8", "Zebra board", [], true],
+    ]);
+    assert.equal(rowOf(all.items[1], "thr_b").linkedAt, null);
   });
 });

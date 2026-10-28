@@ -27,6 +27,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Decide the home for the checklist in this repo, port R1-R20, and wire the mechanical subset the way the reference repo does before adding more skills.
 - **node** — `01M1M08W6Z70XV3KCQB5CWH3ZR`
 
+### GAP: bb builds the shared linked-items folder unlike plugin code: no runtime import from server code, no Tailwind scan
+
+- **expected** — assets/bb-plugins/linked-items is built like each plugin's own code: its rules (the scope list) imported at runtime by server code too, and its classes in each plugin's stylesheet.
+- **current** — The panel itself is shared now: linked-items/panel.tsx takes each plugin's Button, Input and Icon as props (2026-10-28). Two limits remain (bb 0.46.1). The server build rejects a runtime import from outside the plugin folder ('server source import escapes the plugin directory'), so server code imports linked-items for types only and each plugin's lib keeps its own SCOPES list. The Tailwind build scans only the plugin's own folder (and dependency packages' bb.pluginTailwindContent), so a class used only in linked-items renders only when bb's own stylesheet has it.
+- **impact** — The scope list must be changed in both plugins by hand; a class new to linked-items can render unstyled, with no error.
+- **closes** — bb building a plugin's relative imports like its own code (server bundle and Tailwind scan), or linked-items as a local package each plugin depends on, declaring bb.pluginTailwindContent.
+- **node** — `01M5QJFW217ZNBXHEX74VG7VYP`
+
 ### GAP: bb desktop has no persistent Chromium switch setting
 
 - **expected** — bb starts with the Chromium switches the bb stack declares (desktopSwitches), however it is opened
@@ -223,14 +231,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Losing shared-server loses every saved manifest; only kb exports survive.
 - **closes** — A declared backup of the bb server's data dir on shared-server (restic), or manifests stored in kb.
 - **node** — `01M5QKD7TMB3HDV65V543HTD9M`
-
-### GAP: the kb canvases panel copies the Canvases panel's shell (header, search, link button, empty and error states)
-
-- **expected** — One linked-items panel for the kb canvases panel and the Canvases (tldraw) panel: the row, tabs and search are already shared in assets/bb-plugins/linked-items; the shell should be too.
-- **current** — assets/bb-plugins/linked-items (rows.ts, row.tsx) is shared, and bb's client build bundles it into both plugins. bb's server build does not: it rejects a runtime import from outside the plugin folder ('server source import escapes the plugin directory', bb 0.46.1), so server code imports it for types only and each plugin's lib keeps its own SCOPES list. Each panel's shell (header, search box, link button, empty and error states) is still copied: it draws with the plugin's own vendored Button, Input and Icon, which import @/... and @get-bb/plugin-sdk/app, and those resolve only inside a plugin's root (tsc fails there).
-- **impact** — A change to the panel shell, or to the scope list, must be made in both plugins by hand.
-- **closes** — A shell that takes Button, Input and Icon as props from each plugin, or tldraw canvases folded into the kb plugin as a second kind; either once the owner settles the panel UX after daily use.
-- **node** — `01M5QJFW217ZNBXHEX74VG7VYP`
 
 ### GAP: the npm executor special-cases @openai/codex and aborts activation on a failed install
 

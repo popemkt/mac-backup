@@ -25,14 +25,18 @@ export type Canvas = {
   open: boolean;
   /** When tldraw last saved a change, if this machine's tldraw knows the canvas. */
   editedAt: number | null;
-  linkedAt: number;
+  /** Null for a canvas nobody linked (`ls --available`). */
+  linkedAt: number | null;
   sessions: (Session & { ts: number })[];
   projects: Project[];
 };
 
-/** `canvas-link ls --json`. `central`: "ok", "unreachable", "off", or "skipped" (session scope reads local only). */
+/**
+ * `canvas-link ls --json`. `central`: "ok", "unreachable", "off", or "skipped" (session scope reads local only).
+ * `available`: every linked canvas plus the ones tldraw on that machine knows.
+ */
 export type Listing = {
-  scope: Scope;
+  scope: Scope | "available";
   host: string;
   session: Session;
   project: Project;
@@ -68,7 +72,7 @@ function canvas(v: unknown): Canvas | null {
     exists: typeof v.exists === "boolean" ? v.exists : null,
     open: v.open === true,
     editedAt: num(v.editedAt),
-    linkedAt: num(v.linkedAt) ?? 0,
+    linkedAt: num(v.linkedAt),
     sessions: (Array.isArray(v.sessions) ? v.sessions : []).map(s => ({ ...session(s), ts: isObject(s) ? (num(s.ts) ?? 0) : 0 })),
     projects: (Array.isArray(v.projects) ? v.projects : []).map(project),
   };
@@ -78,7 +82,7 @@ function canvas(v: unknown): Canvas | null {
 export function parseListing(stdout: string): Listing {
   const raw: unknown = JSON.parse(stdout);
   if (!isObject(raw)) throw new Error("canvas-link ls --json did not print an object");
-  const scope = SCOPES.find(s => s === raw.scope) ?? "session";
+  const scope = raw.scope === "available" ? "available" : (SCOPES.find(s => s === raw.scope) ?? "session");
   return {
     scope,
     host: str(raw.host) ?? "",
@@ -113,6 +117,12 @@ export function rowOf(c: Canvas): LinkRow {
     tags: otherHarnesses(c),
     search: [c.folder ?? "", c.host, ...c.sessions.map(s => `${s.harness} ${s.id ?? ""}`)],
   };
+}
+
+/** The machine a key names: canvas-link keys a canvas `<host>:<documentId|path>`. */
+export function hostOfKey(key: string): string | null {
+  const m = /^([a-z0-9][a-z0-9._-]*):./.exec(key);
+  return m === null ? null : m[1];
 }
 
 /** `canvas-link open` answers "on <host>" with exit 3 for a canvas on another machine. */

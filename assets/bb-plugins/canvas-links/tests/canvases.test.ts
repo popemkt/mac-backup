@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ago, matches, threadIds, timeLabel } from "../../linked-items/rows.ts";
-import { elsewhereHost, otherHarnesses, parseListing, rowOf, type Canvas } from "../lib/canvases.ts";
+import { elsewhereHost, hostOfKey, otherHarnesses, parseListing, rowOf, type Canvas } from "../lib/canvases.ts";
 
 function canvas(over: Partial<Canvas>): Canvas {
   return {
@@ -97,4 +97,24 @@ test("open on another machine is exit 3 with 'on <host>'", () => {
   assert.equal(elsewhereHost(3, "on shared-server\n"), "shared-server");
   assert.equal(elsewhereHost(1, "on x"), null);
   assert.equal(elsewhereHost(3, "weird"), null);
+});
+
+test("an available listing keeps canvases nobody linked: no link time, no threads, no time line without an edit", () => {
+  const listing = parseListing(
+    JSON.stringify({
+      scope: "available",
+      canvases: [{ key: "mac:doc-z", host: "mac", name: "Z", linkedAt: null, sessions: [], editedAt: null }],
+    }),
+  );
+  assert.equal(listing.scope, "available");
+  const row = rowOf(listing.canvases[0]);
+  assert.equal(row.linkedAt, null);
+  assert.deepEqual(row.threads, []);
+  assert.equal(timeLabel(row, Date.now()), "");
+});
+
+test("a key names its machine", () => {
+  assert.equal(hostOfKey("popemkt-work:74Ilvgu5HMR6bt5AOgd4Y"), "popemkt-work");
+  assert.equal(hostOfKey("mac:/Users/p/a.tldraw"), "mac");
+  assert.equal(hostOfKey("no-host"), null);
 });
