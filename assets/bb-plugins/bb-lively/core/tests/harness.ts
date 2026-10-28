@@ -55,6 +55,7 @@ export const TARGETS: Targets = {
   rowIndexAttribute: "data-index",
   focusBox: "form.composer",
   sendButton: "button.send",
+  sendSlot: ".send-slot",
   sendIcon: "button.send > svg",
   composerText: "form.composer .text",
   sentRow: ".row.mine",

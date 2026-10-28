@@ -192,12 +192,44 @@ export function createLively(options: CreateLivelyOptions): Lively {
     tokens,
     layer: () => (sendWanted() && may("sendPulse") ? canvasLayer() : undefined),
     // The words left: the button lets go and the Board's prism passes, ahead of bb's confirmation.
-    launched: (button) => release(button === null ? doc.querySelectorAll(targets.sendButton) : [button]),
+    launched: (slot) => release(slot?.isConnected === true ? [slot] : sendSlots()),
   });
-  function release(buttons: Iterable<Element>): void {
+  /** Where the host's send buttons sit (`sendSlot`; the buttons themselves on a host without one). */
+  const sendSlots = (): ReadonlyArray<Element> => {
+    const slots = [...doc.querySelectorAll(targets.sendSlot)];
+    return slots.length > 0 ? slots : [...doc.querySelectorAll(targets.sendButton)];
+  };
+  /** Rings still following a slot's button (see ring). */
+  const ringing = new Set<MutationObserver>();
+  function release(slots: Iterable<Element>): void {
     if (mayDraw("send")) canvasLayer()?.send();
     if (!may("sendPulse")) return;
-    for (const button of buttons) pulser.pulse(button, CLASSES.send, deadline(2 * tokens().pulseMs));
+    for (const slot of slots) ring(slot, deadline(2 * tokens().pulseMs));
+  }
+  /**
+   * The send button in `slot` lets go; bb re-renders that button as a new element when the composer
+   * empties and again when a run starts (Stop), so for the ring's length each button that takes its place
+   * rings on, once, for what is left of it. Without the follow the ring landed on a button already gone.
+   */
+  function ring(slot: Element, span: number): void {
+    const until = win.performance.now() + span;
+    const rung = new WeakSet<Element>();
+    const pulse = () => {
+      for (const button of slot.matches(targets.sendButton) ? [slot] : slot.querySelectorAll(targets.sendButton)) {
+        if (rung.has(button)) continue;
+        rung.add(button);
+        pulser.pulse(button, CLASSES.send, Math.max(0, until - win.performance.now()));
+      }
+    };
+    pulse();
+    if (slot.matches(targets.sendButton)) return;
+    const watcher = new (win as Window & typeof globalThis).MutationObserver(pulse);
+    watcher.observe(slot, { childList: true, subtree: true });
+    ringing.add(watcher);
+    win.setTimeout(() => {
+      watcher.disconnect();
+      ringing.delete(watcher);
+    }, span);
   }
 
   const rows = createRowWatcher({
@@ -283,7 +315,7 @@ export function createLively(options: CreateLivelyOptions): Lively {
       rows.armSend();
       // A send lively saw leave the composer has rung already; one it did not (another way in) rings now.
       if (send.launchedWithin(SENT_ECHO_MS)) return;
-      release(doc.querySelectorAll(targets.sendButton));
+      release(sendSlots());
     },
     // A failure also glitches under a preset that has the glitch, even with the rings off.
     pulseStatus: (row, tone) =>
@@ -294,6 +326,8 @@ export function createLively(options: CreateLivelyOptions): Lively {
       disposed = true;
       rows.dispose();
       send.dispose();
+      for (const watcher of ringing) watcher.disconnect();
+      ringing.clear();
       reach.dispose();
       pulser.clear();
       media.removeEventListener("change", refresh);

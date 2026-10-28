@@ -21,6 +21,12 @@ export interface Targets {
   readonly focusBox: string;
   /** The send button that ripples on a send. */
   readonly sendButton: string;
+  /**
+   * Around `sendButton`, the element the host keeps while it re-renders the button itself (enabled ↔
+   * disabled as the composer empties, Send ↔ Stop as a run starts): the send's rings follow the button
+   * across those swaps through it.
+   */
+  readonly sendSlot: string;
   /** The send button's icon, which pops when it swaps (Send ↔ Stop). */
   readonly sendIcon: string;
   /**
