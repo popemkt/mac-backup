@@ -23,11 +23,11 @@
         "pinned": false,
         "src": {
             "name": null,
-            "sha256": "sha256-ULdeC87IV2uTVh8qspQf8Iryb8knPPaG6cKzN3FrvEY=",
+            "sha256": "sha256-pbJg7A+EPSKRSIrNduVZUjLajzuOwtM0FU8VcPXzygg=",
             "type": "url",
-            "url": "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.44/CLIProxyAPI_8.0.44_darwin_aarch64.tar.gz"
+            "url": "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.47/CLIProxyAPI_8.0.47_darwin_aarch64.tar.gz"
         },
-        "version": "8.0.44"
+        "version": "8.0.47"
     },
     "cursor-cli": {
         "cargoLock": null,
@@ -68,11 +68,11 @@
         "pinned": false,
         "src": {
             "name": null,
-            "sha256": "sha256-C1J4Cuuomju/O9tKR1OP2ia30REtlBZ0QSJJ5MrpeeU=",
+            "sha256": "sha256-q8eTO9u2F/Kgm012eSwro8/uVVfr6h011qMrPOPQ0xs=",
             "type": "url",
-            "url": "https://github.com/popemkt/kb/releases/download/v0.3.1-nightly.20261028212020/kb-0.3.1-nightly.20261028212020.tar.gz"
+            "url": "https://github.com/popemkt/kb/releases/download/v0.3.1-nightly.20261029083819/kb-0.3.1-nightly.20261029083819.tar.gz"
         },
-        "version": "0.3.1-nightly.20261028212020"
+        "version": "0.3.1-nightly.20261029083819"
     },
     "logseq": {
         "cargoLock": null,
