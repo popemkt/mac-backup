@@ -16,10 +16,10 @@
   };
   cli-proxy-api = {
     pname = "cli-proxy-api";
-    version = "8.0.44";
+    version = "8.0.47";
     src = fetchurl {
-      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.44/CLIProxyAPI_8.0.44_darwin_aarch64.tar.gz";
-      sha256 = "sha256-ULdeC87IV2uTVh8qspQf8Iryb8knPPaG6cKzN3FrvEY=";
+      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.47/CLIProxyAPI_8.0.47_darwin_aarch64.tar.gz";
+      sha256 = "sha256-pbJg7A+EPSKRSIrNduVZUjLajzuOwtM0FU8VcPXzygg=";
     };
   };
   cursor-cli = {
@@ -40,10 +40,10 @@
   };
   kb = {
     pname = "kb";
-    version = "0.3.1-nightly.20261028212020";
+    version = "0.3.1-nightly.20261029083819";
     src = fetchurl {
-      url = "https://github.com/popemkt/kb/releases/download/v0.3.1-nightly.20261028212020/kb-0.3.1-nightly.20261028212020.tar.gz";
-      sha256 = "sha256-C1J4Cuuomju/O9tKR1OP2ia30REtlBZ0QSJJ5MrpeeU=";
+      url = "https://github.com/popemkt/kb/releases/download/v0.3.1-nightly.20261029083819/kb-0.3.1-nightly.20261029083819.tar.gz";
+      sha256 = "sha256-q8eTO9u2F/Kgm012eSwro8/uVVfr6h011qMrPOPQ0xs=";
     };
   };
   logseq = {
