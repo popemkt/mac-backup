@@ -44,7 +44,12 @@ in
   # Carried over from the installer configuration.
   boot = {
     loader = {
-      systemd-boot.enable = true;
+      systemd-boot = {
+        enable = true;
+        # A boot-menu entry to test the RAM: a sync flood this often is
+        # a failing DIMM or a marginal link until proven otherwise (below).
+        memtest86.enable = true;
+      };
       efi.canTouchEfiVariables = true;
     };
     kernelPackages = pkgs.linuxPackages_latest;
@@ -54,12 +59,21 @@ in
     # runtime power management is this model's usual trigger, so it stays
     # powered: with it, resets dropped from every few minutes to one in about
     # seven hours. PCIe link power saving (ASPM), the other common AMD
-    # trigger, is off too.
+    # trigger, is off too. Neither stopped them: from 2026-10-28 to 10-30 four
+    # more resets, each a sync flood, at idle and under load, no panic and no
+    # log line before it (a hardware reset leaves nothing for pstore or kdump
+    # to save). The two kernel panics efi_pstore did catch (2026-10-16 in
+    # tmigr_cpu_deactivate at idle, 2026-10-21 in update_se, both on CPU 6)
+    # died in core scheduler/timer code on garbage state, which points at
+    # the hardware too: RAM first, then the CPU or its power.
     kernelParams = [
       "amdgpu.runpm=0"
       "pcie_aspm=off"
     ];
   };
+  # Records machine checks, PCIe AER and memory errors with timestamps
+  # (ras-mc-ctl --errors), so corrected errors before the next flood show up.
+  hardware.rasdaemon.enable = true;
   networking.networkmanager.enable = true;
   time.timeZone = "Asia/Ho_Chi_Minh";
   i18n.defaultLocale = "en_US.UTF-8";
