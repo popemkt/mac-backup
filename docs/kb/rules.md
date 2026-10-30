@@ -117,6 +117,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Canonical statements
 - **node** — `01M56SQJF52DWN2T00D510BRQ3`
 
+### GAP: marginalia-bytetum's data directory has no backup
+
+- **expected** — shared-server's Marginalia data (~/.local/share/marginalia-nix/data) is backed up off the machine on a schedule, restore rehearsed: a nightly GET /export snapshot plus its blobs, as the app's deploy/marginalia-backup.* does for the legacy instance.
+- **current** — Nothing declares a backup for the new instance; the hand-made user timer marginalia-backup.timer covers the legacy data directory and port only, and the new instance holds no data until the switchover.
+- **impact** — After the switchover, a disk loss on shared-server loses the person's whole reading library unless the legacy timer or a new job covers the new directory.
+- **closes** — The switchover step repoints the backup at the new directory, or declares the job here, and docs/backup-strategy.md → Marginalia Library names it.
+- **node** — `01M66FVYBMPZV44NS7CTC00ST4`
+
 ### GAP: my.services runs native apps on NixOS only
 
 - **expected** — An app declared in my.services runs on any host as its owner, under that platform's service manager (systemd on NixOS, a launchd agent on macOS), and is exposed the same way

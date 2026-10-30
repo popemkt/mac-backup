@@ -155,6 +155,17 @@ change from being activated before its repository diff has been inspected.
 Determinate Nix when outdated, and lists (never silently installs) macOS
 Software Update labels.
 
+## Packages Pinned By Hand
+
+A release that is never pruned and has no use for a bot can be pinned in its
+own `pkgs/<name>/default.nix` instead: a `version` and a `hash` at the top, a
+`fetchurl`, and a comment saying how to bump them. It has no entry in
+`nvfetcher.toml` and nothing under `_sources/`, so `check`, `verify` and the
+scheduled updater never see it, and nothing tells you a newer release exists.
+`marginalia` is the one such package
+([marginalia-service.md](marginalia-service.md)); every other package follows
+the steps below.
+
 ## Adding an Application
 
 1. Add an entry to `nvfetcher.toml` with a version source and fetcher.
