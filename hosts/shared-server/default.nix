@@ -135,6 +135,13 @@ in
     blender.enable = true;
     # The kb CLI for everyone: agents working in ~/.dotfiles keep its graph.
     kb.enable = true;
+    # Sandboxes for agent work, under 8 cores, 12 GiB and 3 at once
+    # (the stack's defaults); only popemkt's bb runs them for now
+    # (modules/stacks/sandboxes).
+    sandboxes = {
+      enable = true;
+      people = [ "popemkt" ];
+    };
     t3-code = {
       enable = true;
       instances = {

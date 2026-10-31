@@ -8,6 +8,7 @@ _:
     ./bb/nixos.nix
     ./blender
     ./kb/nixos.nix
+    ./sandboxes
     ./t3-code/nixos.nix
     ./vpn/nixos.nix
   ];
