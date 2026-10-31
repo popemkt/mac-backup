@@ -54,6 +54,14 @@
       "ip": ["tcp:443"],
     },
 
+    // Tailnet members can reach bytetum's Marginalia on the shared server.
+    // The app's bearer token is its own access control.
+    {
+      "src": ["autogroup:member"],
+      "dst": ["svc:marginalia-bytetum"],
+      "ip": ["tcp:443"],
+    },
+
     // Tailnet members can reach popemkt's temporary app on the shared server.
     {
       "src": ["autogroup:member"],
@@ -102,6 +110,7 @@
       "svc:t3-bytetum": ["tag:shared-server"],
       "svc:kb-popemkt": ["tag:shared-server"],
       "svc:kb-bytetum": ["tag:shared-server"],
+      "svc:marginalia-bytetum": ["tag:shared-server"],
       "svc:adhoc-popemkt": ["tag:shared-server"],
       "svc:bb-popemkt": ["tag:shared-server"],
     },

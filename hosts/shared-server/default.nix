@@ -192,6 +192,28 @@ in
   # bytetum runs no bb, so nothing frames their page.
   my.services.kb-bytetum = kbHome "bytetum" [ ];
 
+  # bytetum's Marginalia reading library (github.com/bytetum/marginalia;
+  # pkgs/marginalia, pinned by hand), as svc:marginalia-bytetum. The Service
+  # puts HTTPS on its loopback port, which any account on this host can also
+  # reach, so the app's own bearer token is its access control: it reads the
+  # token from MARGINALIA_TOKEN_FILE and refuses to start without it. The
+  # token is machine state, never declared (a person-only file, written once
+  # by bytetum; docs/marginalia-service.md → Token). Its database is embedded
+  # and takes one process per data directory, so this fresh directory is not
+  # the one the hand-made user unit `marginalia` still serves
+  # (~/.local/share/marginalia/data on 100.103.153.13:7878).
+  my.services.marginalia-bytetum = {
+    app = "marginalia";
+    owner = "bytetum";
+    port = 7879;
+    package = pkgs.marginalia;
+    args = [ "serve" ];
+    environment = {
+      MARGINALIA_DATA = "${config.users.users.bytetum.home}/.local/share/marginalia-nix/data";
+      MARGINALIA_TOKEN_FILE = "${config.users.users.bytetum.home}/.config/marginalia/token";
+    };
+  };
+
   # popemkt's bb server, as svc:bb-popemkt. Its API is unauthenticated and
   # runs commands as popemkt, so the tailnet grant is its access boundary;
   # everyone in my.people here is already root through sudo. BB_APP_URL is

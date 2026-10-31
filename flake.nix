@@ -74,6 +74,13 @@
           ;
       };
 
+      # The packages this system's `packages` and `checks` list: those that run
+      # on it. Some are another platform's only (marginalia is x86_64-linux),
+      # and asking for one here is an evaluation error, not an empty set.
+      localPackagesHere = nixpkgs.lib.filterAttrs (
+        _: package: nixpkgs.lib.meta.availableOn pkgs.stdenv.hostPlatform package
+      ) localPackages;
+
       systemSetupCheck =
         pkgs.runCommand "system-setup-check"
           {
@@ -300,11 +307,11 @@
             ;
         };
 
-      packages.${system} = localPackages // {
+      packages.${system} = localPackagesHere // {
         default = localPackages.cli-proxy-api;
       };
 
-      checks.${system} = localPackages // {
+      checks.${system} = localPackagesHere // {
         inherit systemSetupCheck;
         reconcile-scripts-check = reconcileScriptsCheck;
         audit-lib-check = auditLibCheck;
