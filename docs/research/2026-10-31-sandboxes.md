@@ -383,7 +383,7 @@ A sandbox started as a child of either process dies with it. So:
 
 ### 8.2 The contract
 
-[`core/contract.ts`](https://github.com/popemkt/.dotfiles/blob/bb/sandbox-plugin-poc/assets/bb-plugins/sandbox/core/contract.ts)
+[`core/contract.ts`](https://github.com/popemkt/mac-backup/blob/bb/sandbox-plugin-poc/assets/bb-plugins/sandbox/core/contract.ts)
 on the proof-of-concept branch holds the provider half. The full contract adds files in and out,
 ports, secrets and the job layer:
 
