@@ -214,6 +214,17 @@ export function createBwrapProvider(options: BwrapOptions): SandboxProvider {
     return [...bins, SYSTEM_BIN];
   };
 
+  /** bubblewrap answers, checked once: a missing binary fails `create`, not every exec. */
+  let probed: Promise<void> | null = null;
+  const probe = () =>
+    (probed ??= run(options.bwrap, ["--version"]).then(
+      () => {},
+      (error: Error) => {
+        probed = null;
+        throw new Error(`bubblewrap is not available at ${options.bwrap}: ${error.message}`);
+      },
+    ));
+
   const git = async (repo: string, args: string[]) => (await run("git", ["-C", repo, ...args], { maxBuffer: 16 * 1024 * 1024 })).stdout.trim();
 
   /**
@@ -318,6 +329,7 @@ export function createBwrapProvider(options: BwrapOptions): SandboxProvider {
 
     async create(id, spec) {
       assertSupported(this, spec);
+      await probe();
       const dir = dirOf(id);
       if (existsSync(dir)) throw new Error(`sandbox ${id} exists`);
       await mkdir(join(dir, "home"), { recursive: true });

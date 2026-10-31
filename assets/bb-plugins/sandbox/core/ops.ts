@@ -384,7 +384,15 @@ export const toolName = (name: string) => `sandbox_${name.replace(/[A-Z]/g, (c) 
 
 /** Validate and run; the one entry every surface goes through. */
 export async function invoke(o: Op, input: unknown, ctx: OpContext): Promise<unknown> {
-  return await o.run(o.input.parse(input ?? {}), ctx);
+  const parsed = o.input.safeParse(input ?? {});
+  if (!parsed.success) throw new Error(`invalid input for ${o.cli.path}:\n${z.prettifyError(parsed.error)}`);
+  try {
+    return await o.run(parsed.data, ctx);
+  } catch (error) {
+    // Specs validated further in (AgentSpec files, matrix expansion) read the same way.
+    if (error instanceof z.ZodError) throw new Error(`invalid spec:\n${z.prettifyError(error)}`);
+    throw error;
+  }
 }
 
 /** `--input <json|@file>`: the whole input, or the base the flags override. */

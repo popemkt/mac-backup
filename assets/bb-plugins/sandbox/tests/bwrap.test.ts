@@ -1,10 +1,11 @@
 // The bubblewrap provider's own parts that need no bwrap: the isolation flags, the capped unit,
 // and what it refuses to mount. Its behaviour is in contract.test.ts with every other provider.
 import assert from "node:assert/strict";
-import { homedir } from "node:os";
-import { dirname } from "node:path";
+import { mkdtemp, rm } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { test } from "node:test";
-import { assertBindable, bwrapArgs, unitArgs } from "../core/providers/bwrap.ts";
+import { assertBindable, bwrapArgs, createBwrapProvider, unitArgs } from "../core/providers/bwrap.ts";
 import { sandboxSpecSchema } from "../core/spec.ts";
 
 const meta = (network: "none" | "open") => ({
@@ -46,4 +47,15 @@ test("refuses to mount the root, the home directory, or above it", () => {
   assert.throws(() => assertBindable(homedir()));
   assert.throws(() => assertBindable(dirname(homedir())));
   assert.doesNotThrow(() => assertBindable(`${homedir()}/projects/x`));
+});
+
+test("a missing bubblewrap fails create, and leaves nothing", async () => {
+  const root = await mkdtemp(join(tmpdir(), "sandbox-nobwrap-"));
+  try {
+    const provider = createBwrapProvider({ root, bwrap: "/nonexistent/bwrap", nixpkgs: null, images: {}, slice: null, outputMaxBytes: 1024 });
+    await assert.rejects(provider.create("sb-x", sandboxSpecSchema.parse({})), /bubblewrap is not available at \/nonexistent\/bwrap/);
+    assert.deepEqual(await provider.list(), []);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
