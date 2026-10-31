@@ -3,6 +3,10 @@
 Date: 2026-10-31. This is research and design. A proof of concept of the plugin (the contract, the
 queue and one local provider) is on the branch `bb/sandbox-plugin-poc`, which is not for merging.
 
+**Updated the same day with the owner's decisions** (§8). They change §9 onward: §9 is now the
+SDK, the operation table and the contract; §10 is the AgentSpec; §12 is Blender; §13 is the real
+`sandboxes` stack. §1–§7 are the original findings.
+
 Each claim carries a tag:
 
 - **[measured]**: run on shared-server today.
@@ -31,7 +35,7 @@ hardware resets.
      or a rate limit [doc]. So the queue has to be ours whichever provider runs the sandbox.
    - The first provider is **bubblewrap**: unprivileged user namespaces, no daemon, nothing to
      install.
-   - The proof of concept runs it on shared-server today [measured, §8.7]. It has no network by
+   - The proof of concept runs it on shared-server today [measured, §9.7]. It has no network by
      default, no `/home`, and a timeout, and it is queued under a CPU and memory budget.
 2. **OpenSandbox does fit shared-server, as phase 2, with conditions.**
    - It is the right project: `opensandbox-group/OpenSandbox`, formerly `alibaba/OpenSandbox`,
@@ -47,7 +51,7 @@ hardware resets.
    - The price is a Docker daemon on the host, which is root-equivalent. The server is not in
      nixpkgs, and the project is young (created December 2025, a release every one to two weeks).
    - Run it with gVisor as the runtime, on loopback only, inside a systemd slice with a hard CPU and
-     memory ceiling (§9).
+     memory ceiling (§13).
 3. **Shape the contract after E2B and Upstash Box.** Their verbs line up closely (§5.4), and
    OpenSandbox's lifecycle and execd APIs map onto the same set.
 4. **Order the hosted providers E2B first, then Upstash Box.**
@@ -65,7 +69,7 @@ hardware resets.
      the repo and returns a branch.
    - (c) **Thread in the box:** a bb **machine provider** runs a whole bb thread in a sandbox.
    - Step (b) is the "many Sonnet builders, one folder each" case. It needs the model credential
-     to stay out of the sandbox, which means injecting it at the egress (§8.6).
+     to stay out of the sandbox, which means injecting it at the egress (§11).
 
 ## 2. What the work needs
 
@@ -292,7 +296,7 @@ persistent cloud container, "a computer for agents", with a built-in coding agen
 | limits | size tier | template | `resources` | `resourceLimits` |
 
 Only one SDK offers each of these, so they stay outside the contract (each provider can expose its
-own, §8.3):
+own, §9.5):
 
 - Upstash's built-in agent run and git PR;
 - E2B's `fork` and `watchDir`;
@@ -337,7 +341,7 @@ Notes that change the plan:
 
 | Order | Provider | Why first or next | Isolation |
 |---|---|---|---|
-| 1 | **`local-bwrap`** (built) with **systemd-run --user** scopes | Zero install. Proves the contract, queue, jobs and fan-out on the real box. Needs only linger and a slice for real caps (§9). | Namespaces; semi-trusted code |
+| 1 | **`local-bwrap`** (built) with **systemd-run --user** scopes | Zero install. Proves the contract, queue, jobs and fan-out on the real box. Needs only linger and a slice for real caps (§13). | Namespaces; semi-trusted code |
 | 2 | **`opensandbox`** on shared-server, Docker plus `runsc` | Images, egress allowlists, credential vault, preview URLs, snapshots; self-hosted, Apache-2.0 | gVisor; untrusted code |
 | 3 | **`e2b`** (hosted) | microVMs, burst beyond the box, a self-host path later, `fork()` | Firecracker; hostile code |
 | 4 | **`upstash-box`** (hosted) | The owner's reference; cheap; built-in agent run and PR | Docker |
@@ -350,423 +354,410 @@ Notes that change the plan:
   not attackers): `local-bwrap` with cgroup caps.
 - **Every job:** `egress: none` unless the job names an allowlist.
 
-## 8. The plugin: `assets/bb-plugins/sandbox`
+## 8. Decisions (owner, 2026-10-31)
 
-### 8.1 Where code runs in bb, and why it matters
+These close §11 of the first version of this doc. The owner did not object to the defaults, so
+the build uses them.
 
-bb gives a plugin four places to run code:
+| # | Question | Decision |
+|---|---|---|
+| — | The interface | A typed SDK in the spirit of Upstash Box: `Sandbox.create({ provider, image \| workspace, resources, network, storage, env, timeout })`, then `exec`, `files.*`, `ports`, `snapshot()`, `destroy()`, and bulk `createMany()`. A CLI and agent tools mirror it one-to-one. Switching backends changes one field. |
+| — | The queue | The plugin owns it. |
+| — | An agent spec | A declarative **AgentSpec** describes one run completely (§10). Specs are versioned files fanned out in bulk; results land as branches. |
+| — | Blender | Blender on shared-server, with the best headless MCP server (§12), usable on the host and as a sandbox image. |
+| 1 | Model credentials | **Builders stay outside sandboxes for now** (step (a) of §1). The design keeps API-key injection at the boundary for step (b). |
+| 2 | Docker | **No Docker daemon yet.** bubblewrap first; OpenSandbox later. |
+| 3 | Hosted accounts | **None yet.** The E2B and Upstash provider slots stay in the design. |
+| 4 | Linger | **Yes, for popemkt only**, so cgroup caps work. |
+| 5 | Thread in a sandbox (step (c)) | **Later.** |
+| 6 | Budget | **8 cores, 12 GiB, 3 concurrent sandboxes** while the host has resets. |
 
-- **CLI commands and server code** run in **`app-bb`**, the server. It restarts at once for its own
-  changes.
-- **`bb.host` entries** run in a lazy worker under **`app-bb-daemon`**, which stops after five idle
-  minutes.
-- **Agent tools** run in the server.
-- **Machine and environment providers** are core-owned lifecycles with durable, idempotent create
-  and remove.
+## 9. The plugin: `assets/bb-plugins/sandbox`
 
-A sandbox started as a child of either process dies with it. So:
+### 9.1 One contract, every implementation
 
-- **Local sandboxes are not children of bb.**
-  - The local provider starts each one as a transient user unit, `systemd-run --user --unit
-    bb-sbx-<id> --slice bb-sandbox.slice …`. It lives in popemkt's user manager, survives
-    `app-bb` and daemon restarts, and carries its own cgroup caps.
-  - This needs linger for popemkt (§9).
-  - The proof of concept still spawns `bwrap` from the server, with a `cgroups` setting that wraps
-    each exec in `systemd-run --user --scope`.
-- **Remote and hosted sandboxes** live in their provider. The plugin keeps only their ids.
-- **State is durable.** The plugin's SQLite database (`bb.storage.database()`) holds sandboxes,
-  jobs and leases. A `bb.background.service` reconciles them at start, and reconciliation is the
-  answer to a hardware reset (§8.5).
-- **Files given by path** go through `bb.sdk.files` with the invoking thread's `hostId`, never
-  `node:fs` against the server's disk. This follows bb's multi-machine rule; the proof of concept
-  is single-host.
+The concept is *a sandbox*. Its promise lives in one place, the provider contract
+(`core/contract.ts`), and **one contract suite** (`tests/contract.test.ts`) runs over every entry
+of `PROVIDERS`. A new provider joins the suite and goes green or red there, never in a test of its
+own. This follows kb's [One contract, every implementation](https://github.com/popemkt/kb/blob/v0.3.0/AGENTS.md#one-contract-every-implementation).
 
-### 8.2 The contract
+The *operations* on sandboxes (create, exec, files, …) also live in one place: an **operation
+table** (`core/ops.ts`). Each entry has a name, a summary, a zod input schema, the CLI positionals
+and a handler. Three surfaces are generated from that table, so they cannot drift:
 
-[`core/contract.ts`](https://github.com/popemkt/mac-backup/blob/bb/sandbox-plugin-poc/assets/bb-plugins/sandbox/core/contract.ts)
-on the proof-of-concept branch holds the provider half. The full contract adds files in and out,
-ports, secrets and the job layer:
+| Surface | How it is generated | Example |
+|---|---|---|
+| CLI | one `bb sandbox <op>` command per entry (`defineCli`). Scalar fields become flags; any field can also come from `--input <json \| @file>`. | `bb sandbox exec sbx1a2b -- npm test` |
+| Agent tools | one tool per entry, `sandbox_<op>`, with the entry's schema | `sandbox_exec({ id, argv })` |
+| SDK | a `call(op, input)` transport plus typed wrappers; a parity test fails if an op has no wrapper | `await sb.exec(["npm", "test"])` |
+
+The agent tools are offered only to threads that use sandboxes: builder threads the AgentSpec
+runner starts (plugin metadata `sandbox`), or every thread when the `toolsForAllThreads` setting
+is on. Everyone else uses the CLI, which the plugin's skill documents.
+
+### 9.2 Where it runs
+
+| Piece | Runs in | Why |
+|---|---|---|
+| Ops, queue, AgentSpec runner | the bb server (`app-bb`), plugin code | One admission authority. State lives in `bb.storage.kv`, so it survives restarts. |
+| Local sandboxes (bubblewrap) | popemkt's **user manager** (`systemd-run --user --scope --slice=sandbox.slice`) | They leave bb's process tree, so neither bb unit owns them, and they get cgroup caps. Needs linger (§13). |
+| SDK clients | anywhere: a script, another plugin, an agent's code | They reach the ops over the plugin's HTTP route `POST /api/v1/plugins/sandbox/http/op` (`auth: "token"`; the token comes from `BB_SANDBOX_TOKEN` or `bb plugin token sandbox`). |
+
+A sandbox's processes live only for one `exec` call. The provider kills the exec's process group
+when it returns or times out, and execs in one sandbox run one at a time, so a sandbox's limits
+hold for the whole sandbox. Only its files persist between execs. Background servers, and with
+them `ports`, need a provider whose sandboxes run continuously (OpenSandbox, E2B, Upstash).
+
+### 9.3 The SDK
 
 ```ts
-type NetworkPolicy =
-  | { egress: "none" }                                   // default
-  | { egress: "allowlist"; hosts: string[] }             // "api.anthropic.com", "*.npmjs.org:443"
-  | { egress: "open" };
+import { Sandbox } from "/etc/bb-sandbox/plugin/sdk/index.ts";   // the stack installs it there (§13)
 
-interface Limits { cpus: number; memoryMiB: number; pids: number; timeoutSec: number; diskMiB?: number }
+const sb = await Sandbox.create({
+  provider: "bwrap",                          // one field switches backends; default from the host policy
+  image: { nix: ["nodejs_22", "git"] },       // or { preset: "blender" }, or { oci: "node:22" } where supported
+  workspace: { git: { repo: "/home/popemkt/code/vn-monuments", ref: "main" } },
+  resources: { cpus: 2, memoryMiB: 3072, pids: 512 },
+  network: { egress: "none" },                // "open", or { egress: "allowlist", hosts } where supported
+  storage: { volumes: [{ name: "npm-cache", mount: "/cache/npm" }] },
+  env: { NODE_ENV: "test" },
+  timeoutSec: 1800,
+  labels: { batch: "monuments-1" },
+  priority: 1,
+});
+const r = await sb.exec(["npm", "test"], { cwd: "/workspace", timeoutSec: 600 });
+await sb.files.write("/workspace/notes.md", "…");
+const text = await sb.files.read("/workspace/out/report.json");
+const snap = await sb.snapshot();             // later: Sandbox.create({ ..., workspace: { snapshot: snap.snapshotId } })
+const url = await sb.ports.url(3000);         // throws SandboxUnsupported on bwrap
+await sb.destroy();
 
+// Bulk: returns at once with queued handles; each method waits until its sandbox is admitted.
+const boxes = await Sandbox.createMany(folders.map((f) => ({ ...base, labels: { folder: f } })));
+```
+
+The verbs and their names follow §5.4: `create`, `createMany`, `get`, `list`, `exec`,
+`files.{read,write,list}`, `ports.url`, `snapshot`, `pause`, `resume`, `destroy`, plus
+`queue.status` and `providers.list`. Files are bytes, base64 over the wire, at most 8 MiB per
+call. A large tree goes in as a workspace, not file by file.
+
+### 9.4 The contract
+
+The spec types are zod schemas in `core/spec.ts`, the one home of the shape; TypeScript types are
+inferred from them.
+
+```ts
+type Image = { nix: string[] } | { preset: string } | { oci: string };
+type Workspace =
+  | { empty: true }
+  | { git: { repo: string; ref: string; branch?: string } }    // the result is that branch in that repo
+  | { bind: { path: string; readOnly?: boolean } }
+  | { snapshot: string };
 interface SandboxSpec {
-  image?: string;                         // provider image/template; local: host /nix/store, read-only
-  limits: Limits;
-  network: NetworkPolicy;
-  env?: Record<string, string>;           // never secrets
-  secrets?: string[];                     // names from the plugin's secret allowlist (§8.6)
-  ports?: number[];
-  labels?: Record<string, string>;        // threadId, jobId, batch
-}
-
-interface Capabilities {
-  isolation: "namespaces" | "gvisor" | "microvm";
-  enforces: Array<keyof Limits>;          // the rest are advisory, and reported as such
-  egress: Array<NetworkPolicy["egress"]>;
-  secretInjection: "header" | "none";     // header = the secret stays outside the sandbox
-  ports: boolean; pause: boolean; snapshot: boolean;
+  provider?: string; image?: Image; workspace?: Workspace;
+  resources: { cpus: number; memoryMiB: number; pids: number; diskMiB?: number; gpus?: number };
+  network: { egress: "none" } | { egress: "open" } | { egress: "allowlist"; hosts: string[] };
+  storage?: { volumes?: { name: string; mount: string; readOnly?: boolean }[];
+              data?: { source: string; mount: string; readOnly?: boolean }[] };
+  env?: Record<string, string>; secrets?: string[];
+  timeoutSec: number; labels?: Record<string, string>; priority?: number;
 }
 
 interface SandboxProvider {
-  id: string; capabilities: Capabilities;
-  create(spec, signal?): Promise<SandboxInfo>;
-  exec(id, { argv, cwd?, env?, timeoutSec?, stdin? }, { signal?, onOutput? }): Promise<ExecResult>;
-  readFile(id, path): Promise<Uint8Array>;
-  writeFile(id, path, data): Promise<void>;
-  upload(id, tarball: Uint8Array, dest): Promise<void>;     // a whole tree in one call
-  download(id, path): Promise<Uint8Array>;                  // tar of a path
-  list(labels?): Promise<SandboxInfo[]>;
-  previewUrl?(id, port): Promise<{ url: string; headers?: Record<string, string> }>;
-  pause?(id); resume?(id); snapshot?(id): Promise<{ snapshotId: string }>;
+  id: string;
+  capabilities: Capabilities;      // isolation class, which limits it enforces, egress modes,
+                                   // image kinds, workspace kinds, ports, pause, snapshot, secret injection
+  create(id, spec, signal?): Promise<void>;
+  exec(id, request, signal?): Promise<ExecResult>;
+  readFile(id, path); writeFile(id, path, bytes); listFiles(id, path);
+  snapshot?(id): Promise<{ snapshotId: string }>;
+  pause?(id); resume?(id); previewUrl?(id, port);
   destroy(id): Promise<void>;
-  extension?<T>(name: string): T | undefined;               // provider-only verbs (§5.4), opt-in
+  list(): Promise<string[]>;        // ids it still holds, for reconciliation
 }
 ```
 
-The contract follows three rules:
+The contract makes these promises, and the suite checks each of them over every provider:
 
-- **A capability never fails silently.** `create` refuses what a provider cannot enforce (an
-  allowlist on `local-bwrap`, ports, secrets) with `SandboxUnsupported`. It does not quietly run
-  with less.
-- **Limits are always requested; `enforces` says which ones hold.** The queue budgets the requested
-  limits either way.
-- **`argv`, never a shell string.** A caller who wants a shell passes `["sh", "-c", …]`.
+- `create` **refuses** anything outside `capabilities`, such as an egress mode, an image kind, a
+  workspace kind, ports, GPUs or secrets. It never runs with less than was asked.
+- Exec is **argv, not a shell string**, starts in `/workspace`, and sees only the spec's `env`.
+  It reports `timedOut` and kills everything it started when the timeout or the sandbox's
+  lifetime ends.
+- **Files stay inside `/workspace`**: no `..`, and no symlink the sandbox planted.
+- A sandbox **cannot see the host's home, SSH keys or bb data**, and has **no network** with
+  egress `none`.
+- **`destroy` is total and idempotent**, and `list` no longer reports the sandbox afterwards.
+- A `git` workspace's **result is its branch**: commits made in `/workspace` (by an agent on the
+  host, or inside) are on `branch` in `repo` after `destroy`.
 
-The job layer sits above providers and is the unit the queue schedules:
+### 9.5 Providers
 
-```ts
-interface JobSpec {
-  provider?: string;                    // default: the plugin setting
-  sandbox: SandboxSpec;
-  priority: number;                     // higher first; FIFO within a priority
-  workspace?: { repo: string; ref: string; subdir?: string };   // sent in as a git bundle
-  steps: Array<{ run: string[] } | { agent: { cli: "claude" | "opencode" | "codex"; promptFile: string } }>;
-  collect?: { kind: "bundle" | "patch"; paths?: string[] };      // results out
-  retry?: { max: number };              // re-run from scratch when the box or provider lost it
-  labels?: Record<string, string>;      // batch=…, parentThread=…
-}
-// Job state: queued → provisioning → running → collecting → done | failed | cancelled
-```
-
-### 8.3 Providers
-
-| Provider | Phase | Transport | Notes |
+| id | Status | Isolation | Notes |
 |---|---|---|---|
-| `local-bwrap` | 1 (proof of concept built) | `systemd-run --user` + `bwrap` | `/workspace` is a host directory; `/nix/store` read-only. An optional `nix: true` binds the nix-daemon socket so jobs can `nix shell` toolchains: the daemon builds sandboxed as `nixbld`, but this widens the surface. Egress is `none` or `open` only; no secrets. |
-| `opensandbox` | 2 | REST to `127.0.0.1:<port>` with the API key from a 0600 file; the TS SDK `@alibaba-group/opensandbox` or plain `fetch` | Network and secrets go through `networkPolicy` and the credential vault. Ports go through endpoints with `use_server_proxy`. |
-| `e2b` | 3 | `e2b` SDK, API key as a plugin secret setting | Templates set the size. `limits` choose the template; the rest are advisory. |
-| `upstash-box` | 4 | `@upstash/box` | Limits round up to the next size tier. Extensions: `agent.run`, `git.createPR`. |
+| `bwrap` | **built** | namespaces | Images: `nix` attrs and presets, built from the host's nixpkgs (`nix build -f <nixpkgs>`), read-only via `/nix/store`. Workspaces: `empty`, `git` (a host worktree on a new branch, bound at `/workspace` with `.git` and the repo's hooks path read-only), `bind`, `snapshot` (a tar of the workspace and home). Egress: `none` and `open`. No ports, pause, GPUs or secrets. Caps through the user slice. |
+| `opensandbox` | slot (phase 2) | gVisor | REST to a loopback server, credential vault, allowlists, ports, Docker pause. |
+| `e2b` | slot | Firecracker | Hosted; templates set the size; header-injected secrets; `fork`. |
+| `upstash` | slot | Docker | Hosted; size tiers; `attachHeaders`; built-in agent run as an extension. |
 
-### 8.4 How agents use it
+A slot is a row in this table, not code. A provider id the registry does not know is refused at
+`create`, like any other unsupported request.
 
-**CLI** (one `bb sandbox` command, `defineCli`, `--json` everywhere, output bounded under bb's 1 MiB
-CLI cap):
+### 9.6 The queue
 
-```text
-bb sandbox providers                                    # ids, capabilities, readiness
-bb sandbox run    [limits] [--net none|open|allow:h1,h2] [--provider p] -- <argv…>   # one-shot (built)
-bb sandbox create [limits] [--image i] [--label k=v] [--ttl S]          → id
-bb sandbox exec   <id> [--cwd d] [--timeout S] -- <argv…>
-bb sandbox put    <id> <local-path> <sandbox-path>     # through bb.sdk.files on the caller's host
-bb sandbox get    <id> <sandbox-path> <local-path>
-bb sandbox url    <id> <port>
-bb sandbox pause|resume|snapshot|rm <id>
-bb sandbox ls     [--label k=v]
-bb sandbox job submit [JobSpec flags | --spec file.json]   → job id
-bb sandbox job ls|wait|logs|cancel [<id>|--label batch=…]
-bb sandbox job result <id> [--as-branch <name>]           # fetch the bundle into the caller's repo
-bb sandbox status                                         # queue: running, waiting, budget used (built)
+The queue admits **sandboxes**, not calls. A sandbox holds its lease on the budget from admission
+until it is destroyed or expires. Its states are `queued → running → destroyed | failed`.
+
+- **Budget.** It comes from the host policy (§13): 3 sandboxes, 8 cores and 12 GiB on
+  shared-server. The plugin's settings cannot raise it.
+- **Admission.** A sandbox is admitted when the job count, the CPU budget and the memory budget all
+  fit, and when PSI shows no CPU or memory pressure. Pressure only holds new admissions.
+- **Ordering.** Priority first, then first-in first-out. The head is never overtaken by a smaller
+  job.
+- **Persistence.** Each record lives in `bb.storage.kv`. At load the service reconciles:
+  - queued records re-enter the queue;
+  - running records whose provider still holds the sandbox keep their lease;
+  - expired or lost ones are destroyed or marked `failed: lost`.
+
+  That covers an `app-bb` restart, a reload and a hardware reset.
+
+### 9.7 What the proof of concept showed [measured]
+
+The proof of concept was on `bb/sandbox-plugin-poc` (PR #112). The plugin PR replaces it.
+
+- A sandbox is created in about 50 ms. It has hostname `sandbox`, and `/` holds only
+  `dev home nix proc run tmp workspace`.
+- It has no `~/.ssh` and no network by default. `--net open` reaches the internet.
+- A timeout kills the command with exit 137.
+- An over-budget request is refused.
+- Six concurrent runs with a cap of 4 ran as 4 running and 2 waiting.
+
+## 10. AgentSpec: one declarative run
+
+An AgentSpec says **what the agent is, what it has, and what it must produce**. It is a JSON or
+YAML file, versioned in the repo it works on, or built in TypeScript with the SDK. Its fields
+borrow from Harbor's `task.toml` and job config, Upstash Box's `agent.run`, and the Claude Code,
+Codex and opencode headless flags [doc], adapted to bb.
+
+```yaml
+schema: bb-sandbox/agent-spec@1
+name: monument-${folder}
+labels: { batch: vn-monuments-1, folder: "${folder}" }
+matrix: { folder: [hue-citadel, hoi-an, my-son] }    # fan-out: one run per value
+
+agent:
+  harness: claude-code          # a bb provider id: claude-code, codex, acp-opencode, pi
+  model: claude-sonnet-5-5      # required, always explicit; a Fable model is refused
+  effort: medium
+  timeoutSec: 3600              # the runner stops the thread after this
+
+instructions:
+  promptFile: briefs/monument.md          # or `prompt: "…"`; ${folder} is substituted
+  guides:                                 # copied into the workspace under .agent/ and named in the prompt
+    - { file: AGENTS.md }
+    - { file: docs/style-guide.md }
+    - { skill: .agents/skills/blender-scene }      # a SKILL.md directory
+
+sensors:                                  # run in the sandbox after the agent's turn; the agent may run them too
+  - { name: build, run: [npm, run, build], timeoutSec: 600 }
+  - { name: render, run: [blender, -b, scenes/${folder}.blend, -P, tools/render.py], artifacts: [out/${folder}.png] }
+  - { name: eval, run: [node, tools/eval.mjs, "${folder}"], kind: eval }   # last stdout line {"reward": 0.8} is recorded
+
+sandbox:                                  # everything SandboxSpec says, except the workspace
+  provider: bwrap
+  image: { preset: blender }
+  resources: { cpus: 2, memoryMiB: 3072, pids: 1024 }
+  network: { egress: none }
+  storage: { data: [{ source: /srv/monument-photos, mount: /data/photos }] }
+  timeoutSec: 5400
+
+workspace: { git: { repo: ., ref: main, subdir: "monuments/${folder}" } }
+
+outputs:
+  branch: sandbox/vn-monuments-1/${folder}   # default: sandbox/<batch>/<name>
+  artifacts: ["out/**/*.png", "monuments/${folder}/README.md"]
 ```
 
-**Agent tools.** There are only three, so they stay cheap in every session:
+**What the runner does, for each expanded spec** (`bb sandbox job submit specs/monuments.yaml`):
 
-- `sandbox_run`: one-shot exec.
-- `sandbox_job_submit`.
-- `sandbox_job_wait`: returns the result summary and the branch name.
+1. **Validate** the spec, and expand `matrix` into one run per combination. A Fable model or a
+   missing harness or model refuses the whole batch.
+2. **Queue** a sandbox for it, with the spec's priority. Admission waits for the budget.
+3. **Prepare the workspace.**
+   - Create the branch as a worktree, and copy the guides into `.agent/`.
+   - Under step (a) the builder edits files on the host, so the branch is a host worktree that the
+     sandbox binds at `/workspace`.
+4. **Start the builder as a bb thread** (`bb.sdk.threads.spawn`).
+   - It gets the spec's harness and model, a host environment on that worktree, and the
+     coordinator as its parent.
+   - Its brief names the sandbox, its sensors and its branch.
+   - Its plugin metadata enables the `sandbox_*` tools.
+   - The agent edits files directly and runs everything it builds or executes with
+     `sandbox_exec`. It never runs it on the host.
+5. **Wait** until the thread is idle or `agent.timeoutSec` passes, then stop its runtime.
+6. **Run the sensors in the sandbox**, record their results, and copy their `artifacts`.
+7. **Collect the outputs**:
+   - the branch and its head commit;
+   - a patch of anything left uncommitted (not committed for the agent);
+   - artifact files;
+   - the trajectory.
+8. **Destroy the sandbox.** The branch stays.
 
-Everything else is reached through the CLI and the plugin's skill.
+**The trajectory** is kept per job under the plugin's state directory, as two files:
 
-`bb.agents.contributeInstructions` adds one line only when the person enables "prefer sandboxes" for
-a project: run generated code with `bb sandbox run`.
+- `trajectory.json`, in [ATIF-v1.8](https://docs.harborframework.com/agents/atif), Harbor's
+  Agent Trajectory Interchange Format. It holds the steps, with their messages, reasoning, tool
+  calls and observations, and `final_metrics` from bb's token usage. bb-specific data goes in
+  `extra`.
+- `events.jsonl`, the raw bb events, lossless.
 
-**Fan-out of builders**, steps (a) and (b) from §1:
+`bb sandbox job trajectory <id>` pages through it, and the builder thread stays in bb as the live
+view.
 
-```sh
-# Coordinator thread, in the repo checkout:
-batch=refactor-$(date +%s)
-for dir in packages/*/; do
-  name=$(basename "$dir")
-  bb sandbox job submit --label batch=$batch --priority 1 \
-    --repo . --ref HEAD --subdir "$dir" \
-    --cpus 2 --memory 3072 --timeout 3600 --net allow:api.anthropic.com,registry.npmjs.org \
-    --secret anthropic \
-    --agent claude --prompt-file "plans/$name.md" \
-    --collect bundle
-done
-bb sandbox job wait --label batch=$batch            # blocks; prints per-job status
-for id in $(bb sandbox job ls --label batch=$batch --state done --json | jq -r '.[].id'); do
-  bb sandbox job result "$id" --as-branch "sandbox/$batch/$id"
-done
-# Review each branch; merge or open PRs from the host, which holds the git credentials.
-```
+**Fan-out and review.**
 
-How a job runs:
+- One spec file with a `matrix`, or N files, or a script that builds specs with the SDK
+  (`Jobs.submit(spec)`).
+- The queue runs 3 at a time on shared-server.
+- `bb sandbox job wait --label batch=…` blocks until the batch is done, and `bb sandbox job list`
+  shows branches, sensor results and costs.
+- The coordinator reviews each branch and merges or opens PRs. Only the host pushes.
 
-1. The plugin makes a `git bundle` of `ref` on the invoking host and uploads it.
-2. It clones the bundle into `/workspace` inside the sandbox, so the sandbox needs no GitHub access.
-3. It runs the steps. An `agent` step runs `claude -p` (or `opencode run`) headless, with the
-   prompt file and `--max-turns`, in `subdir`.
-4. It commits whatever changed.
-5. It runs `git bundle create out.bundle <base>..HEAD` and downloads the result.
-6. `job result` runs `git fetch <bundle> HEAD:refs/heads/<branch>` in the caller's checkout.
+**Later, with the same spec.**
 
-Only the host ever pushes.
+- Step (b), the agent inside the sandbox, keeps the spec. The runner then starts the harness
+  headless in the sandbox (`claude -p --output-format stream-json --bare`, `codex exec --json`,
+  `opencode run --format json`).
+- The model key is injected at the egress (§11), and the native transcript is converted to ATIF
+  the same way.
+- Step (c) runs the bb thread itself in a sandbox, through a machine provider. bb's own
+  `environment-modal-sandbox` plugin already has the adapter shape: `SandboxBackend` mapped to
+  `bb.experimental_machines`.
 
-**Step (c), a whole bb thread in a sandbox.**
+## 11. Security
 
-- A `bb.experimental_machines` provider with `ephemeral: true`. Its `MachineExecutor.exec` is the
-  contract's `exec`, so `bb.experimental_machines.bootstrap` can install and enroll a bb daemon in
-  the sandbox.
-- An environment composition then offers "New sandbox" in the thread picker, and bb removes the
-  machine when no live thread needs it.
-- This gives each builder a full, visible bb thread. It needs Node, npm and curl in the image, and
-  egress to the bb server and the model API.
-- Core sets up the project's git remote on a new machine, so the sandbox would need git
-  credentials. It conflicts with "only the host pushes" until bb can seed a project from a bundle.
-  That is an open question (§11).
+The first version's security section, with the decisions in §8.
 
-### 8.5 The queue (built in the proof of concept: `core/queue.ts`)
+- **Secrets.**
+  - Nothing enters a sandbox by default: the environment is cleared, and there is no home, SSH
+    agent, git credentials, bb token or `~/.bb`.
+  - `bwrap` refuses `secrets`. Header injection at the egress comes with the providers that have
+    one.
+  - Builders stay outside sandboxes, so no model credential is needed inside one.
+- **Egress.** The default is `none`. `bwrap` offers `none` and `open` only; an allowlist needs a
+  provider with an egress proxy.
+- **Workspaces.**
+  - A `git` workspace binds the worktree read-write, but `.git` and the repo's hooks path
+    (`core.hooksPath`, such as `.githooks`) read-only. Sandboxed code therefore cannot plant a hook
+    that the host's git, or the builder's own commits, would run.
+  - The runner never commits for the agent. It records uncommitted changes as a patch, using
+    `git diff`, which runs no hooks.
+  - `bind` and `data` mounts refuse `/`, `$HOME` and any ancestor of them.
+- **Caps.** There are five layers:
+  1. The queue budget and the PSI gate.
+  2. The `sandbox.slice` user slice: a hard ceiling with `CPUQuota`, `MemoryMax`,
+     `MemorySwapMax=0` and `TasksMax`.
+  3. Each exec's scope, capped at the sandbox's resources.
+  4. `nice 19`.
+  5. The sandbox's lifetime.
 
-**Admission.** A job is admitted when all of these hold:
+  If the host policy requires cgroups and the user bus is missing, `create` fails. It does not run
+  uncapped.
+- **Isolation class.** `bwrap` shares the host kernel: a seatbelt for the builders' own generated
+  code, not a vault for hostile code. That waits for `opensandbox` with gVisor, or E2B.
 
-- running jobs < `maxJobs`;
-- the CPU and memory budget is not exceeded (the sum of running jobs' requested limits);
-- the host is not under pressure.
+## 12. Blender
 
-**Pressure** is read from `/proc/pressure/cpu` and `/proc/pressure/memory` (PSI "some" avg10 over
-60 % or 10 %). Pressure only holds new admissions; running jobs are never touched.
+**Host.**
 
-**Ordering.** Priority first, then first-in first-out. The head of the queue is never overtaken by
-a smaller job, so a big high-priority job cannot starve. A job larger than the whole budget is
-refused at submit.
+- The `blender` stack (PR #114) installs Blender 5.2.2 from nixpkgs and `blender-mcp`, a stdio MCP
+  server.
+- Each agent session gets its **own headless Blender**. The session starts `blender -b` with
+  [dcc-mcp-blender](https://github.com/dcc-mcp/dcc-mcp-blender) (MIT) inside it, and the bridge
+  relays MCP between stdio and Blender's loopback HTTP endpoint.
+- Blender stops when the session ends.
+- The gateway and telemetry are off.
+- The pin is a uv pin, installed on first use into a venv over Blender's own Python.
+- [measured] Through the bridge, `load_skill blender-scripting` then
+  `blender_scripting__execute_python` added Suzanne to the scene.
 
-**Budgets.** There is one budget per provider. The local budget defaults to 4 jobs, 8 cores and
-12 GiB, about half the box, leaving room for the two people's threads, kb and T3. Hosted
-providers default to their plan's concurrency.
+**Why dcc-mcp-blender** [doc]:
 
-**Persistence (phase 1 adds it; the proof of concept keeps the queue in memory).**
+- It is the only maintained Blender MCP server that runs in background mode, with about 200 typed
+  tools loaded on demand through skills. It is tested on Blender 4.5 and 5.2.
+- ahujasid's add-on (32.9k stars, now `mcp-for-blender`) refuses `blender -b`: its command queue
+  drains on GUI timers. The official Blender Lab MCP (Blender 5.1+) also needs a running UI for its
+  live tools.
+- ellmos-blender-use-mcp spawns a Blender per call. It is tiny (4 tools, 2 stars, alpha) and would
+  auto-update from npm.
 
-- Jobs are rows in the plugin's SQLite.
-- On load, the reconciler compares rows with `provider.list()`:
-  - a `running` job whose sandbox is gone becomes `failed: lost`, and is retried if `retry.max`
-    allows;
-  - a sandbox with no job is destroyed;
-  - a `queued` job stays queued.
-- That covers an `app-bb` restart, a daemon restart and a hardware reset alike. `systemd-run` units
-  do not survive a reboot, and OpenSandbox containers with no restart policy do not either.
+**Limits.**
 
-### 8.6 Security
+- Viewport screenshots need a GUI, so a session renders with Cycles on the CPU or Workbench
+  instead.
+- EEVEE in background mode needs a GPU context. It is untested here, and the dGPU stays out of it
+  given the resets.
+- Registering `blender-mcp` with each harness is still manual. That is a recorded gap: no channel
+  registers MCP servers.
 
-- **No secret enters a sandbox by default.**
-  - The host's environment is never inherited: `--clearenv` locally, an explicit `env` remotely.
-  - The sandbox sees no `$HOME`, `~/.ssh`, SSH agent, git credentials, bb token or `~/.bb`.
-  - Proven in the proof of concept: `/` holds only `dev home nix proc run tmp workspace`, and
-    `/home` holds only the sandbox's own home [measured].
-- **Named secrets only, injected at the egress where possible.**
-  - Secrets are plugin secret settings (0600, server-side) plus a policy that lists, for each
-    secret, the hosts it may be sent to.
-  - A job asks for `--secret anthropic`. The plugin passes it as a header rule for its allowed hosts
-    (Upstash `attachHeaders`, E2B `network.rules…transform`, the OpenSandbox credential vault, a
-    Daytona secret placeholder), so the value never exists inside the sandbox.
-  - A provider whose `secretInjection` is `none` (`local-bwrap`) refuses secrets.
-  - Passing a secret as an environment variable is a separate, explicit per-secret flag
-    (`exposeAsEnv`). It is off by default and logged on every job.
-- **Model credentials for agent steps.**
-  - Agent steps need a key in the request header, which header injection covers for an API key
-    (`x-api-key` for api.anthropic.com).
-  - A Claude subscription (OAuth) token is a bearer header too, but it belongs to a person's
-    account. Putting it behind a proxy for bulk use may conflict with the provider's terms. See
-    §11.
-- **Egress.**
-  - The default is `none`.
-  - Allowlists need `opensandbox` (DNS plus nftables), a hosted provider, or a later local egress
-    proxy.
-  - `local-bwrap` offers only `none` and `open`, and `open` is opt-in for each run.
-  - Private ranges and the tailnet are never in an allowlist.
-  - bb's own server URL is allowlisted only for step (c).
-- **Resource caps that protect the box.** There are five layers, outermost first:
-  1. The queue budget and PSI gate (the plugin).
-  2. A hard ceiling on the `bb-sandbox.slice` user slice: `MemoryMax`, `CPUQuota`, `TasksMax`,
-     `IOWeight`. For OpenSandbox, the same on `docker.service`'s slice, or a dedicated
-     `sandbox.slice` for containerd shims (§9).
-  3. Per-sandbox cgroup limits.
-  4. `nice 19` and idle I/O priority.
-  5. TTL on every sandbox.
+**In sandboxes.**
 
-  `MemorySwapMax=0` on sandboxes keeps a runaway job from pushing the host into swap. That matters
-  more than usual on a box whose resets correlate with load spikes on the dGPU path.
-- **Ports.**
-  - Preview URLs are bound to loopback. OpenSandbox gets `publish_host = "127.0.0.1"`; its default
-    is `0.0.0.0`.
-  - A port is reached from a Mac through bb's shared-port tunnel (`bb.hosts.declareSharedPorts`) or
-    `adhoc-popemkt`. It is never published on the tailnet by default.
-- **Paths.** Host-side file verbs refuse `..` and any symlink the sandbox planted. The proof of
-  concept tests this, and nothing runs inside a sandbox between execs, so there is no race.
-- **Isolation honesty.**
-  - `local-bwrap` shares the host kernel. It is a seatbelt, not a vault.
-  - Hostile code (untrusted third-party repos, scraping arbitrary sites) goes to `opensandbox` with
-    gVisor or to E2B.
-  - Each provider states its class in `capabilities.isolation`, and a job can demand a minimum,
-    `--isolation gvisor`.
+- `image: { preset: blender }` puts the host's Blender (`/nix/store`, read-only) on the sandbox's
+  PATH. Sensors and builders' code then run `blender -b … -P script.py` inside the sandbox.
+- The MCP server is a host-side tool for builders outside sandboxes (step (a)). Inside a sandbox
+  under step (b), the same `blender-mcp` runs if the image also carries uv's cached venv. That is
+  for later.
 
-### 8.7 The proof of concept [measured]
+## 13. NixOS: the `sandboxes` stack
 
-- **Branch:** `bb/sandbox-plugin-poc`, `assets/bb-plugins/sandbox`.
-- **Contents:**
-  - `core/contract.ts`;
-  - `core/queue.ts`;
-  - `core/providers/bwrap.ts`;
-  - `server.ts`, which provides `bb sandbox run` and `bb sandbox status`;
-  - a skill;
-  - 10 tests (queue admission, budget, priority, pressure, cancellation, bwrap flags, refusals,
-    path and symlink escapes).
-- **Checks:** typecheck, oxlint and tests pass.
-- **Install:** with `bb-plugins-sync --path`. `bwrapPath` points at the store's bubblewrap.
-- **Results on shared-server:**
-  - `bb sandbox run -- sh -c '…'`: hostname `sandbox`, `/` = `dev home nix proc run tmp workspace`,
-    no `~/.ssh`, cwd `/workspace`, curl fails with no network. Took 49 ms.
-  - `--timeout 2 -- sleep 30` is killed at about 2 s with exit 137.
-  - `--net open` gets `200` from `https://example.com`.
-  - `--cpus 99` is refused: "the budget is 8 CPU".
-  - Six concurrent runs with `maxJobs` 4 show `running: 4, waiting: 2`, and all six then complete.
-- **Not in it:**
-  - cgroup caps (the `cgroups` setting exists, but no user manager runs here);
-  - jobs, persistence and other providers;
-  - a declaration in any stack.
-
-## 9. NixOS deployment sketch
-
-**A new stack, `sandboxes`**, in `modules/stacks/sandboxes/` (`default.nix` for the shared schema,
-`nixos.nix` for the Linux side), imported from `modules/stacks/default.nix` and
-`modules/stacks/nixos.nix`.
-
-It is its own stack because it is a vertical slice: the bb plugin, the host runtime, the user
-manager and the OpenSandbox server are one capability. The plugin is only one client; `osb`, the
-MCP server and the Macs could be others. Folding it into `bb` would make bb own Docker. The
-`ai-agents` stack is still macOS-only.
-
-The OpenSandbox server is host infrastructure that talks to the root Docker socket, not a person's
-app. So it is a plain system unit owned by the stack, not a `my.services` entry, whose schema is
-"an app run as its owner".
+`modules/stacks/sandboxes/` is a NixOS-only stack, imported from `modules/stacks/nixos.nix` and
+enabled on shared-server. It owns the whole local capability:
 
 ```nix
-# hosts/shared-server/default.nix
 my.stacks.sandboxes = {
-  enable = true;                 # the plugin (my.pkgs.bbPlugins) and bubblewrap on PATH
-  local = {
-    enable = true;               # rootless provider: linger plus a capped user slice per person
-    people = [ "popemkt" ];
-    ceiling = { cpus = 8; memory = "12G"; tasks = 4096; };   # the slice's hard limits
-  };
-  opensandbox = {
-    enable = false;              # phase 2
-    port = 8090;                 # loopback only
-    runtime = "runsc";           # "runc" | "runsc"
-    maxSandboxTimeout = 7200;
-    ceiling = { cpus = 8; memory = "12G"; };
-    image = "ghcr.io/opensandbox-group/opensandbox/server@sha256:…";   # pinned by digest
-  };
+  enable = true;                       # the bb plugin (my.pkgs.bbPlugins), bubblewrap, the policy
+  budget = { sandboxes = 3; cpus = 8; memoryMiB = 12288; tasks = 8192; };
+  people = [ "popemkt" ];              # lingering user managers, each with the capped sandbox.slice
+  images = { blender = [ "blender" ]; browser = [ "chromium" ]; node = [ "nodejs_22" "git" ]; };
 };
 ```
 
-```nix
-# modules/stacks/sandboxes/nixos.nix (shape, not final)
-{ config, lib, pkgs, ... }:
-let cfg = config.my.stacks.sandboxes; in
-lib.mkIf cfg.enable (lib.mkMerge [
-  {
-    my.pkgs.bbPlugins = [ "assets/bb-plugins/sandbox" ];
-    environment.systemPackages = [ pkgs.bubblewrap ];
-  }
-  (lib.mkIf cfg.local.enable {
-    # A user manager for each person, so a sandbox is a transient user unit that outlives
-    # app-bb and app-bb-daemon and carries its own cgroup caps.
-    users.users = lib.genAttrs cfg.local.people (_: { linger = true; });
-    # The ceiling every local sandbox runs under.
-    systemd.user.slices.bb-sandbox.sliceConfig = {
-      CPUQuota = "${toString (cfg.local.ceiling.cpus * 100)}%";
-      MemoryMax = cfg.local.ceiling.memory;
-      MemorySwapMax = "0";
-      TasksMax = cfg.local.ceiling.tasks;
-      IOWeight = 10;
-    };
-  })
-  (lib.mkIf cfg.opensandbox.enable {
-    virtualisation.docker = {
-      enable = true;
-      daemon.settings.runtimes.runsc.path = "${pkgs.gvisor}/bin/runsc";
-    };
-    # dockerd, containerd and every container shim under one capped slice.
-    systemd.slices.sandbox.sliceConfig = { CPUQuota = "…"; MemoryMax = "…"; };
-    systemd.services.docker.serviceConfig.Slice = "sandbox.slice";
-    # The server: the upstream image with the Docker socket, config generated from the options
-    # (pkgs.formats.toml): [server] api_key_file, [docker] publish_host = "127.0.0.1",
-    # network_mode = "bridge", [secure_runtime] docker_runtime = cfg.opensandbox.runtime,
-    # [egress] mode = "dns+nft", max_sandbox_timeout_seconds.
-    virtualisation.oci-containers.containers.opensandbox = { /* image, ports 127.0.0.1:port, volumes */ };
-    # The API key is machine state (scripts/shared-server-secrets), never declared.
-  })
-]);
-```
+- **`/etc/bb-sandbox/policy.json`.** It is generated from these options and is the one home of
+  the budget. It holds:
+  - the budget and the default provider;
+  - the store paths of `bwrap` and of the host's nixpkgs (for `nix` images);
+  - the image presets;
+  - whether cgroups are required.
 
-- **Keep these out of the declaration:**
-  - Nobody joins the `docker` group. Only the OpenSandbox container gets the socket, and both
-    people have sudo anyway.
-  - No tailnet Service for OpenSandbox until the Macs need it. When they do, add
-    `my.stacks.vpn.services.opensandbox`, its grant and its auto-approver.
-- **Load.** Linger starts one `systemd --user` per listed person, a few MB each. Docker and
-  containerd idle at roughly 100 MB [unverified]. Neither restarts `app-bb` or `app-bb-daemon`.
-- **Rebuild.**
-  - Run it through `rebuild`, detached, per CLAUDE.md, by a person.
-  - Linger and the user slice take effect without a reboot.
-  - The `docker` unit starts fresh, so there is no restart of anything existing.
+  The plugin reads it, and the plugin's settings cannot raise it.
+- **The slice.** `systemd.user.slices.sandbox` applies the same budget as the slice's hard ceiling:
+  `CPUQuota = cpus × 100 %`, `MemoryMax`, `MemorySwapMax = 0`, `TasksMax`, `IOWeight = 10`.
+- **Linger.** `users.users.<person>.linger = true` for `people`. The user manager starts at boot.
+  The Plasma session already starts it at login, so this changes when it starts, not what it runs.
+- **The SDK path.** `/etc/bb-sandbox/plugin` is the plugin's source from the applied revision, so
+  scripts import `/etc/bb-sandbox/plugin/sdk/index.ts` (Node runs TypeScript directly).
+- **Neither bb unit restarts.** A rebuild adds files, a slice and linger. The plugin installs
+  through `bb-plugins-sync`.
 
-## 10. Phased plan
+## 14. Phased plan
 
-| Phase | Delivers | Needs root? | Done when |
-|---|---|---|---|
-| 0 | This doc; proof of concept on `bb/sandbox-plugin-poc` | no | ✅ |
-| 1 | The plugin for real: `defineCli`; durable jobs in SQLite; the reconciler; `local-bwrap` through `systemd-run --user`; `put`/`get` through `bb.sdk.files`; the jobs' git bundle in and out; the three agent tools; the `sandboxes` stack with `local` (linger, slice, bubblewrap), declared for shared-server | yes, the stack (a rebuild) | A coordinator fans out 4 shell-step jobs on folders of a repo and gets 4 branches back, with the slice ceiling verified under a stress job |
-| 2 | `opensandbox` provider; `opensandbox` component (Docker, runsc, loopback server, capped slice); egress allowlists; named secrets through the credential vault | yes | A job with `--isolation gvisor --net allow:registry.npmjs.org` builds a package. A secret reaches its allowed host only, and `env` inside shows no value. |
-| 3 | `agent` steps (headless `claude -p` / `opencode run`) with model-key header injection; `job wait` summaries; a fan-out skill for coordinators | no | N Sonnet builders, one folder each, return reviewed branches |
-| 4 | `e2b` and `upstash-box` providers (secret settings, size mapping, extensions); per-provider budgets; overflow from local to hosted when the local queue is long | no | The same batch runs unchanged with `--provider e2b` |
-| 5 | Step (c): the sandbox machine provider (a bb thread inside a sandbox); a microVM local provider (self-hosted E2B Embed or microsandbox on KVM) if gVisor proves too slow | maybe | A builder thread visible in bb runs wholly in a sandbox |
+| Phase | Delivers | State |
+|---|---|---|
+| 0 | Research, proof of concept | ✅ #111, #112 |
+| 1 | This design (#111 update), Blender (#114) | this PR, #114 |
+| 2 | The plugin: SDK, ops, CLI, tools, queue, `bwrap`, AgentSpec runner (step (a)), ATIF trajectories, contract suite; the `sandboxes` stack | plugin PR, for the owner's review |
+| 3 | `opensandbox` provider and component: Docker, gVisor, allowlists, credential vault, ports | needs the owner's yes on Docker |
+| 4 | Step (b): agent inside the sandbox, with model-key injection at the egress | after 3 |
+| 5 | `e2b`, `upstash` providers | needs accounts |
+| 6 | Step (c): bb thread in a sandbox, through a machine provider; a microVM local provider if gVisor is too slow | later |
 
-## 11. Questions for the owner
+## 15. Open questions
 
-1. **Model credentials for agent steps (phase 3).**
-   - Should in-sandbox builders use an **Anthropic API key**, injected as a header so the sandbox
-     never sees it, or a person's **Claude subscription**?
-   - Or should builders stay outside sandboxes, as bb threads that only *run code* in them
-     (step (a))? That needs no credential at all.
-2. **OpenSandbox's cost.** Is a rootful Docker daemon on shared-server acceptable (phase 2)? The
-   alternative for untrusted code is a hosted microVM provider (E2B) and no Docker on the box.
-3. **Hosted providers and spending.** Which accounts exist or should exist (E2B, Upstash), and what
-   cap per month? The plugin can enforce a per-provider budget in sandbox-hours.
-4. **Linger.** May popemkt (and bytetum?) get a lingering user manager? It is the clean way to get
-   cgroup caps and sandboxes that survive bb restarts. Alternatively, a small root-owned "sandbox
-   broker" unit could start transient system units on request, which is more code and more
-   privilege.
-5. **Thread-in-sandbox (step (c)).** Is a fully visible bb thread per builder worth phase 5? It
-   needs git credentials in the sandbox, or a bb change to seed a project from a bundle.
-6. **Budget.** Is half the box (8 cores, 12 GiB, 4 concurrent sandboxes) the right ceiling for
-   sandboxes on shared-server, given bytetum's use of it?
+1. **Step (b) credentials:** an Anthropic API key, injected at the egress, or no step (b) at all
+   while subscriptions are what the team uses?
+2. **bytetum:** sandboxes for bytetum too? That needs linger for bytetum, and a split of the budget.
+3. **Where specs live:** in each project's repo (`specs/*.yaml`, versioned with the code), or in a
+   central kb of reusable specs?
 
 ## Sources
 
@@ -789,5 +780,11 @@ lib.mkIf cfg.enable (lib.mkMerge [
   - [Modal networking](https://modal.com/docs/guide/sandbox-networking), [Vercel Sandbox pricing](https://vercel.com/docs/vercel-sandbox/pricing), [Cloudflare Sandbox](https://developers.cloudflare.com/sandbox/), [microsandbox](https://github.com/superradcompany/microsandbox);
   - [Firecracker design](https://github.com/firecracker-microvm/firecracker/blob/main/docs/design.md), [microvm.nix](https://github.com/microvm-nix/microvm.nix), [gVisor + Docker](https://gvisor.dev/docs/user_guide/quick_start/docker/), [gVisor rootless issue](https://github.com/google/gvisor/issues/311);
   - [NixOS containers](https://wiki.nixos.org/wiki/NixOS_Containers), [Docker Sandboxes](https://www.docker.com/blog/why-microvms-the-architecture-behind-docker-sandboxes/), [k8s agent-sandbox](https://agent-sandbox.sigs.k8s.io/docs/getting_started/overview/).
+- **Agent specs and trajectories:**
+  - [Harbor tasks](https://docs.harborframework.com/tasks/configuration), [Harbor jobs](https://docs.harborframework.com/jobs/configs), [ATIF](https://docs.harborframework.com/agents/atif);
+  - [mini-swe-agent](https://mini-swe-agent.com/latest/reference/agents/default/), [Claude Code headless](https://code.claude.com/docs/en/headless), [Codex non-interactive](https://learn.chatgpt.com/docs/non-interactive-mode), [opencode CLI](https://opencode.ai/docs/cli/), [Agent Skills](https://agentskills.io/specification).
+- **Blender MCP:**
+  - [dcc-mcp-blender](https://github.com/dcc-mcp/dcc-mcp-blender), [mcp-for-blender (ahujasid)](https://github.com/ahujasid/blender-mcp) and its [add-on](https://raw.githubusercontent.com/ahujasid/blender-mcp/main/addon.py), [Blender Lab MCP](https://www.blender.org/lab/mcp-server/), [ellmos-blender-use-mcp](https://github.com/ellmos-ai/ellmos-blender-use-mcp), [nixpkgs blender](https://raw.githubusercontent.com/NixOS/nixpkgs/nixos-unstable/pkgs/by-name/bl/blender/package.nix).
 - **bb:**
+  - the builtin `environment-modal-sandbox` plugin (`providers/sandbox-backend.ts`) for step (c);
   - the `bb-plugin-authoring` skill references for bb 0.46.1 / SDK 0.6.49: CLI and agent tools, host entries and their 5-minute idle worker, background services, storage, machine providers and `MachineExecutor`, environment providers.
