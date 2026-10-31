@@ -10,7 +10,7 @@
   },
   "bb": {
     "name": "Canvases",
-    "description": "The tldraw canvases this thread, its project, or anyone linked with canvas-link: search them, link the focused one, open one with a click.",
+    "description": "The tldraw canvases this thread, its project, or anyone linked with canvas-link: search every canvas, select, then link, unlink or open.",
     "branding": {
       "icon": "Shapes"
     },
@@ -36,7 +36,7 @@
     "typescript": "^5.7.0"
   },
   "scripts": {
-    "test": "node --test tests/*.test.ts",
+    "test": "node --test tests/*.test.ts ../linked-items/tests/*.test.ts",
     "typecheck": "tsc -p ."
   }
 }

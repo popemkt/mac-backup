@@ -35,7 +35,7 @@
     "typescript": "^5.7.0"
   },
   "scripts": {
-    "test": "node --test tests/*.test.ts",
+    "test": "node --test tests/*.test.ts ../linked-items/tests/*.test.ts",
     "typecheck": "tsc -p ."
   }
 }

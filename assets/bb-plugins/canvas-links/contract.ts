@@ -8,13 +8,13 @@ export type Run = z.infer<typeof run>;
 
 export const hostContract = defineRpcContract({
   /**
-   * `canvas-link <command> <args>` in `cwd`, as the thread's session (BB_THREAD_ID). Only the panel's three
-   * commands. `exitCode` 127: no canvas-link on this machine.
+   * `canvas-link <command> <args>` in `cwd`, as the thread's session (BB_THREAD_ID). Only the panel's
+   * commands, and `help`, which says what this machine's canvas-link can do. `exitCode` 127: no canvas-link on this machine.
    */
   canvasLink: {
     input: z
       .object({
-        command: z.enum(["ls", "add", "open"]),
+        command: z.enum(["ls", "add", "rm", "open", "help"]),
         args: z.array(z.string().max(4096)).max(3),
         cwd: z.string().min(1).nullable(),
         threadId: z.string().min(1).nullable(),

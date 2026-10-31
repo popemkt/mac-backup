@@ -199,3 +199,50 @@ export function findCanvas(canvases, key) {
     null
   );
 }
+
+/**
+ * A key as `ls` prints it, `<host>:<documentId|path>`, split; null when `arg`
+ * is not one. tldraw's own working-copy keys (`tldr:file:…`) are not keys.
+ */
+export function parseKey(arg) {
+  const m = /^([a-z0-9][a-z0-9._-]*):(.+)$/i.exec(arg);
+  if (m === null || m[1].toLowerCase() === "tldr") return null;
+  const host = m[1].toLowerCase();
+  const ident = m[2];
+  return ident.startsWith("/") ? { host, documentId: null, path: ident } : { host, documentId: ident, path: null };
+}
+
+/**
+ * The canvas a key names, as the log should record it: a listed canvas keeps
+ * its document id and latest path; one on `host` that tldraw knows gets them
+ * from its recent files; any other key is taken as it reads. Null when `key`
+ * is not a key.
+ */
+export function canvasForKey(key, { canvases, recent, host }) {
+  const parsed = parseKey(key);
+  if (parsed === null) return null;
+  const listed = canvases.find(c => c.key === key);
+  if (listed !== undefined) return { documentId: listed.documentId, path: listed.path, host: listed.host };
+  if (parsed.host === host) {
+    const hit = recent.find(f => (parsed.documentId !== null && f.documentId === parsed.documentId) || (parsed.path !== null && f.path === parsed.path));
+    if (hit !== undefined) return { documentId: parsed.documentId ?? hit.documentId, path: hit.path, host };
+  }
+  return parsed;
+}
+
+/**
+ * Every canvas one could link from `host`: each linked canvas (as `listCanvases`
+ * gives them for "all"), then the ones tldraw there knows that nobody linked,
+ * most recently changed first, with no sessions.
+ */
+export function availableCanvases(linked, recent, host) {
+  const known = c => linked.some(l => l.host === host && ((c.documentId !== null && l.documentId === c.documentId) || l.path === c.path));
+  const unlinked = recent
+    .filter(f => !known(f))
+    .sort((a, b) => (b.lastChangedAt ?? 0) - (a.lastChangedAt ?? 0))
+    .map(f => {
+      const canvas = { documentId: f.documentId, path: f.path, host };
+      return { key: canvasKey(canvas), ...canvas, linkedAt: null, sessions: [], projects: [] };
+    });
+  return [...linked, ...unlinked];
+}

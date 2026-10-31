@@ -1,8 +1,9 @@
 // Linked items, shared by the panels that list what bb threads linked: the Canvases panel (canvas-links, tldraw
 // canvases) and the kb canvases panel (kb). Each plugin maps its own items to a LinkRow; the scopes, search,
-// dating and thread chips are stated once here, and row.tsx draws a row the same way for both. Imported by
-// relative path: bb's build bundles it into each plugin, and bb-plugins-sync reinstalls them when it changes
-// (modules/common/home-manager/bb-plugins/). No imports, so any plugin's tests can load it.
+// selection, the actions on a selection, dating and thread chips are stated once here, row.tsx draws a row and
+// panel.tsx the whole panel the same way for both. Imported by relative path: bb's build bundles it into each
+// plugin, and bb-plugins-sync reinstalls them when it changes (modules/common/home-manager/bb-plugins/). No
+// imports, so any plugin's tests can load it.
 
 export type Scope = "session" | "project" | "all";
 export const SCOPES: readonly Scope[] = ["session", "project", "all"];
@@ -26,7 +27,8 @@ export type LinkRow = {
   /** Shown now, and where ("open now", "open in the kb tab"); null when not. */
   open: string | null;
   editedAt: number | null;
-  linkedAt: number;
+  /** When a thread in the listing's scope last linked it; null for an item nobody linked. */
+  linkedAt: number | null;
   /** The bb threads that link it; chips in Project and All. */
   threads: RowThread[];
   /** Chips that are no bb thread (another harness's sessions). */
@@ -41,6 +43,34 @@ export function matches(row: LinkRow, query: string, titles: Readonly<Record<str
   if (words.length === 0) return true;
   const hay = [row.name, row.where, ...row.search, ...row.threads.flatMap(t => [t.id, titles[t.id] ?? ""])].join(" ").toLowerCase();
   return words.every(w => hay.includes(w));
+}
+
+/** What search shows: the scope's rows that match, then every other item that does (none for an empty query). */
+export function searchSections(
+  linked: readonly LinkRow[],
+  available: readonly LinkRow[],
+  query: string,
+  titles: Readonly<Record<string, string | null>> = {},
+): { linked: LinkRow[]; more: LinkRow[] } {
+  const hits = linked.filter(r => matches(r, query, titles));
+  if (query.trim() === "") return { linked: hits, more: [] };
+  const listed = new Set(linked.map(r => r.key));
+  return { linked: hits, more: available.filter(r => !listed.has(r.key) && matches(r, query, titles)) };
+}
+
+/** What a panel does with the rows a person selected. */
+export type Action = "link" | "unlink" | "open";
+
+/** Whether the thread links the row, by hand or by a write. */
+export const linkedBy = (row: LinkRow, threadId: string): boolean => row.threads.some(t => t.id === threadId);
+
+/**
+ * The selected rows an action acts on: Link those the thread does not link yet, Unlink those it does (its own
+ * links only, never another thread's), Open those still there. Gone items are not linked again.
+ */
+export function targets(action: Action, rows: readonly LinkRow[], threadId: string): LinkRow[] {
+  if (action === "unlink") return rows.filter(r => linkedBy(r, threadId));
+  return rows.filter(r => r.gone === null && (action === "open" || !linkedBy(r, threadId)));
 }
 
 /** The threads that link a row, newest first, once each. */
@@ -68,7 +98,8 @@ export function ago(at: number, now: number): string {
   return new Date(at).toISOString().slice(0, 10);
 }
 
-/** The row's time line: when it was last edited, else when it was linked. */
+/** The row's time line: when it was last edited, else when it was linked, else nothing. */
 export function timeLabel(row: Pick<LinkRow, "editedAt" | "linkedAt">, now: number): string {
-  return row.editedAt !== null ? `edited ${ago(row.editedAt, now)}` : `linked ${ago(row.linkedAt, now)}`;
+  if (row.editedAt !== null) return `edited ${ago(row.editedAt, now)}`;
+  return row.linkedAt !== null ? `linked ${ago(row.linkedAt, now)}` : "";
 }

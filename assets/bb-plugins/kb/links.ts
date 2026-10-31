@@ -1,5 +1,6 @@
 // bb-plugin-kb — linked items, the backend half: which kb things (canvases, for now) each bb thread wrote or
-// linked, kept in the plugin's own database, and the RPC the "kb canvases" panel (linked-panel.tsx) reads.
+// linked, kept in the plugin's own database, and the RPC the "kb canvases" panel (linked-panel.tsx) reads and
+// acts through: list a scope, list every canvas kb has, link or unlink selected ones for the thread, open one.
 //
 // The link is bb's knowledge, so it lives here and not in kb (docs/research/2026-10-25-kb-topology.md in the
 // dotfiles). kb gives two generic things: a write carries the caller's `via` label, and `graph.changes` reads
@@ -10,7 +11,6 @@
 import { basename } from "node:path";
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
-import type { Scope } from "../linked-items/rows";
 import { MIGRATIONS, linkBook, type Listing, type Where } from "./lib/link-book";
 import { KINDS, SCOPES, openCanvasOf, viaOfThread } from "./lib/links";
 
@@ -32,15 +32,20 @@ export type LinksAnswer = Omit<Listing, "store"> & {
 
 const threadInput = z.object({ threadId: z.string().min(1) });
 const outcome = z.object({ ok: z.boolean(), message: z.string() });
+type Outcome = z.infer<typeof outcome>;
+/** The selected kb items, by node id. */
+const idsInput = threadInput.extend({ ids: z.array(z.string().min(1).max(256)).min(1).max(50) });
+const listingOutput = z.custom<LinksAnswer>(v => typeof v === "object" && v !== null, "not a listing");
 
 export const linksContract = defineRpcContract({
   /** The items a scope shows for the thread, after reading kb's log up to now. */
-  links: {
-    input: threadInput.extend({ scope: z.enum(SCOPES) }),
-    output: z.custom<LinksAnswer>(v => typeof v === "object" && v !== null, "not a listing"),
-  },
-  /** Link the canvas the thread's kb tab shows to the thread. */
-  linkOpen: { input: threadInput, output: outcome },
+  links: { input: threadInput.extend({ scope: z.enum(SCOPES) }), output: listingOutput },
+  /** Every canvas kb has, linked or not: what the panel's search looks through beyond the scope. */
+  available: { input: threadInput, output: listingOutput },
+  /** Link canvases to the thread, by hand. */
+  link: { input: idsInput, output: outcome },
+  /** End the thread's own links to canvases, by hand or by its writes; other threads' links stay. */
+  unlink: { input: idsInput, output: outcome },
   /** Show an item in the thread's kb tab: now when the tab is live, else as soon as it reports its session. */
   openItem: { input: threadInput.extend({ id: z.string().min(1).max(256) }), output: outcome },
 });
@@ -49,6 +54,7 @@ export const linksContract = defineRpcContract({
 const PROVIDERS = ["claude-code", "codex", "pi", "acp-omp", "acp-opencode", "acp-grok", "acp-hermes-agent", "acp-cursor"];
 const POLL_MS = 10_000;
 const TITLES_MAX = 50;
+const count = (n: number) => (n === 1 ? "1 canvas" : `${n} canvases`);
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
@@ -117,12 +123,30 @@ export function registerLinks(bb: BbPluginApi, kb: KbAccess): { onSession(thread
     return screen.ok ? openCanvasOf(screen.output) : null;
   }
 
-  async function list(threadId: string, scope: Scope): Promise<LinksAnswer> {
-    const { store, items, error, incomplete } = await links().list(threadId, scope, basename);
+  /** A listing as the panel reads it: the canvas the thread's kb tab shows marked open, and its threads' titles. */
+  async function answer({ store, items, error, incomplete }: Listing, threadId: string): Promise<LinksAnswer> {
     if (store === null) return { items, error, incomplete, titles: {} };
     const open = await openCanvas(threadId).catch(() => null);
     for (const item of items) item.open = item.id === open;
     return { items, error, incomplete, titles: await titles([...new Set(items.flatMap(i => i.threads.map(t => t.id)))]) };
+  }
+
+  async function link(threadId: string, ids: string[]): Promise<Outcome> {
+    const store = await kb.root();
+    if (store === null) return { ok: false, message: "kb did not say which root it serves." };
+    const names = await links().canvases();
+    if (names === null) return { ok: false, message: "kb did not list its canvases." };
+    const missing = ids.filter(id => !names.has(id));
+    if (missing.length > 0) return { ok: false, message: `kb has no canvas ${missing.join(", ")}` };
+    for (const id of ids) await links().link(store, "canvas", id, names.get(id) || id, threadId, "linked", Date.now());
+    return { ok: true, message: ids.length === 1 ? `Linked ${names.get(ids[0]) || ids[0]}` : `Linked ${count(ids.length)}` };
+  }
+
+  async function unlink(threadId: string, ids: string[]): Promise<Outcome> {
+    const store = await kb.root();
+    if (store === null) return { ok: false, message: "kb did not say which root it serves." };
+    const ended = ids.filter(id => links().unlink(store, id, threadId)).length;
+    return ended === 0 ? { ok: false, message: "This thread links none of them." } : { ok: true, message: `Unlinked ${count(ended)}` };
   }
 
   /** Routes waiting for a thread's kb tab to say its session. */
@@ -133,22 +157,10 @@ export function registerLinks(bb: BbPluginApi, kb: KbAccess): { onSession(thread
   }
 
   bb.rpc.register(linksContract, {
-    links: ({ threadId, scope }) => list(threadId, scope),
-    linkOpen: async ({ threadId }) => {
-      try {
-        if (kb.session(threadId) === undefined) return { ok: false, message: "Open the kb tab beside this thread, and a canvas in it." };
-        const id = await openCanvas(threadId);
-        if (id === null) return { ok: false, message: "The kb tab shows no canvas." };
-        const store = await kb.root();
-        if (store === null) return { ok: false, message: "kb did not say which root it serves." };
-        const node = await kb.call("node.get", { id, depth: 0 });
-        const text = node.ok ? nodeText(node.output) : null;
-        await links().link(store, "canvas", id, text ?? id, threadId, "linked", Date.now());
-        return { ok: true, message: `Linked ${text ?? id}` };
-      } catch (err) {
-        return { ok: false, message: message(err) };
-      }
-    },
+    links: async ({ threadId, scope }) => answer(await links().list(threadId, scope, basename), threadId),
+    available: async ({ threadId }) => answer(await links().available(threadId, basename), threadId),
+    link: ({ threadId, ids }) => link(threadId, ids).catch(err => ({ ok: false, message: message(err) })),
+    unlink: ({ threadId, ids }) => unlink(threadId, ids).catch(err => ({ ok: false, message: message(err) })),
     openItem: async ({ threadId, id }) => {
       try {
         const route = KINDS.canvas.route(id);
@@ -188,12 +200,4 @@ export function registerLinks(bb: BbPluginApi, kb: KbAccess): { onSession(thread
       void show(route, session).catch(() => undefined);
     },
   };
-}
-
-/** A node's text from `node.get`'s answer, whichever shape it has. */
-function nodeText(output: unknown): string | null {
-  if (typeof output !== "object" || output === null) return null;
-  const o = output as Record<string, unknown>;
-  const node = typeof o.node === "object" && o.node !== null ? (o.node as Record<string, unknown>) : o;
-  return typeof node.text === "string" && node.text !== "" ? node.text : null;
 }
