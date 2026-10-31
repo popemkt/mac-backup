@@ -1,4 +1,25 @@
 {
+    "axioms": {
+        "cargoLock": null,
+        "date": null,
+        "extract": null,
+        "name": "axioms",
+        "passthru": null,
+        "pinned": true,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "popemkt",
+            "repo": "axioms",
+            "rev": "v0.1.0",
+            "sha256": "sha256-X3ismRF6X4VzfPHiklLKgKWWj59ggs6jU7yUwktaWyY=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "v0.1.0"
+    },
     "chat2db": {
         "cargoLock": null,
         "date": null,

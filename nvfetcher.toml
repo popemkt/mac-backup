@@ -68,3 +68,13 @@ src.from_pattern = "^v(.+)$"
 src.to_pattern = "\\1"
 fetch.url = "https://github.com/clockworklabs/SpacetimeDB/releases/download/v$ver/spacetime-x86_64-unknown-linux-gnu.tar.gz"
 
+# axioms (pkgs/axioms), built from source at a release tag: the server, the
+# web UI and the SpacetimeDB module it publishes, so the three always match.
+# Pinned: a tag is the decision to deploy, and pkgs/axioms carries the hashes
+# of that tag's vendored crates, so a person moves the pin and the hashes
+# together. The version keeps the tag's `v`, which fetch.github fetches by.
+[axioms]
+pinned = true
+src.github_tag = "popemkt/axioms"
+src.include_regex = '^v[0-9]+\.[0-9]+\.[0-9]+$'
+fetch.github = "popemkt/axioms"

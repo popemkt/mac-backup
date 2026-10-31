@@ -253,7 +253,7 @@ they are opened.
 ## axioms (shared-server)
 
 popemkt's axioms runs on shared-server as `my.services.axioms-db` (the
-database) and `my.services.axioms` (the server, once its package lands), in
+database) and `my.services.axioms` (the server), in
 `hosts/shared-server/default.nix`. Its state is one directory,
 `AXIOMS_STDB_HOME` = `~popemkt/.local/share/axioms/spacetime`:
 

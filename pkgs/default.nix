@@ -59,6 +59,10 @@ in
     inherit spacetimedb;
   };
 
+  axioms = pkgs.callPackage ./axioms {
+    inherit sources spacetimedb;
+  };
+
   system-setup = pkgs.callPackage ./system-setup {
     inherit
       pyproject-build-systems

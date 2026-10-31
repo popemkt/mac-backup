@@ -34,8 +34,8 @@ let
       ]
       ++ extraArgs;
     };
-  # axioms' SpacetimeDB state (my.services.axioms-db below), and the limits
-  # on its units.
+  # axioms' SpacetimeDB state (my.services.axioms below), and the limits on
+  # both of its units.
   axiomsState.AXIOMS_STDB_HOME = "${config.users.users.popemkt.home}/.local/share/axioms/spacetime";
   axiomsCaps = {
     MemoryMax = "1G";
@@ -281,11 +281,15 @@ in
     };
   };
 
-  # The database of popemkt's axioms (github.com/popemkt/axioms) in live
-  # mode: SpacetimeDB on loopback, never exposed (pkgs/axioms-db). The
-  # axioms server that publishes its module into it and serves the UI comes
-  # as my.services.axioms once its package is in. Its state is
-  # AXIOMS_STDB_HOME: docs/backup-strategy.md → axioms.
+  # popemkt's axioms (pkgs/axioms) in live mode, as svc:axioms-popemkt. Two
+  # units: app-axioms-db, SpacetimeDB on loopback, never exposed
+  # (pkgs/axioms-db); and app-axioms, which publishes its SpacetimeDB module
+  # on every start (unchanged, it updates in place; a change that would drop
+  # data fails the start instead), serves the UI and API, runs the decompose
+  # worker (claude from popemkt's PATH), and relays each browser's
+  # SpacetimeDB websocket, so the one Service is all a browser reaches. Its
+  # reducers trust any caller: the tailnet grant is its access control.
+  # State is AXIOMS_STDB_HOME: docs/backup-strategy.md → axioms.
   my.services.axioms-db = {
     owner = "popemkt";
     port = 4420;
@@ -293,11 +297,28 @@ in
     expose = false;
     environment = axiomsState;
   };
+  my.services.axioms = {
+    owner = "popemkt";
+    port = 4401;
+    package = pkgs.axioms;
+    environment = axiomsState // {
+      AXIOMS_STORE = "spacetime";
+      AXIOMS_STDB_URI = config.my.services.axioms-db.listenOrigin;
+      # Decomposition steps stream one concept at a time, this far apart.
+      AXIOMS_STREAM_MS = "500";
+    };
+  };
 
   systemd.services = {
-    # Capped: a gentle load on a host that has had hardware resets
-    # (boot.kernelParams above).
+    # axioms' two units, each capped: a gentle load on a host that has had
+    # hardware resets (boot.kernelParams above).
     app-axioms-db.serviceConfig = axiomsCaps;
+    # Starts once the database has, which it waits for before publishing.
+    app-axioms = {
+      wants = [ "app-axioms-db.service" ];
+      after = [ "app-axioms-db.service" ];
+      serviceConfig = axiomsCaps;
+    };
     # The work Mac's T3 Code, relayed to loopback so agents here can sign in
     # to its MCP: OAuth refuses plain HTTP off loopback, and T3 names its
     # endpoints after the host it is reached on.

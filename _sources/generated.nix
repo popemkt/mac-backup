@@ -6,6 +6,17 @@
   dockerTools,
 }:
 {
+  axioms = {
+    pname = "axioms";
+    version = "v0.1.0";
+    src = fetchFromGitHub {
+      owner = "popemkt";
+      repo = "axioms";
+      rev = "v0.1.0";
+      fetchSubmodules = false;
+      sha256 = "sha256-X3ismRF6X4VzfPHiklLKgKWWj59ggs6jU7yUwktaWyY=";
+    };
+  };
   chat2db = {
     pname = "chat2db";
     version = "5.3.8";
