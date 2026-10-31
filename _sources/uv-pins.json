@@ -7,6 +7,10 @@
     "track": "latest",
     "version": "0.5.5"
   },
+  "dcc-mcp-blender": {
+    "track": "latest",
+    "version": "0.2.26"
+  },
   "semantica": {
     "track": "latest",
     "version": "0.6.5"
