@@ -13,7 +13,7 @@ afterEach(() => {
   for (const done of close.splice(0)) done();
 });
 
-const PAGE = '<div class="page"><div class="timeline"><div class="row" data-id="a" data-index="0">a</div></div><form class="composer"><div class="text"></div></form><button class="send"></button></div>';
+const PAGE = '<div class="page"><div class="timeline"><div class="row" data-id="a" data-index="0">a</div></div><form class="composer"><div class="text"></div></form><span class="send-slot"><button class="send"></button></span></div>';
 
 function mounted(settings: Record<string, unknown> = {}) {
   const p = page(PAGE);
@@ -69,6 +69,29 @@ test("send: the button gathers itself the moment Enter goes down, and lets go as
   (p.doc.querySelector(".composer .text [contenteditable]") as HTMLElement).innerHTML = "<p><br></p>";
   await p.settle();
   assert.ok(button.classList.contains(CLASSES.send) && !button.classList.contains(CLASSES.arm), "the release, ahead of bb's confirmation");
+});
+
+test("send: bb re-renders its button as the composer empties, and as a run starts: the button in its place lets go", async () => {
+  const { p } = mounted();
+  const slot = p.doc.querySelector(".send-slot") as HTMLElement;
+  const pressed = slot.querySelector("button.send") as HTMLElement;
+  await send(p, "not yet", false);
+  assert.ok(pressed.classList.contains(CLASSES.arm));
+  // The composer empties and, in the same commit, the host renders a new (disabled) button in the slot.
+  (p.doc.querySelector(".composer .text [contenteditable]") as HTMLElement).innerHTML = "<p><br></p>";
+  slot.innerHTML = '<span class="reason"><button class="send" disabled></button></span>';
+  await p.settle();
+  assert.ok((slot.querySelector("button.send") as HTMLElement).classList.contains(CLASSES.send), "the button now in the slot rings");
+  // A run starts: Stop takes its place and rings on, once.
+  slot.innerHTML = '<button class="send stop"></button>';
+  await p.settle();
+  const stop = slot.querySelector("button.send") as HTMLElement;
+  assert.ok(stop.classList.contains(CLASSES.send));
+  stop.classList.remove(CLASSES.send);
+  stop.setAttribute("title", "a change inside the slot");
+  stop.append(p.doc.createElement("i"));
+  await p.settle();
+  assert.ok(!stop.classList.contains(CLASSES.send), "a button that has rung does not ring again");
 });
 
 test("send: the echo lands along the path from the words, and the turn's first reply arrives the same way", async () => {

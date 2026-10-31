@@ -177,7 +177,7 @@ export const EFFECTS: Readonly<Record<EffectId, EffectInfo>> = {
     label: "Failure glitch",
     wobbly: "The same under either style.",
     description:
-      "A thread that fails tears for a few frames instead of swelling: its sidebar row jumps sideways in hard steps, split into the palette's two signal colors (NieR:Automata's glitch). YoRHa only.",
+      "A thread that fails tears for a few frames instead of swelling: its sidebar row shudders sideways and back, split into the palette's two signal colors (NieR:Automata's glitch). YoRHa only.",
     default: true,
     reducedSafe: false,
     presets: ["yorha"],

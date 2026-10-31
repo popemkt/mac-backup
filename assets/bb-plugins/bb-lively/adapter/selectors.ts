@@ -79,6 +79,15 @@ export const SELECTORS = {
     where: "the composer",
     purpose: "sendPulse: the button that ripples",
   },
+  sendSlot: {
+    // bb re-renders the send button as a new element when the composer empties (a disabled-reason wrapper
+    // appears) and when a run starts (Stop); this group around it stays.
+    selector: "[data-promptbox-submit-group]",
+    rating: "M",
+    verified: LIVE,
+    where: "the composer",
+    purpose: "sendPulse: the place the send button sits in, which outlives the button's re-renders",
+  },
   sendIcon: {
     selector: "[data-promptbox-submit-action] > [data-icon-root]",
     rating: "M",
@@ -283,6 +292,7 @@ export const BB_TARGETS: Targets = {
   rowIndexAttribute: ROW_INDEX_ATTRIBUTE,
   focusBox: SELECTORS.focusBox.selector,
   sendButton: SELECTORS.sendButton.selector,
+  sendSlot: SELECTORS.sendSlot.selector,
   sendIcon: SELECTORS.sendIcon.selector,
   composerText: SELECTORS.composerText.selector,
   sentRow: SELECTORS.sentRow.selector,

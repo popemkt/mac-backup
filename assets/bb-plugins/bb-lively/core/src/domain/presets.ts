@@ -125,8 +125,11 @@ export type PresetValues = Partial<Omit<Settings, "preset" | "palette" | "artIma
  * magenta).
  */
 export interface PresetPaint {
-  /** The wipe's panel; `label` is printed across it in the preset's lettering, in `ink`. */
-  readonly wipe?: { readonly fill: string; readonly mask: string; readonly label?: string; readonly ink?: string };
+  /**
+   * The wipe's panel; `label` is printed across it in the preset's lettering, in `ink`. `ease` is its
+   * timing within each leg (in, hold, out): linear (a cut) unless a preset eases it.
+   */
+  readonly wipe?: { readonly fill: string; readonly mask: string; readonly label?: string; readonly ink?: string; readonly ease?: string };
   readonly chroma?: readonly [string, string];
 }
 
@@ -266,7 +269,8 @@ const YORHA_ART = {
   },
   sidebar: {
     layers: [
-      { image: `repeating-linear-gradient(-45deg, ${tint(c("line"), 12)} 0 1px, transparent 1px 7px)` },
+      // Half-pixel ramps instead of hard stops: a hard-edged diagonal line rasterizes as a staircase.
+      { image: `repeating-linear-gradient(-45deg, transparent 0, ${tint(c("line"), 12)} 0.5px 1px, transparent 1.5px 7px)` },
       { image: `linear-gradient(${tint(c("line"), 35)}, ${tint(c("line"), 35)})`, size: "calc(100% - 24px) 1px", position: "center bottom 96px", repeat: "no-repeat" },
     ],
     mask: "linear-gradient(to top, #000, transparent 96px)",
@@ -535,9 +539,12 @@ export const PRESETS = [
     fonts: { sans: '"Helvetica Neue", Helvetica, "Nimbus Sans", Arial, ui-sans-serif, system-ui, sans-serif' },
     tokens: { overshoot: 0, blur: 0, tilt: 0, liftShadow: 0 },
     paint: {
+      // A scan: fine, soft-edged scanlines over a plate of the canvas a shade toward the ink, eased into
+      // place and out again. (It was 6px solid ink bars on a linear sweep: a dark strobe at every switch.)
       wipe: {
-        fill: "repeating-linear-gradient(0deg, var(--lively-art-line, var(--lively-accent)) 0 6px, color-mix(in oklab, var(--lively-art-line, var(--lively-accent)) 55%, transparent) 6px 7px, transparent 7px 12px)",
-        mask: "linear-gradient(90deg, transparent 10%, #000 22% 78%, transparent 90%)",
+        fill: "repeating-linear-gradient(0deg, transparent 0, color-mix(in oklab, var(--lively-art-line, var(--lively-accent)) 34%, transparent) 1.5px 2.5px, transparent 4px), color-mix(in oklab, var(--canvas, Canvas) 88%, var(--lively-art-line, var(--lively-accent)))",
+        mask: "linear-gradient(90deg, transparent 4%, #000 24% 76%, transparent 96%)",
+        ease: "var(--lively-ease-steady)",
       },
       chroma: ["var(--lively-art-rim, var(--lively-accent-2))", "#4a7a8c"],
     },

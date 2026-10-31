@@ -21,6 +21,7 @@ const IN_FIXTURE: ReadonlyArray<SelectorId> = [
   "row",
   "focusBox",
   "sendButton",
+  "sendSlot",
   "sendIcon",
   "threadRow",
   "statusRow",
@@ -53,11 +54,12 @@ test("a sidebar thread link sits inside the status card that rings", () => {
   assert.ok(link?.closest(BB_TARGETS.statusRow));
 });
 
-test("the send button is pressable and not excluded", () => {
+test("the send button is pressable and not excluded, and sits in its slot", () => {
   const doc = bbPage();
   const send = doc.querySelector(BB_TARGETS.sendButton);
   assert.ok(send?.matches(BB_TARGETS.pressable));
   assert.equal(send?.closest(BB_TARGETS.pressExclude), null);
+  assert.notEqual(send.closest(BB_TARGETS.sendSlot), null);
 });
 
 test("the table is the one source: every target selector comes from it", () => {

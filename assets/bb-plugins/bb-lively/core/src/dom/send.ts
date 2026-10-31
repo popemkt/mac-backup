@@ -51,8 +51,12 @@ export interface SendSequenceOptions {
   readonly tokens: () => MotionTokens;
   /** The canvas layer, when the form draws there and it can run (full level, WebGL 2). */
   readonly layer: () => Refraction | undefined;
-  /** The words left the composer: the send button lets go (`sent`'s work, ahead of the host's confirmation). */
-  readonly launched: (button: Element | null) => void;
+  /**
+   * The words left the composer: the send button lets go (`sent`'s work, ahead of the host's confirmation).
+   * `slot` is where the button sits (`sendSlot`, else the button itself): the host re-renders the button as
+   * the composer empties, so the one pressed is usually gone by now.
+   */
+  readonly launched: (slot: Element | null) => void;
 }
 
 export interface SendSequence {
@@ -71,8 +75,10 @@ interface Capture {
   readonly copy: ReturnType<typeof sanitizedCopy>;
   readonly style: { readonly font: string; readonly color: string; readonly background: string };
   readonly glyphs: ReadonlyArray<Glyph>;
-  /** The form's send button, which gathers itself now and lets go at launch. */
+  /** The form's send button, which gathers itself now. */
   readonly button: Element | null;
+  /** Where it sits, which outlives its re-renders (or the button, without one): it lets go there at launch. */
+  readonly slot: Element | null;
   /** The composer's form, whose placeholder waits while the words stand in it. */
   readonly form: Element;
 }
@@ -139,6 +145,7 @@ export function createSendSequence(options: SendSequenceOptions): SendSequence {
     const button = form.querySelector(targets.sendButton) ?? doc.querySelector(targets.sendButton);
     capture = {
       button,
+      slot: button === null ? null : (button.closest(targets.sendSlot) ?? button),
       form,
       at: now(),
       box: rect,
@@ -230,7 +237,7 @@ export function createSendSequence(options: SendSequenceOptions): SendSequence {
     lastLaunch = send.at;
     taken.form.setAttribute(SENDING_ATTRIBUTE, "");
     if (taken.button !== null) pulser.end(taken.button, CLASSES.arm);
-    options.launched(taken.button);
+    options.launched(taken.slot);
     // The dust: the words come apart where they are, now; the ghost stands in until the first frame.
     const layer = dustDrawn();
     if (layer !== undefined && send.ghost !== undefined) {

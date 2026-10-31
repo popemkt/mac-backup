@@ -297,11 +297,12 @@ request for "a nice, warm beige".
 | Fully inverted selection with a square marker | UI | needs a theme element block on the selected sidebar row | planned |
 | The whole look in one choice | (all) | `presets.ts` · `yorha` row: `clean` at `lively`, `snappy`, `stickers: off`, `pageWipe` and `glitch` on, palette `lively-yorha` | shipped |
 | Grid and a corner bracket | Art | `presets.ts` · `YORHA_ART.backdrop`: 24px and 120px grids, a tick ruler, `bracket()` and a rust square (`artkit.ts`) · colors `--lively-art-line/-mark/-rim` · masked to fade out from the lower right | shipped |
-| Hatching at the foot of the sidebar | Art | `YORHA_ART.sidebar` · selector `sidebar` | shipped |
+| Hatching at the foot of the sidebar | Art | `YORHA_ART.sidebar` · selector `sidebar` · each line a half-pixel ramp, not a hard stop (a hard-edged diagonal rasterizes as a staircase) | shipped |
 | Mechanical, no bounce | Motion | `presets.ts` · `yorha.tokens`: `overshoot: 0`, `blur: 0`, `tilt: 0`, `liftShadow: 0` (full level only; the tests hold them to `BUDGETS.clean`) | shipped |
-| Scan-bar wipe | UI | `presets.ts` · `yorha.paint.wipe` (6px ink bars, fading edges) → `--lively-wipe-fill/-mask`; effect `pageWipe` | shipped |
-| A send is a transmission: a scan bar erases the words line by line under the composer's own ground; the message prints in under a bar riding down it, a rust marker at its end; linear and stepped, never past its mark | Motion (linear slides and steps, scan lines), Art (rust marker) | send form `scan` (`yorha.send`) · the ghost's layers (bar, cover, marker), `row::before`/`::after`; the button: a square outline in three steps and a blinking marker | shipped |
-| Glitch on failure | Motion (damage) | effect **`glitch`** (`presets: ["yorha"]`, off under reduced) · `stylesheet.ts` `lively-glitch`: `translate` in `steps(1)` and a split in `paint.chroma` (rust and steel), on `statusRow` when the thread fails · runs even with `statusPulse` off (`core/src/dom/lively.ts` `pulseStatus`) | shipped |
+| Scan-bar wipe | UI, Motion (scan lines; "a little moist") | `presets.ts` · `yorha.paint.wipe`: fine soft-edged scanlines on a plate of the canvas a shade toward the ink, wide soft edges → `--lively-wipe-fill/-mask`; `ease` → `--lively-wipe-ease` (the steady ease in each leg: in, hold, out; other presets keep the linear cut); effect `pageWipe` | shipped |
+| A send is a transmission: a scan bar erases the words line by line under the composer's own ground; the message prints in under a bar riding down it, a rust marker at its end; mechanical but soft (the bars at a scanner's constant speed, never stepped; the message settles on the ease; nothing passes its mark) | Motion (linear slides, scan lines, "a little moist"), Art (rust marker) | send form `scan` (`yorha.send`) · the ghost's layers (bar, cover, marker), `row::before`/`::after`, linear (they were `steps(6)`), the landing on the ease-out, the marker's blink on `--lively-ease-steady`; the bar's rule and scanlines are soft ramps, so they stay even through sub-pixel positions | shipped |
+| The send button locks on and lets go: corner brackets close in on it as Enter goes down, open out as the words leave, a rust marker blinking once at its corner; still brackets on hover, as the game marks the item under its cursor | UI (bracketed corners, small square marker), Motion | send form `scan` · `sendButton::after` (a hairline ring masked to four corners), `::before` (the marker), on `--lively-ease-steady`; the hover is opacity only, at the full level with Message motion on | shipped |
+| Glitch on failure | Motion (damage) | effect **`glitch`** (`presets: ["yorha"]`, off under reduced) · `stylesheet.ts` `lively-glitch`: a whole-pixel `translate` tear sliding on the steady ease, and a translucent, half-pixel-soft split in `paint.chroma` (rust and steel) that dies out with it, on `statusRow` when the thread fails · runs even with `statusPulse` off (`core/src/dom/lively.ts` `pulseStatus`) | shipped |
 | Slice band on the failing row | Motion (damage) | a `clip-path` slice needs a pseudo-element the status rings already use | planned |
 | Plain grotesque type | UI | `yorha.fonts.sans`: Helvetica Neue, Helvetica, Nimbus Sans, Arial, system | shipped |
 | Condensed, letter-spaced labels | UI | needs a label target and a letter-spacing token | planned |
@@ -442,8 +443,11 @@ the Hiss. One sequence plays every preset's form (`core/src/dom/send.ts`); the f
   (a dip down and in, eased out so it moves on the first frame) while a ring draws in toward it
   (anticipation); as the words leave it lets go on the preset's spring, past rest where the spring
   overshoots, and the form's ripple carries the motion out (follow-through). No step, no linear
-  ramp: YoRHa's square ring and marker ease too, mechanically (no overshoot). A send lively did not
-  see leave the composer still rings at `onSubmitted` (the SDK's confirmation).
+  ramp: YoRHa's corner brackets and marker ease too, mechanically (no overshoot). bb re-renders the
+  button as a new element when the composer empties (and again as Stop when a run starts), so the
+  let-go rings in the button's place (`sendSlot`), on whichever button stands there for the ring's
+  length. A send lively did not see leave the composer still rings at `onSubmitted` (the SDK's
+  confirmation).
 - **Switch.** `sendPulse`, labelled **Message motion**, turns all of it off and on, independent of
   `motion`; a preset can set its default (`values.effects.sendPulse`).
 - **Budget.** Only composited properties move (opacity, translate, scale, filter); covers, veils, bars and traces are
@@ -454,13 +458,18 @@ the Hiss. One sequence plays every preset's form (`core/src/dom/send.ts`); the f
   id-shape selectors `sentRow`/`replyRow` (rated H) and the Enter/clear inference; a `composer.willSubmit` with the
   text would replace the capture.
 
-| Preset | Form | The send |
-|---|---|---|
-| Custom (clean), Calm, Lively | `glide` | the words glide toward where the message lands and fade, the message comes along the same path on the spring, sharpening; at subtle it only lifts a little |
-| Custom (wobbly), ZZZ | `slap` | the words jump once and cut; the message slaps in with a flash, a sticker shadow, a skew and a halftone pop |
-| Cloudbank | `process` | the words whitewash into cells and jaunt; the message assembles in steps under a cell veil along a turquoise trace; function sparks |
-| YoRHa | `scan` | a scan bar erases the words; the message prints in under a riding bar with a rust marker |
-| Control | `dust` | the words come apart into the Hiss's dark, prismatic dust drifting up; the message condenses out of it |
+| Preset | Form | The send | Its button (gathers on Enter, lets go as the words leave) |
+|---|---|---|---|
+| Custom (clean), Calm, Lively | `glide` | the words glide toward where the message lands and fade, the message comes along the same path on the spring, sharpening; at subtle it only lifts a little | the icon dips and springs back; an accent ring draws in, then ripples out, with a ring of sparks at lively and bold |
+| Custom (wobbly), ZZZ | `slap` | the words jump once and cut; the message slaps in with a flash, a sticker shadow, a skew and a halftone pop | a halftone comic burst; the icon lets go on the jelly ease and pops like a sticker |
+| Cloudbank | `process` | the words whitewash into cells and jaunt; the message assembles in steps under a cell veil along a turquoise trace; function sparks | function sparks: rays in Turn() cyan and gold |
+| YoRHa | `scan` | a scan bar erases the words; the message prints in under a riding bar with a rust marker | corner brackets lock on, then open out, a rust marker blinking once at the corner; still brackets on hover |
+| Control | `dust` | the words come apart into the Hiss's dark, prismatic dust drifting up; the message condenses out of it | no ring (the Bureau's red bar stays): a few motes, an ember among them, drift up off it |
+
+One mechanism plays every row's button: lively puts its gather and let-go classes on bb's send button (on
+whichever button stands in `sendSlot` for the let-go) and the form's rules, picked by the preset's `send`, are
+the flavour, at the full level. Under reduced motion every preset's ring only fades in place (no dip, scale
+or sparks); with `motion=off` or Message motion off the button is bb's own.
 
 ## Hollow Knight — "Hallownest" (candidate)
 
