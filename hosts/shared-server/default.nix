@@ -116,6 +116,9 @@ in
 
   my.stacks = {
     bb.enable = true;
+    # Blender, and `blender-mcp` for agents: one headless Blender per MCP
+    # session (modules/stacks/blender).
+    blender.enable = true;
     # The kb CLI for everyone: agents working in ~/.dotfiles keep its graph.
     kb.enable = true;
     t3-code = {

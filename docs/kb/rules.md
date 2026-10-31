@@ -134,6 +134,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M53WTHZ1YAW03WWCCFEV0QY1`
 
+### GAP: no channel registers MCP servers with agent harnesses
+
+- **expected** — A stack declares an MCP server once (a my.pkgs channel), and an executor registers it with every agent harness on the host it targets (Claude Code user scope, Codex, opencode, Cursor, omp), the way bbPlugins and claudePlugins are installed.
+- **current** — Each stack registers its own servers ad hoc (cognee's client writes Cursor and omp configs with jq), or not at all: blender-mcp is on PATH and each person runs claude mcp add themselves.
+- **impact** — An MCP server a stack provides is missing from agents until someone registers it by hand, and registrations drift between harnesses and hosts.
+- **closes** — An mcpServers channel in modules/options/channels.nix with an executor per harness, cognee's client and blender moved onto it.
+- **node** — `01M684KYXJ51NYTKYRRN6QPA55`
+
 ### GAP: package executors share no contract check
 
 - **expected** — Every executor-installed channel in modules/options/channels.nix names the executor view that installs it, and one flake check proves, per host, that each channel's members reach that view. A new executor joins the check by registering its view.

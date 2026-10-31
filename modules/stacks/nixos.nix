@@ -6,6 +6,7 @@ _:
   imports = [
     ./default.nix
     ./bb/nixos.nix
+    ./blender
     ./kb/nixos.nix
     ./t3-code/nixos.nix
     ./vpn/nixos.nix
