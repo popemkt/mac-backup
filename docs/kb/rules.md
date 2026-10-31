@@ -27,6 +27,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Decide the home for the checklist in this repo, port R1-R20, and wire the mechanical subset the way the reference repo does before adding more skills.
 - **node** — `01M1M08W6Z70XV3KCQB5CWH3ZR`
 
+### GAP: an imported Claude Code session is a new bb thread seeded with its transcript, not the session itself
+
+- **expected** — bb adopts an existing Claude Code session as a thread: it resumes the provider session natively (same session id, full context, prompt cache), records thread/identity only after that resume succeeds, and binds the thread to the session's cwd on its machine.
+- **current** — assets/bb-plugins/session-import spawns a fresh claude-code thread and hands it a cleaned, budgeted transcript (agent-only text plus the full transcript as a local file). bb 0.46.1 has no create-thread providerThreadId and no timeline append, so a plugin cannot adopt the session.
+- **impact** — The new thread starts from a summary: older turns beyond the budget, tool outputs and images reach the agent only through the transcript file, the prompt cache starts cold, and the original session and the bb thread diverge from the first new message.
+- **closes** — get-bb/bb#3260 (adopt an external Claude Code session) ships; session-import then calls it and keeps the transcript seed only as the fallback for providers or machines that cannot resume.
+- **node** — `01M5YQ7EX8GTERS32BT5G9H7Q7`
+
 ### GAP: bb builds the shared linked-items folder unlike plugin code: no runtime import from server code, no Tailwind scan
 
 - **expected** — assets/bb-plugins/linked-items is built like each plugin's own code: its rules (the scope list) imported at runtime by server code too, and its classes in each plugin's stylesheet.

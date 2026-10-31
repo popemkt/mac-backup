@@ -1,0 +1,43 @@
+{
+  "name": "bb-plugin-session-import",
+  "version": "0.1.0",
+  "private": true,
+  "description": "bb plugin: import a Claude Code session from any machine bb reaches as a new bb thread, seeded with a cleaned transcript, with the original session readable beside it.",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.46",
+    "bbPluginSdk": ">=0.6.49"
+  },
+  "bb": {
+    "name": "Session Import",
+    "description": "Continue a Claude Code session started outside bb: pick it from any machine, and a new thread starts in its directory with the cleaned transcript. The original stays readable beside the thread.",
+    "branding": {
+      "icon": "ArchiveRestore"
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx",
+    "host": "./host.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.304",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.49",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "cron-parser": "^5.10.2",
+    "hono": "^4.13.13",
+    "typescript": "^5.7.0"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^12.10.0"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.ts",
+    "typecheck": "tsc -p ."
+  },
+  "//": "better-sqlite3 is optional: only the server tests (bb's fake plugin host) need it, and bb-plugins-sync installs with --omit=optional, so no host builds it."
+}
