@@ -69,3 +69,13 @@ export function windows(color: string, building: Building, offset: number, inset
 export function bracket(color: string, right: number, bottom: number, arm: number, weight: number): ReadonlyArray<ArtLayer> {
   return [rect(color, right, bottom, arm, weight), rect(color, right, bottom, weight, arm)];
 }
+
+/** L-shaped brackets at a box's four corners, `arm` px arms in `weight` px strokes: a technical frame. */
+export function corners(color: string, arm: number, weight: number): ReadonlyArray<ArtLayer> {
+  return ["left top", "right top", "left bottom", "right bottom"].flatMap((corner) => [bar(color, `${arm}px`, `${weight}px`, corner), bar(color, `${weight}px`, `${arm}px`, corner)]);
+}
+
+/** A bar `width`×`height` px at a CSS `position` (keywords and offsets): a tab, a rule, a shaft. */
+export function bar(color: string, width: string, height: string, position: string): ArtLayer {
+  return { image: `linear-gradient(${color}, ${color})`, size: `${width} ${height}`, position, repeat: "no-repeat" };
+}

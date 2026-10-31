@@ -3,6 +3,7 @@
 // band's art reach and the one-shot pulses, and removes every one of them
 // when its signal aborts.
 import { type CanvasTrigger, type EffectId, EFFECTS, effectAttribute } from "../domain/effects.ts";
+import { SEND_FORM_INFO } from "../domain/send.ts";
 import { MAX_CONCURRENT_ENTERS, type MotionPolicy, resolveMotion, tokensFor } from "../domain/policy.ts";
 import type { Preset } from "../domain/presets.ts";
 import { decodeSettings } from "../domain/resolve.ts";
@@ -13,6 +14,7 @@ import { createPulser } from "./pulser.ts";
 import { createReachWatcher } from "./reach.ts";
 import { createRefraction, type Refraction } from "./refraction.ts";
 import { createRowWatcher } from "./rows.ts";
+import { createSendSequence } from "./send.ts";
 import { buildStylesheet, CLASSES, PAGE_REPLAYED, PULSE_ATTRIBUTES, ROOT, ROOT_ATTRIBUTES } from "./stylesheet.ts";
 import type { Targets } from "./targets.ts";
 
@@ -37,7 +39,7 @@ export interface Lively {
   setSettings(input: SettingsInput): ReadonlyArray<SettingsProblem>;
   /** What runs now. */
   policy(): MotionPolicy;
-  /** A local send just happened: ripple the send button, and let its echo rise in. */
+  /** A local send just happened (the host's confirmation): the send button answers, and rows in the next moment are its echo even mid-scroll. */
   sent(): void;
   /** Ring a status row once in a tone (a failure also glitches, under a preset with the glitch); false when it did not run (effect off, paused, already ringing). */
   pulseStatus(row: Element, tone: StatusTone): boolean;
@@ -51,6 +53,8 @@ function elementOf(target: EventTarget | null): Element | null {
 
 /** Deadline for one pulse: its CSS duration (the policy's tokens, speed applied), plus slack. */
 const deadline = (ms: number) => ms + 200;
+/** bb confirms a send (`sent`) well within this of its words leaving the composer. */
+const SENT_ECHO_MS = 5000;
 
 const REDUCED_QUERY = "(prefers-reduced-motion: reduce)";
 
@@ -65,7 +69,7 @@ export function createLively(options: CreateLivelyOptions): Lively {
   const presets = options.presets;
   let resolved = decodeSettings(options.settings ?? {}, presets);
   const media = win.matchMedia(REDUCED_QUERY);
-  const policyNow = () => resolveMotion(resolved.settings, media.matches, resolved.preset.tokens);
+  const policyNow = () => resolveMotion(resolved.settings, media.matches, resolved.preset.tokens, resolved.preset.send);
   let current: MotionPolicy = policyNow();
   let disposed = false;
 
@@ -85,8 +89,7 @@ export function createLively(options: CreateLivelyOptions): Lively {
   const write = () => {
     for (const name of ROOT_ATTRIBUTES) root.removeAttribute(name);
     root.style.removeProperty(ART_IMAGE_PROPERTY);
-    if (current.level === "off") return;
-    root.setAttribute(ROOT.level, current.level);
+    // The preset's art is paint: it stays with motion off (its own switch turns it off).
     root.setAttribute(ROOT.preset, current.preset);
     if (current.art) root.setAttribute(ROOT.art, "on");
     if (current.artImage !== "") {
@@ -94,6 +97,8 @@ export function createLively(options: CreateLivelyOptions): Lively {
       // ArtImage (domain/settings.ts) admits no quote, backslash or control character.
       root.style.setProperty(ART_IMAGE_PROPERTY, `url("${current.artImage}")`);
     }
+    if (current.level === "off") return;
+    root.setAttribute(ROOT.level, current.level);
     root.setAttribute(ROOT.source, current.source);
     root.setAttribute(ROOT.intensity, current.intensity);
     root.setAttribute(ROOT.style, current.style);
@@ -101,31 +106,40 @@ export function createLively(options: CreateLivelyOptions): Lively {
     if (current.stickers) root.setAttribute(ROOT.stickers, "on");
     if (current.jelly === "matched") root.setAttribute(ROOT.jelly, "matched");
     root.setAttribute(ROOT.speed, current.speed);
+    root.setAttribute(ROOT.send, current.send);
     for (const effect of current.effects) root.setAttribute(effectAttribute(effect), "");
-    if (layerWanted()) root.setAttribute(ROOT.canvas, "on");
-    else {
+    if (scenesWanted()) root.setAttribute(ROOT.canvas, "on");
+    if (!layerWanted()) {
       refraction?.dispose();
       refraction = undefined;
     }
     syncWaitingPoll();
   };
 
-  // The HTML-in-Canvas layer (refraction.ts), for the effects that draw there (an effect's
-  // `canvas` names the trigger, and the scene, it plays at). The root says the layer is on as
-  // soon as it can be, so their CSS halves stand down; the layer itself (a WebGL context) is
-  // made at the first scene, at the full level only (its scenes are motion), and goes when
-  // none of them runs. If WebGL fails then, the root says so and the CSS halves take over.
+  // The canvas layer (refraction.ts), for the effects that draw there with HTML-in-Canvas (an
+  // effect's `canvas` names the trigger, and the scene, it plays at) and for a send whose form is
+  // drawn there (domain/send.ts `canvas`; WebGL 2 is enough). The root says the scenes are on as
+  // soon as they can be, so their CSS halves stand down; the layer itself (a WebGL context) is
+  // made at the first scene or send, at the full level only (it is all motion), and goes when
+  // nothing wants it. If WebGL fails then, the root says so and the CSS halves take over.
   const drawable = options.drawable === undefined ? detectDrawable(win) : (options.drawable ?? undefined);
   let refraction: Refraction | undefined;
   let refractionFailed = false;
   const canvasEffects = () => current.effects.filter((effect) => EFFECTS[effect].canvas !== undefined);
+  const layerPossible = () => !refractionFailed && !disposed && current.level === "full";
+  function scenesWanted(): boolean {
+    return drawable !== undefined && layerPossible() && canvasEffects().length > 0;
+  }
+  function sendWanted(): boolean {
+    return layerPossible() && SEND_FORM_INFO[current.send].canvas && enabled("sendPulse");
+  }
   function layerWanted(): boolean {
-    return drawable !== undefined && !refractionFailed && !disposed && current.level === "full" && canvasEffects().length > 0;
+    return scenesWanted() || sendWanted();
   }
   /** Whether an enabled effect plays on the layer at `trigger`, and may start now. */
-  const mayDraw = (trigger: CanvasTrigger) => layerWanted() && canvasEffects().some((effect) => EFFECTS[effect].canvas === trigger && may(effect));
+  const mayDraw = (trigger: CanvasTrigger) => scenesWanted() && canvasEffects().some((effect) => EFFECTS[effect].canvas === trigger && may(effect));
   function canvasLayer(): Refraction | undefined {
-    if (drawable === undefined || !layerWanted()) return undefined;
+    if (!layerWanted()) return undefined;
     if (refraction === undefined) {
       refraction = createRefraction({
         win,
@@ -147,7 +161,7 @@ export function createLively(options: CreateLivelyOptions): Lively {
   // plays there (the CSS half needs no script).
   let waitingTimer: number | undefined;
   function syncWaitingPoll(): void {
-    const wanted = layerWanted() && canvasEffects().some((effect) => EFFECTS[effect].canvas === "waiting");
+    const wanted = scenesWanted() && canvasEffects().some((effect) => EFFECTS[effect].canvas === "waiting");
     if (wanted && waitingTimer === undefined) {
       waitingTimer = win.setInterval(() => {
         const present = mayDraw("waiting") && doc.querySelector(`:is(${targets.pageView}) :is(${targets.pendingRequest})`) !== null;
@@ -167,11 +181,32 @@ export function createLively(options: CreateLivelyOptions): Lively {
   write();
   media.addEventListener("change", refresh);
 
+  // sendPulse: what is sent leaves the composer and lands along one path (send.ts).
+  const send = createSendSequence({
+    win,
+    targets,
+    pulser,
+    may: () => may("sendPulse"),
+    level: () => current.level,
+    form: () => current.send,
+    tokens,
+    layer: () => (sendWanted() && may("sendPulse") ? canvasLayer() : undefined),
+    // The words left: the button lets go and the Board's prism passes, ahead of bb's confirmation.
+    launched: (button) => release(button === null ? doc.querySelectorAll(targets.sendButton) : [button]),
+  });
+  function release(buttons: Iterable<Element>): void {
+    if (mayDraw("send")) canvasLayer()?.send();
+    if (!may("sendPulse")) return;
+    for (const button of buttons) pulser.pulse(button, CLASSES.send, deadline(2 * tokens().pulseMs));
+  }
+
   const rows = createRowWatcher({
     win,
     targets,
-    onArrive: (arriving) => {
-      if (!may("listEnter")) return;
+    onArrive: (reported, rekeyed) => {
+      // The send's echo and the turn's first reply land as the send does; the rest rise in.
+      const arriving = send.rows(reported, rekeyed);
+      if (!may("listEnter") || arriving.length === 0) return;
       // At most MAX_CONCURRENT_ENTERS animate; the last of those is marked (wobbly splits it into color).
       const batch = arriving.slice(0, Math.max(0, MAX_CONCURRENT_ENTERS - pulser.running(CLASSES.enter)));
       let stagger = 0;
@@ -246,9 +281,9 @@ export function createLively(options: CreateLivelyOptions): Lively {
     sent: () => {
       if (disposed) return;
       rows.armSend();
-      if (mayDraw("send")) canvasLayer()?.send();
-      if (!may("sendPulse")) return;
-      for (const button of doc.querySelectorAll(targets.sendButton)) pulser.pulse(button, CLASSES.send, deadline(tokens().pulseMs));
+      // A send lively saw leave the composer has rung already; one it did not (another way in) rings now.
+      if (send.launchedWithin(SENT_ECHO_MS)) return;
+      release(doc.querySelectorAll(targets.sendButton));
     },
     // A failure also glitches under a preset that has the glitch, even with the rings off.
     pulseStatus: (row, tone) =>
@@ -258,6 +293,7 @@ export function createLively(options: CreateLivelyOptions): Lively {
       if (disposed) return;
       disposed = true;
       rows.dispose();
+      send.dispose();
       reach.dispose();
       pulser.clear();
       media.removeEventListener("change", refresh);

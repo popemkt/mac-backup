@@ -51,7 +51,8 @@ export interface EffectInfo {
    * Drawn on lively's HTML-in-Canvas layer (dom/refraction.ts) when the
    * browser has the API, from the moment that starts it: a thread switch
    * (`navigate`), a send (`send`), or a request waiting for the person
-   * (`waiting`). Its CSS rules are the fallback and stand down while the
+   * (`waiting`). (The words a send carries off are the send form's own:
+   * domain/send.ts.) Its CSS rules are the fallback and stand down while the
    * layer runs (`data-lively-canvas` on the root). Absent: CSS only.
    */
   readonly canvas?: CanvasTrigger;
@@ -97,10 +98,10 @@ export const EFFECTS: Readonly<Record<EffectId, EffectInfo>> = {
     reducedSafe: true,
   },
   sendPulse: {
-    label: "Send burst",
-    wobbly: "A halftone comic burst ring, and the icon pops in like a sticker with a tilt.",
+    label: "Message motion",
+    wobbly: "The default form becomes the slap: the words jump once and cut, the message slaps in with a flash and bounces; the button throws a halftone burst and its icon pops in like a sticker.",
     description:
-      "Sending ripples out of the send button, with a burst of accent sparks at lively and bold; the Send/Stop icon pops as it swaps.",
+      "The motion of a message being sent and arriving, in the preset's own form: the send button gathers itself as you press Enter and lets go as the words leave the composer, your message lands in the thread along the path from where you wrote it, and the agent's first reply arrives the same way. Clean glides, wobbly slaps, and Cloudbank, YoRHa and Control each have their own (cells, a scan, the Hiss's dust). Off: messages come and go as bb shows them, while the rest of lively's motion stays. Independent of Motion (which, set to off, stops everything).",
     default: true,
     reducedSafe: true,
   },

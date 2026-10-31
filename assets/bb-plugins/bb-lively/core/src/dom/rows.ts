@@ -39,8 +39,12 @@ interface ListState {
 export function createRowWatcher(options: {
   readonly win: Window;
   readonly targets: Targets;
-  /** Rows that arrived, oldest first. The caller decides which actually animate. */
-  readonly onArrive: (rows: ReadonlyArray<Element>) => void;
+  /**
+   * Rows that arrived, oldest first, and rows that are new nodes for a place the list already had
+   * (`rekeyed`: the host swapped a row for another at the same index, or one scrolled back into
+   * view). The caller decides which actually animate.
+   */
+  readonly onArrive: (rows: ReadonlyArray<Element>, rekeyed: ReadonlyArray<Element>) => void;
 }): RowWatcher {
   const { win, targets, onArrive } = options;
   const doc = win.document;
@@ -74,9 +78,10 @@ export function createRowWatcher(options: {
       return;
     }
     const arriving = fresh.filter((row) => indexOf(row) > state.maxIndex).toSorted((a, b) => indexOf(a) - indexOf(b));
+    const rekeyed = fresh.filter((row) => !arriving.includes(row));
     state.maxIndex = Math.max(state.maxIndex, maxIndexOf(fresh));
     const scrolling = now() - lastUserScroll < USER_SCROLL_QUIET_MS && now() > sendUntil;
-    if (arriving.length > 0 && !scrolling) onArrive(arriving);
+    if ((arriving.length > 0 && !scrolling) || rekeyed.length > 0) onArrive(scrolling ? [] : arriving, rekeyed);
   };
 
   const scan = () => {

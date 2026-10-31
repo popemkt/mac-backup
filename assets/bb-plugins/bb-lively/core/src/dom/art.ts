@@ -2,8 +2,9 @@
 // (domain/presets.ts), its named colors and its font tokens, all under
 // `:root[data-lively-art][data-lively-preset="<id>"]`, so a preset switch is
 // one attribute and the art goes with it. Art is paint, not motion: it has no
-// animation, so it stays under reduced motion (and goes with motion "off",
-// which writes nothing at all).
+// animation, so it stays under reduced motion and with motion "off" (only the
+// art switch takes it away). A preset's skin dresses bb's own controls the same
+// way, role by role (`PresetArt.skin`).
 //
 // Each surface paints its art on a `::before` behind its own content: the
 // surface is positioned and isolated, and the layer sits at z-index -1, above
@@ -12,7 +13,7 @@
 // `artImage` setting, `--lively-art-image` on <html>) goes on the preset's
 // image surface, under the preset's own layers, washed toward the surface
 // color so text stays readable.
-import { type ArtLayer, type ArtSurface, ART_SURFACES, DEFAULT_IMAGE_PLACEMENT, type Preset } from "../domain/presets.ts";
+import { type ArtLayer, type ArtSurface, ART_SURFACES, DEFAULT_IMAGE_PLACEMENT, type Preset, SKIN_TARGETS } from "../domain/presets.ts";
 import { cssString } from "./css.ts";
 import { REACH } from "./reach.ts";
 import type { Targets } from "./targets.ts";
@@ -36,6 +37,16 @@ const SURFACE_COLOR: Readonly<Record<ArtSurface, string>> = {
 };
 
 const is = (selector: string) => `:is(${selector})`;
+
+/** Declarations, one per line, indented as the rest of the stylesheet. */
+function indent(declarations: string): string {
+  return declarations
+    .split(";")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => `  ${line};`)
+    .join("\n");
+}
 
 /** Layers as the background lists (image, size, position, repeat, attachment). */
 function backgroundLists(layers: ReadonlyArray<ArtLayer>): string {
@@ -75,6 +86,8 @@ function presetArt(preset: Preset, surfaces: Readonly<Record<ArtSurface, string>
   const fonts = [
     preset.fonts?.sans === undefined ? "" : `  --font-sans: ${preset.fonts.sans};`,
     preset.fonts?.mono === undefined ? "" : `  --font-mono: ${preset.fonts.mono};`,
+    // The lettering the art prints in (the caption, the skin's labels), with the art and so with motion off too.
+    preset.lettering === undefined ? "" : `  --lively-letter-font: ${preset.lettering.font};\n  --lively-letter-color: ${preset.lettering.color};`,
   ].filter(Boolean);
   const colors = Object.entries(preset.art?.colors ?? {}).map(([name, color]) => `  --lively-c-${name}: ${color};`);
   if (fonts.length + colors.length > 0) out.push(`${scope} {\n${[...fonts, ...colors].join("\n")}\n}`);
@@ -110,6 +123,15 @@ ${scope} ${is(targets.sidebar)}::after {
   color: var(--lively-letter-color);
   opacity: 0.8;
 }`);
+  }
+  // The preset's dress for bb's own controls, role by role, under the same scope: paint at rest.
+  for (const target of SKIN_TARGETS) {
+    const rule = preset.art?.skin?.[target];
+    if (rule === undefined) continue;
+    const own = [rule.style === undefined ? "" : indent(rule.style), rule.layers === undefined ? "" : backgroundLists(rule.layers)].filter(Boolean);
+    if (own.length > 0) out.push(`${scope} ${is(targets[target])} {\n${own.join("\n")}\n}`);
+    if (rule.before !== undefined) out.push(`${scope} ${is(targets[target])}::before {\n${indent(rule.before)}\n}`);
+    if (rule.after !== undefined) out.push(`${scope} ${is(targets[target])}::after {\n${indent(rule.after)}\n}`);
   }
   for (const surface of ART_SURFACES) {
     const art = preset.art?.[surface];

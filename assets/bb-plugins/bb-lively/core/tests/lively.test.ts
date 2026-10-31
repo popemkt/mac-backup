@@ -5,7 +5,7 @@ import { afterEach, test } from "node:test";
 import { effectAttribute } from "../src/domain/index.ts";
 import { createLively, type Lively, STYLE_ATTRIBUTE } from "../src/dom/lively.ts";
 import { createReachWatcher, REACH } from "../src/dom/reach.ts";
-import { CLASSES, PAGE_REPLAYED, ROOT_ATTRIBUTES } from "../src/dom/stylesheet.ts";
+import { CLASSES, PAGE_REPLAYED, ROOT, ROOT_ATTRIBUTES } from "../src/dom/stylesheet.ts";
 import { page, type Page, rowHtml, TARGETS } from "./harness.ts";
 
 let cleanup: Array<() => void> = [];
@@ -56,10 +56,14 @@ test("abort removes the stylesheet, every root attribute and every running class
   assert.equal(p.doc.querySelectorAll(`.${CLASSES.pulse}, [data-lively-tone]`).length, 0);
 });
 
-test("settings: off clears the root; an effect switched off loses its attribute; speed is written", () => {
+test("settings: off clears every motion attribute, the art staying; an effect switched off loses its attribute; speed is written", () => {
   const { p, lively } = mounted();
   lively.setSettings({ motion: "off" });
-  for (const name of ROOT_ATTRIBUTES) assert.ok(!p.root.hasAttribute(name), name);
+  const art = new Set<string>([ROOT.preset, ROOT.art]);
+  for (const name of ROOT_ATTRIBUTES.filter((attribute) => !art.has(attribute))) assert.ok(!p.root.hasAttribute(name), name);
+  assert.equal(p.root.getAttribute(ROOT.art), "on", "art is paint: the preset's art holds with motion off");
+  lively.setSettings({ motion: "off", art: false });
+  assert.ok(!p.root.hasAttribute(ROOT.art));
   lively.setSettings({ speed: "snappy", intensity: "subtle", effects: { press: false } });
   assert.equal(p.root.getAttribute("data-lively-intensity"), "subtle");
   assert.equal(p.root.getAttribute("data-lively-speed"), "snappy");

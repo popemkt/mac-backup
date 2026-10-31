@@ -105,12 +105,12 @@ test("a preset's own effect runs only under that preset", () => {
   assert.ok(!effectInPreset({ ...EFFECTS.press, presets: ["zzz"] }, "calm"));
 });
 
-test("the policy carries the preset and the art; art is paint, so it stays reduced and goes with off", () => {
+test("the policy carries the preset and the art; art is paint, so it stays reduced and with motion off", () => {
   const settings = { ...DEFAULT_SETTINGS, preset: "zzz", artImage: "https://example.com/a.png" };
   const full = resolveMotion(settings, false);
   assert.deepEqual([full.preset, full.art, full.artImage], ["zzz", true, "https://example.com/a.png"]);
   assert.equal(resolveMotion(settings, true).art, true);
-  assert.deepEqual([resolveMotion({ ...settings, motion: "off" }, false).art, resolveMotion({ ...settings, motion: "off" }, false).artImage], [false, ""]);
+  assert.deepEqual([resolveMotion({ ...settings, motion: "off" }, false).art, resolveMotion({ ...settings, motion: "off" }, false).artImage], [true, "https://example.com/a.png"]);
   assert.equal(resolveMotion({ ...settings, art: false }, false).artImage, "");
 });
 
@@ -187,7 +187,8 @@ test("art: a backdrop repeats on bb's dock band, hides bb's fade above it, and f
   assert.match(css, new RegExp(`${scope} :is\\(form\\.composer\\) \\{ --shadow-lift: 0 0 #0000; --lively-sticker: 0px; \\}`, "u"));
   assert.match(css, /\[data-lively-art-image="on"\]\[data-lively-preset="custom"\] :is\(form\.composer\) \{ --shadow-lift/u);
   assert.ok(!/\[data-lively-art="on"\]\[data-lively-preset="(calm|custom|lively)"\] :is\(form\.composer\)/u.test(css));
-  assert.ok(!/form\.composer[^{]*\{[^}]*(background|box-shadow|border)/u.test(css));
+  // (Control's skin dresses it as a Bureau form on purpose: its own test below.)
+  assert.ok(!/preset="(?!control")[^"]*"\][^{]*form\.composer[^{]*\{[^}]*(background|box-shadow|border)/u.test(css));
   // The person's image is fixed to the window, so the thread and the band show one picture.
   assert.match(css, /\[data-lively-art-image="on"\]\[data-lively-preset="zzz"\] :is\(\.page, \.dock\)::before \{[^}]*background-attachment: scroll, scroll, scroll, fixed;/u);
   // Presets without a backdrop leave bb's dock and fade alone, until the person adds an image.
@@ -205,6 +206,34 @@ test("art: backdrop art never depends on its box's size, so the dock band contin
     }
     if (art?.backdrop?.mask !== undefined) assert.match(art.backdrop.mask, /right bottom \/ \d+px \d+px/u, preset.id);
   }
+});
+
+test("skin: Control dresses bb's own controls at rest, under its art scope, and never on a pseudo-element lively animates", () => {
+  const css = buildArtStylesheet(TARGETS, PRESETS);
+  const control = PRESETS.find((row) => row.id === "control") as Preset | undefined;
+  const skin = control?.art?.skin ?? {};
+  assert.ok(Object.keys(skin).length >= 6, "the composer, its button, messages, title, panels and the empty page");
+  const scope = ':root[data-lively-art="on"][data-lively-preset="control"]';
+  for (const [target, rule] of Object.entries(skin)) {
+    const selector = `${scope} :is(${TARGETS[target as keyof typeof TARGETS] as string})`;
+    if (rule.style !== undefined || rule.layers !== undefined) assert.ok(css.includes(`${selector} {`), target);
+    for (const part of [rule.style, rule.before, rule.after]) {
+      // Paint at rest: it holds with every effect off, and nothing of it moves.
+      if (part !== undefined) assert.ok(!/\b(animation|transition|will-change)\b/u.test(part), `${target}: ${part.slice(0, 40)}`);
+    }
+  }
+  // Its labels are lively's own pseudo-elements: none of them on a role lively's motion draws on under Control (the dust).
+  const motion = buildStylesheet(TARGETS, []);
+  for (const [target, rule] of Object.entries(skin)) {
+    for (const [pseudo, used] of [["::before", rule.before], ["::after", rule.after]] as const) {
+      if (used === undefined) continue;
+      const host = TARGETS[target as keyof typeof TARGETS] as string;
+      const clash = motion.split("\n").filter((line) => line.includes(`${host})${pseudo}`) && !/data-lively-send="(?!dust)/u.test(line));
+      assert.deepEqual(clash, [], `${target}${pseudo}`);
+    }
+  }
+  // Art is its own switch: a preset's dress stays with motion off.
+  assert.ok(resolveMotion({ ...resolve({ ...NO_CHOICES, preset: "control" }).settings, motion: "off" }, false).art);
 });
 
 test("cloudbank and yorha: each a whole art direction, with its palette, its own effect and its art", () => {
