@@ -1,0 +1,31 @@
+{
+  "name": "bb-plugin-sandbox",
+  "version": "0.1.0",
+  "private": true,
+  "description": "bb plugin (proof of concept): run commands in isolated, resource-capped sandboxes behind one provider contract and an admission queue.",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.46",
+    "bbPluginSdk": ">=0.6.49"
+  },
+  "bb": {
+    "name": "Sandbox",
+    "description": "Run a command in an isolated sandbox (`bb sandbox run`), admitted by a queue that keeps the machine under a CPU and memory budget. Proof of concept with a local bubblewrap provider.",
+    "branding": {
+      "icon": "Package"
+    },
+    "server": "./server.ts"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.49",
+    "@types/node": "^22.0.0",
+    "oxlint": "1.83.0",
+    "typescript": "^5.7.0"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "lint": "oxlint server.ts core tests",
+    "test": "node --test tests/*.test.ts",
+    "verify": "npm run typecheck && npm run lint && npm test && bb plugin build"
+  }
+}
