@@ -34,6 +34,13 @@ let
       ]
       ++ extraArgs;
     };
+  # axioms' SpacetimeDB state (my.services.axioms-db below), and the limits
+  # on its units.
+  axiomsState.AXIOMS_STDB_HOME = "${config.users.users.popemkt.home}/.local/share/axioms/spacetime";
+  axiomsCaps = {
+    MemoryMax = "1G";
+    CPUQuota = "200%";
+  };
 in
 {
   imports = [
@@ -115,6 +122,9 @@ in
   # runs able to become root.
   security.sudo.wheelNeedsPassword = false;
   programs.firefox.enable = true;
+
+  # SpacetimeDB's licence (BSL 1.1) is unfree to nixpkgs; axioms needs it.
+  nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "spacetimedb" ];
 
   # Passwords are machine state (scripts/shared-server-secrets), never declared.
   my.people = [
@@ -271,18 +281,36 @@ in
     };
   };
 
-  # The work Mac's T3 Code, relayed to loopback so agents here can sign in to
-  # its MCP: OAuth refuses plain HTTP off loopback, and T3 names its endpoints
-  # after the host it is reached on.
-  systemd.services.t3-work-relay = {
-    description = "Relay 127.0.0.1:3790 to popemkt-work's T3 Code";
-    wantedBy = [ "multi-user.target" ];
-    after = [ "tailscaled.service" ];
-    serviceConfig = {
-      ExecStart = "${pkgs.socat}/bin/socat TCP-LISTEN:3790,bind=127.0.0.1,fork,reuseaddr TCP:popemkt-work.taild98079.ts.net:3773";
-      DynamicUser = true;
-      Restart = "always";
-      RestartSec = 5;
+  # The database of popemkt's axioms (github.com/popemkt/axioms) in live
+  # mode: SpacetimeDB on loopback, never exposed (pkgs/axioms-db). The
+  # axioms server that publishes its module into it and serves the UI comes
+  # as my.services.axioms once its package is in. Its state is
+  # AXIOMS_STDB_HOME: docs/backup-strategy.md → axioms.
+  my.services.axioms-db = {
+    owner = "popemkt";
+    port = 4420;
+    package = pkgs.axioms-db;
+    expose = false;
+    environment = axiomsState;
+  };
+
+  systemd.services = {
+    # Capped: a gentle load on a host that has had hardware resets
+    # (boot.kernelParams above).
+    app-axioms-db.serviceConfig = axiomsCaps;
+    # The work Mac's T3 Code, relayed to loopback so agents here can sign in
+    # to its MCP: OAuth refuses plain HTTP off loopback, and T3 names its
+    # endpoints after the host it is reached on.
+    t3-work-relay = {
+      description = "Relay 127.0.0.1:3790 to popemkt-work's T3 Code";
+      wantedBy = [ "multi-user.target" ];
+      after = [ "tailscaled.service" ];
+      serviceConfig = {
+        ExecStart = "${pkgs.socat}/bin/socat TCP-LISTEN:3790,bind=127.0.0.1,fork,reuseaddr TCP:popemkt-work.taild98079.ts.net:3773";
+        DynamicUser = true;
+        Restart = "always";
+        RestartSec = 5;
+      };
     };
   };
 }

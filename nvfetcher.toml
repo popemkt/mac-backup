@@ -55,3 +55,16 @@ src.sort_version_key = "awesomeversion"
 src.from_pattern = "^v(.+)$"
 src.to_pattern = "\\1"
 fetch.url = "https://github.com/popemkt/kb/releases/download/v$ver/kb-$ver.tar.gz"
+
+# SpacetimeDB's prebuilt Linux release (pkgs/spacetimedb), for axioms' live
+# mode; nixpkgs has 2.10.1. Pinned: axioms' module and SDKs name this exact
+# release, and a server ahead of them is untested with them (2.x renamed core
+# APIs between minors), so a person moves both together: a new axioms tag,
+# then this pin.
+[spacetimedb]
+pinned = true
+src.github = "clockworklabs/SpacetimeDB"
+src.from_pattern = "^v(.+)$"
+src.to_pattern = "\\1"
+fetch.url = "https://github.com/clockworklabs/SpacetimeDB/releases/download/v$ver/spacetime-x86_64-unknown-linux-gnu.tar.gz"
+

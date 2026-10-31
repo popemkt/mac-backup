@@ -250,6 +250,32 @@ they are opened.
 - Losing it costs the list only. The next `kb ui` over a root registers it
   again; labels and pins set by hand are what is lost.
 
+## axioms (shared-server)
+
+popemkt's axioms runs on shared-server as `my.services.axioms-db` (the
+database) and `my.services.axioms` (the server, once its package lands), in
+`hosts/shared-server/default.nix`. Its state is one directory,
+`AXIOMS_STDB_HOME` = `~popemkt/.local/share/axioms/spacetime`:
+
+- `data/`: the SpacetimeDB database: the shared concept graph, every
+  person's marks, and the request log.
+- `id_ecdsa`, `id_ecdsa.pub`: the keys that sign SpacetimeDB tokens, made on
+  the database's first start. Every browser's identity and the server's are
+  tokens these keys signed; new keys orphan them all, though the data stays.
+- `cli.toml`: the CLI identity that owns the `axioms` database, as which
+  the server's start publishes the module. Losing it means the
+  database can no longer be updated in place.
+
+Beside it, `~popemkt/.spacetimedb_client_credentials/axioms-server` is the
+server's own client identity (what its decompose worker writes as).
+
+Decision: **state, and a regular backup concern.** The graph and marks are
+produced by use and expensive to recreate (each concept is a model call).
+Nix declares the units and the package; the module the database runs comes
+from the package, so nothing in the directory is configuration. Copy it with
+`app-axioms-db` stopped (or from a SpacetimeDB snapshot), never mid-write.
+<!-- GAP [[01M692TZSTZ7HPR8V4SS77546Q]]: shared-server's axioms state has no backup. -->
+
 ## Canvas Links Log
 
 `canvas-link` (`modules/stacks/ai-agents/canvas-links/`) records which tldraw

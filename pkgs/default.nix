@@ -18,6 +18,11 @@ let
     source // lib.optionalAttrs (repo != null) { homepage = builtins.head repo; };
 
   sources = lib.mapAttrs withHomepage (pkgs.callPackage ../_sources/generated.nix { });
+
+  # Ours, not nixpkgs' older one: axioms pins this release.
+  spacetimedb = pkgs.callPackage ./spacetimedb {
+    inherit sources;
+  };
 in
 {
   chat2db = pkgs.callPackage ./chat2db {
@@ -46,6 +51,12 @@ in
 
   kb = pkgs.callPackage ./kb {
     inherit sources;
+  };
+
+  inherit spacetimedb;
+
+  axioms-db = pkgs.callPackage ./axioms-db {
+    inherit spacetimedb;
   };
 
   system-setup = pkgs.callPackage ./system-setup {

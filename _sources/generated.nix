@@ -54,6 +54,14 @@
       sha256 = "sha256-/9bghrpvaKR0j4DqqLOCRKnPeLBcB2ND114CMP6UQLQ=";
     };
   };
+  spacetimedb = {
+    pname = "spacetimedb";
+    version = "2.14.0";
+    src = fetchurl {
+      url = "https://github.com/clockworklabs/SpacetimeDB/releases/download/v2.14.0/spacetime-x86_64-unknown-linux-gnu.tar.gz";
+      sha256 = "sha256-LYlQ3DxnkQqoCqdhLv3bXubtU8RDVz9hezrWX+8qoIQ=";
+    };
+  };
   vite-plus = {
     pname = "vite-plus";
     version = "1.4.0";
