@@ -33,8 +33,11 @@ Every theme has the same two parts.
 - **Status**: `shipped`, `planned`, or `gap` (needs something bb does not offer).
 
 Selectors are named by their key in `adapter/selectors.ts` (`pageView` is `[data-thread-window]`, `row`,
-`focusBox`, `sendButton`, `statusRow`, `threadRow`, `toast`, `overlayOpen`, `working`). A new key is marked
-*new target*.
+`focusBox`, `sendButton`, `composerText`, `sentRow`, `replyRow`, `bubble`, `statusRow`, `threadRow`, `toast`,
+`overlayOpen`, `working`). A new key is marked *new target*.
+- A preset's send is one of the forms in `core/src/domain/send.ts` (`SEND_FORMS`), named by its `send` field in
+  `presets.ts`; one sequence plays every form (`core/src/dom/send.ts`), its art is the stylesheet's (and the dust's,
+  `core/src/dom/dust.ts`). [The send](#the-send) below says how the sequence works.
 - Effect ids are the keys of `EFFECTS` in `core/src/domain/effects.ts`.
 - Motion tokens are the fields of `MotionTokens` in `core/src/domain/motion.ts`.
 - Theme tokens are bb's custom properties in `themes/*.css`. A palette may also define `--lively-art-<name>`
@@ -64,6 +67,7 @@ all-day use.
 | Concept | From | Lives in | Status |
 |---|---|---|---|
 | Quiet motion on any theme | Motion | `core/src/domain/presets.ts` · `calm` row (`intensity: subtle`, `style: clean`, `stickers: off`, `pageWipe: false`, no palette) | shipped |
+| A quiet send: the words lift a little as they fade, the message comes in from just below | Motion | send form `glide` (no `send` field: clean's own) at subtle, where `travel` is 0.18 of the path; no particles | shipped |
 
 <a id="lively"></a>
 ## Lively
@@ -147,6 +151,7 @@ all-day use.
 | Swell after the snap | UI | `motion.ts` · `swell`; effect `focusRing` (wobbly); selector `focusBox` | shipped |
 | Slanted dotted wipe | UI | effect `pageWipe`; `core/src/dom/stylesheet.ts` · `pageView::after` | shipped |
 | Halftone send burst | Art | effect `sendPulse` (wobbly); `stylesheet.ts` · `.lively-send::after` | shipped |
+| A send is a hit: the words jump once toward the thread and cut; the message slaps in along the path with a flash and an accent sticker shadow, skewing in, over a halftone pop behind it | Motion (hard attack, exits are cuts), UI (tile pop with flash) | send form `slap` (`zzz.send`; also any wobbly preset without its own) | shipped |
 | Sticker shadows on cards, menus and toasts | Art | setting `stickers`; `motion.ts` · `sticker` | shipped |
 | Idle breathing | Motion (idle loops) | effect `workingGlow` (wobbly breathes in scale); selector `working` | shipped |
 | Chromatic split colours (cyan/magenta) as paint tokens | Art | `stylesheet.ts` · `--lively-chroma-a/-b` (ZZZ's are lively's defaults; a preset's `paint.chroma` replaces them) | shipped |
@@ -219,7 +224,8 @@ all-day use.
 | The sword's light along the seams | Art (turquoise sword-light) | `themes/lively-cloudbank.css` · `--border-seam` mixed toward the accent: thin teal outlines on the sidebar's edge, the panes, the message cards | shipped |
 | The sword's light down the sidebar's inner edge | Art | `CLOUDBANK_ART.sidebar` · a 2px line and an 18px glow (`--lively-art-sword`); shows where bb's sidebar content is transparent (its header and foot) | shipped |
 | Brighter sword-light everywhere it glows | Art, Motion | `presets.ts` · `cloudbank.tokens.glow: 0.34` (focus ring, working line, status rings) | shipped |
-| Function sparks on send | UI (functions) | effect `sendPulse` with a radial-ray burst paint (`paint.burst`) | planned |
+| Function sparks on send | UI (functions) | send form `process` · `.lively-send::after`: rays in Turn() cyan and gold, a ring, turning as they fly | shipped |
+| A send is a function executing: the words whitewash into the Process's blank cells in three dithered steps and jaunt toward the thread; the message comes along the path in steps under a veil of cells, a turquoise trace drawn up to it from the composer (plan, then act at once) | World (the Process), UI (Turn()'s planned path) | send form `process` (`cloudbank.send`) · the ghost's three layers, `cellMask()` (a 4×4 ordered dither), `row::before` (trace), `row::after` (veil) | shipped |
 | Sword hum while working | Sound (hum), Motion | effect `workingGlow` (clean breathing in Turn() cyan, at `glow` 0.34); a slower `breatheMs` via `tokens` | shipped (glow); planned (slower hum) |
 | A clean 1920s sans for reading | Art | `presets.ts` · `cloudbank.fonts.sans`: Jost (OFL, as kb's Transistor, if installed), Avenir Next, Futura, system | shipped |
 | The faces themselves, on the Macs | Art | installed on the Macs by the bb stack (`modules/stacks/bb/darwin.nix`, nix-darwin `fonts.packages`): Jost, Josefin Sans and Federant, so bb's pages find them wherever the server runs; another device (a phone) still falls back, as lively serves no font file (gap `01M5SK4NQ90CRG9YAQC2GXNZJW`, closed by the install) | shipped |
@@ -291,10 +297,12 @@ request for "a nice, warm beige".
 | Fully inverted selection with a square marker | UI | needs a theme element block on the selected sidebar row | planned |
 | The whole look in one choice | (all) | `presets.ts` · `yorha` row: `clean` at `lively`, `snappy`, `stickers: off`, `pageWipe` and `glitch` on, palette `lively-yorha` | shipped |
 | Grid and a corner bracket | Art | `presets.ts` · `YORHA_ART.backdrop`: 24px and 120px grids, a tick ruler, `bracket()` and a rust square (`artkit.ts`) · colors `--lively-art-line/-mark/-rim` · masked to fade out from the lower right | shipped |
-| Hatching at the foot of the sidebar | Art | `YORHA_ART.sidebar` · selector `sidebar` | shipped |
+| Hatching at the foot of the sidebar | Art | `YORHA_ART.sidebar` · selector `sidebar` · each line a half-pixel ramp, not a hard stop (a hard-edged diagonal rasterizes as a staircase) | shipped |
 | Mechanical, no bounce | Motion | `presets.ts` · `yorha.tokens`: `overshoot: 0`, `blur: 0`, `tilt: 0`, `liftShadow: 0` (full level only; the tests hold them to `BUDGETS.clean`) | shipped |
-| Scan-bar wipe | UI | `presets.ts` · `yorha.paint.wipe` (6px ink bars, fading edges) → `--lively-wipe-fill/-mask`; effect `pageWipe` | shipped |
-| Glitch on failure | Motion (damage) | effect **`glitch`** (`presets: ["yorha"]`, off under reduced) · `stylesheet.ts` `lively-glitch`: `translate` in `steps(1)` and a split in `paint.chroma` (rust and steel), on `statusRow` when the thread fails · runs even with `statusPulse` off (`core/src/dom/lively.ts` `pulseStatus`) | shipped |
+| Scan-bar wipe | UI, Motion (scan lines; "a little moist") | `presets.ts` · `yorha.paint.wipe`: fine soft-edged scanlines on a plate of the canvas a shade toward the ink, wide soft edges → `--lively-wipe-fill/-mask`; `ease` → `--lively-wipe-ease` (the steady ease in each leg: in, hold, out; other presets keep the linear cut); effect `pageWipe` | shipped |
+| A send is a transmission: a scan bar erases the words line by line under the composer's own ground; the message prints in under a bar riding down it, a rust marker at its end; mechanical but soft (the bars at a scanner's constant speed, never stepped; the message settles on the ease; nothing passes its mark) | Motion (linear slides, scan lines, "a little moist"), Art (rust marker) | send form `scan` (`yorha.send`) · the ghost's layers (bar, cover, marker), `row::before`/`::after`, linear (they were `steps(6)`), the landing on the ease-out, the marker's blink on `--lively-ease-steady`; the bar's rule and scanlines are soft ramps, so they stay even through sub-pixel positions | shipped |
+| The send button locks on and lets go: corner brackets close in on it as Enter goes down, open out as the words leave, a rust marker blinking once at its corner; still brackets on hover, as the game marks the item under its cursor | UI (bracketed corners, small square marker), Motion | send form `scan` · `sendButton::after` (a hairline ring masked to four corners), `::before` (the marker), on `--lively-ease-steady`; the hover is opacity only, at the full level with Message motion on | shipped |
+| Glitch on failure | Motion (damage) | effect **`glitch`** (`presets: ["yorha"]`, off under reduced) · `stylesheet.ts` `lively-glitch`: a whole-pixel `translate` tear sliding on the steady ease, and a translucent, half-pixel-soft split in `paint.chroma` (rust and steel) that dies out with it, on `statusRow` when the thread fails · runs even with `statusPulse` off (`core/src/dom/lively.ts` `pulseStatus`) | shipped |
 | Slice band on the failing row | Motion (damage) | a `clip-path` slice needs a pseudo-element the status rings already use | planned |
 | Plain grotesque type | UI | `yorha.fonts.sans`: Helvetica Neue, Helvetica, Nimbus Sans, Arial, system | shipped |
 | Condensed, letter-spaced labels | UI | needs a label target and a letter-spacing token | planned |
@@ -343,26 +351,38 @@ confirms.
   wayfinding green `#1d6b47`, void white `#f4f4f2`, monolith black `#0b0b0c`.
 
 **B. bb translation.** The UI/UX concept:
-- At rest, Control is a quiet, institutional workspace:
+- At rest, Control is a quiet, institutional workspace, and plainly the Bureau's:
   - concrete greys at night and the white void by day;
   - Bureau type and square corners;
-  - text always crisp, with nothing moving.
+  - bb's own controls dressed as the Bureau's forms and signage: the composer a form under corner
+    brackets with a Hiss-red tab, what you send filed as a numbered directive, the thread's title a
+    sign, menus and dialogs case files, and the empty page a thread starts on the Astral Plane;
+  - text always crisp, with nothing moving. The dress is art, not motion: it holds with every effect
+    off and with motion off (the `art` switch alone takes it away).
 - The paranatural happens only on motion or in the margins:
   - a thread switch shifts the architecture;
-  - a send refracts the transcript through the Board's prism;
+  - a send is taken by the Hiss: the words come apart into its dust and the message condenses out of it,
+    while the Board's prism sweeps the composer's edge;
   - an agent waiting for you brings on the Hiss.
-- Those three draw on lively's HTML-in-Canvas layer when bb runs with `CanvasDrawElement`, and fall
-  back to CSS that keeps the same look.
+- Those draw on lively's canvas layer (the first and last need HTML-in-Canvas, which bb runs with
+  `CanvasDrawElement`; the dust needs only WebGL 2 and uses HTML-in-Canvas for the real pixels when it is
+  there), and fall back to CSS that keeps the same look.
 
 | Concept | From | Lives in | Status |
 |---|---|---|---|
 | Concrete at night, the Astral Plane by day; red only for the Hiss (destructive, attention), green for the timeline | Art, UI (wayfinding) | `themes/lively-control.css` · `.dark` `--canvas #18191b` `--primary #e8e6e1` `--timeline-accent #5fb88a` `--destructive #ff4d55`; `:root, .light` `--canvas #f4f4f2` `--ink #0b0b0c` | shipped |
 | Selection inverts toward the sign's off-white; square corners, hairline shadows | UI (inverted menu rows, thin rules) | same file · `--surface-selected`, `--surface-selected-border`, `--radius 2px`, `--shadow-*` | shipped |
-| The whole look in one choice | (all) | `presets.ts` · `control` row: `clean` at `lively`, `stickers: off`, `pageWipe`, `shiftWarp`, `hissResonance` and `prismEdge` on, palette `lively-control` | shipped |
+| The whole look in one choice | (all) | `presets.ts` · `control` row: `clean` at `lively`, `stickers: off`, `pageWipe`, `shiftWarp`, `hissResonance` and `prismEdge` on, send form `dust`, palette `lively-control` | shipped |
 | Precise motion: nothing passes its mark, nothing tilts | Motion (still UI) | `presets.ts` · `control.tokens`: `overshoot: 0`, `tilt: 0`, `glow: 0.18` | shipped |
 | Coffered ceiling, form-tie holes, board grain, a lobby's round light | Art | `presets.ts` · `CONTROL_ART.backdrop` (96px coffers with an 8px recess, a 48px tie-hole grid, 7px grain, a ring and its pool) · colors `--lively-art-line/-light` | shipped |
 | Two floating monoliths under the Board, with spectral edges, in the thread's free right margin | Art (Astral Plane, Board) | `CONTROL_ART.backdrop` · `rect()` slabs with a lit top and a Hiss-red seam; a 60° `conic-gradient` wedge and a spectral fringe wedge · `--lively-art-monolith/-rim/-hiss` (pale by day) | shipped |
 | Art never behind reading text or the dock | UI (clean HUD) | `CONTROL_GUTTER_MASK` in `presets.ts`: shows only right of bb's centered 728px column (48px clear), intersected with nothing in the bottom 290px; a thread narrower than ~860px has no margin, so no backdrop art (checked at 420, 560, 760 and 1100px) | shipped |
+| **The Bureau's dress for bb's own controls**, at rest | UI (forms, signage, case files) | `presets.ts` · `CONTROL_SKIN` (`PresetArt.skin`, written by `dom/art.ts` under the art scope); roles `focusBox`, `sendButton`, `sentRow`, `threadTitle`, `pageHeader`, `sidePanel`, `overlayOpen`, `dialogOpen`, `composeHome` (*new targets* `threadTitle`, `pageHeader`, `sidePanel`, `composeHome`) | shipped |
+| ↳ the composer is a Bureau form: square, a hairline in the sign's color, corner brackets, a Hiss-red tab on its top edge; the send button carries a red bar along its foot | UI (forms, red accent bars) | `CONTROL_SKIN.focusBox` (`corners()`, `bar()` in `artkit.ts`), `.sendButton` | shipped |
+| ↳ each of your messages is filed: `DIRECTIVE № n` in tracked capitals over it, `n` its place in the thread, a red tick at its end | UI (numbered case files) | `CONTROL_SKIN.sentRow` · `::before` with `attr(data-index)` | shipped |
+| ↳ the thread's title is a sign (tracked bold capitals in the sign's color), the header's rule carries a red tab; the side panel a red bar at its head; menus and dialogs are case files with a red tab and a ruled top, dialogs framed in corner brackets | UI (signage, red accent bars) | `CONTROL_SKIN.threadTitle`, `.pageHeader`, `.sidePanel`, `.overlayOpen`, `.dialogOpen` | shipped |
+| ↳ the page a new thread starts on is the Astral Plane: the Board (black on the white void, blacker than concrete at night) with its spectral edges under the composer, two monoliths with lit tops (a Hiss-red seam under one), stark shafts of light from above, and FEDERAL BUREAU OF CONTROL lettered large on the floor over `THE OLDEST HOUSE · DESIGNATION 01-A · CLEARANCE ON REQUEST` | Art (Astral Plane, the Board, light shafts), UI (title cards) | `CONTROL_SKIN.composeHome` · `--lively-art-board` | shipped |
+| Stark shafts of light falling past the monoliths in the thread's margin | Art (light slits) | `CONTROL_ART.backdrop` · two `linear-gradient` shafts above the dock | shipped |
 | The prism's light down the sidebar's edge | Art (dispersion) | `CONTROL_ART.sidebar` · a 1px spectral line (bb's sidebar content is opaque, so it shows at the head and foot) | shipped |
 | The Board's prism in the sidebar | Art | needs a transparent sidebar surface, which bb does not offer; moved to the backdrop | gap |
 | Documents for reading, labels for wayfinding | UI | `control.fonts.sans` (Basic Commercial, Akzidenz-Grotesk, Helvetica Neue, …); `control.lettering.font` (Overpass, Barlow, Interstate, DIN, …); no font file ships, so the system fallbacks show unless they are installed (gap `01M5SK4NQ90CRG9YAQC2GXNZJW`) | shipped |
@@ -371,9 +391,13 @@ confirms.
 | **Shifting architecture on a thread switch** | Motion (rooms rearranging), Art (dispersion) | effect **`shiftWarp`** (`canvas: "navigate"`, `presets: ["control"]`) | shipped |
 | ↳ with HTML-in-Canvas: the thread you leave, its real pixels, breaks into slabs that slide apart, some splitting at a cut, with prismatic fringes in proportion to their speed; the gaps open onto the thread you open | | `core/src/dom/refraction.ts` · scene `navigate`: a sanitized clone of `pageView`, taken on the Navigation API's `navigate` event before the router renders, uploaded once (`dom/drawable.ts`), shader mode 0; 2.2 × the entrance | shipped |
 | ↳ without: the thread you open assembles from slabs, its rows sliding in from alternating sides in hard steps, split into the dispersion colors | | `stylesheet.ts` · `shiftWarp` under `:not([data-lively-canvas])` · `lively-slab` on `rowList > row` during the replay | shipped |
-| **The Board's prism at the composer** on a send | Art (dispersion, the Board) | effect **`prismEdge`** (`canvas: "send"`) | shipped |
+| **The Board's prism at the composer** on a send, as the words leave | Art (dispersion, the Board) | effect **`prismEdge`** (`canvas: "send"`), played by the send sequence's launch beside the dust | shipped |
 | ↳ with HTML-in-Canvas: a lens slides along the 140px of transcript above the composer, refracting and splitting it, with a spectral line on the composer's edge | | `refraction.ts` · scene `send`, shader mode 1; 2.4 × the entrance | shipped |
 | ↳ without: a spectral line sweeps the composer's top edge | | `stylesheet.ts` · `prismEdge` · `focusBox:has(.lively-send)::before`, `lively-prism-sweep` | shipped |
+| **The Hiss takes what you send**: the words come apart into soft, dark, prismatic dust that drifts up like dust in the wind, and your message condenses out of the same dust; the agent's first reply condenses out of a haze | World (the Hiss), Motion (the takedown's "small, isolated distortion": a trail advected by a fluid, broken into the colors of dispersion) | send form `dust` (`control.send`) · effect `sendPulse` | shipped |
+| ↳ on the canvas layer (WebGL 2): one particle per 1.5 px cell of the words, colored by their pixels, so the first frame is the text; a ragged front lets go of them with the wind, left to right; each rises up and to the right with the wind, carried by a flow field over the screen (neighbours drift together, so the words come apart in wisps and curls), from a crisp square to a soft blur, the text's color going to smoke (`--lively-art-dust`, black on the white void, charcoal on concrete), one in twenty-five burning as a Hiss ember (`--lively-art-hiss`), the edges split into red and blue; the message then condenses from dust blown in along the path from the composer, and the real message fades in as it settles; 3 × the entrance | | `core/src/dom/dust.ts` (positions from the cell and the time on the GPU, no buffers), `refraction.ts` (the layer and its second stage), `send.ts` · `dissolve`, `arrive`; with HTML-in-Canvas the pixels are a sanitized copy of the words and of the message (`snapshot.ts`), without it their glyphs drawn where the browser laid them out | shipped |
+| ↳ without WebGL 2: the words blur, split into the dispersion colors and drift up and away in a cloud of grain with a few embers; the message comes into focus out of a blur rising from below | | `stylesheet.ts` · form `dust` keyframes `lively-dust-out`, `lively-dust-grain`, `lively-dust-in` | shipped |
+| ↳ the send button gathers as you press Enter (no ring: the Bureau is still) and lets off a few motes of the dust, an ember among them, as the words leave | | form `dust` · `.lively-send::before` (`lively-motes`) | shipped |
 | **The Hiss while an agent waits for you** | World (the Hiss), Sound (the chant) | effect **`hissResonance`** (`canvas: "waiting"`, `reducedSafe`) · `pageView:has(pendingRequest)`, as Cloudbank's `turnFreeze` | shipped |
 | ↳ the timeline takes a red cast (still readable) under a red scanline veil; the request burns Hiss red | | `stylesheet.ts` · `hissResonance` · `--lively-hiss` | shipped |
 | ↳ the chant, the Board's way (slash alternatives, our own words), printed doubled over itself in the request's corner | Sound (overlapping chant), UI (the Board's speech) | `control.lettering.chant` → `--lively-chant` · `pendingRequest::before` with three red `text-shadow` ghosts | shipped |
@@ -393,9 +417,59 @@ How the HTML-in-Canvas layer keeps bb usable:
 - Snapshots are sanitized clones: no ids, no `data-*`, no frames or media. Neither bb nor lively
   can find them.
 - It runs only at the full motion level. Under reduced motion every effect is CSS: the Hiss's
-  static state, nothing else.
+  static state and a send's fade, nothing else.
 - It is detected by method name across both API generations (`dom/drawable.ts`). Without the API
-  or WebGL 2, the CSS halves run.
+  the scenes' CSS halves run and the dust draws its glyphs itself; without WebGL 2 every CSS half runs.
+
+<a id="the-send"></a>
+## The send (every preset)
+
+The owner's ask: the send was one abrupt burst on every preset; each should have its own, and Control's should be
+the Hiss. One sequence plays every preset's form (`core/src/dom/send.ts`); the forms are the art.
+
+- **Capture.** bb gives no "about to send" event and clears the composer itself, about 50 ms after Enter. So an
+  Enter in the composer (or a press on the send button) copies what `composerText` shows: a sanitized copy, the
+  text's bounds, and for the dust without HTML-in-Canvas its glyphs. Thrown away if no send follows.
+- **Depart.** When the composer empties within 700 ms of that, the copy becomes a ghost, lively's own element held
+  exactly where the words were, so they never blink out. It holds for its echo (at most 420 ms) and then goes in the
+  form's way.
+- **Arrive.** bb renders the send at once as an optimistic row (`sentRow`: `optimistic-user-…`) about 120 ms after
+  Enter, and swaps it for the stored row (`…:user-seed:…`, the same index) when the server confirms, about 300 ms
+  later. The first `sentRow` to arrive after a send is its echo: the ghost and the message move along one path, from
+  the words to the message's box (`bubble`), as `--lively-send-dx/-dy`; the swap carries the motion on in the new
+  node from where it was (a negative delay). With no echo in time (a queued message) the ghost goes alone.
+- **Reply.** The turn's first `replyRow` in the same timeline arrives as the send did, from where it is.
+- **Button.** The send button answers at once, well inside 100 ms: on Enter or a press its icon gathers
+  (a dip down and in, eased out so it moves on the first frame) while a ring draws in toward it
+  (anticipation); as the words leave it lets go on the preset's spring, past rest where the spring
+  overshoots, and the form's ripple carries the motion out (follow-through). No step, no linear
+  ramp: YoRHa's corner brackets and marker ease too, mechanically (no overshoot). bb re-renders the
+  button as a new element when the composer empties (and again as Stop when a run starts), so the
+  let-go rings in the button's place (`sendSlot`), on whichever button stands there for the ring's
+  length. A send lively did not see leave the composer still rings at `onSubmitted` (the SDK's
+  confirmation).
+- **Switch.** `sendPulse`, labelled **Message motion**, turns all of it off and on, independent of
+  `motion`; a preset can set its default (`values.effects.sendPulse`).
+- **Budget.** Only composited properties move (opacity, translate, scale, filter); covers, veils, bars and traces are
+  pseudo-elements or the ghost's own layers. Reduced motion: the ghost fades and the message fades in, 120 ms.
+  `motion=off`: bb's own send.
+- **Upstream asks** (not filed; [research §5](../../../docs/research/2026-10-24-bb-theming-feasibility.md)): the
+  `message.appended { threadId, rowId, isLocalSend }` event and `data-row-kind` on timeline rows would replace the
+  id-shape selectors `sentRow`/`replyRow` (rated H) and the Enter/clear inference; a `composer.willSubmit` with the
+  text would replace the capture.
+
+| Preset | Form | The send | Its button (gathers on Enter, lets go as the words leave) |
+|---|---|---|---|
+| Custom (clean), Calm, Lively | `glide` | the words glide toward where the message lands and fade, the message comes along the same path on the spring, sharpening; at subtle it only lifts a little | the icon dips and springs back; an accent ring draws in, then ripples out, with a ring of sparks at lively and bold |
+| Custom (wobbly), ZZZ | `slap` | the words jump once and cut; the message slaps in with a flash, a sticker shadow, a skew and a halftone pop | a halftone comic burst; the icon lets go on the jelly ease and pops like a sticker |
+| Cloudbank | `process` | the words whitewash into cells and jaunt; the message assembles in steps under a cell veil along a turquoise trace; function sparks | function sparks: rays in Turn() cyan and gold |
+| YoRHa | `scan` | a scan bar erases the words; the message prints in under a riding bar with a rust marker | corner brackets lock on, then open out, a rust marker blinking once at the corner; still brackets on hover |
+| Control | `dust` | the words come apart into the Hiss's dark, prismatic dust drifting up; the message condenses out of it | no ring (the Bureau's red bar stays): a few motes, an ember among them, drift up off it |
+
+One mechanism plays every row's button: lively puts its gather and let-go classes on bb's send button (on
+whichever button stands in `sendSlot` for the let-go) and the form's rules, picked by the preset's `send`, are
+the flavour, at the full level. Under reduced motion every preset's ring only fades in place (no dip, scale
+or sparks); with `motion=off` or Message motion off the button is bb's own.
 
 ## Hollow Knight — "Hallownest" (candidate)
 

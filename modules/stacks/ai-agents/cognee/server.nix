@@ -535,7 +535,7 @@ let
       >/dev/null 2>&1 || true
 
     # Plugin membership is a tracked channel (my.pkgs.{claude,codex}Plugins),
-    # installed by modules/darwin/home-manager/agent-plugins.nix on every
+    # installed by modules/darwin/home-manager/agent-plugins/ on every
     # rebuild. Setup only writes the credentials those plugins read.
 
     printf 'Cognee agent integrations configured. Restart active agent sessions.\n'

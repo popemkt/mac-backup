@@ -36,11 +36,14 @@ thread's own kb CLI and kb MCP label theirs. A background loop reads kb's log of
 on each list) and records a link for every canvas one touched, in the plugin's database, with the thread's bb
 project and machine; it keeps the newest 5000 links. Each list asks kb once for the canvases it has now, so
 renames and deletions show whoever made them. The **kb canvases** panel lists them: Thread | Project | All,
-drawn by the same row as the Canvases panel (`../linked-items/`).
+the same panel as the Canvases panel (`../linked-items/panel.tsx`). Its search looks through every canvas kb has
+(one `graph.query`), linked or not; select rows, then **Link to this thread** (a link by hand), **Unlink** (ends
+the thread's own link, made by hand or by its writes, in the plugin's database; a later write by the thread links
+it again), or **Open** (one, in the kb tab).
 
 `via` is advisory: a caller states it, kb records it unchecked, so any caller could claim `bb:<thread>`. The
 panel shows a link a write made as *claimed by* the thread (a dashed chip, "claimed by this thread"), and a
-link made with **Link open canvas** as plain. If kb compacts its log past what the loop had read, the panel
+link made with **Link to this thread** as plain. If kb compacts its log past what the loop had read, the panel
 says the links may be incomplete.
 
 ## Layout
@@ -53,9 +56,9 @@ says the links may be incomplete.
 | `frames.tsx` | The window's kb frames (an app overlay): config, preconnect, positioning and clipping, the shown frames' session reports. |
 | `app.tsx` | The `kb` thread panel tab (the place its thread's frame is drawn) and the header button that opens it. |
 | `lib/links.ts` | Pure: the `via` a thread's writes carry, reading `graph.changes`, which changes link what, an item as a row. Tested. |
-| `lib/link-book.ts` | The links database over any SQL: the cursor, reading the log in pages, links, scopes, pruning. Tested on `node:sqlite` with a fake kb. |
-| `links.ts` | Linked items wired to bb: KB_VIA for every provider, the loop, the `links`, `linkOpen`, `openItem` RPC. |
-| `linked-panel.tsx` | The `kb canvases` thread panel tab, the Canvases panel's twin. |
+| `lib/link-book.ts` | The links database over any SQL: the cursor, reading the log in pages, links and unlinks, scopes, every canvas kb has, pruning. Tested on `node:sqlite` with a fake kb. |
+| `links.ts` | Linked items wired to bb: KB_VIA for every provider, the loop, the `links`, `available`, `link`, `unlink`, `openItem` RPC. |
+| `linked-panel.tsx` | The `kb canvases` thread panel tab: the RPC as a data source for the shared `../linked-items/panel.tsx`. |
 | `skills/kb/` | Tells agents how to use the tools. |
 
 ## Settings

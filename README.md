@@ -194,7 +194,7 @@ in [Module Boundaries](AGENTS.md#module-boundaries).
 | **Mackup → iCloud** | GUI app configs (Karabiner, Zed, VS Code, Warp…) | `~/Library/Mobile Documents/com~apple~CloudDocs/Mackup/` |
 | **npm-global.nix** | npm global CLIs | `modules/common/home-manager/npm-global.nix` |
 | **bun-global.nix** | Bun global CLIs, including Oh My Pi | `modules/darwin/home-manager/bun-global.nix` |
-| **agent-plugins.nix** | tracked Claude Code and Codex plugins and their marketplaces | `modules/darwin/home-manager/agent-plugins.nix` |
+| **agent-plugins** | tracked Claude Code and Codex plugins and their marketplaces, and the repo's own plugins and skills (`assets/plugins`) from the revision applied | `modules/darwin/home-manager/agent-plugins/` |
 | **nvfetcher + `pkgs/`** | pinned direct release packages | `nvfetcher.toml` + `_sources/` |
 | **kb** | the repo's knowledge base: todos, notes, rules and gaps as nodes; the tool is [popemkt/kb](https://github.com/popemkt/kb)'s release, pinned like the other release packages | `.kb/` (data), `pkgs/kb` (package) |
 | **Tailscale** | app, MagicDNS domain, private services, and access policy | `modules/stacks/vpn/`, host declarations, and `configs/tailscale/policy.hujson` |

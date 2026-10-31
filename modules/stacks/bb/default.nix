@@ -43,6 +43,10 @@ in
       # Threads a host daemon restart or lost connection interrupted get a
       # short continuation message, at most 3 in a row per thread.
       "assets/bb-plugins/restart-resume"
+      # Continue a Claude Code session that ran outside bb, from any
+      # machine bb reaches, as a new thread seeded with its cleaned
+      # transcript; the Original session tab; `bb session-import`.
+      "assets/bb-plugins/session-import"
     ];
 
     # No anonymous usage telemetry (PostHog) from any bb server or host

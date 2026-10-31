@@ -27,6 +27,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Decide the home for the checklist in this repo, port R1-R20, and wire the mechanical subset the way the reference repo does before adding more skills.
 - **node** — `01M1M08W6Z70XV3KCQB5CWH3ZR`
 
+### GAP: an imported Claude Code session is a new bb thread seeded with its transcript, not the session itself
+
+- **expected** — bb adopts an existing Claude Code session as a thread: it resumes the provider session natively (same session id, full context, prompt cache), records thread/identity only after that resume succeeds, and binds the thread to the session's cwd on its machine.
+- **current** — assets/bb-plugins/session-import spawns a fresh claude-code thread and hands it a cleaned, budgeted transcript (agent-only text plus the full transcript as a local file). bb 0.46.1 has no create-thread providerThreadId and no timeline append, so a plugin cannot adopt the session.
+- **impact** — The new thread starts from a summary: older turns beyond the budget, tool outputs and images reach the agent only through the transcript file, the prompt cache starts cold, and the original session and the bb thread diverge from the first new message.
+- **closes** — get-bb/bb#3260 (adopt an external Claude Code session) ships; session-import then calls it and keeps the transcript seed only as the fallback for providers or machines that cannot resume.
+- **node** — `01M5YQ7EX8GTERS32BT5G9H7Q7`
+
+### GAP: bb builds the shared linked-items folder unlike plugin code: no runtime import from server code, no Tailwind scan
+
+- **expected** — assets/bb-plugins/linked-items is built like each plugin's own code: its rules (the scope list) imported at runtime by server code too, and its classes in each plugin's stylesheet.
+- **current** — The panel itself is shared now: linked-items/panel.tsx takes each plugin's Button, Input and Icon as props (2026-10-28). Two limits remain (bb 0.46.1). The server build rejects a runtime import from outside the plugin folder ('server source import escapes the plugin directory'), so server code imports linked-items for types only and each plugin's lib keeps its own SCOPES list. The Tailwind build scans only the plugin's own folder (and dependency packages' bb.pluginTailwindContent), so a class used only in linked-items renders only when bb's own stylesheet has it.
+- **impact** — The scope list must be changed in both plugins by hand; a class new to linked-items can render unstyled, with no error.
+- **closes** — bb building a plugin's relative imports like its own code (server bundle and Tailwind scan), or linked-items as a local package each plugin depends on, declaring bb.pluginTailwindContent.
+- **node** — `01M5QJFW217ZNBXHEX74VG7VYP`
+
 ### GAP: bb desktop has no persistent Chromium switch setting
 
 - **expected** — bb starts with the Chromium switches the bb stack declares (desktopSwitches), however it is opened
@@ -82,14 +98,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — UI layout, ThreadChat advisor behaviour and whether env reaches a 0.46.1 claude-code thread are unknown.
 - **closes** — Install the plugin on a bb server, compose and spawn on thr_5kgr5arqw3's project, and record the result in the research doc.
 - **node** — `01M5QKD89DMW3BR5RS6SYZD3RJ`
-
-### GAP: Home Manager activation runs scripts/sync-agent-plugins.sh from the person's checkout
-
-- **expected** — Activation runs only code of the revision being applied: the agent-plugin skill sync is a store script built from the flake source.
-- **current** — modules/darwin/home-manager/agent-plugins.nix (installAgentPlugins and update-agent-plugins) runs ~/.dotfiles/scripts/sync-agent-plugins.sh, whatever that checkout holds; it validates, omp-links and symlinks assets/plugins/*. Darwin only, one person per Mac, so the checkout usually is the one applied.
-- **impact** — A rebuild from another checkout or worktree, or a checkout behind main, runs a different sync script than the revision applied; nothing reports it.
-- **closes** — agent-plugins.nix builds the script with writeShellApplication from the flake source (or inlines it) and passes it the plugin folder; no activation path names ~/.dotfiles.
-- **node** — `01M5W9JKF16RWS5DG3P5ZZTWT9`
 
 ### GAP: kb canvas links see only the kb the plugin serves (shared-server's home store)
 
@@ -224,14 +232,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A declared backup of the bb server's data dir on shared-server (restic), or manifests stored in kb.
 - **node** — `01M5QKD7TMB3HDV65V543HTD9M`
 
-### GAP: the kb canvases panel copies the Canvases panel's shell (header, search, link button, empty and error states)
-
-- **expected** — One linked-items panel for the kb canvases panel and the Canvases (tldraw) panel: the row, tabs and search are already shared in assets/bb-plugins/linked-items; the shell should be too.
-- **current** — assets/bb-plugins/linked-items (rows.ts, row.tsx) is shared, and bb's client build bundles it into both plugins. bb's server build does not: it rejects a runtime import from outside the plugin folder ('server source import escapes the plugin directory', bb 0.46.1), so server code imports it for types only and each plugin's lib keeps its own SCOPES list. Each panel's shell (header, search box, link button, empty and error states) is still copied: it draws with the plugin's own vendored Button, Input and Icon, which import @/... and @get-bb/plugin-sdk/app, and those resolve only inside a plugin's root (tsc fails there).
-- **impact** — A change to the panel shell, or to the scope list, must be made in both plugins by hand.
-- **closes** — A shell that takes Button, Input and Icon as props from each plugin, or tldraw canvases folded into the kb plugin as a second kind; either once the owner settles the panel UX after daily use.
-- **node** — `01M5QJFW217ZNBXHEX74VG7VYP`
-
 ### GAP: the npm executor special-cases @openai/codex and aborts activation on a failed install
 
 - **expected** — installNpmGlobals treats every member of my.pkgs.npmGlobals alike and warns and continues when an install fails, like installBunGlobals and agent-plugins.
@@ -240,14 +240,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Generalise the relink to any declared package whose bin links are missing (or move it to the owning stack), and add || warn to the install. The marker could not be placed: npm-global.nix had uncommitted user edits.
 - **rule** — Module boundaries
 - **node** — `01M3E9V5JS5VS5ZRT14510BN4D`
-
-### GAP: The repo's Claude Code marketplace and agent skill links point into the person's checkout
-
-- **expected** — What an agent loads from this repo is the revision applied, as bb plugins are since they install from the Nix store (modules/common/home-manager/bb-plugins/); in-place reading is an explicit opt-in for development.
-- **current** — modules/stacks/ai-agents/claude-mods.nix declares the marketplace dotfiles=~/.dotfiles/assets/plugins, which Claude Code reads in place, and scripts/sync-agent-plugins.sh symlinks assets/plugins/*/skills into ~/.agents, ~/.claude, ~/.codex and ~/.cursor at the checkout. Chosen so an edit reaches a session with /reload-plugins and no reinstall. Darwin hosts only today.
-- **impact** — Agents run whatever the checkout holds (a feature branch, uncommitted edits, a stale tree), not the applied revision; on a host several people apply from it would repeat the bb-lively downgrade of 2026-10-26.
-- **closes** — Marketplace and skill links point at a store copy of assets/plugins (or a writable copy keyed by its hash, as bb plugins do), with a documented in-place mode for trying edits, like bb-plugins-sync --path.
-- **node** — `01M5W9JKV26YK4R234A0F60X21`
 
 ### GAP: the stop indicator cannot tell a stop by the person from a stop by another agent
 
@@ -319,6 +311,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — assets/bb-plugins/bbim/adapter/bb.ts gains a browser-tab injector that runs the core's collect/activate in the page, and the GAP comment there goes
 - **node** — `01M5KBVSMZ39HBDVBG4CA5TEH0`
 
+### GAP: Home Manager activation runs scripts/sync-agent-plugins.sh from the person's checkout
+
+- **expected** — Activation runs only code of the revision being applied: the agent-plugin skill sync is a store script built from the flake source.
+- **current** — modules/darwin/home-manager/agent-plugins.nix (installAgentPlugins and update-agent-plugins) runs ~/.dotfiles/scripts/sync-agent-plugins.sh, whatever that checkout holds; it validates, omp-links and symlinks assets/plugins/*. Darwin only, one person per Mac, so the checkout usually is the one applied.
+- **impact** — A rebuild from another checkout or worktree, or a checkout behind main, runs a different sync script than the revision applied; nothing reports it.
+- **closes** — agent-plugins.nix builds the script with writeShellApplication from the flake source (or inlines it) and passes it the plugin folder; no activation path names ~/.dotfiles.
+- **node** — `01M5W9JKF16RWS5DG3P5ZZTWT9`
+
 ### GAP: kb's release source is a placeholder until popemkt/kb v0.2.0 is published
 
 - **expected** — pkgs/kb reads sources.kb from nvfetcher (nvfetcher.toml [kb] → _sources/generated.nix), bumped by github-sources like every release pin
@@ -351,6 +351,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Agents on shared-server (kb CLI or kb mcp --root ~/.local/share/kb/home) cannot see or drive popemkt's open kb page
 - **closes** — A kb release that writes presence for socket servers, pinned here (nix run .#github-sources -- update kb)
 - **node** — `01M5HXHNERZR77Z0HX0SZCQZPP`
+
+### GAP: The repo's Claude Code marketplace and agent skill links point into the person's checkout
+
+- **expected** — What an agent loads from this repo is the revision applied, as bb plugins are since they install from the Nix store (modules/common/home-manager/bb-plugins/); in-place reading is an explicit opt-in for development.
+- **current** — modules/stacks/ai-agents/claude-mods.nix declares the marketplace dotfiles=~/.dotfiles/assets/plugins, which Claude Code reads in place, and scripts/sync-agent-plugins.sh symlinks assets/plugins/*/skills into ~/.agents, ~/.claude, ~/.codex and ~/.cursor at the checkout. Chosen so an edit reaches a session with /reload-plugins and no reinstall. Darwin hosts only today.
+- **impact** — Agents run whatever the checkout holds (a feature branch, uncommitted edits, a stale tree), not the applied revision; on a host several people apply from it would repeat the bb-lively downgrade of 2026-10-26.
+- **closes** — Marketplace and skill links point at a store copy of assets/plugins (or a writable copy keyed by its hash, as bb plugins do), with a documented in-place mode for trying edits, like bb-plugins-sync --path.
+- **node** — `01M5W9JKV26YK4R234A0F60X21`
 
 ### GAP: two launch paths for the kb binary
 

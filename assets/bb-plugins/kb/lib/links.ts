@@ -116,8 +116,8 @@ export type LinkedItem = {
   store: string;
   /** When anyone last wrote it, as far as the plugin has seen. */
   editedAt: number | null;
-  /** When a thread in this scope last linked it. */
-  linkedAt: number;
+  /** When a thread in this scope last linked it; null for a canvas nobody linked. */
+  linkedAt: number | null;
   gone: boolean;
   /** Shown in this thread's kb tab now. */
   open: boolean;

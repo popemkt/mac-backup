@@ -12,10 +12,11 @@
 #
 # A rebuild installs exactly the plugin sources of the revision it applies:
 # each declared folder is copied into the Nix store at evaluation
-# (./source.nix), never read from a person's checkout at run time, which may
-# be behind or ahead of what is being applied (on a host several people
-# apply from, another person's rebuild once installed an old bb-lively from a
-# stale checkout).
+# (../plugin-sources/source.nix, shared with the agents' own plugins),
+# never read from a person's checkout at run time, which may be behind or
+# ahead of what is being applied (on a host several people apply from,
+# another person's rebuild once installed an old bb-lively from a stale
+# checkout).
 #
 # bb loads a path-installed plugin in place and writes into its folder: the
 # install builds dist/ there, from the node_modules it finds there. A store
@@ -47,7 +48,10 @@
 let
   home = config.home.homeDirectory;
   repoRoot = ../../../..;
-  source = import ./source.nix { inherit lib; };
+  source = import ../plugin-sources/source.nix {
+    inherit lib;
+    kind = "bb-plugin";
+  };
 
   # A declared folder that is no plugin warns rather than failing every
   # evaluation; the rest go to the sync as <plugin>=<store path>.
@@ -77,6 +81,7 @@ let
       export PATH="${pkgs.nodejs}/bin:$PATH"
 
     ''
+    + builtins.readFile ../plugin-sources/sync-lib.sh
     + builtins.readFile ./sync.sh;
   };
 in

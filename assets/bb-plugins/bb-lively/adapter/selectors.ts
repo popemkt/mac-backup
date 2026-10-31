@@ -79,6 +79,15 @@ export const SELECTORS = {
     where: "the composer",
     purpose: "sendPulse: the button that ripples",
   },
+  sendSlot: {
+    // bb re-renders the send button as a new element when the composer empties (a disabled-reason wrapper
+    // appears) and when a run starts (Stop); this group around it stays.
+    selector: "[data-promptbox-submit-group]",
+    rating: "M",
+    verified: LIVE,
+    where: "the composer",
+    purpose: "sendPulse: the place the send button sits in, which outlives the button's re-renders",
+  },
   sendIcon: {
     selector: "[data-promptbox-submit-action] > [data-icon-root]",
     rating: "M",
@@ -86,12 +95,71 @@ export const SELECTORS = {
     where: "the composer",
     purpose: "sendPulse: the Send/Stop icon that pops as it swaps",
   },
+  composerText: {
+    selector: "form[data-promptbox] [data-promptbox-editor-scroll]",
+    rating: "M",
+    verified: LIVE,
+    where: "the composer",
+    purpose: "sendPulse: the box the words show in, copied the moment before they are sent",
+  },
+  sentRow: {
+    // bb renders a local send at once as an optimistic row, then swaps it for the stored one (same
+    // index) when the server confirms; earlier messages keep the stored id. No row attribute names the
+    // author, so this reads the id's shape (an upstream ask: `data-row-kind`).
+    selector: '[data-timeline-row-id^="optimistic-user-"], [data-timeline-row-id*=":user-seed:"]',
+    rating: "H",
+    verified: LIVE,
+    where: "an open thread with a message of yours",
+    purpose: "sendPulse: the person's own message row, where a send lands",
+  },
+  replyRow: {
+    selector: '[data-timeline-row-id*=":assistant:"]',
+    rating: "H",
+    verified: LIVE,
+    where: "an open thread with an agent reply",
+    purpose: "sendPulse: an agent's message row; the first of a turn arrives like the send",
+  },
+  bubble: {
+    selector: "[data-message-column] > *",
+    rating: "H",
+    verified: LIVE,
+    where: "an open thread (a message row)",
+    purpose: "sendPulse: the message's own box inside its row, where a send's path ends",
+  },
   threadRow: {
     selector: "[data-sidebar-thread-id]",
     rating: "M",
     verified: LIVE,
     where: "the sidebar thread list",
     purpose: "statusPulse: finds a thread's row by its id",
+  },
+  threadTitle: {
+    selector: ".bb-thread-title",
+    rating: "M",
+    verified: LIVE,
+    where: "an open thread's header",
+    purpose: "art (Control's skin): the title set as a Bureau sign",
+  },
+  pageHeader: {
+    selector: 'header:has(> [data-testid="app-page-header-content-row"])',
+    rating: "M",
+    verified: LIVE,
+    where: "the top of an open thread",
+    purpose: "art (Control's skin): the header's rule and its Hiss-red tab",
+  },
+  sidePanel: {
+    selector: '[data-panel-id="thread-detail-secondary-panel"] > aside',
+    rating: "M",
+    verified: LIVE,
+    where: "the panel beside a thread (info, files, kb)",
+    purpose: "art (Control's skin): the panel's signage bar",
+  },
+  composeHome: {
+    selector: '[data-panel-id="root-compose-main-panel"]',
+    rating: "M",
+    verified: LIVE,
+    where: "the new-thread page (Home)",
+    purpose: "art (Control's skin): the Oldest House behind the empty page",
   },
   statusRow: {
     selector: "[data-parent-card]",
@@ -224,7 +292,12 @@ export const BB_TARGETS: Targets = {
   rowIndexAttribute: ROW_INDEX_ATTRIBUTE,
   focusBox: SELECTORS.focusBox.selector,
   sendButton: SELECTORS.sendButton.selector,
+  sendSlot: SELECTORS.sendSlot.selector,
   sendIcon: SELECTORS.sendIcon.selector,
+  composerText: SELECTORS.composerText.selector,
+  sentRow: SELECTORS.sentRow.selector,
+  replyRow: SELECTORS.replyRow.selector,
+  bubble: SELECTORS.bubble.selector,
   statusRow: SELECTORS.statusRow.selector,
   toast: SELECTORS.toast.selector,
   overlayOpen: SELECTORS.overlayOpen.selector,
@@ -238,6 +311,10 @@ export const BB_TARGETS: Targets = {
   dockFade: SELECTORS.dockFade.selector,
   pendingRequest: SELECTORS.pendingRequest.selector,
   working: SELECTORS.working.selector,
+  threadTitle: SELECTORS.threadTitle.selector,
+  pageHeader: SELECTORS.pageHeader.selector,
+  sidePanel: SELECTORS.sidePanel.selector,
+  composeHome: SELECTORS.composeHome.selector,
   hostAnimation: SELECTORS.hostAnimation.selector,
   suspendOn: [BBIM_ACTIVE],
 };

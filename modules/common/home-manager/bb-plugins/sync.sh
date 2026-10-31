@@ -1,15 +1,14 @@
 # bb-plugins-sync: install this repo's bb plugins into the person's own bb
 # server, from the store copies of the revision applied. ./default.nix
-# prepends: home, plugins (an array of <plugin>=<store path>), and absolute
+# prepends: home, plugins (an array of <plugin>=<store path>), absolute
 # paths to every tool (cu: coreutils' bin, find, flock, node, npm), since
-# activation inherits no PATH worth trusting. Every step that can fail is
+# activation inherits no PATH worth trusting, and warn and lock_state
+# (../plugin-sources/sync-lib.sh). Every step that can fail is
 # guarded: this runs inside Home Manager activation, which must never abort
 # over a plugin. A failed plugin warns, keeps what bb runs now, and the next
 # sync retries it.
 
 export PATH="$PATH:$home/.local/bin"
-
-warn() { echo "warning: $*" >&2; }
 
 try_path=""
 case "${1:-}" in
@@ -68,20 +67,7 @@ case "$data_dir" in
 esac
 
 state="${XDG_STATE_HOME:-$home/.local/state}/dotfiles/bb-plugins"
-if ! "$cu/mkdir" -p "$state"; then
-  warn "cannot create $state; skipped bb plugins"
-  exit 0
-fi
-# One sync at a time (activation and rebuild's own run can overlap), held
-# from the listing on, so the second sees what the first installed.
-if ! exec 9>>"$state/.lock"; then
-  warn "cannot open $state/.lock; skipped bb plugins"
-  exit 0
-fi
-if ! "$flock" -w 900 9; then
-  warn "another bb-plugins-sync held $state/.lock for 15 minutes; skipped bb plugins"
-  exit 0
-fi
+lock_state "$state" "bb plugins" || exit 0
 
 if ! listing="$("$bb" plugin list --json 2>/dev/null)"; then
   warn "no bb server answered; skipped its tracked plugins until the next rebuild"

@@ -207,3 +207,18 @@ test("a thread switch replays the page keyframes under new names with the same b
   assert.ok(rules(css).some(([selector, body]) => selector.endsWith(".lively-page-in") && body.includes("lively-page-w-again")));
   assert.ok(rules(css).some(([selector]) => selector.includes(":not([data-lively-paged])")), "the mount rule stops once replayed");
 });
+
+test("YoRHa moves nothing in steps: its send, its button, its failure glitch and its wipe ease, never past the mark", () => {
+  const yorha = rules(css).filter(([selector]) => selector.includes('[data-lively-send="scan"]') || selector.includes(`[${effectAttribute("glitch")}]`));
+  assert.ok(yorha.filter(([, body]) => /animation:/u.test(body)).length >= 8);
+  for (const [selector, body] of yorha) assert.ok(!/steps\(/u.test(body), selector);
+  assert.match(css, /:root\[data-lively-preset="yorha"\]\[data-lively\] \{[^}]*--lively-wipe-ease: var\(--lively-ease-steady\)/u);
+  assert.match(css, /--lively-wipe-ease: linear;/u, "every other wipe still cuts");
+});
+
+test("the send icon's pop stays first while the button gathers and lets go, so it never replays as a class goes", () => {
+  const icon = rules(css).filter(([selector]) => /lively-send(-arm)? :is\(button\.send > svg\)$/u.test(selector));
+  assert.ok(icon.length >= 3);
+  for (const [selector, body] of icon) assert.match(animationsOf(body)[0] ?? "", /^lively-(sticker-)?pop /u, selector);
+});
+

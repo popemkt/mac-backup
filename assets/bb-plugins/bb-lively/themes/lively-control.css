@@ -8,7 +8,7 @@
  * Every color is picked here, nothing is sampled from the game, and no font or image of it is used.
  *
  * A palette theme only (tokens). The Control preset paints the concrete, the monoliths, the
- * Board's prism, the redaction wipe, the shifting slabs and the Hiss from the lively layer,
+ * Board's prism, the redaction wipe, the shifting slabs, the Hiss and its dust from the lively layer,
  * reading the `--lively-art-*` tokens below.
  *
  * Contrast (WCAG) on the canvas: night ink 14.1:1, muted 6.8:1, green 7.3:1, red 5.4:1, warning
@@ -65,6 +65,10 @@
   --lively-art-sign: #0b0b0c;
   --lively-art-paper: #fbfbfa;
   --lively-art-redact: #0b0b0c;
+  /* The Hiss's dust a send comes apart into: black geometry on the white void. */
+  --lively-art-dust: #1c1c20;
+  /* The Board and the slabs on the empty new-thread page: the Astral Plane's black monoliths. */
+  --lively-art-board: #0b0b0c;
 }
 
 .dark {
@@ -109,4 +113,7 @@
   --lively-art-sign: #e8e6e1;
   --lively-art-paper: #e8e6e1;
   --lively-art-redact: #0b0b0c;
+  /* Smoke a shade off the concrete, light enough to read against it. */
+  --lively-art-dust: #77767e;
+  --lively-art-board: #050506;
 }

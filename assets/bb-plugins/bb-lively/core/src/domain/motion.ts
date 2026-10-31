@@ -75,6 +75,11 @@ export interface MotionTokens {
   readonly flash: number;
   /** Chromatic split (px). */
   readonly chroma: number;
+  /**
+   * How much of the path from the composer to its place a sent message travels (0–1, domain/send.ts):
+   * 1 flies the whole way, less comes in from part of the way, 0 stays put.
+   */
+  readonly travel: number;
 }
 
 /** The style tokens at rest: clean has no squash, skew, tilt, swell, flash or chroma. */
@@ -102,6 +107,7 @@ const CLEAN: Readonly<Record<Intensity, MotionTokens>> = {
     burst: 0,
     glow: 0.14,
     sticker: 2,
+    travel: 0.18,
     ...STILL,
   },
   lively: {
@@ -125,6 +131,7 @@ const CLEAN: Readonly<Record<Intensity, MotionTokens>> = {
     burst: 1,
     glow: 0.22,
     sticker: 3,
+    travel: 1,
     ...STILL,
   },
   bold: {
@@ -148,6 +155,7 @@ const CLEAN: Readonly<Record<Intensity, MotionTokens>> = {
     burst: 1.45,
     glow: 0.32,
     sticker: 4,
+    travel: 1,
     ...STILL,
   },
 };

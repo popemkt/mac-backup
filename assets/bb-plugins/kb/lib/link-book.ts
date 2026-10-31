@@ -126,12 +126,16 @@ export function linkBook(
     return running;
   }
 
-  /** Names and deletions from anyone, not only threads: the canvases kb has now, in one query. */
-  async function reconcile(store: string, items: LinkedItem[]) {
+  /** Every canvas kb has now, id to name, in one query; null when kb cannot answer it. */
+  async function canvases(): Promise<Map<string, string> | null> {
     const answer = await kb.call("graph.query", { query: canvasesNow }).catch(() => null);
     const rows = answer?.ok === true && typeof answer.output === "object" && answer.output !== null ? (answer.output as { rows?: unknown }).rows : null;
-    if (!Array.isArray(rows)) return;
-    const now = new Map(rows.filter((r): r is [string, string] => Array.isArray(r) && typeof r[0] === "string" && typeof r[1] === "string"));
+    if (!Array.isArray(rows)) return null;
+    return new Map(rows.filter((r): r is [string, string] => Array.isArray(r) && typeof r[0] === "string" && typeof r[1] === "string"));
+  }
+
+  /** Names and deletions from anyone, not only threads: the canvases kb has now. */
+  function reconcile(store: string, items: LinkedItem[], now: Map<string, string>) {
     for (const item of items) {
       const name = now.get(item.id);
       const gone = name === undefined;
@@ -142,7 +146,23 @@ export function linkBook(
     }
   }
 
+  /** End the thread's link to an item, whether its writes made it or a person did; false when there was none. */
+  function unlink(store: string, id: string, threadId: string): boolean {
+    const r = sql.prepare("DELETE FROM links WHERE store = ? AND id = ? AND thread = ?").run(store, id, threadId) as { changes?: number };
+    sql.prepare(`DELETE FROM items WHERE store = ? AND id = ? AND NOT EXISTS (SELECT 1 FROM links l WHERE l.store = ? AND l.id = ?)`).run(store, id, store, id);
+    return (r.changes ?? 0) > 0;
+  }
+
   async function list(threadId: string, scope: Scope, label: (store: string) => string): Promise<Listing> {
+    return (await read(threadId, scope, label)).listing;
+  }
+
+  /** A scope's listing, and the canvases kb has now as read for it (null when it could not be). */
+  async function read(
+    threadId: string,
+    scope: Scope,
+    label: (store: string) => string,
+  ): Promise<{ listing: Listing; now: Map<string, string> | null }> {
     let error: string | null = null;
     let store: string | null = null;
     try {
@@ -151,7 +171,7 @@ export function linkBook(
       error = `kb could not be read: ${message(err)}`;
       store = await kb.root().catch(() => null);
     }
-    if (store === null) return { store, items: [], error: error ?? "kb is not reachable", incomplete: null };
+    if (store === null) return { listing: { store, items: [], error: error ?? "kb is not reachable", incomplete: null }, now: null };
     const where = await whereIs(threadId);
     const filter = scope === "session" ? "AND l.thread = ?" : scope === "project" ? "AND l.project = ?" : "";
     const args = scope === "session" ? [threadId] : scope === "project" ? [where.project ?? "\u0000none"] : [];
@@ -183,10 +203,25 @@ export function linkBook(
       item.threads.push({ id: r.thread, how: r.how === "linked" ? "linked" : "wrote", at: r.last_at, host: r.host });
     }
     const items = [...byId.values()];
-    if (error === null) await reconcile(store, items);
+    const now = error === null ? await canvases() : null;
+    if (now !== null) reconcile(store, items, now);
     const gap = sql.prepare("SELECT gap_at FROM cursor WHERE store = ?").get(store) as { gap_at: number | null } | undefined;
-    return { store, items, error, incomplete: gap?.gap_at ?? null };
+    return { listing: { store, items, error, incomplete: gap?.gap_at ?? null }, now };
   }
 
-  return { sync, link, list };
+  /** Every canvas one could link: each linked one (as "all" lists it), then the ones kb has that nobody linked. */
+  async function available(threadId: string, label: (store: string) => string): Promise<Listing> {
+    const { listing, now } = await read(threadId, "all", label);
+    if (listing.store === null || listing.error !== null) return listing;
+    if (now === null) return { ...listing, error: "kb did not list its canvases" };
+    const linked = new Set(listing.items.map(i => i.id));
+    const store = label(listing.store);
+    const loose: LinkedItem[] = [...now]
+      .filter(([id]) => !linked.has(id))
+      .sort(([, a], [, b]) => a.localeCompare(b))
+      .map(([id, name]) => ({ key: id, kind: "canvas", id, name: name === "" ? id : name, store, editedAt: null, linkedAt: null, gone: false, open: false, threads: [] }));
+    return { ...listing, items: [...listing.items, ...loose] };
+  }
+
+  return { sync, link, unlink, list, available, canvases };
 }

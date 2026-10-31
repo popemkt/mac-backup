@@ -22,11 +22,14 @@ import { homedir, hostname } from "node:os";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  availableCanvases,
+  canvasForKey,
   currentPath,
   findCanvas,
   listCanvases,
   mergeRows,
   normalizeRemote,
+  parseKey,
   parseRows,
   recentFiles,
   resolveCanvas,
@@ -36,14 +39,15 @@ import {
 
 const HELP = `Usage: canvas-link <command>
 
-  add <path|docId>     record that this session created or edited a canvas
-  add --focused        the same for the canvas focused in tldraw offline
-  rm <path|docId|--focused>
-                       drop this session's link to a canvas
-  ls [--session|--project|--all] [--json]
+  add <key|path|docId> record that this session created or edited a canvas;
+                       a key is <host>:<docId|path>, as ls prints it
+  rm <key|path|docId>  drop this session's link to a canvas
+  ls [--session|--project|--all|--available] [--json]
                        canvases this session (default), this project (same git
-                       remote) or anyone linked; --project/--all include the
-                       central log when it is reachable
+                       remote) or anyone linked; --available adds the ones
+                       tldraw on this machine knows that nobody linked;
+                       --project/--all/--available include the central log
+                       when it is reachable
   open <key>           open a canvas on this machine in tldraw offline; a
                        canvas on another machine prints "on <host>", exit 3
   flush                push unsent rows to the central log
@@ -143,21 +147,30 @@ function flushInBackground() {
   child.unref();
 }
 
-async function record(op, args) {
-  let [arg, ...rest] = args;
-  if (arg === undefined || rest.length > 0) throw new UsageError(`${op === "link" ? "add" : "rm"} takes one <path|docId|--focused>`);
-  if (arg === "--focused") {
-    const focused = docOf(await tldraw("return await api.getFocusedDoc()"));
-    if (focused === null) throw new Error("no focused canvas: tldraw offline is not running, or no saved canvas has focus");
-    arg = focused.path;
+/** The canvas `add` or `rm` names: a key (this machine's links, then the central log), a path, or a document id. */
+async function canvasOf(arg) {
+  const files = recent();
+  const keyed = parseKey(arg);
+  if (keyed !== null) {
+    const listed = rows => listCanvases(rows, { scope: "all" });
+    let rows = localRows();
+    // Another machine's canvas this one never linked: the central log knows its document id and path.
+    if (keyed.host !== HOST && !listed(rows).some(c => c.key === arg)) rows = mergeRows(rows, centralRows() ?? []);
+    return canvasForKey(arg, { canvases: listed(rows), recent: files, host: HOST });
   }
   const isPath = arg.includes("/") || /\.tldr(aw)?$/i.test(arg);
   const path = isPath ? resolve(arg) : arg;
   if (isPath && !/\.tldr(aw)?$/i.test(path)) throw new UsageError(`not a tldraw file: ${path}`);
-  const files = recent();
   let canvas = resolveCanvas(path, { isPath, recent: files });
   if (canvas === null || canvas.documentId === null) canvas = resolveCanvas(path, { isPath, recent: files, docs: await openDocs() });
   if (canvas === null) throw new Error(`no canvas with document id ${arg} in tldraw's recent files or open windows`);
+  return { ...canvas, host: HOST };
+}
+
+async function record(op, args) {
+  const [arg, ...rest] = args;
+  if (arg === undefined || rest.length > 0) throw new UsageError(`${op === "link" ? "add" : "rm"} takes one <key|path|docId>`);
+  const canvas = await canvasOf(arg);
   const session = sessionFromEnv(process.env);
   if (session.id === null) console.error("canvas-link: no agent session in the environment; recorded without one");
   const now = Date.now();
@@ -166,7 +179,7 @@ async function record(op, args) {
     ts: now,
     op,
     kind: "tldraw",
-    canvas: { documentId: canvas.documentId, path: canvas.path, host: HOST },
+    canvas: { documentId: canvas.documentId, path: canvas.path, host: canvas.host },
     session,
     project: projectOf(process.cwd()),
     source: "canvas-link",
@@ -248,10 +261,18 @@ const tilde = p => (p.startsWith(`${HOME}/`) ? `~${p.slice(HOME.length)}` : p);
 
 async function ls(args) {
   const flags = new Set(args);
-  const unknown = args.filter(a => !["--session", "--project", "--all", "--json"].includes(a));
+  const unknown = args.filter(a => !["--session", "--project", "--all", "--available", "--json"].includes(a));
   if (unknown.length > 0) throw new UsageError(`unexpected ${unknown.join(" ")}`);
   const session = sessionFromEnv(process.env);
-  const scope = flags.has("--all") ? "all" : flags.has("--project") ? "project" : flags.has("--session") || session.id !== null ? "session" : "project";
+  const scope = flags.has("--available")
+    ? "available"
+    : flags.has("--all")
+      ? "all"
+      : flags.has("--project")
+        ? "project"
+        : flags.has("--session") || session.id !== null
+          ? "session"
+          : "project";
   const project = projectOf(process.cwd());
   let central = CENTRAL === null ? "off" : "skipped";
   let rows = localRows();
@@ -262,7 +283,8 @@ async function ls(args) {
   }
   const files = recent();
   const docs = await openDocs();
-  const canvases = listCanvases(rows, { scope, session, project }).map(c => {
+  const linked = listCanvases(rows, { scope: scope === "available" ? "all" : scope, session, project });
+  const canvases = (scope === "available" ? availableCanvases(linked, files, HOST) : linked).map(c => {
     const local = c.host === HOST;
     const path = local ? currentPath(c, files) : c.path;
     const file = local ? files.find(f => (c.documentId !== null && f.documentId === c.documentId) || f.path === path) : undefined;
@@ -284,7 +306,7 @@ async function ls(args) {
   }
   if (central === "unreachable") console.error(`central log on ${CENTRAL} unreachable; local links only`);
   if (canvases.length === 0) {
-    console.log(`no canvases linked (${scope})`);
+    console.log(scope === "available" ? "no canvases known" : `no canvases linked (${scope})`);
     return;
   }
   for (const c of canvases) {
@@ -297,14 +319,11 @@ async function ls(args) {
 function open(args) {
   const [key, ...rest] = args;
   if (key === undefined || rest.length > 0) throw new UsageError("open takes one <key>");
-  let canvas = findCanvas(listCanvases(localRows(), { scope: "all" }), key);
-  if (canvas === null) {
-    // A key from another machine's listing, or a bare path or document id.
-    const m = /^([a-z0-9._-]+):(.+)$/i.exec(key);
-    const host = m !== null && m[1] !== "tldr" ? m[1].toLowerCase() : HOST;
-    const ident = m !== null && m[1] !== "tldr" ? m[2] : key;
-    canvas = ident.startsWith("/") ? { host, documentId: null, path: ident } : { host, documentId: ident, path: null };
-  }
+  // A listed canvas, else a key from another machine's listing, a bare path or a document id.
+  const canvas =
+    findCanvas(listCanvases(localRows(), { scope: "all" }), key) ??
+    parseKey(key) ??
+    (key.startsWith("/") ? { host: HOST, documentId: null, path: key } : { host: HOST, documentId: key, path: null });
   // GAP [[01M5M0X6NAE1AMVDKCSG41E0NP]] a canvas on another machine is only named, not opened.
   if (canvas.host !== HOST) {
     console.log(`on ${canvas.host}`);

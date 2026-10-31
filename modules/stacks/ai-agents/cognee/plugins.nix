@@ -5,7 +5,7 @@
 # than in either role file; the roles are mutually exclusive and only ever one
 # of them is active.
 #
-# The executor is modules/darwin/home-manager/agent-plugins.nix. Marketplace
+# The executor is modules/darwin/home-manager/agent-plugins/. Marketplace
 # entries are "name=source" because both CLIs list marketplaces by resolved
 # name, not by source. Codex pins its ref with the "@main" suffix its CLI
 # accepts; Claude Code exposes no ref surface.

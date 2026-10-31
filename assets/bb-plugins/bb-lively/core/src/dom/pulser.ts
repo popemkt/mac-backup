@@ -6,6 +6,8 @@
 export interface Pulser {
   /** Add `className` (and `attributes`) to `element` for one animation; false if it is already pulsing. */
   pulse(element: Element, className: string, deadlineMs: number, attributes?: Readonly<Record<string, string>>): boolean;
+  /** Take `className` (and its attributes) off `element` now, if it is pulsing. */
+  end(element: Element, className: string): void;
   /** How many elements carry `className` right now. */
   running(className: string): number;
   /** Take every class and attribute off now. */
@@ -52,6 +54,9 @@ export function createPulser(win: Window): Pulser {
       element.addEventListener("animationend", onEnd);
       live.set(element, [...(live.get(element) ?? []), entry]);
       return true;
+    },
+    end: (element, className) => {
+      for (const entry of live.get(element) ?? []) if (entry.className === className) finish(element, entry);
     },
     running: (className) => {
       let count = 0;

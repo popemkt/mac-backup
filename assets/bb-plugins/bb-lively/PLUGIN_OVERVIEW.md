@@ -18,16 +18,22 @@ palette and an art layer.
   request lights up as its segmented Turn() bar fills.
 - **YoRHa** (after NieR:Automata): mechanical motion (snappy, never past its target), the
   Lively YoRHa palette (parchment grey, umber ink, square corners; a night mode), a
-  technical grid with a corner bracket, a scan-bar wipe, and a **glitch** when a thread
-  fails.
+  technical grid with a corner bracket, a soft scan-bar wipe, a send that scans the words
+  out and prints the message in, a send button that locks on with corner brackets, and a
+  **glitch** when a thread fails.
 - **Control** (after Remedy's Control): precise motion (no overshoot, no tilt), the Lively
   Control palette (concrete greys at night, the Astral Plane's white by day, Hiss red only
   for what waits on you), coffered concrete, two monoliths under the Board's prism, a
-  **redaction** wipe that blacks out every line, and three effects of its own:
-  **shifting architecture** on a thread switch, **the Board's prism** at the composer on a
-  send, and **the Hiss** while an agent waits for you. When bb runs with HTML-in-Canvas
-  (`--enable-blink-features=CanvasDrawElement`), the first two break and refract the
-  thread's real pixels, and the Hiss resonates in red echoes; without it, CSS draws them.
+  **redaction** wipe that blacks out every line, bb's own controls dressed as the Bureau's
+  forms and signage (a bracketed composer with a Hiss-red tab, numbered directives, the
+  title as a sign, case-file menus, the Astral Plane behind a new thread), and effects of
+  its own: **shifting architecture** on a thread switch, **the Board's prism** sweeping the
+  composer and **a send the Hiss takes** (the words come apart into soft, dark, prismatic
+  dust drifting up and the message condenses out of it), and **the Hiss** while an agent
+  waits for you. When bb runs with HTML-in-Canvas
+  (`--enable-blink-features=CanvasDrawElement`), the thread switch breaks the thread's real
+  pixels, the dust is made of them, and the Hiss resonates in red echoes; without it the
+  dust is drawn from the text's glyphs, and CSS draws the rest.
   Text is never covered at rest.
 - **Custom**: no preset.
 

@@ -83,9 +83,24 @@ directions: **Cloudbank** (after Transistor: clean at lively, a dusk skyline, a 
 wipe, and the `turnFreeze` effect) and **YoRHa** (after NieR:Automata: snappy, no
 overshoot or blur through its own `tokens`, a technical grid, a scan-bar wipe, and the
 `glitch` effect) and **Control** (after Remedy's Control: no overshoot or tilt, coffered
-concrete and the Board, a redaction wipe, and the `shiftWarp`, `prismEdge` and
-`hissResonance` effects, drawn on an HTML-in-Canvas layer when the browser has one); each
-is mapped from source to code in `ART-DIRECTION.md`.
+concrete and the Board, a redaction wipe, the `shiftWarp`, `prismEdge` and `hissResonance`
+effects drawn on an HTML-in-Canvas layer when the browser has one, a send the Hiss takes as
+dust, and bb's own controls dressed as the Bureau's forms and signage, at rest); each is
+mapped from source to code in `ART-DIRECTION.md`.
+
+**The send.** Each preset sends in its own form (`core/src/domain/send.ts`), through one
+sequence (`core/src/dom/send.ts`): the words you send leave the composer as a ghost and the
+message lands in the thread along the same path. Calm, Lively and Custom glide; ZZZ slaps;
+Cloudbank runs as a Process function; YoRHa scans; Control turns the words into the Hiss's
+dust drifting up, on WebGL 2 particles, and condenses the message out of it. The send button
+answers at once: it gathers itself as Enter goes down and lets go on the preset's spring as
+the words leave. Reduced motion keeps a fade.
+
+**Message motion** (`sendPulse`) is the switch for all of it: the send, the message landing,
+the first reply arriving and the send button's answer. It is independent of **Motion** (which,
+set to off, stops everything) and defaults to on; a preset can set its own default
+(`values.effects.sendPulse`). `bb plugin config bb-lively set sendPulse off` turns messages
+back to bb's own while the rest of lively's motion stays.
 
 **Override semantics.** Every presettable setting is a select whose first option, and
 default, is **From preset**; switches are From preset / On / Off. The effective value is
@@ -108,12 +123,14 @@ one-click switch either way.
 
 **Art** is lively's own, painted under `:root[data-lively-art="on"][data-lively-preset]`
 by `core/src/dom/art.ts`, so look and motion switch together: CSS layers on a `::before`
-behind the open thread and the sidebar, font stacks over bb's `--font-sans`/`--font-mono`,
+behind the open thread and the sidebar, a preset's **skin** (`PresetArt.skin`: paint for
+bb's own controls, role by role, such as Control's Bureau forms), font stacks over bb's
+`--font-sans`/`--font-mono`,
 and the person's **Art image** (an https URL, or a file on the bb machine served at
 `/api/v1/plugins/bb-lively/http/art`), washed toward the canvas on the preset's image
 surface. The repository is public: no game art and no font files are committed; every
-preset looks finished without the image. Art is paint, so it stays under reduced motion;
-motion Off turns it off with everything else.
+preset looks finished without the image. Art is paint, not motion: it stays under reduced
+motion and with motion Off; only the **Art** switch turns it off.
 
 **The dock.** With a backdrop, bb's opaque band behind the composer repeats the art, so it
 runs to the bottom edge: backdrop layers and masks are anchored to the bottom-right corner
@@ -143,7 +160,7 @@ question, plan review or plugin request as a banner in the composer's dock
 window and outside the timeline, so `[data-thread-window]:has(<request>)` freezes the
 timeline's rows (a filter), raises a grid veil behind them, and lights the request. The
 **glitch** (YoRHa) rides the status pulse: a sidebar row whose thread fails tears sideways
-in hard steps, even with the status rings off.
+and back in a quick shudder, even with the status rings off.
 
 **The HTML-in-Canvas layer** (Control; `core/src/dom/drawable.ts`, `core/src/dom/refraction.ts`).
 An effect with a `canvas` trigger (`navigate`, `send`, `waiting`) has two halves. When the

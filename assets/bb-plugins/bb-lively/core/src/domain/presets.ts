@@ -20,9 +20,10 @@
 // Each row links its section of the art direction (ART-DIRECTION.md: topic
 // analysis, UI/UX concept, where it lives in source).
 import { Schema } from "effect";
-import { bracket, type Building, rect, skyline, tint, token, windows } from "./artkit.ts";
+import { bar, bracket, type Building, corners, rect, skyline, tint, token, windows } from "./artkit.ts";
 import type { EffectId } from "./effects.ts";
 import type { MotionTokens } from "./motion.ts";
+import type { SendForm } from "./send.ts";
 import type { Settings } from "./settings.ts";
 
 /** One CSS background layer: an `<image>` (a gradient) and how it tiles. */
@@ -52,6 +53,33 @@ export interface ArtSurfaceArt {
   readonly mask?: string;
 }
 
+/**
+ * The host roles a preset's skin can dress (dom/targets.ts names their selectors): the composer and
+ * its send button, the person's own messages, the thread's title and header, the side panel, the
+ * empty page a new thread starts on, menus and dialogs.
+ */
+export const SKIN_TARGETS = ["focusBox", "sendButton", "sentRow", "threadTitle", "pageHeader", "sidePanel", "composeHome", "overlayOpen", "dialogOpen"] as const;
+export type SkinTarget = (typeof SKIN_TARGETS)[number];
+
+/**
+ * A preset's dress for one host role: paint, at rest, so it holds with every effect (and motion) off.
+ * Declarations only (borders, backgrounds, type, a decoration); nothing that animates, and nothing
+ * that moves the host's layout but a label of the preset's own (`before`).
+ */
+export interface SkinRule {
+  /** Declarations on the element itself. */
+  readonly style?: string;
+  /** Background layers on the element itself, topmost first (its own background color stays). */
+  readonly layers?: ReadonlyArray<ArtLayer>;
+  /**
+   * Declarations on its `::before` (give it `content`). Only on a role lively draws no `::before`
+   * of its own on under this preset (tests/art.test.ts holds Control's to it).
+   */
+  readonly before?: string;
+  /** The same on its `::after`. */
+  readonly after?: string;
+}
+
 /** Where the person's own art image goes, and how strongly it shows (0–1; the rest is washed out by the canvas color). */
 export interface ArtImagePlacement {
   readonly surface: ArtSurface;
@@ -75,6 +103,8 @@ export interface PresetArt {
   readonly backdrop?: ArtSurfaceArt;
   readonly sidebar?: ArtSurfaceArt;
   readonly image?: ArtImagePlacement;
+  /** The preset's dress for bb's own controls and surfaces, keyed by role (art: it goes with the art switch). */
+  readonly skin?: Partial<Readonly<Record<SkinTarget, SkinRule>>>;
 }
 
 /** Font stacks (families only: no font file is committed); they override the host's own font tokens. */
@@ -95,8 +125,11 @@ export type PresetValues = Partial<Omit<Settings, "preset" | "palette" | "artIma
  * magenta).
  */
 export interface PresetPaint {
-  /** The wipe's panel; `label` is printed across it in the preset's lettering, in `ink`. */
-  readonly wipe?: { readonly fill: string; readonly mask: string; readonly label?: string; readonly ink?: string };
+  /**
+   * The wipe's panel; `label` is printed across it in the preset's lettering, in `ink`. `ease` is its
+   * timing within each leg (in, hold, out): linear (a cut) unless a preset eases it.
+   */
+  readonly wipe?: { readonly fill: string; readonly mask: string; readonly label?: string; readonly ink?: string; readonly ease?: string };
   readonly chroma?: readonly [string, string];
 }
 
@@ -134,6 +167,8 @@ export interface Preset {
   readonly tokens?: Partial<MotionTokens>;
   readonly paint?: PresetPaint;
   readonly lettering?: PresetLettering;
+  /** The form a send takes (domain/send.ts); unset, the style's own (glide when clean, slap when wobbly). */
+  readonly send?: SendForm;
 }
 
 /** A soft accent, as a color-mix of the theme's accent. */
@@ -234,7 +269,8 @@ const YORHA_ART = {
   },
   sidebar: {
     layers: [
-      { image: `repeating-linear-gradient(-45deg, ${tint(c("line"), 12)} 0 1px, transparent 1px 7px)` },
+      // Half-pixel ramps instead of hard stops: a hard-edged diagonal line rasterizes as a staircase.
+      { image: `repeating-linear-gradient(-45deg, transparent 0, ${tint(c("line"), 12)} 0.5px 1px, transparent 1.5px 7px)` },
       { image: `linear-gradient(${tint(c("line"), 35)}, ${tint(c("line"), 35)})`, size: "calc(100% - 24px) 1px", position: "center bottom 96px", repeat: "no-repeat" },
     ],
     mask: "linear-gradient(to top, #000, transparent 96px)",
@@ -264,6 +300,77 @@ const CONTROL_GUTTER_MASK =
   "linear-gradient(to left, #000 calc(50% - min(364px, 50% - 16px) - 48px), transparent calc(50% - min(364px, 50% - 16px) - 24px)) intersect, " +
   "linear-gradient(to top, transparent 0 250px, #000 290px) right bottom / 6000px 4000px no-repeat";
 
+/** Bureau labels: tracked capitals in the preset's lettering (the `--lively-letter-*` properties). */
+const LABEL = "font: 600 9px/1 var(--lively-letter-font, sans-serif); letter-spacing: 0.24em; text-transform: uppercase";
+
+/**
+ * Control's dress for bb's own controls (ART-DIRECTION.md#control): the Bureau's signage and forms
+ * over the Oldest House. Square everything; the composer is a form under corner brackets with a
+ * Hiss-red tab; the send button carries a red bar; what you send is filed as a directive, numbered
+ * by its place in the thread; the thread's title is a sign; menus and dialogs are case files with a
+ * red tab; and the empty page a thread starts on is the Astral Plane: the Board over the white void
+ * (concrete at night), stark light falling past two monoliths, the Bureau's name lettered on the
+ * floor. Paint at rest, so it holds with every effect off.
+ */
+const CONTROL_SKIN = {
+  focusBox: {
+    style: `border-radius: 0; border-color: ${tint(c("sign"), 38)}`,
+    layers: [bar(c("alarm"), "36px", "3px", "left 16px top 0"), ...corners(c("sign"), 10, 2)],
+  },
+  sendButton: {
+    style: `border-radius: 0; box-shadow: inset 0 -3px 0 ${c("alarm")}`,
+  },
+  // A directive's file line over each of your messages: its number in the thread, after a red tick.
+  sentRow: {
+    before: `content: "Directive \\2002 №\\00a0" attr(data-index); display: block; text-align: right; padding: 0 9px 6px 0; ${LABEL}; color: var(--muted-foreground, currentColor); background: linear-gradient(${c("alarm")}, ${c("alarm")}) right 2px top 0 / 2px 9px no-repeat`,
+  },
+  threadTitle: {
+    style: `${LABEL}; font-size: 12px; letter-spacing: 0.16em; font-weight: 700; color: ${c("sign")}`,
+  },
+  pageHeader: {
+    style: `border-bottom-color: ${tint(c("sign"), 45)}`,
+    layers: [bar(c("alarm"), "28px", "3px", "left 16px bottom 0")],
+  },
+  sidePanel: {
+    layers: [bar(c("alarm"), "3px", "48px", "left 0 top 0"), bar(tint(c("sign"), 35), "1px", "100%", "left 0 top 0")],
+  },
+  overlayOpen: {
+    style: "border-radius: 0",
+    layers: [bar(c("alarm"), "24px", "3px", "left 0 top 0"), bar(tint(c("sign"), 50), "100%", "1px", "left 0 top 0")],
+  },
+  dialogOpen: {
+    style: `border-radius: 0; box-shadow: 0 0 0 1px ${tint(c("sign"), 40)}, 0 28px 64px -24px #000c`,
+    layers: [bar(c("alarm"), "48px", "4px", "left 0 top 0"), ...corners(c("sign"), 14, 2)],
+  },
+  // The Astral Plane behind a new thread: the Board, stark light, two monoliths, and the Bureau's name.
+  composeHome: {
+    style: "position: relative; isolation: isolate",
+    layers: [
+      // The Board, its edges split into the spectrum, centered under the composer.
+      { image: `conic-gradient(from -30deg at 50% 100%, ${c("board")} 0 60deg, transparent 60deg)`, size: "176px 152px", position: "center top 300px", repeat: "no-repeat" },
+      {
+        image: "conic-gradient(from -33deg at 50% 100%, #ff2a3a 0deg, #ffb000 1.2deg, #34c759 2.4deg, #2f9bff 3.6deg, transparent 3.8deg 62.2deg, #2f9bff 62.4deg, #34c759 63.6deg, #ffb000 64.8deg, #ff2a3a 66deg, transparent 66.2deg)",
+        size: "196px 162px",
+        position: "center top 296px",
+        repeat: "no-repeat",
+      },
+      // Two monoliths floating either side, lit along their tops.
+      bar(c("rim"), "46px", "2px", "left 22% top 360px"),
+      bar(c("board"), "46px", "260px", "left 22% top 362px"),
+      bar(c("rim"), "28px", "2px", "right 20% top 420px"),
+      bar(c("board"), "28px", "150px", "right 20% top 422px"),
+      bar(c("alarm"), "28px", "2px", "right 20% top 572px"),
+      // Stark shafts of light from above.
+      { image: `linear-gradient(to bottom, ${tint(c("light"), 70)}, ${tint(c("light"), 20)} 50%, transparent 90%)`, size: "64px 100%", position: "left 21% top 0", repeat: "no-repeat" },
+      { image: `linear-gradient(to bottom, ${tint(c("light"), 50)}, transparent 80%)`, size: "120px 100%", position: "left 58% top 0", repeat: "no-repeat" },
+      { image: `linear-gradient(to bottom, ${tint(c("light"), 60)}, transparent 70%)`, size: "22px 100%", position: "right 19% top 0", repeat: "no-repeat" },
+    ],
+    // The Bureau's name, lettered large on the floor of the void.
+    before: `content: "Federal Bureau of Control"; position: absolute; left: 32px; bottom: 44px; z-index: -1; pointer-events: none; font: 800 clamp(28px, 4.4vw, 64px)/1 var(--lively-letter-font, sans-serif); letter-spacing: 0.06em; text-transform: uppercase; color: ${tint(c("sign"), 9)}`,
+    after: `content: "The Oldest House \\2002·\\2002 Designation 01-A \\2002·\\2002 Clearance on request"; position: absolute; left: 34px; bottom: 24px; z-index: -1; pointer-events: none; ${LABEL}; color: ${tint(c("sign"), 30)}`,
+  },
+} as const satisfies PresetArt["skin"];
+
 const CONTROL_ART = {
   colors: {
     monolith: token("--lively-art-monolith", "color-mix(in oklab, #000 70%, var(--lively-canvas))"),
@@ -271,7 +378,13 @@ const CONTROL_ART = {
     line: token("--lively-art-line", "var(--lively-accent)"),
     light: tint(token("--lively-art-light", "var(--lively-accent)"), 22),
     hiss: tint(token("--lively-art-hiss", "var(--destructive, #e01b24)"), 70),
+    // The Bureau's signage: off-white at night, ink by day; and the Hiss's red at full strength, for its tabs.
+    sign: token("--lively-art-sign", "var(--lively-accent)"),
+    alarm: token("--lively-art-hiss", "var(--destructive, #e01b24)"),
+    // The Board and the Astral Plane's slabs on the empty page: black on the white void, blacker than concrete at night.
+    board: token("--lively-art-board", "color-mix(in oklab, #000 80%, var(--lively-canvas))"),
   },
+  skin: CONTROL_SKIN,
   // All of it lives in the thread's free right margin, never behind the reading column or the dock
   // (CONTROL_GUTTER_MASK): a cluster that fits a 140px gutter, floating clear of the dock, as the
   // Astral Plane's slabs float. A narrow thread has no margin, and no art.
@@ -295,6 +408,9 @@ const CONTROL_ART = {
       // A lobby's round light above the Board: a ring and its soft pool.
       { image: `radial-gradient(circle at right 82px bottom 712px, transparent 0 40px, ${c("light")} 40px 41px, transparent 42px)`, size: "400px 900px", position: "right bottom", repeat: "no-repeat" },
       { image: `radial-gradient(130px 130px at right 82px bottom 712px, ${tint(c("light"), 40)}, transparent 70%)`, size: "400px 900px", position: "right bottom", repeat: "no-repeat" },
+      // Stark light shafts falling from the coffers, past the monoliths: the Oldest House's lobby light.
+      { image: `linear-gradient(to bottom, ${tint(c("light"), 60)}, ${tint(c("light"), 18)} 45%, transparent 80%)`, size: "18px 610px", position: "right 104px bottom 290px", repeat: "no-repeat" },
+      { image: `linear-gradient(to bottom, ${tint(c("light"), 40)}, transparent 70%)`, size: "8px 610px", position: "right 20px bottom 290px", repeat: "no-repeat" },
       // The coffered ceiling: a 96px grid, each coffer with a recessed inner edge 8px in.
       { image: `linear-gradient(to left, ${tint(c("line"), 9)} 1px, transparent 1px)`, size: "96px 96px", position: "right bottom" },
       { image: `linear-gradient(to top, ${tint(c("line"), 9)} 1px, transparent 1px)`, size: "96px 96px", position: "right bottom" },
@@ -352,6 +468,8 @@ export const PRESETS = [
     artDirection: "ART-DIRECTION.md#zzz",
     values: { intensity: "bold", style: "wobbly", skew: true, stickers: "wobbly", jelly: "matched", effects: { pageWipe: true } },
     palette: "lively-zzz",
+    // A send is a hit: the words jump and cut, the message slaps in with a flash and a sticker shadow.
+    send: "slap",
     art: {
       // ZZZ's panels: a halftone field and two accent slashes rising out of the lower right.
       backdrop: {
@@ -383,6 +501,8 @@ export const PRESETS = [
     values: { intensity: "lively", style: "clean", stickers: "off", effects: { pageWipe: true, turnFreeze: true } },
     palette: "lively-cloudbank",
     art: CLOUDBANK_ART,
+    // A send is a function executing: the words whitewash into the Process's cells, the message assembles along a trace.
+    send: "process",
     // A clean 1920s sans for reading, as kb's Transistor (Jost, OFL), then system geometric faces.
     // No font file ships: the Macs install Jost and Josefin Sans (modules/stacks/bb/darwin.nix).
     fonts: { sans: 'Jost, "Avenir Next", Futura, "Century Gothic", ui-sans-serif, system-ui, sans-serif' },
@@ -414,12 +534,17 @@ export const PRESETS = [
     values: { intensity: "lively", style: "clean", stickers: "off", speed: "snappy", effects: { pageWipe: true, glitch: true } },
     palette: "lively-yorha",
     art: YORHA_ART,
+    // A send is a transmission: a scan bar erases the words; the message prints in under one.
+    send: "scan",
     fonts: { sans: '"Helvetica Neue", Helvetica, "Nimbus Sans", Arial, ui-sans-serif, system-ui, sans-serif' },
     tokens: { overshoot: 0, blur: 0, tilt: 0, liftShadow: 0 },
     paint: {
+      // A scan: fine, soft-edged scanlines over a plate of the canvas a shade toward the ink, eased into
+      // place and out again. (It was 6px solid ink bars on a linear sweep: a dark strobe at every switch.)
       wipe: {
-        fill: "repeating-linear-gradient(0deg, var(--lively-art-line, var(--lively-accent)) 0 6px, color-mix(in oklab, var(--lively-art-line, var(--lively-accent)) 55%, transparent) 6px 7px, transparent 7px 12px)",
-        mask: "linear-gradient(90deg, transparent 10%, #000 22% 78%, transparent 90%)",
+        fill: "repeating-linear-gradient(0deg, transparent 0, color-mix(in oklab, var(--lively-art-line, var(--lively-accent)) 34%, transparent) 1.5px 2.5px, transparent 4px), color-mix(in oklab, var(--canvas, Canvas) 88%, var(--lively-art-line, var(--lively-accent)))",
+        mask: "linear-gradient(90deg, transparent 4%, #000 24% 76%, transparent 96%)",
+        ease: "var(--lively-ease-steady)",
       },
       chroma: ["var(--lively-art-rim, var(--lively-accent-2))", "#4a7a8c"],
     },
@@ -428,7 +553,7 @@ export const PRESETS = [
     id: "control",
     label: "Control",
     description:
-      "After Remedy's Control: the Oldest House's concrete, the Bureau's grotesque and wayfinding capitals, precise motion with no overshoot, documents redacted in black bars as you switch threads, the architecture shifting with prismatic fringes, the Board's prism at the composer and in the sidebar, and the Hiss's red resonance while an agent waits for you. Uses HTML-in-Canvas when bb is started with it (bb Launcher), CSS otherwise. The Lively Control palette: concrete at night, the Astral Plane by day.",
+      "After Remedy's Control: the Oldest House's concrete, the Bureau's grotesque and wayfinding capitals, precise motion with no overshoot, documents redacted in black bars as you switch threads, the architecture shifting with prismatic fringes, the Board's prism at the composer and in the sidebar, what you send coming apart into the Hiss's dark, prismatic dust drifting up and your message condensing out of it, and the Hiss's red resonance while an agent waits for you. Uses HTML-in-Canvas when bb is started with it (bb Launcher), CSS otherwise. The Lively Control palette: concrete at night, the Astral Plane by day.",
     artDirection: "ART-DIRECTION.md#control",
     values: {
       intensity: "lively",
@@ -438,6 +563,8 @@ export const PRESETS = [
     },
     palette: "lively-control",
     art: CONTROL_ART,
+    // A send is taken by the Hiss: the words come apart into dark, prismatic dust drifting up, and the message condenses out of it.
+    send: "dust",
     // Documents in a Swiss grotesque (the Bureau's case files), then system ones. No font file ships.
     fonts: { sans: '"Basic Commercial", "Akzidenz-Grotesk", "Helvetica Neue", Helvetica, Inter, Arial, ui-sans-serif, system-ui, sans-serif' },
     // Bureau precision: nothing passes its mark, nothing tilts; a little blur as things come into focus.

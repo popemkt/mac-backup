@@ -21,8 +21,25 @@ export interface Targets {
   readonly focusBox: string;
   /** The send button that ripples on a send. */
   readonly sendButton: string;
+  /**
+   * Around `sendButton`, the element the host keeps while it re-renders the button itself (enabled ↔
+   * disabled as the composer empties, Send ↔ Stop as a run starts): the send's rings follow the button
+   * across those swaps through it.
+   */
+  readonly sendSlot: string;
   /** The send button's icon, which pops when it swaps (Send ↔ Stop). */
   readonly sendIcon: string;
+  /**
+   * Inside `focusBox`, the box the person's words show in (it may scroll): the
+   * send copies what it shows the moment before it is sent, to see the words off.
+   */
+  readonly composerText: string;
+  /** A `row` holding the person's own message (a send's echo lands as one). */
+  readonly sentRow: string;
+  /** A `row` holding the agent's reply (the first of a turn arrives like the send). */
+  readonly replyRow: string;
+  /** Inside a `row`, the message's own box: where a send's path ends and its art sits. */
+  readonly bubble: string;
   /** A status row that can pulse; must already be positioned. */
   readonly statusRow: string;
   /** A toast whose transform transition gets a spring. */
@@ -61,6 +78,14 @@ export interface Targets {
    * `rowList`, so the freeze never dims the request itself.
    */
   readonly pendingRequest: string;
+  /** The open thread's title, as text (a preset's skin may set it as a sign). */
+  readonly threadTitle: string;
+  /** The bar across the top of a page (a thread's title and its actions). */
+  readonly pageHeader: string;
+  /** The panel beside a thread (its info, files, tabs). */
+  readonly sidePanel: string;
+  /** The page a new thread starts on, before there is a thread: a composer and empty space. */
+  readonly composeHome: string;
   /** The host's "agent is working" line, which breathes a glow while present. */
   readonly working: string;
   /** The host's own enter/exit animations, stopped by `calmHost` under reduced motion. */

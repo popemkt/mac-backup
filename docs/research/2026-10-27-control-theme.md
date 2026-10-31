@@ -108,6 +108,22 @@ Two related claims:
 - Effects should "get married to the scene" (Kasurinen). Reading the dispersion as an RGB split is
   our inference.
 
+### 7a. The Hiss's dust (added for the send, 2026-10-27)
+
+- The owner's brief: Control's send should be "that Hiss blur stuff that flows / looks like dust
+  blowing in the wind, up".
+- The same takedown effect (section 7) is the closest sourced reference: a trail of what was there,
+  advected by a fluid and broken into dispersion colors.
+  [Game Developer](https://gamedeveloper.com/art/a-closer-look-at-i-control-i-s-reality-bending-vfx);
+  a community breakdown of the Hiss effects is
+  [RealtimeVFX: Dissecting the "Hiss" VFX in Control](https://realtimevfx.com/t/dissecting-the-hiss-vfx-in-control/15604).
+- From play, unsourced: Hissed matter dissolves into soft dark particulate that drifts up, with a
+  few red sparks; edges fringe red and blue.
+- What the send takes: the words become particles made from their own pixels, released by a ragged
+  front, carried up and to one side by a growing swirl, softening from crisp to blur and greying to
+  smoke, about one in fourteen a red ember, the edges split by dispersion. The message condenses out
+  of the same dust. Dark on the white void, charcoal on concrete.
+
 ### 8. Redacted documents and the UI
 
 - Collectible documents are set in Basic Commercial, with lines blacked out. Some redactions lift
@@ -126,7 +142,18 @@ Two related claims:
 - **Palette.** Concrete greys at night, a white void by day. Red stays the Hiss's alone. Green
   comes from the wayfinding signs.
 - **Type.** Akzidenz-like for reading, an Interstate-like face for labels. No font files ship.
-- **Art.** Coffered ceilings, form-tie holes, a round light, two monoliths and the Board.
+- **Art.** Coffered ceilings, form-tie holes, a round light, stark light shafts, two monoliths and
+  the Board.
+- **Dress at rest** (added 2026-10-28, after the owner found Control "any dark, blocky theme" with
+  the effects off). bb's own controls take the Bureau's forms and signage, from sections 2, 4 and 8:
+  - the composer as a form under corner brackets, with a red tab;
+  - your messages filed as numbered directives;
+  - the thread's title as a sign;
+  - menus and dialogs as case files;
+  - the new-thread page as the Astral Plane (the Board, monoliths, light shafts, the Bureau's name
+    lettered large, as the area title cards are).
+
+  It is paint, so it holds with every effect off.
 - **Motion and effects.**
   - Precise motion: no overshoot, no tilt.
   - Dispersion is the signature effect, and it runs only on motion.
@@ -134,7 +161,10 @@ Two related claims:
   - The Board's slash speech as the chant.
 - **HTML-in-Canvas earns its place** where CSS cannot do the job:
   - the real outgoing thread breaking into slabs after it is gone;
-  - real transcript pixels refracted through a lens;
-  - red echoes of the waiting request.
+  - red echoes of the waiting request;
+  - the sent words as dust made of their real pixels (the dust needs only WebGL 2; HTML-in-Canvas
+    gives it the real pixels, else it draws the text's glyphs).
+
+  The prism over the composer on a send (`prismEdge`) gave way to the dust.
 
   Each has a CSS half for when the flag is off.

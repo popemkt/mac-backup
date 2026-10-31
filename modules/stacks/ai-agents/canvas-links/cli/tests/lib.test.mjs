@@ -2,6 +2,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  availableCanvases,
+  canvasForKey,
   canvasKey,
   currentLinks,
   currentPath,
@@ -9,6 +11,7 @@ import {
   listCanvases,
   mergeRows,
   normalizeRemote,
+  parseKey,
   parseRows,
   recentFiles,
   resolveCanvas,
@@ -151,4 +154,50 @@ test("open keys: listed key, document id, or path", () => {
   assert.equal(findCanvas(canvases, "doc-a")?.key, "mac:doc-a");
   assert.equal(findCanvas(canvases, "/Users/p/Documents/a.tldraw")?.key, "mac:doc-a");
   assert.equal(findCanvas(canvases, "nope"), null);
+});
+
+test("keys split into host and document id or path; tldraw's working-copy keys are not keys", () => {
+  assert.deepEqual(parseKey("mac:doc-a"), { host: "mac", documentId: "doc-a", path: null });
+  assert.deepEqual(parseKey("Linux.local:/x/y.tldraw"), { host: "linux.local", documentId: null, path: "/x/y.tldraw" });
+  assert.equal(parseKey("tldr:file:A"), null);
+  assert.equal(parseKey("doc-a"), null);
+  assert.equal(parseKey("/Users/p/a.tldraw"), null);
+});
+
+test("a key resolves to the canvas the log knows, else tldraw's recent files on this host, else as it reads", () => {
+  // The listed canvas keeps its latest path, so an unlink row matches the link it ends.
+  const canvases = listCanvases([row({})], { scope: "all" });
+  assert.deepEqual(canvasForKey("mac:doc-a", { canvases, recent: [], host: "linux" }), {
+    documentId: "doc-a",
+    path: "/Users/p/Documents/a.tldraw",
+    host: "mac",
+  });
+  assert.deepEqual(canvasForKey("mac:doc-a", { canvases: [], recent: RECENT, host: "mac" }), {
+    documentId: "doc-a",
+    path: "/Users/p/Documents/renamed.tldraw",
+    host: "mac",
+  });
+  assert.deepEqual(canvasForKey("mac:/Users/p/Documents/renamed.tldraw", { canvases: [], recent: RECENT, host: "mac" }), {
+    documentId: "doc-a",
+    path: "/Users/p/Documents/renamed.tldraw",
+    host: "mac",
+  });
+  assert.deepEqual(canvasForKey("other:doc-q", { canvases, recent: RECENT, host: "mac" }), { host: "other", documentId: "doc-q", path: null });
+  assert.equal(canvasForKey("doc-a", { canvases, recent: RECENT, host: "mac" }), null);
+});
+
+test("available: every linked canvas, then the recent files nobody linked, newest change first", () => {
+  const recent = recentFiles({
+    files: {
+      a: { filePath: "/Users/p/Documents/a.tldraw", documentId: "doc-a", lastChangedAt: 9 },
+      b: { filePath: "/Users/p/b.tldraw", documentId: "doc-b", lastChangedAt: 1 },
+      c: { filePath: "/Users/p/c.tldraw", lastChangedAt: 4 },
+    },
+  });
+  const linked = listCanvases([row({})], { scope: "all" });
+  const all = availableCanvases(linked, recent, "mac");
+  assert.deepEqual(all.map(c => c.key), ["mac:doc-a", "mac:/Users/p/c.tldraw", "mac:doc-b"]);
+  assert.deepEqual(all[2], { key: "mac:doc-b", documentId: "doc-b", path: "/Users/p/b.tldraw", host: "mac", linkedAt: null, sessions: [], projects: [] });
+  // Another machine's recent files are not this one's: a canvas linked on "mac" does not hide linux's copy.
+  assert.equal(availableCanvases(linked, recent, "linux").length, 4);
 });
