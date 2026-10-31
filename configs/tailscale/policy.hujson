@@ -69,6 +69,15 @@
       "ip": ["tcp:443"],
     },
 
+    // Tailnet members can reach popemkt's axioms on the shared server: the UI,
+    // its API, and the SpacetimeDB websocket it relays. Its reducers trust
+    // any caller, so this grant is its only access control.
+    {
+      "src": ["autogroup:member"],
+      "dst": ["svc:axioms-popemkt"],
+      "ip": ["tcp:443"],
+    },
+
     // The people on the shared server reach its Tailscale SSH server; the
     // `ssh` block below decides which account each one may log in as.
     // popemkt's Macs are tagged, so they connect as their tags, not as him.
@@ -104,6 +113,7 @@
       "svc:kb-bytetum": ["tag:shared-server"],
       "svc:adhoc-popemkt": ["tag:shared-server"],
       "svc:bb-popemkt": ["tag:shared-server"],
+      "svc:axioms-popemkt": ["tag:shared-server"],
     },
   },
 
