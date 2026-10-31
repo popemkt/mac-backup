@@ -7,7 +7,7 @@
 
 {
   imports = [
-    ./agent-plugins.nix
+    ./agent-plugins
     ./bun-global.nix
     ./git.nix
     ./mackup.nix

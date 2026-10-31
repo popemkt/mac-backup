@@ -2,7 +2,7 @@
   "name": "dotfiles",
   "owner": { "name": "Hoang Nguyen Gia" },
   "metadata": {
-    "description": "Claude Code plugins tracked in the dotfiles repo, read in place from assets/plugins"
+    "description": "Claude Code plugins tracked in the dotfiles repo, read from the revision applied (agent-plugins-sync)"
   },
   "plugins": [
     {

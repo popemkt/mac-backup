@@ -1,5 +1,5 @@
-// Proves a bb plugin's store copy is complete: every relative import in its
-// source, CSS @import and tsconfig "include" entry resolves inside the copy.
+// Proves a plugin's store copy (./source.nix) is complete: every relative
+// import in its source, CSS @import and tsconfig "include" entry resolves inside the copy.
 // Usage: node check-imports.mjs <copy>/<plugin> ...; exits 1 listing misses.
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -8,7 +8,9 @@ const SKIPPED = new Set(["node_modules", "dist"]);
 const SOURCE = /\.(ts|tsx|mts|js|mjs)$/;
 const SPECIFIERS = [
   /\b(?:import|export)\b[^'";]*?\bfrom\s*["'](\.{1,2}\/[^"']+)["']/g,
-  /\bimport\s*\(\s*["'](\.{1,2}\/[^"']+)["']\s*\)/g,
+  // Not a JSDoc type, {import('…').T}, which loads nothing: a tldraw
+  // pattern types its script against the canvas workspace it is copied into.
+  /(?<!\{)\bimport\s*\(\s*["'](\.{1,2}\/[^"']+)["']\s*\)/g,
   /^\s*import\s+["'](\.{1,2}\/[^"']+)["']/gm,
 ];
 const CSS_IMPORT = /@import\s+(?:url\()?["'](\.{1,2}\/[^"']+)["']/g;
@@ -25,7 +27,7 @@ const resolves = target => {
   return bases.some(
     b =>
       exts.some(x => existsSync(b + x) && statSync(b + x).isFile()) ||
-      ["index.ts", "index.tsx", "index.js"].some(i => existsSync(join(b, i))),
+      ["index.ts", "index.tsx", "index.d.ts", "index.js"].some(i => existsSync(join(b, i))),
   );
 };
 
@@ -59,6 +61,6 @@ for (const pluginDir of process.argv.slice(2)) {
   }
 }
 if (misses > 0) {
-  console.error(`${misses} relative path(s) a bb plugin needs are missing from its store copy`);
+  console.error(`${misses} relative path(s) a plugin needs are missing from its store copy`);
   process.exit(1);
 }
