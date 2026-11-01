@@ -341,7 +341,7 @@ Notes that change the plan:
 
 | Order | Provider | Why first or next | Isolation |
 |---|---|---|---|
-| 1 | **`local-bwrap`** (built) with **systemd-run --user** scopes | Zero install. Proves the contract, queue, jobs and fan-out on the real box. Needs only linger and a slice for real caps (§13). | Namespaces; semi-trusted code |
+| 1 | **`local-bwrap`** (built) with **systemd-run --user** transient services | Zero install. Proves the contract, queue, jobs and fan-out on the real box. Needs only linger and a slice for real caps (§13). | Namespaces; semi-trusted code |
 | 2 | **`opensandbox`** on shared-server, Docker plus `runsc` | Images, egress allowlists, credential vault, preview URLs, snapshots; self-hosted, Apache-2.0 | gVisor; untrusted code |
 | 3 | **`e2b`** (hosted) | microVMs, burst beyond the box, a self-host path later, `fork()` | Firecracker; hostile code |
 | 4 | **`upstash-box`** (hosted) | The owner's reference; cheap; built-in agent run and PR | Docker |
@@ -400,7 +400,7 @@ is on. Everyone else uses the CLI, which the plugin's skill documents.
 | Piece | Runs in | Why |
 |---|---|---|
 | Ops, queue, AgentSpec runner | the bb server (`app-bb`), plugin code | One admission authority. State lives in `bb.storage.kv`, so it survives restarts. |
-| Local sandboxes (bubblewrap) | popemkt's **user manager** (`systemd-run --user --scope --slice=sandbox.slice`) | They leave bb's process tree, so neither bb unit owns them, and they get cgroup caps. Needs linger (§13). |
+| Local sandboxes (bubblewrap) | popemkt's **user manager** (`systemd-run --user --pipe --wait --slice=sandbox.slice`) | They leave bb's process tree, so neither bb unit owns them, and they get cgroup caps. Transient services, not scopes: a scope would need bb's process moved out of its system cgroup, which cgroup v2 refuses an unprivileged writer. Needs linger (§13). |
 | SDK clients | anywhere: a script, another plugin, an agent's code | They reach the ops over the plugin's HTTP route `POST /api/v1/plugins/sandbox/http/op` (`auth: "token"`; the token comes from `BB_SANDBOX_TOKEN` or `bb plugin token sandbox`). |
 
 A sandbox's processes live only for one `exec` call. The provider kills the exec's process group
@@ -657,7 +657,8 @@ The first version's security section, with the decisions in §8.
   1. The queue budget and the PSI gate.
   2. The `sandbox.slice` user slice: a hard ceiling with `CPUQuota`, `MemoryMax`,
      `MemorySwapMax=0` and `TasksMax`.
-  3. Each exec's scope, capped at the sandbox's resources.
+  3. Each exec's transient service, capped at the sandbox's resources, with `RuntimeMaxSec` as a
+     backstop to its timeout.
   4. `nice 19`.
   5. The sandbox's lifetime.
 
@@ -727,7 +728,7 @@ my.stacks.sandboxes = {
   - the budget and the default provider;
   - the store paths of `bwrap` and of the host's nixpkgs (for `nix` images);
   - the image presets;
-  - whether cgroups are required.
+  - the slice, when cgroups are required.
 
   The plugin reads it, and the plugin's settings cannot raise it.
 - **The slice.** `systemd.user.slices.sandbox` applies the same budget as the slice's hard ceiling:
