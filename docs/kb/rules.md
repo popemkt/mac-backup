@@ -224,6 +224,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M3E9VX8SQJKV3K2Q1JEKT309`
 
+### GAP: shared-server's axioms SpacetimeDB state has no backup
+
+- **expected** — axioms' SpacetimeDB state on shared-server (~popemkt/.local/share/axioms/spacetime: the database, its token signing keys, the CLI identity that owns the database) and the server's client identity (~/.spacetimedb_client_credentials/axioms-server) are backed up off the machine on a schedule, restore rehearsed.
+- **current** — docs/backup-strategy.md → axioms names the state; nothing copies it off shared-server, the same as the kb home store and bb's data (gap 01M5QJFWFYAKE90KSRNPN4EX78).
+- **impact** — A disk loss on shared-server loses every axioms concept and every person's marks, and losing only the signing keys orphans every browser's and the server's identity.
+- **closes** — The off-machine backup that closes gap 01M5QJFWFYAKE90KSRNPN4EX78 (Litestream or a restic timer) extended to the axioms state directory, copied while app-axioms-db is stopped or from a SpacetimeDB snapshot.
+- **node** — `01M692TZSTZ7HPR8V4SS77546Q`
+
 ### GAP: shared-server's kb home store and bb plugin data have no backup
 
 - **expected** — shared-server's kb home store (~/.local/share/kb/home/.kb) and bb's data dir (bb.db, plugins/*/data.db, which now holds kb canvas links) are backed up off the machine on a schedule, restore rehearsed.

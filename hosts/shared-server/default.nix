@@ -34,6 +34,13 @@ let
       ]
       ++ extraArgs;
     };
+  # axioms' SpacetimeDB state (my.services.axioms below), and the limits on
+  # both of its units.
+  axiomsState.AXIOMS_STDB_HOME = "${config.users.users.popemkt.home}/.local/share/axioms/spacetime";
+  axiomsCaps = {
+    MemoryMax = "1G";
+    CPUQuota = "200%";
+  };
 in
 {
   imports = [
@@ -115,6 +122,9 @@ in
   # runs able to become root.
   security.sudo.wheelNeedsPassword = false;
   programs.firefox.enable = true;
+
+  # SpacetimeDB's licence (BSL 1.1) is unfree to nixpkgs; axioms needs it.
+  nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "spacetimedb" ];
 
   # Passwords are machine state (scripts/shared-server-secrets), never declared.
   my.people = [
@@ -278,18 +288,57 @@ in
     };
   };
 
-  # The work Mac's T3 Code, relayed to loopback so agents here can sign in to
-  # its MCP: OAuth refuses plain HTTP off loopback, and T3 names its endpoints
-  # after the host it is reached on.
-  systemd.services.t3-work-relay = {
-    description = "Relay 127.0.0.1:3790 to popemkt-work's T3 Code";
-    wantedBy = [ "multi-user.target" ];
-    after = [ "tailscaled.service" ];
-    serviceConfig = {
-      ExecStart = "${pkgs.socat}/bin/socat TCP-LISTEN:3790,bind=127.0.0.1,fork,reuseaddr TCP:popemkt-work.taild98079.ts.net:3773";
-      DynamicUser = true;
-      Restart = "always";
-      RestartSec = 5;
+  # popemkt's axioms (pkgs/axioms) in live mode, as svc:axioms-popemkt. Two
+  # units: app-axioms-db, SpacetimeDB on loopback, never exposed
+  # (pkgs/axioms-db); and app-axioms, which publishes its SpacetimeDB module
+  # on every start (unchanged, it updates in place; a change that would drop
+  # data fails the start instead), serves the UI and API, runs the decompose
+  # worker (claude from popemkt's PATH), and relays each browser's
+  # SpacetimeDB websocket, so the one Service is all a browser reaches. Its
+  # reducers trust any caller: the tailnet grant is its access control.
+  # State is AXIOMS_STDB_HOME: docs/backup-strategy.md → axioms.
+  my.services.axioms-db = {
+    owner = "popemkt";
+    port = 4420;
+    package = pkgs.axioms-db;
+    expose = false;
+    environment = axiomsState;
+  };
+  my.services.axioms = {
+    owner = "popemkt";
+    port = 4401;
+    package = pkgs.axioms;
+    environment = axiomsState // {
+      AXIOMS_STORE = "spacetime";
+      AXIOMS_STDB_URI = config.my.services.axioms-db.listenOrigin;
+      # Decomposition steps stream one concept at a time, this far apart.
+      AXIOMS_STREAM_MS = "500";
+    };
+  };
+
+  systemd.services = {
+    # axioms' two units, each capped: a gentle load on a host that has had
+    # hardware resets (boot.kernelParams above).
+    app-axioms-db.serviceConfig = axiomsCaps;
+    # Starts once the database has, which it waits for before publishing.
+    app-axioms = {
+      wants = [ "app-axioms-db.service" ];
+      after = [ "app-axioms-db.service" ];
+      serviceConfig = axiomsCaps;
+    };
+    # The work Mac's T3 Code, relayed to loopback so agents here can sign in
+    # to its MCP: OAuth refuses plain HTTP off loopback, and T3 names its
+    # endpoints after the host it is reached on.
+    t3-work-relay = {
+      description = "Relay 127.0.0.1:3790 to popemkt-work's T3 Code";
+      wantedBy = [ "multi-user.target" ];
+      after = [ "tailscaled.service" ];
+      serviceConfig = {
+        ExecStart = "${pkgs.socat}/bin/socat TCP-LISTEN:3790,bind=127.0.0.1,fork,reuseaddr TCP:popemkt-work.taild98079.ts.net:3773";
+        DynamicUser = true;
+        Restart = "always";
+        RestartSec = 5;
+      };
     };
   };
 }

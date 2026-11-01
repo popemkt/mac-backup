@@ -73,6 +73,11 @@
           uv2nix
           ;
       };
+      # The local packages this system can build: shared-server's apps
+      # (axioms, spacetimedb) are Linux-only, built where they run.
+      systemPackages = nixpkgs.lib.filterAttrs (
+        _: nixpkgs.lib.meta.availableOn pkgs.stdenv.hostPlatform
+      ) localPackages;
 
       systemSetupCheck =
         pkgs.runCommand "system-setup-check"
@@ -300,11 +305,11 @@
             ;
         };
 
-      packages.${system} = localPackages // {
+      packages.${system} = systemPackages // {
         default = localPackages.cli-proxy-api;
       };
 
-      checks.${system} = localPackages // {
+      checks.${system} = systemPackages // {
         inherit systemSetupCheck;
         reconcile-scripts-check = reconcileScriptsCheck;
         audit-lib-check = auditLibCheck;

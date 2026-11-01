@@ -6,6 +6,17 @@
   dockerTools,
 }:
 {
+  axioms = {
+    pname = "axioms";
+    version = "v0.1.0";
+    src = fetchFromGitHub {
+      owner = "popemkt";
+      repo = "axioms";
+      rev = "v0.1.0";
+      fetchSubmodules = false;
+      sha256 = "sha256-X3ismRF6X4VzfPHiklLKgKWWj59ggs6jU7yUwktaWyY=";
+    };
+  };
   chat2db = {
     pname = "chat2db";
     version = "5.3.8";
@@ -16,10 +27,10 @@
   };
   cli-proxy-api = {
     pname = "cli-proxy-api";
-    version = "8.0.47";
+    version = "8.0.48";
     src = fetchurl {
-      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.47/CLIProxyAPI_8.0.47_darwin_aarch64.tar.gz";
-      sha256 = "sha256-pbJg7A+EPSKRSIrNduVZUjLajzuOwtM0FU8VcPXzygg=";
+      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.48/CLIProxyAPI_8.0.48_darwin_aarch64.tar.gz";
+      sha256 = "sha256-VDvbxvg4T+zQM79zmCNuRieZYqgNvJCc+Njm7pTM/AQ=";
     };
   };
   cursor-cli = {
@@ -32,18 +43,18 @@
   };
   genoffice = {
     pname = "genoffice";
-    version = "0.12.115";
+    version = "0.12.446";
     src = fetchurl {
-      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.12.115/GenOffice-0.12.115-arm64.dmg";
-      sha256 = "sha256-eMd76sL0LtPczBq4VdrQsNDNxE+fmDOtvzvLqgQOoN0=";
+      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.12.446/GenOffice-0.12.446-arm64.dmg";
+      sha256 = "sha256-J3st6JCUhN2WATHTczMPEp4nZUVw/WtAWgQcPsfEOQo=";
     };
   };
   kb = {
     pname = "kb";
-    version = "0.3.1-nightly.20261031012544";
+    version = "0.3.1-nightly.20261031174649";
     src = fetchurl {
-      url = "https://github.com/popemkt/kb/releases/download/v0.3.1-nightly.20261031012544/kb-0.3.1-nightly.20261031012544.tar.gz";
-      sha256 = "sha256-eXGd+V7Qxi4WiV/jZ7YDCmIDO1Q+uoEm8j4rk6UpaRw=";
+      url = "https://github.com/popemkt/kb/releases/download/v0.3.1-nightly.20261031174649/kb-0.3.1-nightly.20261031174649.tar.gz";
+      sha256 = "sha256-j/WUEFVFay8XAymtAmBaAKb0U8WQ+Q8wx0eZGojq3N4=";
     };
   };
   logseq = {
@@ -52,6 +63,14 @@
     src = fetchurl {
       url = "https://github.com/logseq/logseq/releases/download/2.0.2/Logseq-darwin-arm64-2.0.2.zip";
       sha256 = "sha256-/9bghrpvaKR0j4DqqLOCRKnPeLBcB2ND114CMP6UQLQ=";
+    };
+  };
+  spacetimedb = {
+    pname = "spacetimedb";
+    version = "2.14.0";
+    src = fetchurl {
+      url = "https://github.com/clockworklabs/SpacetimeDB/releases/download/v2.14.0/spacetime-x86_64-unknown-linux-gnu.tar.gz";
+      sha256 = "sha256-LYlQ3DxnkQqoCqdhLv3bXubtU8RDVz9hezrWX+8qoIQ=";
     };
   };
   vite-plus = {
