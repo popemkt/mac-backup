@@ -47,6 +47,11 @@ in
       # machine bb reaches, as a new thread seeded with its cleaned
       # transcript; the Original session tab; `bb session-import`.
       "assets/bb-plugins/session-import"
+      # Talk to bb out loud: a realtime voice concierge (Codex realtime on
+      # a ChatGPT login, WebRTC from the bb window) that reads threads with
+      # the bb CLI and keeps its conversation out of work threads; the
+      # `Voice concierge` page and `bb voice-concierge`.
+      "assets/bb-plugins/voice-concierge"
     ];
 
     # No anonymous usage telemetry (PostHog) from any bb server or host

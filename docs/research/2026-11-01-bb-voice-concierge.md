@@ -1,7 +1,9 @@
 # A realtime voice concierge for bb
 
-Date: 2026-11-01. Research and design only. Nothing was installed or enabled, no
-realtime session was started, and no other thread was messaged.
+Date: 2026-11-01. Research and design. Sections 1–8 were written before anything
+was installed or enabled, before any realtime session, and without messaging any
+other thread. **§9 (same day) records what building phase 1 and trying option (c)
+established**, including two corrections to §2.
 
 **The owner's ask.** "I want bb to have a plugin that does the same as GPT
 realtime in Codex, so I can talk to it in realtime — more hands-off, when I
@@ -438,6 +440,97 @@ Phase 0 of (b) is also free and could start now.
   persistence artifact?
 - Whether bb should support realtime in its Codex provider upstream, so the
   concierge becomes a native bb thread.
+
+## 9. Update: building phase 1, and option (c) tried
+
+The owner chose (a) with changes: Codex required for now, behind a small
+voice-backend seam; it must work with one machine or several; desktop app and
+browser first; and no special hand-off machinery, because the concierge uses
+bb's normal CLI under its instructions. The plugin is
+[`assets/bb-plugins/voice-concierge`](../../assets/bb-plugins/voice-concierge/README.md).
+
+### 9.1 What the Codex source settled
+
+- **The transport decides the auth, not the plan** [doc, `codex-rs/core/src/realtime_conversation.rs`].
+  `transport: websocket` requires an API key ("realtime conversation requires
+  API key auth"; also [measured] on 0.166.0). `transport: webrtc` creates the
+  call through Codex's model client with the session's own login (ChatGPT), and
+  needs `version` v1 or v3 and a conversational session. The client never
+  handles a token. This corrects §2.3, which did not distinguish the two.
+- **Models:** `v3` is `gpt-live-1-codex` (GPT-Live, "Frameless Bidi") and
+  `v1` is `gpt-realtime-1.5`. WebRTC without a `version` defaults to v1 and
+  ignores `voice`. `prompt` is the voice model's instructions; the backing
+  thread's `developerInstructions` hold the agent's rules. Text output needs v2,
+  which WebRTC refuses.
+- **Sideband:** with WebRTC, audio flows client ↔ OpenAI and Codex attaches a
+  sideband WebSocket to the call (`call_id`) to run hand-offs. This is why the
+  plugin needs no audio path through bb.
+- **bb's account pool cannot carry it.** bb runs Codex threads through the
+  pool hub (`model_provider = "bb-account-pool"`), and the hub has no
+  `realtime/calls` route [measured]. A custom model provider was also what broke
+  voice on the work Mac until it was removed (the `before-voice-fix` backup).
+  The plugin therefore runs its own `codex app-server`, without the pool's
+  environment, and with **its own `CODEX_HOME`** by default, signed in once by
+  device code from the plugin page. A side finding: shared-server's own
+  `~/.codex` login is dead ("refresh token was already used"), because the
+  pool took over that account's tokens [measured].
+
+### 9.2 Option (c): bb's MCP server, tried
+
+`bb plugin enable bb--mcp` [done on shared-server]. `bb mcp status` gives
+`Local: http://127.0.0.1:38886/api/v1/plugins/bb--mcp/http/mcp`. Port 38886 is
+the bb server's own port, bound to loopback, so the MCP server reaches nothing
+the `bb` CLI on that machine could not already reach. Remote access is
+unavailable until bb is signed in to a bb account with bb connect on.
+
+Measured with a raw MCP client on shared-server:
+
+- **Tools:** `search`, `read` (read-only snippet), `run` (any command).
+- **`read`** returned the thread count, the running threads, and a thread's
+  output in **0.7 s**. It refuses every write (`bb thread tell` …) and also
+  every **plugin command** (`bb lanes now`, `bb workflows …`): those need `run`.
+- **`run`** can do anything bb can, writes included. There is no per-command
+  grant, and nothing bb-side requires spoken confirmation.
+
+**Connecting ChatGPT desktop voice to it (work Mac).** Steps 1–3 are not tried:
+they need the owner's Mac.
+
+1. Forward the port, keeping it loopback-only on both ends:
+   `ssh -N -L 38886:127.0.0.1:38886 shared-server` (any free local port works;
+   use it in step 2).
+2. Add to `~/.codex/config.toml` on the Mac:
+
+   ```toml
+   [mcp_servers.bb]
+   url = "http://127.0.0.1:38886/api/v1/plugins/bb--mcp/http/mcp"
+
+   [mcp_servers.bb.tools.search]
+   approval_mode = "approve"
+   [mcp_servers.bb.tools.read]
+   approval_mode = "approve"
+   [mcp_servers.bb.tools.run]
+   approval_mode = "prompt"
+   ```
+
+   Valid values are `auto | prompt | writes | approve` [doc, `AppToolApproval`].
+   Whether a `prompt` approval can be answered by voice is [unverified].
+3. In the ChatGPT app, start a new Codex task in a scratch folder (for example
+   `~/Documents/Codex/bb-concierge`), choose **Start new voice chat**, and ask
+   "use the bb tools: what's running and what needs me?". Keep voice out of work
+   tasks: a voice chat's exchanges are stored on the task it runs in.
+
+**Switching it off:** remove the `[mcp_servers.bb…]` blocks, stop the tunnel,
+and run `bb plugin disable bb--mcp` on shared-server (`bb mcp status` then
+fails).
+
+**What it can and can't do.** It can read any thread, project, environment,
+diff or setting quickly, and with `run` act on anything, from the best voice UX
+there is (GPT-Live with screen context). It can't stay inside bb: the
+conversation lives in a ChatGPT task. It can't read plugin views such as lanes
+without `run`, it allows only one voice chat at a time, it works only where the
+ChatGPT app runs (Mac, Windows, iOS by pairing), and it has no enforced write
+guard. It is a good fallback and a reference for the UX bar, not the bb-native
+concierge.
 
 ## Sources
 

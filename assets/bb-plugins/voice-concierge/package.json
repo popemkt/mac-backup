@@ -1,0 +1,37 @@
+{
+  "name": "bb-plugin-voice-concierge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "bb plugin: talk to bb hands-free. A realtime voice concierge that sees your threads and answers aloud, in its own conversation, never in your work threads.",
+  "type": "module",
+  "engines": {
+    "bb": ">=0.46",
+    "bbPluginSdk": ">=0.6.49"
+  },
+  "bb": {
+    "name": "Voice Concierge",
+    "description": "Talk to bb out loud: ask what is running, what needs you, what a thread concluded. A realtime voice agent (Codex, on your ChatGPT plan) answers aloud; its conversation stays in its own thread, and it writes to other threads only when you ask and confirm.",
+    "branding": {
+      "icon": "Mic"
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx",
+    "host": "./host.ts"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.49",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "hono": "^4.13.13",
+    "typescript": "^5.7.0"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.ts",
+    "typecheck": "tsc -p ."
+  }
+}
