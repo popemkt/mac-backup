@@ -62,6 +62,14 @@ export class ConciergeThread {
     return this.creating;
   }
 
+  /** Start a new conversation: a new thread becomes the concierge's; the previous one (returned) stays as it is. */
+  async renew(projectId: string, hostId: string | null): Promise<{ threadId: string; previous: string | null }> {
+    const previous = await this.current();
+    const threadId = await this.deps.threads.spawn({ projectId, hostId, brief: THREAD_BRIEF });
+    await this.deps.store.set(threadId);
+    return { threadId, previous };
+  }
+
   /**
    * Send one request and wait for the thread's reply: waits for any running turn to finish first (the owner may have
    * typed), then for the new turn to start and settle, and returns its final output.

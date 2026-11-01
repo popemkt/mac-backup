@@ -9,7 +9,7 @@ import type { BackendStatus, VoiceBackend } from "./core/backend.ts";
 import { CodexBackend } from "./core/codex.ts";
 import { ConciergeThread } from "./core/concierge-thread.ts";
 import type { Machine } from "./core/hosts.ts";
-import { LIVE_CHANNEL, STYLE_CHANNEL } from "./core/live.ts";
+import { LIVE_CHANNEL, STYLE_CHANNEL, THREAD_CHANNEL } from "./core/live.ts";
 import { isSphereStyle, SPHERE_STYLES, STYLE_LABELS, type SphereStyle } from "./core/sphere-styles.ts";
 import { appendLine, type TranscriptLine } from "./core/transcript.ts";
 
@@ -41,6 +41,8 @@ export const rpcContract = defineRpcContract({
   setStyle: { input: z.object({ style: z.string() }), output: z.object({ style: z.string() }) },
   /** The concierge's own bb thread, if it has one. */
   thread: { input: z.null(), output: z.object({ threadId: z.string().nullable() }) },
+  /** Start a new conversation in a new thread; the old one stays as a normal (unpinned) thread. */
+  newThread: { input: z.null(), output: z.object({ threadId: z.string() }) },
 });
 
 export type LiveSignal = { conversationId: string | null; event: VoiceEvent };
@@ -80,6 +82,13 @@ export default async function plugin(bb: BbPluginApi) {
       options: [...SPHERE_STYLES],
       experimental_optionLabels: STYLE_LABELS,
       default: "jelly",
+    },
+    threadMode: {
+      type: "select",
+      label: "Conversation",
+      options: ["reuse", "new"],
+      experimental_optionLabels: { reuse: "Continue the last conversation", new: "A new conversation for every call" },
+      default: "reuse",
     },
     threadProvider: { type: "string", label: "Agent provider for the concierge's thread (empty = the project's default)", default: "" },
     threadModel: { type: "string", label: "Model for the concierge's thread (empty = the provider's default)", default: "" },
@@ -176,6 +185,14 @@ export default async function plugin(bb: BbPluginApi) {
     if (personal === undefined) return null;
     return concierge.ensure(personal.id, (await codex.resolve())?.machine.id ?? null);
   }
+  async function newConciergeThread(): Promise<string> {
+    const personal = (await bb.sdk.projects.list({ includePersonal: true })).find(p => p.kind === "personal");
+    if (personal === undefined) throw new Error("bb has no Personal project for the concierge's thread");
+    const { threadId, previous } = await concierge.renew(personal.id, (await codex.resolve())?.machine.id ?? null);
+    if (previous !== null) await bb.sdk.threads.unpin({ threadId: previous }).catch(() => {});
+    bb.realtime.publish(THREAD_CHANNEL, { threadId });
+    return threadId;
+  }
   async function backend(): Promise<VoiceBackend> {
     const id = (await settings.get()).backend;
     const b = backends[id];
@@ -219,7 +236,7 @@ export default async function plugin(bb: BbPluginApi) {
     },
     start: async ({ sdp }) => {
       const s = await settings.get();
-      const relay = (await conciergeThread().catch(() => null)) !== null;
+      const relay = (await (s.threadMode === "new" ? newConciergeThread() : conciergeThread()).catch(() => null)) !== null;
       const session = await (await backend()).start({ offer: { kind: "webrtc", sdp }, voice: s.voice.trim() === "" ? null : s.voice.trim(), extra: s.instructions, relay });
       record("system", "Call started");
       return { conversationId: session.conversationId, sdp: session.answer.sdp };
@@ -242,6 +259,7 @@ export default async function plugin(bb: BbPluginApi) {
       return { ok: true };
     },
     thread: async () => ({ threadId: await conciergeThread() }),
+    newThread: async () => ({ threadId: await newConciergeThread() }),
     style: async () => ({ style: styleOf((await settings.get()).sphereStyle) }),
     setStyle: async ({ style }) => {
       if (!isSphereStyle(style)) throw new Error(`Unknown sphere style ${style}`);

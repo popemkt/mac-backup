@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { definePluginApp, ThreadChat, useBbNavigate, useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
 import type { LiveSignal, rpcContract } from "./server.ts";
-import { LIVE_CHANNEL, STYLE_CHANNEL } from "./core/live.ts";
+import { LIVE_CHANNEL, STYLE_CHANNEL, THREAD_CHANNEL } from "./core/live.ts";
 import { isSphereStyle, SPHERE_STYLES, STYLE_LABELS, type SphereStyle } from "./core/sphere-styles.ts";
 import { Sphere, type SphereLook, type SphereMode } from "./sphere.ts";
 
@@ -188,6 +188,20 @@ function iceGathered(pc: RTCPeerConnection, timeoutMs: number): Promise<void> {
 const calls = new CallManager();
 const useCall = () => useSyncExternalStore(calls.subscribe, calls.snapshot);
 
+/** What a command or the sidebar button needs to start a call from anywhere; the always-mounted overlay fills it. */
+const anywhere: { rpc: Rpc | null; open: (() => void) | null } = { rpc: null, open: null };
+
+/** Open the Voice concierge page and start talking; during a call, hang up. */
+function talkOrHangUp(): void {
+  const { phase } = calls.snapshot();
+  if (phase === "live" || phase === "connecting") {
+    void calls.stop();
+    return;
+  }
+  anywhere.open?.();
+  if (phase === "idle" && anywhere.rpc !== null) void calls.start(anywhere.rpc);
+}
+
 // ------------------------------------------------------------------ page
 
 interface Status {
@@ -206,6 +220,11 @@ function ConciergePage() {
   const [statusError, setStatusError] = useState<string | null>(null);
   const [login, setLogin] = useState<{ url: string; code: string } | null>(null);
   const [threadId, setThreadId] = useState<string | null | undefined>(undefined);
+  const [renewing, setRenewing] = useState(false);
+  useRealtime(THREAD_CHANNEL, payload => {
+    const id = (payload as { threadId?: unknown }).threadId;
+    if (typeof id === "string") setThreadId(id);
+  });
 
   const refreshStatus = useCallback(() => {
     setStatusError(null);
@@ -285,6 +304,25 @@ function ConciergePage() {
         )}
       </div>
 
+      {threadId !== undefined && threadId !== null && (
+        <div className="-mb-2 flex items-center justify-between text-xs text-muted-foreground">
+          <span>Conversation</span>
+          <button
+            className="underline disabled:opacity-50"
+            disabled={renewing || call.phase !== "idle"}
+            title={call.phase !== "idle" ? "Hang up first" : "Start over in a new thread; this one stays in your threads"}
+            onClick={() => {
+              setRenewing(true);
+              rpc.call("newThread").then(
+                r => (setThreadId(r.threadId), setRenewing(false)),
+                e => (setStatusError(message(e)), setRenewing(false)),
+              );
+            }}
+          >
+            {renewing ? "Starting…" : "New conversation"}
+          </button>
+        </div>
+      )}
       <div className="min-h-0 flex-1 overflow-hidden rounded border border-border">
         {threadId === undefined ? (
           <div className="p-3 text-xs text-muted-foreground">Opening the concierge's thread…</div>
@@ -384,8 +422,28 @@ function TalkingSphere() {
 function LiveOverlay() {
   const call = useCall();
   const navigate = useBbNavigate();
+  const rpc = useRpc<typeof rpcContract>();
+  useEffect(() => {
+    anywhere.rpc = rpc;
+    anywhere.open = () => navigate.toPluginPanel(PAGE);
+  }, [rpc, navigate]);
+  const touch = useTouch();
   useRealtime(LIVE_CHANNEL, payload => calls.receive(payload as LiveSignal));
-  if (call.phase === "idle") return null;
+  if (call.phase === "idle") {
+    // On a touch screen, a small mic button stays one tap away on every page.
+    return touch ? (
+      <button
+        className="pointer-events-auto fixed bottom-20 right-5 z-50 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-background shadow-lg"
+        aria-label="Talk to the voice concierge"
+        onClick={talkOrHangUp}
+      >
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <rect x="9" y="2" width="6" height="12" rx="3" />
+          <path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8" />
+        </svg>
+      </button>
+    ) : null;
+  }
   return (
     <div className="pointer-events-auto fixed bottom-5 right-20 z-50 flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-xs shadow-lg">
       <span className={`h-2 w-2 rounded-full ${call.phase === "live" ? (call.muted ? "bg-amber-500" : "animate-pulse bg-emerald-500") : "bg-muted-foreground"}`} />
@@ -404,7 +462,22 @@ function LiveOverlay() {
   );
 }
 
+/** True on a device whose main pointer is a finger. */
+function useTouch(): boolean {
+  const [touch, setTouch] = useState(() => typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches);
+  useEffect(() => {
+    const q = matchMedia("(pointer: coarse)");
+    const on = () => setTouch(q.matches);
+    q.addEventListener("change", on);
+    return () => q.removeEventListener("change", on);
+  }, []);
+  return touch;
+}
+
 export default definePluginApp(app => {
   app.slots.navPanel({ id: PAGE, title: "Voice concierge", icon: "Mic", path: PAGE, component: ConciergePage });
   app.slots.experimental_appOverlay({ id: "live", component: LiveOverlay });
+  // From anywhere: the command palette and a keyboard shortcut (rebindable), and one click in the sidebar footer.
+  app.commands.register({ id: "talk", title: "Voice concierge: talk / hang up", defaultShortcut: { key: "m", mod: true, shift: true }, run: talkOrHangUp });
+  app.slots.sidebarFooterAction({ id: "talk", title: "Talk to the voice concierge", icon: "Mic", run: talkOrHangUp });
 });

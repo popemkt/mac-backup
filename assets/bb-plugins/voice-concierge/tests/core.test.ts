@@ -231,3 +231,11 @@ test("sphere styles: every style compiles into one frame with a body and a halo"
     assert.ok(STYLE_LABELS[style].length > 0);
   }
 });
+
+test("ConciergeThread.renew: a new thread becomes current and the previous is returned", async () => {
+  let stored: string | null = "thr_old";
+  const { deps } = fakeThreads({ statuses: ["idle"], outputs: [null] });
+  const thread = new ConciergeThread({ ...deps, store: { get: async () => stored, set: async id => void (stored = id) } });
+  assert.deepEqual(await thread.renew("proj_personal", "host_1"), { threadId: "thr_new", previous: "thr_old" });
+  assert.equal(await thread.current(), "thr_new");
+});

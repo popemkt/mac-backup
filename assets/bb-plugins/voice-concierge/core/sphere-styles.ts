@@ -6,10 +6,13 @@
 //
 // The 3D simplex noise is Ashima Arts' / Stefan Gustavson's webgl-noise (MIT).
 
-export const SPHERE_STYLES = ["jelly"] as const;
+export const SPHERE_STYLES = ["jelly", "moonstone", "aurora", "frosted"] as const;
 export type SphereStyle = (typeof SPHERE_STYLES)[number];
 export const STYLE_LABELS: Record<SphereStyle, string> = {
   jelly: "Candy jelly",
+  moonstone: "Moonstone",
+  aurora: "Aurora orb",
+  frosted: "Frosted globe",
 };
 
 export const isSphereStyle = (s: string): s is SphereStyle => (SPHERE_STYLES as readonly string[]).includes(s);
@@ -142,7 +145,88 @@ const float HALO = 0.13;
 const float HALO_VOICE = 0.20;
 const float HALO_FALLOFF = 7.0;`;
 
-const BODIES: Record<SphereStyle, string> = { jelly: JELLY };
+const MOONSTONE = /* glsl */ `
+// Moonstone: a milky, translucent stone, more transparent at the rim, with the blue adularescence (a soft glow that
+// floats just under the surface) gliding slowly across it and faint milky veils drifting deeper inside.
+vec3 body(Ctx c) {
+  vec3 deep = vec3(0.10, 0.12, 0.18), milk = vec3(0.62, 0.66, 0.74), blue = vec3(0.42, 0.62, 1.0);
+  float veil = 0.0;
+  for (int i = 0; i < 3; i++) {
+    float k = (float(i) + 0.5) / 3.0;
+    veil += fbm3(warp(vec3(c.p * 0.9, mix(c.z, -c.z, k)) + vec3(0.0, 0.0, c.t * 0.02), c.t * 0.04));
+  }
+  veil = 0.5 + 0.5 * veil / 3.0;
+  vec3 col = mix(deep, milk, 0.18 + 0.55 * c.z * (0.75 + 0.5 * veil));
+  // the adularescence: a broad soft glow under the surface, drifting with time, brighter with the voice
+  float a = c.t * 0.22 + c.think * c.t * 0.3;
+  vec2 dir = vec2(cos(a), sin(a));
+  float band = exp(-pow((dot(c.n.xy, dir) - 0.15) / 0.42, 2.0)) * smoothstep(0.0, 0.35, c.z);
+  float shimmer = 0.6 + 0.4 * snoise(vec3(c.p * 1.4, c.t * 0.08));
+  col += blue * band * shimmer * (0.42 + 0.32 * c.level + 0.12 * c.listen + 0.15 * c.think);
+  col *= 0.86 + 0.18 * (dot(c.n, c.key) + 0.6) / 1.6;
+  col += milk * pow(c.fres, 1.6) * (0.16 + 0.22 * c.level);
+  vec3 h = normalize(c.key + vec3(0.0, 0.0, 1.0));
+  col += vec3(0.9, 0.95, 1.0) * pow(max(dot(c.n, h), 0.0), 9.0) * 0.07;
+  return hueShift(col, c.tint * 0.6);
+}
+vec3 haloColor(Ctx c) { return hueShift(vec3(0.45, 0.58, 0.95), c.tint * 0.6); }
+const float HALO = 0.08;
+const float HALO_VOICE = 0.18;
+const float HALO_FALLOFF = 8.0;`;
+
+const AURORA = /* glsl */ `
+// Aurora orb: a clear, dark glass sphere with soft clouds of blue, violet and cyan light flowing inside it; only a
+// very gentle rim. The voice brightens and warms the clouds; thinking makes them flow faster.
+vec3 body(Ctx c) {
+  vec3 cA = vec3(0.30, 0.42, 0.95), cB = vec3(0.62, 0.40, 0.95), cC = vec3(0.26, 0.80, 0.90);
+  vec3 acc = vec3(0.0);
+  for (int i = 0; i < 6; i++) {
+    float k = (float(i) + 0.5) / 6.0;
+    vec3 q = warp(vec3(c.p, mix(c.z, -c.z, k)) * 0.75, c.t * 0.06);
+    float a = 0.5 + 0.5 * snoise(q + vec3(0.0, 0.0, c.t * 0.05));
+    float b = 0.5 + 0.5 * snoise(q * 1.1 + vec3(3.1, 0.0, -c.t * 0.04));
+    float d = 0.5 + 0.5 * snoise(q * 0.9 + vec3(0.0, 4.2, c.t * 0.03));
+    acc += (cA * a * a + cB * b * b * 1.15 + cC * d * d) * (1.1 - 0.5 * k);
+  }
+  acc /= 6.0;
+  // a faint inner light so the clouds float in something, never in black
+  vec3 col = vec3(0.07, 0.08, 0.16) * (0.6 + 0.4 * c.z) + acc * 0.8 * (0.85 + 0.6 * c.level + 0.2 * c.think) * (0.55 + 0.45 * c.z);
+  col += vec3(0.55, 0.65, 1.0) * pow(c.fres, 2.0) * (0.18 + 0.22 * c.level);
+  vec3 h = normalize(c.key + vec3(0.0, 0.0, 1.0));
+  col += vec3(1.0) * pow(max(dot(c.n, h), 0.0), 20.0) * 0.05;
+  return hueShift(col, c.tint);
+}
+vec3 haloColor(Ctx c) { return hueShift(vec3(0.42, 0.45, 1.0), c.tint); }
+const float HALO = 0.14;
+const float HALO_VOICE = 0.22;
+const float HALO_FALLOFF = 6.0;`;
+
+const FROSTED = /* glsl */ `
+// Frosted globe: a frosted-glass shell with a warm light inside; soft caustics from the light drift slowly through
+// the frost. The core glows brighter with the voice; thinking makes the light wander.
+vec3 body(Ctx c) {
+  vec3 warm = vec3(1.0, 0.82, 0.58), shell = vec3(0.56, 0.58, 0.62);
+  vec2 corePos = 0.12 * c.think * vec2(cos(c.t * 0.8), sin(c.t * 0.8));
+  vec3 acc = vec3(0.0);
+  for (int i = 0; i < 5; i++) {
+    float k = (float(i) + 0.5) / 5.0;
+    vec3 q = vec3(c.p - corePos, mix(c.z, -c.z, k));
+    float core = exp(-dot(q, q) * (4.6 - 1.4 * c.level));
+    float caustic = pow(1.0 - abs(snoise(warp(q * 1.2, c.t * 0.06) + vec3(0.0, 0.0, c.t * 0.08))), 3.5);
+    acc += warm * (core * 0.26 + caustic * 0.05 * (0.35 + core));
+  }
+  float frost = snoise(vec3(c.p * 46.0, 3.0)) * 0.5 + 0.5; // fixed to the shell: a frosted grain, not moving
+  vec3 col = mix(vec3(0.05, 0.05, 0.06), shell, 0.22 + 0.25 * c.fres + 0.06 * frost);
+  col += acc * (0.9 + 0.6 * c.level + 0.2 * c.speak);
+  col += shell * pow(c.fres, 1.8) * 0.18;
+  return hueShift(col, c.tint * 0.7);
+}
+vec3 haloColor(Ctx c) { return hueShift(vec3(1.0, 0.78, 0.52), c.tint * 0.7); }
+const float HALO = 0.07;
+const float HALO_VOICE = 0.20;
+const float HALO_FALLOFF = 7.5;`;
+
+const BODIES: Record<SphereStyle, string> = { jelly: JELLY, moonstone: MOONSTONE, aurora: AURORA, frosted: FROSTED };
 
 export const VERTEX_SOURCE = /* glsl */ `#version 300 es
 in vec2 aPos;
@@ -164,7 +248,7 @@ void main() {
   float ang = atan(uv.y, uv.x);
   // The voice swells the outline softly: 3 broad lobes for the owner, 2 rounder ones for the concierge, at most ~6%.
   float lobes = mix(0.5 + 0.5 * sin(3.0 * ang - uSpin), 0.5 + 0.5 * sin(2.0 * ang + uSpin * 0.8), uSpeak);
-  float R = 0.72 * uBreath * (1.0 + uLevel * (0.025 + 0.035 * lobes));
+  float R = 0.68 * uBreath * (1.0 + uLevel * (0.025 + 0.035 * lobes));
   float d = length(uv);
   vec2 p = uv / R;
   float r = length(p);
@@ -186,7 +270,9 @@ void main() {
   c.key = normalize(vec3(-0.45, 0.6, 0.65));
   vec3 col = r < 1.0 + aa ? body(c) : vec3(0.0);
   col = col / (1.0 + 0.35 * max(max(col.r, col.g), col.b)); // soft shoulder: no clipped highlights
-  float glow = (HALO + HALO_VOICE * uLevel) * exp(-max(d - R, 0.0) * HALO_FALLOFF) * (1.0 - inside);
+  // the halo fades out before the canvas edge, so no square shows around it
+  float window = smoothstep(1.0, 0.82, max(abs(uv.x), abs(uv.y)));
+  float glow = (HALO + HALO_VOICE * uLevel) * exp(-max(d - R, 0.0) * HALO_FALLOFF) * (1.0 - inside) * window;
   vec3 halo = haloColor(c) * glow;
   float grain = (hash(gl_FragCoord.xy + fract(uTime) * 61.0) - 0.5) / 128.0;
   // premultiplied: the disc is opaque, the halo a soft glow over whatever bb's background is
