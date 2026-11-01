@@ -11,5 +11,5 @@
     "noEmit": true,
     "skipLibCheck": false
   },
-  "include": ["server.ts", "host.ts", "contract.ts", "app.tsx", "core", "tests"]
+  "include": ["server.ts", "host.ts", "contract.ts", "app.tsx", "sphere.ts", "core", "tests"]
 }

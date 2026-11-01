@@ -169,3 +169,12 @@ test("CodexBackend: signed out everywhere offers sign-in where Codex exists, and
   assert.deepEqual(await backend.login(), { url: "https://auth.openai.com/codex/device", code: "WXYZ-9876" });
   await assert.rejects(backend.start({ offer: { kind: "webrtc", sdp: "o" }, voice: null, extra: "" }), /shared-server: signed out/);
 });
+
+test("icosphere: detail 5 is 10 242 shared unit vertices and 20 480 triangles", async () => {
+  const { icosphere } = await import("../core/sphere-geometry.ts");
+  const m = icosphere(5);
+  assert.equal(m.positions.length / 3, 10_242);
+  assert.equal(m.indices.length / 3, 20_480);
+  for (let i = 0; i < m.positions.length; i += 3) assert.ok(Math.abs(Math.hypot(m.positions[i]!, m.positions[i + 1]!, m.positions[i + 2]!) - 1) < 1e-6);
+  assert.ok(m.indices.every(i => i < 10_242));
+});

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { definePluginApp, useBbNavigate, useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
 import type { LiveSignal, rpcContract } from "./server.ts";
 import { LIVE_CHANNEL } from "./core/live.ts";
+import { Sphere, type SphereLook, type SphereMode } from "./sphere.ts";
 
 const PAGE = "concierge";
 type Rpc = ReturnType<typeof useRpc<typeof rpcContract>>;
@@ -32,6 +33,9 @@ class CallManager {
   private mic: MediaStream | null = null;
   private speaker: HTMLAudioElement | null = null;
   private rpc: Rpc | null = null;
+  /** Loudness meters on the microphone and the concierge's voice, for the sphere. */
+  private audio: AudioContext | null = null;
+  private meters: { mic: Meter | null; remote: Meter | null } = { mic: null, remote: null };
 
   subscribe = (l: () => void) => (this.listeners.add(l), () => void this.listeners.delete(l));
   snapshot = () => this.state;
@@ -50,11 +54,15 @@ class CallManager {
       const pc = new RTCPeerConnection();
       this.pc = pc;
       for (const track of this.mic.getAudioTracks()) pc.addTrack(track, this.mic);
+      this.meters.mic = this.meter(this.mic);
       // The realtime events channel Codex's call expects next to the audio.
       pc.createDataChannel("oai-events");
       this.speaker ??= Object.assign(document.createElement("audio"), { autoplay: true });
       pc.ontrack = e => {
-        if (this.speaker !== null) this.speaker.srcObject = e.streams[0] ?? new MediaStream([e.track]);
+        const stream = e.streams[0] ?? new MediaStream([e.track]);
+        if (this.speaker !== null) this.speaker.srcObject = stream;
+        this.meters.remote?.close();
+        this.meters.remote = this.meter(stream);
       };
       pc.onconnectionstatechange = () => {
         if (pc.connectionState === "failed") void this.stop("The voice connection failed");
@@ -120,12 +128,55 @@ class CallManager {
     }
   }
 
+  /** Current loudness, 0..1, of the microphone (muted reads 0) and of the concierge's voice. */
+  levels = () => ({ mic: this.state.muted ? 0 : (this.meters.mic?.level() ?? 0), remote: this.meters.remote?.level() ?? 0 });
+
+  private meter(stream: MediaStream): Meter | null {
+    try {
+      this.audio ??= new AudioContext();
+      void this.audio.resume();
+      return new Meter(this.audio, stream);
+    } catch {
+      return null; // no Web Audio: the sphere just does not follow the voice
+    }
+  }
+
   private teardown(): void {
+    this.meters.mic?.close();
+    this.meters.remote?.close();
+    this.meters = { mic: null, remote: null };
     this.pc?.close();
     this.pc = null;
     for (const t of this.mic?.getTracks() ?? []) t.stop();
     this.mic = null;
     if (this.speaker !== null) this.speaker.srcObject = null;
+  }
+}
+
+/** An analyser on a stream (not connected to the speakers; the audio element plays it). */
+class Meter {
+  private readonly source: MediaStreamAudioSourceNode;
+  private readonly analyser: AnalyserNode;
+  private readonly samples: Float32Array<ArrayBuffer>;
+
+  constructor(audio: AudioContext, stream: MediaStream) {
+    this.source = audio.createMediaStreamSource(stream);
+    this.analyser = audio.createAnalyser();
+    this.analyser.fftSize = 512;
+    this.samples = new Float32Array(this.analyser.fftSize);
+    this.source.connect(this.analyser);
+  }
+
+  /** RMS of the last few milliseconds, scaled so normal speech reaches about 0.5..1. */
+  level(): number {
+    this.analyser.getFloatTimeDomainData(this.samples);
+    let sum = 0;
+    for (const v of this.samples) sum += v * v;
+    return Math.min(1, Math.sqrt(sum / this.samples.length) * 6);
+  }
+
+  close(): void {
+    this.source.disconnect();
   }
 }
 
@@ -221,7 +272,9 @@ function ConciergePage() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <TalkingSphere />
+
+      <div className="flex flex-wrap items-center justify-center gap-2">
         <button
           className={`rounded-full px-5 py-2 font-medium text-white disabled:opacity-50 ${live ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700"}`}
           disabled={busy || (!live && status?.ready !== true)}
@@ -275,6 +328,50 @@ function ConciergePage() {
           clear
         </button>
       </form>
+    </div>
+  );
+}
+
+const LOOK_LABEL: Record<SphereLook, string> = {
+  idle: "Press Talk to start",
+  connecting: "Connecting…",
+  listening: "Listening",
+  thinking: "Checking bb…",
+  speaking: "Speaking",
+};
+
+function sphereMode(s: CallState): SphereMode {
+  if (s.phase === "connecting") return "connecting";
+  if (s.phase !== "live") return "idle";
+  return s.activity !== null ? "thinking" : "live";
+}
+
+/** The sphere above the controls; it reads the call's state and voice levels itself, every frame. */
+function TalkingSphere() {
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const [look, setLook] = useState<SphereLook>("idle");
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (canvas.current === null) return;
+    let sphere: Sphere;
+    try {
+      sphere = new Sphere(canvas.current, { read: () => ({ mode: sphereMode(calls.snapshot()), levels: calls.levels() }), onLook: setLook });
+    } catch {
+      setFailed(true); // no WebGL2: the page works without the sphere
+      return;
+    }
+    const unsubscribe = calls.subscribe(() => sphere.kick());
+    return () => {
+      unsubscribe();
+      sphere.dispose();
+    };
+  }, []);
+  return (
+    <div className="flex flex-col items-center gap-1">
+      {!failed && <canvas ref={canvas} className="aspect-square h-[min(36vh,300px)]" aria-hidden="true" />}
+      <div className="text-xs text-muted-foreground" aria-live="polite">
+        {LOOK_LABEL[look]}
+      </div>
     </div>
   );
 }
