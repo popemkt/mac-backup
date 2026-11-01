@@ -176,7 +176,10 @@ function ConciergePage() {
   useEffect(() => {
     if (login !== null && call.revision > 0) refreshStatus();
   }, [call.revision]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => bottom.current?.scrollIntoView({ block: "end" }), [lines.length, call.caption?.text]);
+  // A block body: newer browsers return a Promise from scrollIntoView, and React would call it as the cleanup.
+  useEffect(() => {
+    bottom.current?.scrollIntoView({ block: "end" });
+  }, [lines.length, call.caption?.text]);
 
   const busy = call.phase === "connecting" || call.phase === "ending";
   const live = call.phase === "live";

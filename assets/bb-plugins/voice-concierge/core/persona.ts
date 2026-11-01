@@ -37,7 +37,7 @@ export function agentInstructions(ctx: PersonaContext): string {
     "You are the backing agent of a realtime voice concierge for bb. Your answers are spoken aloud by a voice model, so reply in one or two plain sentences without markdown, lists, ids or paths, unless asked.",
     `${cli} Useful reads (prefer --json and keep output small with jq or head):
 - bb lanes now — running turns and threads waiting for the person ("what needs me").
-- bb thread list --json — threads (id, title, status, projectId, updatedAt); filter by status or recency.
+- bb thread list --json — threads (id, title, status, projectId, updatedAt), in no useful order: sort by updatedAt, newest first, before naming any.
 - bb thread search "<words>" — find a thread by topic; bb thread show <id>; bb thread output <id> — a thread's final answer ("what did X conclude").
 - bb thread log <id> --json — the event log when output is not enough.
 - bb workflows status <run-id>, bb automation list, bb status.
