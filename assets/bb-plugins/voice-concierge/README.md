@@ -33,7 +33,10 @@ agent (default: the Personal project's).
 ## The sphere
 `sphere.ts` draws an analytic sphere with one full-screen WebGL2 draw per frame; `core/sphere-styles.ts` holds the
 art styles, each one GLSL `body` function inside a shared frame (breath, voice swell, rim, halo, grain). Setting
-`sphereStyle`, or the switcher under the sphere.
+`sphereStyle`, or the switcher under the sphere. With `orbAutoMinimize` (on by default) the page docks the sphere
+small during a call, at once when the conversation already has content and otherwise after a few seconds
+(`core/orb.ts`), and makes it large again when the call ends; a tap on it or the Minimize/Expand toggle sets the size
+by hand until the call's phase changes, and a resting mouse opens it up. Docked, it still animates and follows voice.
 
 bb's account-pool routing is stripped from the app-server's environment: the pool hub has no realtime route.
 
@@ -51,6 +54,7 @@ kind for push-to-talk audio.
 | `core/concierge-thread.ts` | The concierge's own bb thread: create it, ask it and wait for the reply. |
 | `core/relay-tool.ts` | The `ask_concierge` dynamic tool and its answer. |
 | `core/sphere-styles.ts`, `sphere.ts` | The sphere's art styles (GLSL) and its WebGL renderer. |
+| `core/orb.ts` | When the page docks the sphere small. |
 | `core/hosts.ts` | Which machine runs the backend, from bb's host list. Pure. |
 | `core/persona.ts` | The concierge's rules and prompts, shared by every backend. Pure. |
 | `core/codex-events.ts`, `core/transcript.ts`, `core/jsonrpc.ts` | Notification mapping, the bounded transcript, the app-server JSON-RPC peer. |

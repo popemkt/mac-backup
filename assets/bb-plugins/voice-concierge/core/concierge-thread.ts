@@ -23,6 +23,11 @@ export interface ConciergeThreadDeps {
 const BUSY = new Set(["pending", "starting", "active", "stopping"]);
 const POLL_MS = 300;
 
+/** Whether a thread's last answer is still the reply to its brief: nothing has been said in it yet. */
+export function isFresh(output: string | null): boolean {
+  return output === null || /^ready\.?$/i.test(output.trim());
+}
+
 /** Marks a relayed request so the thread answers it for speech (see THREAD_BRIEF). */
 export const VOICE_PREFIX = "[voice] ";
 

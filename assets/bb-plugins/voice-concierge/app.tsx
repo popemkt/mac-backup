@@ -1,10 +1,11 @@
 // bb-plugin-voice-concierge — the frontend. The call itself (microphone, WebRTC peer, speaker) lives in a module-level
 // CallManager so it survives moving around bb; the "Voice concierge" page starts and ends calls and shows the
 // conversation, and an app overlay keeps a small live pill (mute, hang up) on every page while a call is up.
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type PointerEvent } from "react";
 import { definePluginApp, ThreadChat, useBbNavigate, useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
 import type { LiveSignal, rpcContract } from "./server.ts";
 import { LIVE_CHANNEL, STYLE_CHANNEL, THREAD_CHANNEL } from "./core/live.ts";
+import { DOCK_AFTER_MS, orbMinimized } from "./core/orb.ts";
 import { isSphereStyle, SPHERE_STYLES, STYLE_LABELS, type SphereStyle } from "./core/sphere-styles.ts";
 import { Sphere, type SphereLook, type SphereMode } from "./sphere.ts";
 
@@ -220,20 +221,29 @@ function ConciergePage() {
   const [statusError, setStatusError] = useState<string | null>(null);
   const [login, setLogin] = useState<{ url: string; code: string } | null>(null);
   const [threadId, setThreadId] = useState<string | null | undefined>(undefined);
+  const [hasContent, setHasContent] = useState(false);
   const [renewing, setRenewing] = useState(false);
+  const refreshThread = useCallback(() => {
+    rpc.call("thread").then(
+      r => (setThreadId(r.threadId), setHasContent(!r.fresh)),
+      () => setThreadId(null),
+    );
+  }, [rpc]);
   useRealtime(THREAD_CHANNEL, payload => {
     const id = (payload as { threadId?: unknown }).threadId;
     if (typeof id === "string") setThreadId(id);
+    refreshThread();
   });
 
   const refreshStatus = useCallback(() => {
     setStatusError(null);
     rpc.call("status").then(setStatus, e => setStatusError(message(e)));
-    rpc.call("thread").then(r => setThreadId(r.threadId), () => setThreadId(null));
-  }, [rpc]);
+    refreshThread();
+  }, [rpc, refreshThread]);
   useEffect(refreshStatus, [refreshStatus]);
   useEffect(() => {
     if (login !== null && call.revision > 0) refreshStatus();
+    else if (call.revision > 0 && !hasContent) refreshThread(); // a spoken line may have reached the thread
   }, [call.revision]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const busy = call.phase === "connecting" || call.phase === "ending";
@@ -276,7 +286,7 @@ function ConciergePage() {
         </div>
       )}
 
-      <TalkingSphere />
+      <TalkingSphere hasContent={hasContent} />
 
       <div className="flex flex-wrap items-center justify-center gap-2">
         <button
@@ -314,7 +324,7 @@ function ConciergePage() {
             onClick={() => {
               setRenewing(true);
               rpc.call("newThread").then(
-                r => (setThreadId(r.threadId), setRenewing(false)),
+                r => (setThreadId(r.threadId), setHasContent(false), setRenewing(false)),
                 e => (setStatusError(message(e)), setRenewing(false)),
               );
             }}
@@ -350,21 +360,66 @@ function sphereMode(s: CallState): SphereMode {
   return s.activity !== null ? "thinking" : "live";
 }
 
-/** The sphere above the controls; it reads the call's state and voice levels itself, every frame. */
-function TalkingSphere() {
+const ORB_LARGE = "min(36vh, 300px)";
+const ORB_DOCKED = "56px";
+const ORB_EASE = "cubic-bezier(0.22, 0.8, 0.25, 1)";
+
+/**
+ * The sphere above the controls; it reads the call's state and voice levels itself, every frame. With auto-minimize
+ * (core/orb.ts) it docks small during a call so more of the conversation shows, still animated and still reacting
+ * to voice; a tap or the toggle switches size by hand, and a resting mouse opens it up.
+ */
+function TalkingSphere({ hasContent }: { hasContent: boolean }) {
   const rpc = useRpc<typeof rpcContract>();
+  const { phase } = useCall();
   const canvas = useRef<HTMLCanvasElement>(null);
   const sphere = useRef<{ sphere: Sphere; unsubscribe: () => void } | null>(null);
   const [look, setLook] = useState<SphereLook>("idle");
   const [failed, setFailed] = useState(false);
   const [style, setStyle] = useState<SphereStyle | null>(null);
+  const [auto, setAuto] = useState(true);
+  const [settled, setSettled] = useState(false);
+  const [override, setOverride] = useState<boolean | null>(null);
+  const [hovered, setHovered] = useState(false);
+  const hoverTimer = useRef(0);
+  const reduced = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
   useEffect(() => {
-    rpc.call("style").then(r => setStyle(isSphereStyle(r.style) ? r.style : "jelly"), () => setStyle("jelly"));
+    rpc.call("style").then(
+      r => (setStyle(isSphereStyle(r.style) ? r.style : "jelly"), setAuto(r.autoMinimize)),
+      () => setStyle("jelly"),
+    );
   }, [rpc]);
   useRealtime(STYLE_CHANNEL, payload => {
-    const next = (payload as { style?: string }).style ?? "";
-    if (isSphereStyle(next)) setStyle(next);
+    const p = payload as { style?: string; autoMinimize?: unknown };
+    if (isSphereStyle(p.style ?? "")) setStyle(p.style as SphereStyle);
+    if (typeof p.autoMinimize === "boolean") setAuto(p.autoMinimize);
   });
+  // A change of call phase hands the size back to the rule; a live call settles after a few seconds.
+  useEffect(() => {
+    setOverride(null);
+    setSettled(false);
+    if (phase !== "live") return;
+    const t = setTimeout(() => setSettled(true), DOCK_AFTER_MS);
+    return () => clearTimeout(t);
+  }, [phase]);
+  useEffect(() => () => clearTimeout(hoverTimer.current), []);
+  const docked = orbMinimized({ auto, phase, hasContent, settled, override, hovered: false });
+  const small = !failed && orbMinimized({ auto, phase, hasContent, settled, override, hovered });
+  const toggle = () => {
+    clearTimeout(hoverTimer.current);
+    setHovered(false);
+    setOverride(!docked);
+  };
+  const onEnter = (e: PointerEvent) => {
+    if (e.pointerType !== "mouse" || !docked) return;
+    clearTimeout(hoverTimer.current);
+    hoverTimer.current = window.setTimeout(() => setHovered(true), 250);
+  };
+  const onLeave = () => {
+    clearTimeout(hoverTimer.current);
+    setHovered(false);
+  };
+  const motion = (props: string) => (reduced ? "none" : props.split(",").map(p => `${p.trim()} 480ms ${ORB_EASE}`).join(", "));
   useEffect(() => {
     if (canvas.current === null || style === null) return;
     if (sphere.current !== null) {
@@ -393,24 +448,50 @@ function TalkingSphere() {
     rpc.call("setStyle", { style: next }).catch(() => {});
   };
   return (
-    <div className="flex flex-col items-center gap-1">
-      {!failed && <canvas ref={canvas} className="aspect-square h-[min(36vh,300px)]" aria-hidden="true" />}
+    <div className="relative flex flex-col items-center gap-1" onPointerEnter={onEnter} onPointerLeave={onLeave}>
+      {!failed && (
+        <button
+          type="button"
+          className="absolute right-0 top-0 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted/50"
+          aria-pressed={docked}
+          title={docked ? "Show the sphere large" : "Dock the sphere small"}
+          onClick={toggle}
+        >
+          {docked ? "Expand" : "Minimize"}
+        </button>
+      )}
+      {!failed && (
+        <canvas
+          ref={canvas}
+          className="aspect-square cursor-pointer"
+          style={{ height: small ? ORB_DOCKED : ORB_LARGE, transition: motion("height") }}
+          aria-hidden="true"
+          onClick={toggle}
+        />
+      )}
       <div className="text-xs text-muted-foreground" aria-live="polite">
         {LOOK_LABEL[look]}
       </div>
       {!failed && SPHERE_STYLES.length > 1 && (
-        <div className="flex gap-1 text-[11px]" role="radiogroup" aria-label="Sphere style">
-          {SPHERE_STYLES.map(s => (
-            <button
-              key={s}
-              role="radio"
-              aria-checked={s === style}
-              className={`rounded-full px-2 py-0.5 ${s === style ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50"}`}
-              onClick={() => pick(s)}
-            >
-              {STYLE_LABELS[s]}
-            </button>
-          ))}
+        <div
+          className="grid"
+          style={{ gridTemplateRows: small ? "0fr" : "1fr", opacity: small ? 0 : 1, transition: motion("grid-template-rows, opacity") }}
+          aria-hidden={small}
+        >
+          <div className="flex min-h-0 gap-1 overflow-hidden text-[11px]" role="radiogroup" aria-label="Sphere style">
+            {SPHERE_STYLES.map(s => (
+              <button
+                key={s}
+                role="radio"
+                aria-checked={s === style}
+                tabIndex={small ? -1 : undefined}
+                className={`rounded-full px-2 py-0.5 ${s === style ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50"}`}
+                onClick={() => pick(s)}
+              >
+                {STYLE_LABELS[s]}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>

@@ -7,7 +7,7 @@ import { z } from "zod";
 import { codexHomeMode, hostContract, hostSignals, type VoiceEvent } from "./contract.ts";
 import type { BackendStatus, VoiceBackend } from "./core/backend.ts";
 import { CodexBackend } from "./core/codex.ts";
-import { ConciergeThread } from "./core/concierge-thread.ts";
+import { ConciergeThread, isFresh } from "./core/concierge-thread.ts";
 import type { Machine } from "./core/hosts.ts";
 import { LIVE_CHANNEL, STYLE_CHANNEL, THREAD_CHANNEL } from "./core/live.ts";
 import { isSphereStyle, SPHERE_STYLES, STYLE_LABELS, type SphereStyle } from "./core/sphere-styles.ts";
@@ -37,10 +37,11 @@ export const rpcContract = defineRpcContract({
   transcript: { input: z.object({ limit: z.number().int().min(1).max(500).optional() }), output: z.object({ lines: z.array(line) }) },
   clearTranscript: { input: z.null(), output: z.object({ ok: z.boolean() }) },
   /** The sphere's art style (the plugin setting); setStyle is the page's quick switcher. */
-  style: { input: z.null(), output: z.object({ style: z.string() }) },
+  style: { input: z.null(), output: z.object({ style: z.string(), autoMinimize: z.boolean() }) },
   setStyle: { input: z.object({ style: z.string() }), output: z.object({ style: z.string() }) },
   /** The concierge's own bb thread, if it has one. */
-  thread: { input: z.null(), output: z.object({ threadId: z.string().nullable() }) },
+  /** fresh: nothing said in it yet (the page keeps the orb large). */
+  thread: { input: z.null(), output: z.object({ threadId: z.string().nullable(), fresh: z.boolean() }) },
   /** Start a new conversation in a new thread; the old one stays as a normal (unpinned) thread. */
   newThread: { input: z.null(), output: z.object({ threadId: z.string() }) },
 });
@@ -83,6 +84,11 @@ export default async function plugin(bb: BbPluginApi) {
       experimental_optionLabels: STYLE_LABELS,
       default: "jelly",
     },
+    orbAutoMinimize: {
+      type: "boolean",
+      label: "Auto-minimize the orb: dock it small during a call so more of the conversation shows",
+      default: true,
+    },
     threadMode: {
       type: "select",
       label: "Conversation",
@@ -103,7 +109,9 @@ export default async function plugin(bb: BbPluginApi) {
 
   const styleOf = (s: string): SphereStyle => (isSphereStyle(s) ? s : "jelly");
   settings.onChange((next, prev) => {
-    if (next.sphereStyle !== prev.sphereStyle) bb.realtime.publish(STYLE_CHANNEL, { style: styleOf(next.sphereStyle) });
+    if (next.sphereStyle !== prev.sphereStyle || next.orbAutoMinimize !== prev.orbAutoMinimize) {
+      bb.realtime.publish(STYLE_CHANNEL, { style: styleOf(next.sphereStyle), autoMinimize: next.orbAutoMinimize });
+    }
   });
 
   const host = bb.hosts.experimental_client({ contract: hostContract, experimental_signals: hostSignals });
@@ -258,9 +266,16 @@ export default async function plugin(bb: BbPluginApi) {
       await bb.storage.kv.delete(TRANSCRIPT_KEY);
       return { ok: true };
     },
-    thread: async () => ({ threadId: await conciergeThread() }),
+    thread: async () => {
+      const threadId = await conciergeThread();
+      const fresh = threadId === null || isFresh((await bb.sdk.threads.output({ threadId }).catch(() => ({ output: null }))).output);
+      return { threadId, fresh };
+    },
     newThread: async () => ({ threadId: await newConciergeThread() }),
-    style: async () => ({ style: styleOf((await settings.get()).sphereStyle) }),
+    style: async () => {
+      const s = await settings.get();
+      return { style: styleOf(s.sphereStyle), autoMinimize: s.orbAutoMinimize };
+    },
     setStyle: async ({ style }) => {
       if (!isSphereStyle(style)) throw new Error(`Unknown sphere style ${style}`);
       await settings.experimental_set({ sphereStyle: style });

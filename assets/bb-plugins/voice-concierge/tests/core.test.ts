@@ -239,3 +239,21 @@ test("ConciergeThread.renew: a new thread becomes current and the previous is re
   assert.deepEqual(await thread.renew("proj_personal", "host_1"), { threadId: "thr_new", previous: "thr_old" });
   assert.equal(await thread.current(), "thr_new");
 });
+
+test("orb: docks during a call once there is content or after a few seconds; hover, the toggle and hanging up open it", async () => {
+  const { orbMinimized } = await import("../core/orb.ts");
+  const { isFresh } = await import("../core/concierge-thread.ts");
+  const base = { auto: true, phase: "live" as const, hasContent: false, settled: false, override: null, hovered: false };
+  assert.equal(orbMinimized(base), false);
+  assert.equal(orbMinimized({ ...base, settled: true }), true);
+  assert.equal(orbMinimized({ ...base, hasContent: true }), true);
+  assert.equal(orbMinimized({ ...base, phase: "connecting", hasContent: true }), true);
+  assert.equal(orbMinimized({ ...base, phase: "idle", hasContent: true, settled: true }), false);
+  assert.equal(orbMinimized({ ...base, settled: true, hovered: true }), false);
+  assert.equal(orbMinimized({ ...base, settled: true, override: false }), false);
+  assert.equal(orbMinimized({ ...base, phase: "idle", override: true }), true);
+  assert.equal(orbMinimized({ ...base, auto: false, settled: true, hasContent: true }), false);
+  assert.equal(isFresh(null), true);
+  assert.equal(isFresh(" Ready. "), true);
+  assert.equal(isFresh("You have three threads running."), false);
+});

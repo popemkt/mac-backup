@@ -16,6 +16,8 @@ conversation of its own.
   never appears in your work threads.
 - A sphere above the controls shows the call: a softly breathing, perfectly round orb while silent, that swells and
   brightens with your voice and with the concierge's, and turns its inner light while the concierge is checking bb.
+  During a call it docks small (still alive) so more of the conversation shows, and grows back when you hang up,
+  tap it, or rest the mouse on it; the auto-minimize setting turns that off.
 - The concierge writes into another thread only when you explicitly ask. It first says which thread and what it
   will send, and waits for your yes. It never reads secrets aloud.
 - `bb voice-concierge status | login | logout | transcript | thread | ask` from a terminal or an agent.
