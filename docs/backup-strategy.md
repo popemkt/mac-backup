@@ -276,6 +276,20 @@ from the package, so nothing in the directory is configuration. Copy it with
 `app-axioms-db` stopped (or from a SpacetimeDB snapshot), never mid-write.
 <!-- GAP [[01M692TZSTZ7HPR8V4SS77546Q]]: shared-server's axioms state has no backup. -->
 
+## Marginalia Library
+
+<!-- GAP [[01M66FVYBMPZV44NS7CTC00ST4]]: marginalia-bytetum's data directory has no backup. -->
+Marginalia ([marginalia-service.md](marginalia-service.md)) keeps a person's
+saved articles, highlights and syntheses in its data directory
+(`~/.local/share/marginalia-nix/data` on shared-server: an embedded SurrealDB
+`db/` and a content-addressed `blobs/`).
+
+Decision: **state, and a regular backup concern.** Never committed. Its own
+backup is the app's: `GET /export` is the whole library as one JSON snapshot
+that does not depend on the database engine, and the blobs are immutable, so
+a copy of `blobs/` is complete (the app's README → Backup & restore). Copying
+the live `db/` is not a backup, since one process holds it.
+
 ## Canvas Links Log
 
 `canvas-link` (`modules/stacks/ai-agents/canvas-links/`) records which tldraw

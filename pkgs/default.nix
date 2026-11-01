@@ -45,6 +45,8 @@ in
     inherit sources;
   };
 
+  marginalia = pkgs.callPackage ./marginalia { };
+
   vite-plus = pkgs.callPackage ./vite-plus {
     inherit sources;
   };

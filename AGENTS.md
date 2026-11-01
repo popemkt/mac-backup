@@ -202,6 +202,7 @@ Rules for agents:
 | Add host-only config | `hosts/<hostname>/default.nix` |
 | Add a work/personal split | `lib.mkIf (config.my.role == "work") { ... }` in the owning system module |
 | Add a direct GitHub release package | `nvfetcher.toml` and `pkgs/`; see `docs/github-release-packages.md` |
+| Move the Marginalia release this repo runs | `version` and `hash` in `pkgs/marginalia/default.nix`, by hand (no nvfetcher entry); see [docs/marginalia-service.md](docs/marginalia-service.md) |
 | Change kb, or the kb version this repo runs | kb's code in [popemkt/kb](https://github.com/popemkt/kb); the version is its release pin, moved with `nix run .#github-sources -- update kb` |
 | Add a durable repo todo, note, rule or gap | a node in `.kb/nodes.jsonl` through `kb` (see [kb](#kb--repo-knowledge-base)) |
 | Run a native server app on a NixOS host (and expose it) | `my.services.<app>` in `hosts/<hostname>/default.nix` (schema `modules/options/services.nix`); exposed apps become `svc:<app>-<owner>`, which still need a grant and auto-approver in `configs/tailscale/policy.hujson` |
