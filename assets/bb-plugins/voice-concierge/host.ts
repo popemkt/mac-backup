@@ -11,6 +11,7 @@ import { experimental_defineHostEntry } from "@get-bb/plugin-sdk/host";
 import { hostContract, hostSignals, type CodexHomeMode, type ProbeResult, type VoiceEvent } from "./contract.ts";
 import { JsonRpcPeer } from "./core/jsonrpc.ts";
 import { activityFromItem, transcriptRole } from "./core/codex-events.ts";
+import { answerToolCall, ASK_TOOL_SPEC } from "./core/relay-tool.ts";
 
 /** Where macOS installs keep the Codex CLI when it is not on PATH. */
 const CODEX_FALLBACKS = [
@@ -21,6 +22,18 @@ const CODEX_FALLBACKS = [
 /** bb's account-pool routing points Codex at a hub without realtime calls; the concierge talks to OpenAI directly. */
 const STRIPPED_ENV = ["CODEX_OPENAI_BASE_URL", "CODEX_POOL_AUTH_TOKEN", "CODEX_HOME"];
 const SDP_TIMEOUT_MS = 45_000;
+const ASK_TIMEOUT_MS = 150_000;
+
+/** Ask the concierge's bb thread through the bb CLI on this machine and return its reply. */
+async function askConcierge(request: string): Promise<string> {
+  const bb = await which("bb");
+  if (bb === null) throw new Error("no bb CLI on this machine");
+  return new Promise((resolve, reject) => {
+    execFile(bb, ["voice-concierge", "ask", request], { timeout: ASK_TIMEOUT_MS, maxBuffer: 1 << 20 }, (err, stdout, stderr) =>
+      err === null ? resolve(stdout) : reject(new Error(stderr.trim() || err.message)),
+    );
+  });
+}
 
 type Emit = (threadId: string | null, event: VoiceEvent) => void;
 type Lease = { dispose(): void };
@@ -64,7 +77,9 @@ class AppServer {
     this.child.stderr.resume();
     this.rpc = new JsonRpcPeer(this.child.stdout, this.child.stdin, {
       notification: (method, params) => this.onNotification(method, params as Record<string, unknown>),
-      request: method => {
+      request: (method, params) => {
+        // The relay's one tool: answered when the concierge's bb thread replies, however long that takes.
+        if (method === "item/tool/call") return answerToolCall(params, askConcierge);
         // The concierge runs with approvals off; anything else asking is declined rather than left hanging.
         if (method.endsWith("requestApproval")) return { decision: "decline" };
         throw new Error(`voice-concierge does not answer ${method}`);
@@ -237,7 +252,9 @@ export default experimental_defineHostEntry({
         approvalPolicy: "never",
         developerInstructions: input.agentInstructions,
       };
-      let threadId = input.threadId;
+      // Relaying, the backing thread is a fresh, ephemeral one per call with the one tool: the conversation lives in
+      // the concierge's bb thread.
+      let threadId = input.relay ? null : input.threadId;
       if (threadId !== null) {
         try {
           await s.rpc.request("thread/resume", { threadId, ...threadOptions });
@@ -246,9 +263,12 @@ export default experimental_defineHostEntry({
         }
       }
       if (threadId === null) {
-        const r = await s.rpc.request<{ thread: { id: string } }>("thread/start", { ...threadOptions, ephemeral: false });
+        const r = await s.rpc.request<{ thread: { id: string } }>(
+          "thread/start",
+          input.relay ? { ...threadOptions, ephemeral: true, dynamicTools: [ASK_TOOL_SPEC] } : { ...threadOptions, ephemeral: false },
+        );
         threadId = r.thread.id;
-        await s.rpc.request("thread/name/set", { threadId, name: "Voice concierge" }).catch(() => {});
+        if (!input.relay) await s.rpc.request("thread/name/set", { threadId, name: "Voice concierge" }).catch(() => {});
       }
       if (s.live.has(threadId)) s.release(threadId, "replaced by a new call");
       const answer = s.waitForSdp(threadId);

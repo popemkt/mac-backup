@@ -12,7 +12,16 @@ export interface CodexHostApi {
   logout(hostId: string, input: { codexHome: CodexHomeMode }): Promise<unknown>;
   start(
     hostId: string,
-    input: { codexHome: CodexHomeMode; threadId: string | null; sdp: string; voice: string | null; version: "v1" | "v3"; voicePrompt: string; agentInstructions: string },
+    input: {
+      codexHome: CodexHomeMode;
+      threadId: string | null;
+      sdp: string;
+      voice: string | null;
+      version: "v1" | "v3";
+      voicePrompt: string;
+      agentInstructions: string;
+      relay: boolean;
+    },
   ): Promise<{ threadId: string; sdp: string }>;
   sendText(hostId: string, input: { threadId: string; text: string }): Promise<unknown>;
   stop(hostId: string, input: { threadId: string }): Promise<unknown>;
@@ -114,18 +123,19 @@ export class CodexBackend implements VoiceBackend {
     const s = await this.deps.settings();
     const p = await this.resolve();
     if (p === null || !ready(p.result)) throw new Error(p === null ? "No bb machine for the voice concierge" : `${p.machine.name}: ${p.result.message}`);
-    const ctx = { machine: p.machine.name, hasBbCli: p.result.bbPath !== null, extra: options.extra.trim() };
+    const ctx = { machine: p.machine.name, hasBbCli: p.result.bbPath !== null, extra: options.extra.trim(), relay: options.relay };
     const key = `${p.machine.id}|${s.codexHome}`;
     const r = await this.deps.host.start(p.machine.id, {
       codexHome: s.codexHome,
-      threadId: await this.deps.threads.get(key),
+      threadId: options.relay ? null : await this.deps.threads.get(key),
       sdp: options.offer.sdp,
       voice: options.voice,
       version: s.version,
       voicePrompt: voicePrompt(ctx),
       agentInstructions: agentInstructions(ctx),
+      relay: options.relay,
     });
-    await this.deps.threads.set(key, r.threadId);
+    if (!options.relay) await this.deps.threads.set(key, r.threadId);
     this.live.set(r.threadId, p.machine.id);
     return { conversationId: r.threadId, answer: { kind: "webrtc", sdp: r.sdp } };
   }

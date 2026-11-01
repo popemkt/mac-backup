@@ -37,6 +37,8 @@ export interface StartOptions {
   voice: string | null;
   /** The person's extra instructions (plugin setting), appended to the persona. */
   extra: string;
+  /** Relay to the concierge's own bb thread instead of working directly (core/concierge-thread.ts). */
+  relay: boolean;
 }
 
 export interface VoiceSession {

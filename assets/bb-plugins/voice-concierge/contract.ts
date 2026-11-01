@@ -36,6 +36,8 @@ export const hostContract = defineRpcContract({
       version: z.enum(["v1", "v3"]),
       voicePrompt: z.string(),
       agentInstructions: z.string(),
+      /** Relay to the concierge's bb thread: a fresh ephemeral backing thread with the ask_concierge tool. */
+      relay: z.boolean(),
     }),
     output: z.object({ threadId: z.string(), sdp: z.string() }),
   },

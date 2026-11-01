@@ -6,7 +6,8 @@ import { activityFromItem, transcriptRole } from "../core/codex-events.ts";
 import { CodexBackend, type CodexHostApi } from "../core/codex.ts";
 import { candidates, pick, type Machine } from "../core/hosts.ts";
 import { JsonRpcPeer } from "../core/jsonrpc.ts";
-import { agentInstructions, voicePrompt } from "../core/persona.ts";
+import { ConciergeThread, VOICE_PREFIX } from "../core/concierge-thread.ts";
+import { agentInstructions, THREAD_BRIEF, voicePrompt } from "../core/persona.ts";
 import { appendLine } from "../core/transcript.ts";
 
 const server: Machine = { id: "h1", name: "shared-server", connected: true, isServer: true };
@@ -56,8 +57,8 @@ test("appendLine merges an immediate exact repeat and stays bounded", () => {
 });
 
 test("persona carries the rules to both prompts", () => {
-  const ctx = { machine: "shared-server", hasBbCli: true, extra: "Call me Hoang." };
-  for (const text of [voicePrompt(ctx), agentInstructions(ctx)]) {
+  const ctx = { machine: "shared-server", hasBbCli: true, extra: "Call me Hoang.", relay: false };
+  for (const text of [voicePrompt(ctx), agentInstructions(ctx), agentInstructions({ ...ctx, relay: true })]) {
     assert.match(text, /Never copy it, summarise it, or mention it in any other bb thread/);
     assert.match(text, /wait for a clear yes/);
     assert.match(text, /Never read secrets aloud/);
@@ -65,6 +66,42 @@ test("persona carries the rules to both prompts", () => {
   }
   assert.match(agentInstructions(ctx), /bb lanes now/);
   assert.match(agentInstructions({ ...ctx, hasBbCli: false }), /No `bb` CLI was found/);
+  // Relaying, the backing agent only asks the concierge's thread, which carries the rules itself.
+  assert.match(agentInstructions({ ...ctx, relay: true }), /ask_concierge/);
+  assert.doesNotMatch(agentInstructions({ ...ctx, relay: true }), /bb lanes now/);
+  for (const re of [/\[voice\]/, /bb lanes now/, /wait for a clear yes/, /Never read secrets aloud/, /\(confirmed\)/]) assert.match(THREAD_BRIEF, re);
+});
+
+function fakeThreads(script: { statuses: (string | null)[]; outputs: (string | null)[] }) {
+  const sent: string[] = [];
+  let t = 0;
+  const api = {
+    status: async () => (script.statuses.length > 1 ? script.statuses.shift()! : script.statuses[0]!),
+    spawn: async () => "thr_new",
+    send: async (_: string, text: string) => void sent.push(text),
+    output: async () => (script.outputs.length > 1 ? script.outputs.shift()! : script.outputs[0]!),
+  };
+  const deps = { threads: api, store: { get: async () => "thr_c", set: async () => {} }, sleep: async (ms: number) => void (t += ms), now: () => t };
+  return { deps, sent };
+}
+
+test("ConciergeThread.ask waits for a running turn, sends, and returns the new turn's output", async () => {
+  // current() reads idle; settle sees active then idle; after send: starting, active, idle.
+  const { deps, sent } = fakeThreads({ statuses: ["idle", "active", "idle", "starting", "active", "idle"], outputs: ["Two threads are running."] });
+  const reply = await new ConciergeThread(deps).ask("what is running?");
+  assert.equal(reply, "Two threads are running.");
+  assert.deepEqual(sent, [`${VOICE_PREFIX}what is running?`]);
+});
+
+test("ConciergeThread: no thread, archived thread, failed turn", async () => {
+  const none = new ConciergeThread({ ...fakeThreads({ statuses: ["idle"], outputs: [null] }).deps, store: { get: async () => null, set: async () => {} } });
+  await assert.rejects(none.ask("hi"), /no thread yet/);
+  await assert.rejects(none.ensure(null, null), /No project/);
+  const archived = fakeThreads({ statuses: [null], outputs: [null] });
+  assert.equal(await new ConciergeThread(archived.deps).current(), null);
+  assert.equal(await new ConciergeThread(archived.deps).ensure("proj_1", "host_1"), "thr_new");
+  const failing = fakeThreads({ statuses: ["idle", "idle", "active", "error"], outputs: [null] });
+  await assert.rejects(new ConciergeThread(failing.deps).ask("hi"), /failed/);
 });
 
 test("JsonRpcPeer: requests, notifications, server requests, failure", async () => {
@@ -126,7 +163,7 @@ test("CodexBackend: picks a signed-in machine, continues the stored thread, rout
   assert.equal(s.where, "popemkt-work");
   assert.equal(s.account, "me@x (plus)");
 
-  const first = await backend.start({ offer: { kind: "webrtc", sdp: "offer" }, voice: null, extra: "" });
+  const first = await backend.start({ offer: { kind: "webrtc", sdp: "offer" }, voice: null, extra: "", relay: false });
   assert.equal(first.conversationId, "thr-new");
   assert.equal(first.answer.sdp, "answer-sdp");
   assert.equal(store.get("h2|dedicated"), "thr-new");
@@ -141,7 +178,7 @@ test("CodexBackend: picks a signed-in machine, continues the stored thread, rout
   await assert.rejects(backend.sendText("thr-new", "again"), /not live/);
 
   // The next call continues the same concierge thread.
-  await backend.start({ offer: { kind: "webrtc", sdp: "offer2" }, voice: "marin", extra: "" });
+  await backend.start({ offer: { kind: "webrtc", sdp: "offer2" }, voice: "marin", extra: "", relay: false });
   const second = calls.filter(c => c[0] === "start").at(-1)![2] as { threadId: string | null; voice: string | null };
   assert.equal(second.threadId, "thr-new");
   assert.equal(second.voice, "marin");
@@ -167,14 +204,30 @@ test("CodexBackend: signed out everywhere offers sign-in where Codex exists, and
   assert.equal(s.needsLogin, true);
   assert.equal(s.where, "shared-server");
   assert.deepEqual(await backend.login(), { url: "https://auth.openai.com/codex/device", code: "WXYZ-9876" });
-  await assert.rejects(backend.start({ offer: { kind: "webrtc", sdp: "o" }, voice: null, extra: "" }), /shared-server: signed out/);
+  await assert.rejects(backend.start({ offer: { kind: "webrtc", sdp: "o" }, voice: null, extra: "", relay: false }), /shared-server: signed out/);
 });
 
-test("icosphere: detail 5 is 10 242 shared unit vertices and 20 480 triangles", async () => {
-  const { icosphere } = await import("../core/sphere-geometry.ts");
-  const m = icosphere(5);
-  assert.equal(m.positions.length / 3, 10_242);
-  assert.equal(m.indices.length / 3, 20_480);
-  for (let i = 0; i < m.positions.length; i += 3) assert.ok(Math.abs(Math.hypot(m.positions[i]!, m.positions[i + 1]!, m.positions[i + 2]!) - 1) < 1e-6);
-  assert.ok(m.indices.every(i => i < 10_242));
+test("relay tool: answers with the thread's reply, refuses unknown tools and empty requests", async () => {
+  const { answerToolCall, ASK_TOOL } = await import("../core/relay-tool.ts");
+  const asked: string[] = [];
+  const ask = async (r: string) => (asked.push(r), "Nothing needs you.");
+  assert.deepEqual(await answerToolCall({ tool: ASK_TOOL, arguments: { request: " what needs me? " } }, ask), { contentItems: [{ type: "inputText", text: "Nothing needs you." }], success: true });
+  assert.deepEqual(asked, ["what needs me?"]);
+  assert.equal((await answerToolCall({ tool: ASK_TOOL, arguments: JSON.stringify({ request: "hi" }) }, ask)).success, true);
+  assert.equal((await answerToolCall({ tool: "other", arguments: {} }, ask)).success, false);
+  assert.equal((await answerToolCall({ tool: ASK_TOOL, arguments: {} }, ask)).success, false);
+  const empty = await answerToolCall({ tool: ASK_TOOL, arguments: { request: "x" } }, async () => "  ");
+  assert.equal(empty.success, false);
+  const failed = await answerToolCall({ tool: ASK_TOOL, arguments: { request: "x" } }, async () => { throw new Error("busy"); });
+  assert.match(failed.contentItems[0]!.text, /could not answer: busy/);
+});
+
+test("sphere styles: every style compiles into one frame with a body and a halo", async () => {
+  const { SPHERE_STYLES, STYLE_LABELS, fragmentSource } = await import("../core/sphere-styles.ts");
+  for (const style of SPHERE_STYLES) {
+    const src = fragmentSource(style);
+    assert.match(src, /vec3 body\(Ctx c\)/);
+    assert.match(src, /vec3 haloColor\(Ctx c\)/);
+    assert.ok(STYLE_LABELS[style].length > 0);
+  }
 });

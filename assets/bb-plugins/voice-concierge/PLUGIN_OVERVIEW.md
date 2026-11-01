@@ -11,11 +11,14 @@ conversation of its own.
   CLI. The answer is spoken back in a sentence or two, and the live caption and the agent's current command show
   on the page.
 - While a call is up, a small pill on every bb page shows that the concierge is listening, with Mute and End.
-- The conversation is kept in the plugin's own transcript (on the page, and `bb voice-concierge transcript`)
-  and in the concierge's own Codex thread. It never appears in your work threads.
+- The conversation is the concierge's own bb thread, pinned as "Voice concierge" in your Personal project and shown
+  below the sphere on the page. Type there, or anywhere bb shows it, to continue the same conversation by text. It
+  never appears in your work threads.
+- A sphere above the controls shows the call: a softly breathing, perfectly round orb while silent, that swells and
+  brightens with your voice and with the concierge's, and turns its inner light while the concierge is checking bb.
 - The concierge writes into another thread only when you explicitly ask. It first says which thread and what it
   will send, and waits for your yes. It never reads secrets aloud.
-- `bb voice-concierge status | login | logout | transcript` from a terminal or an agent.
+- `bb voice-concierge status | login | logout | transcript | thread | ask` from a terminal or an agent.
 
 ## What you need
 A ChatGPT plan with Codex voice (Plus, Pro, Business, Edu or Enterprise), signed in once from the page

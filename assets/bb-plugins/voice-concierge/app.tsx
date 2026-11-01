@@ -2,9 +2,10 @@
 // CallManager so it survives moving around bb; the "Voice concierge" page starts and ends calls and shows the
 // conversation, and an app overlay keeps a small live pill (mute, hang up) on every page while a call is up.
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { definePluginApp, useBbNavigate, useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
+import { definePluginApp, ThreadChat, useBbNavigate, useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
 import type { LiveSignal, rpcContract } from "./server.ts";
-import { LIVE_CHANNEL } from "./core/live.ts";
+import { LIVE_CHANNEL, STYLE_CHANNEL } from "./core/live.ts";
+import { isSphereStyle, SPHERE_STYLES, STYLE_LABELS, type SphereStyle } from "./core/sphere-styles.ts";
 import { Sphere, type SphereLook, type SphereMode } from "./sphere.ts";
 
 const PAGE = "concierge";
@@ -91,12 +92,6 @@ class CallManager {
     const muted = !this.state.muted;
     for (const t of this.mic?.getAudioTracks() ?? []) t.enabled = !muted;
     this.set({ muted });
-  }
-
-  async say(text: string): Promise<void> {
-    const id = this.state.conversationId;
-    if (id === null || this.rpc === null) return;
-    await this.rpc.call("sendText", { conversationId: id, text });
   }
 
   receive(signal: LiveSignal): void {
@@ -204,33 +199,23 @@ interface Status {
   message: string;
   details: Record<string, string | null>;
 }
-type Line = { at: number; role: string; text: string };
-
 function ConciergePage() {
   const rpc = useRpc<typeof rpcContract>();
   const call = useCall();
   const [status, setStatus] = useState<Status | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [login, setLogin] = useState<{ url: string; code: string } | null>(null);
-  const [lines, setLines] = useState<Line[]>([]);
-  const [draft, setDraft] = useState("");
-  const bottom = useRef<HTMLDivElement>(null);
+  const [threadId, setThreadId] = useState<string | null | undefined>(undefined);
 
   const refreshStatus = useCallback(() => {
     setStatusError(null);
     rpc.call("status").then(setStatus, e => setStatusError(message(e)));
+    rpc.call("thread").then(r => setThreadId(r.threadId), () => setThreadId(null));
   }, [rpc]);
   useEffect(refreshStatus, [refreshStatus]);
   useEffect(() => {
-    rpc.call("transcript", { limit: 200 }).then(r => setLines(r.lines), () => {});
-  }, [rpc, call.revision]);
-  useEffect(() => {
     if (login !== null && call.revision > 0) refreshStatus();
   }, [call.revision]); // eslint-disable-line react-hooks/exhaustive-deps
-  // A block body: newer browsers return a Promise from scrollIntoView, and React would call it as the cleanup.
-  useEffect(() => {
-    bottom.current?.scrollIntoView({ block: "end" });
-  }, [lines.length, call.caption?.text]);
 
   const busy = call.phase === "connecting" || call.phase === "ending";
   const live = call.phase === "live";
@@ -287,47 +272,28 @@ function ConciergePage() {
             {call.muted ? "Unmute" : "Mute"}
           </button>
         )}
-        {call.activity !== null && <span className="truncate text-xs text-muted-foreground">⋯ {call.activity}</span>}
       </div>
-      {call.error !== null && <div className="text-xs text-destructive">{call.error}</div>}
-
-      <div className="min-h-0 flex-1 overflow-y-auto rounded border border-border p-3">
-        {lines.length === 0 && call.caption === null && <div className="text-xs text-muted-foreground">Nothing said yet. Press Talk and ask “what’s running and what needs me?”</div>}
-        {lines.map((l, i) => (
-          <TranscriptRow key={`${l.at}-${i}`} role={l.role} text={l.text} at={l.at} />
-        ))}
-        {call.caption !== null && <TranscriptRow role={call.caption.role} text={call.caption.text} at={null} />}
-        <div ref={bottom} />
+      <div className="min-h-4 truncate text-center text-xs text-muted-foreground">
+        {call.error !== null ? (
+          <span className="text-destructive">{call.error}</span>
+        ) : call.caption !== null ? (
+          `${call.caption.role === "user" ? "You" : "Concierge"}: ${call.caption.text}`
+        ) : call.activity !== null ? (
+          `⋯ ${call.activity}`
+        ) : (
+          ""
+        )}
       </div>
 
-      <form
-        className="flex items-center gap-2 pr-14"
-        onSubmit={e => {
-          e.preventDefault();
-          const text = draft.trim();
-          if (text === "" || !live) return;
-          setDraft("");
-          void calls.say(text);
-        }}
-      >
-        <input
-          className="min-w-0 flex-1 rounded border border-border bg-transparent px-2 py-1 text-sm outline-none focus:border-foreground"
-          placeholder={live ? "Type instead of speaking…" : "Start a call to type or speak"}
-          value={draft}
-          disabled={!live}
-          onChange={e => setDraft(e.target.value)}
-        />
-        <button className="rounded border border-border px-3 py-1 hover:bg-muted/50 disabled:opacity-50" disabled={!live || draft.trim() === ""}>
-          Send
-        </button>
-        <button
-          type="button"
-          className="text-xs text-muted-foreground underline"
-          onClick={() => rpc.call("clearTranscript").then(() => setLines([]), () => {})}
-        >
-          clear
-        </button>
-      </form>
+      <div className="min-h-0 flex-1 overflow-hidden rounded border border-border">
+        {threadId === undefined ? (
+          <div className="p-3 text-xs text-muted-foreground">Opening the concierge's thread…</div>
+        ) : threadId === null ? (
+          <div className="p-3 text-xs text-muted-foreground">bb has no Personal project, so the concierge works without a thread of its own.</div>
+        ) : (
+          <ThreadChat threadId={threadId} variant="compact" />
+        )}
+      </div>
     </div>
   );
 }
@@ -348,44 +314,67 @@ function sphereMode(s: CallState): SphereMode {
 
 /** The sphere above the controls; it reads the call's state and voice levels itself, every frame. */
 function TalkingSphere() {
+  const rpc = useRpc<typeof rpcContract>();
   const canvas = useRef<HTMLCanvasElement>(null);
+  const sphere = useRef<{ sphere: Sphere; unsubscribe: () => void } | null>(null);
   const [look, setLook] = useState<SphereLook>("idle");
   const [failed, setFailed] = useState(false);
+  const [style, setStyle] = useState<SphereStyle | null>(null);
   useEffect(() => {
-    if (canvas.current === null) return;
-    let sphere: Sphere;
+    rpc.call("style").then(r => setStyle(isSphereStyle(r.style) ? r.style : "jelly"), () => setStyle("jelly"));
+  }, [rpc]);
+  useRealtime(STYLE_CHANNEL, payload => {
+    const next = (payload as { style?: string }).style ?? "";
+    if (isSphereStyle(next)) setStyle(next);
+  });
+  useEffect(() => {
+    if (canvas.current === null || style === null) return;
+    if (sphere.current !== null) {
+      sphere.current.sphere.setStyle(style);
+      return;
+    }
+    let s: Sphere;
     try {
-      sphere = new Sphere(canvas.current, { read: () => ({ mode: sphereMode(calls.snapshot()), levels: calls.levels() }), onLook: setLook });
+      s = new Sphere(canvas.current, style, { read: () => ({ mode: sphereMode(calls.snapshot()), levels: calls.levels() }), onLook: setLook });
     } catch {
       setFailed(true); // no WebGL2: the page works without the sphere
       return;
     }
-    const unsubscribe = calls.subscribe(() => sphere.kick());
-    return () => {
-      unsubscribe();
-      sphere.dispose();
-    };
-  }, []);
+    sphere.current = { sphere: s, unsubscribe: calls.subscribe(() => s.kick()) };
+  }, [style]);
+  useEffect(
+    () => () => {
+      sphere.current?.unsubscribe();
+      sphere.current?.sphere.dispose();
+      sphere.current = null;
+    },
+    [],
+  );
+  const pick = (next: SphereStyle) => {
+    setStyle(next);
+    rpc.call("setStyle", { style: next }).catch(() => {});
+  };
   return (
     <div className="flex flex-col items-center gap-1">
       {!failed && <canvas ref={canvas} className="aspect-square h-[min(36vh,300px)]" aria-hidden="true" />}
       <div className="text-xs text-muted-foreground" aria-live="polite">
         {LOOK_LABEL[look]}
       </div>
-    </div>
-  );
-}
-
-function TranscriptRow({ role, text, at }: { role: string; text: string; at: number | null }) {
-  const who = role === "user" ? "You" : role === "system" ? "" : "Concierge";
-  if (role === "system") return <div className="py-1 text-center text-xs text-muted-foreground">{text}</div>;
-  return (
-    <div className={`flex flex-col py-1 ${role === "user" ? "items-end" : "items-start"}`}>
-      <div className="text-[10px] text-muted-foreground">
-        {who}
-        {at === null ? " …" : ` · ${new Date(at).toLocaleTimeString()}`}
-      </div>
-      <div className={`max-w-[80%] rounded px-2 py-1 ${role === "user" ? "bg-muted" : "border border-border"} ${at === null ? "opacity-70" : ""}`}>{text}</div>
+      {!failed && SPHERE_STYLES.length > 1 && (
+        <div className="flex gap-1 text-[11px]" role="radiogroup" aria-label="Sphere style">
+          {SPHERE_STYLES.map(s => (
+            <button
+              key={s}
+              role="radio"
+              aria-checked={s === style}
+              className={`rounded-full px-2 py-0.5 ${s === style ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/50"}`}
+              onClick={() => pick(s)}
+            >
+              {STYLE_LABELS[s]}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
