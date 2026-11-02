@@ -244,14 +244,26 @@ type RoomCamera = { projection: "room"; thetaMax: number; nearLimit: number; yaw
   - **Domain:** x within the page's extent, mapped to at most `thetaMax`. A
     page wider than that gets a larger radius, so distant items never meet
     across a seam.
-  - **The near limit:** elevation is capped so that the distance R − z stays
-    at or above `nearLimit`.
+  - **The near limit:** the projection clamps elevation so that the distance
+    R − z stays at or above `nearLimit`. The clamp is **display-only**:
+    stored z never changes, and `describe` and lint report a clamped item.
+  - **The radius:** R is derived from the page's extent and `thetaMax`. It
+    is recomputed only when the extent outgrows the current R, never during
+    a gesture (it is frozen from pointer-down to pointer-up), and a change
+    animates.
   - **Inverse picking and dragging:** a ray hits the cylinder (or an item's
     own panel) and gives back x and y; z stays unless the gesture is a push
     or a pull.
   - **Orientation and size:** each item is a flat panel tangent to the
     cylinder at its centre, facing the axis, at its width and height. Items
     wider than 20° of arc are drawn as bent strips (later).
+  - **Rotations and nested groups:**
+    - Group and membership transforms compose on the plane first, as kb does
+      today. Each item's composed box is then projected as its own tangent
+      panel; children are not bent separately.
+    - A rotation about the plane's normal is the panel's roll.
+    - Rotations about in-plane axes tilt the panel relative to its tangent
+      frame, as they tilt it relative to the floor in kb's tabletop view.
   - **The shared suite:** pick, select, focus, and "a move in one projection
     shows in the other".
 - **What changes in kb:** a `room` value beside `2d-ortho` and
@@ -375,7 +387,8 @@ and the target named in words. It runs through the invoke core.
 - **Prerequisite: enforcement.** kb's "Current stance" today is that the
   governance family contributes no guard, so every call runs whatever its
   mode declares [doc, DESIGN.md → Action registry]. Command items stay
-  disabled until that guard is restored for at least `outsideRoot` writes.
+  disabled until a guard is restored for **every write action a command item
+  can invoke**.
   Once it is:
   - A person's press is allowed.
   - An agent's call asks.
@@ -530,9 +543,19 @@ drawing the item, and the renderer picks one per item per frame:
   - A frame is torn down, and only its URL is kept: a cross-origin frame's
     scroll position and form state cannot be read, so they are **lost, and
     the card says so** ("reloads when opened").
-  - **Demotion also ends what the live face owned:** its live bindings'
-    subscriptions, its sandbox worker, its timers. The face's owner disposes
-    them, and a contract test checks that a demoted face holds none.
+  - **Demotion releases only what the renderer owns:** the frame, the media
+    element, the sandbox worker drawing a code view, its timers and DOM. A
+    contract test checks that a demoted face holds none of them.
+  - **Live subscriptions belong to execution, not to faces.** The flow
+    scheduler (§3.4) owns every live binding, and keeps it while any active
+    consumer needs it:
+    - a visible view;
+    - a live downstream component;
+    - a pending command.
+
+    So hiding or demoting a source card never freezes what it feeds. A
+    binding with no consumer pauses; when one returns, it resumes with a
+    fresh snapshot.
 - **Culling uses a spatial index,** so each frame costs work for what is
   visible, not for everything on the page. kb's `describe` already indexes
   neighbours with a grid of squares; the renderer uses the same grid (or an
@@ -624,9 +647,16 @@ voice reply ◄── the voice model's own delegation of the same turn (ask_con
   - A second delegation for a turn already handled is answered from the
     record (duplicate suppression).
   - **Ordering is unverified.** The transcript may arrive after the
-    delegation starts. Phase 1 logs both timestamps for every turn. If the
-    delegation can win, P0 waits up to 150 ms for the transcript before the
-    server relays.
+    delegation starts. Phase 1 logs both timestamps for every turn.
+    - If the delegation can win, the server waits up to 150 ms for the
+      transcript before it relays.
+    - A transcript that arrives after the relay **inherits P2 ownership** and
+      never runs P0.
+  - **Matching is a heuristic.** Similarity cannot prove that two texts are
+    the same turn. When a delegation matches no recent turn above the
+    threshold, or matches two, it is treated as unclaimed and goes to P2.
+    The worst case is a slow answer, never a command or canvas op performed
+    twice.
 - **P0, the reflex.**
   - **Input.** The final user transcript from the turn record.
   - **Routing.** A grammar over the canvas verbs and the scene's handles
@@ -693,7 +723,7 @@ voice reply ◄── the voice model's own delegation of the same turn (ask_con
 | Ops applied → ghost frame callback (optimistic) | **33–54 ms median, p95 66.2 ms** in the room projection; 33 ms flat [measured: local prototype callback timing] | The second `requestAnimationFrame` callback after applying ops, in a real-time headless Chrome 154 (software rendering). This is a frame callback, not proof that pixels were presented. The helper also falls back to a 100 ms timer, which these values did not reach |
 | Data lookup | **< 0.1 ms** [measured over the prototype's 7-row static array; not representative of a real cache] | `performance.now` around the resolve |
 | Populated frame callback, **cumulative** (includes the ghost row) | **66–101 ms median, p95 125.3 ms** [measured: local prototype callback timing] | As above; from the same synthetic start |
-| **P0 total, end of speech → populated** | **≈ 0.3–0.8 s** [estimate; **unvalidated**] | Phase 1 end to end: the audio level dropping in the page → a presented frame (Event Timing / `requestVideoFrameCallback`-style presentation timestamps where available) |
+| **P0 total, end of speech → populated** | **≈ 0.3–0.8 s** [estimate; **unvalidated**] | Phase 1 end to end, two ways. (1) A screen recording with the microphone track, on the owner's laptop and phone: from the end of the speech waveform to the first video frame where the card appears, read frame by frame. (2) In a scripted headless run, a Chrome performance trace (`devtools.timeline`), from the router's `performance.mark` to the next `DrawFrame` that commits the change |
 | P1 (backing Codex dynamic tool or small model) | 0.6–1.5 s [estimate] | Phase 2: timed per call, logged with the receipt |
 | P2 (concierge thread) | 20–30 s today [owner-observed]; first content streams earlier | Already logged by the concierge's call log |
 
@@ -711,9 +741,10 @@ each stage (cumulative from that start):
 | arrange as focus | — | 45.5 / 58.7 | 33.1 / 33.8 |
 
 Each cell is median / p95 in ms. These are local callback timings on a
-server with software rendering. They show that the client-side reflex is not
-the bottleneck, but **they say nothing about a phone or about the real kb
-canvas**, which renders more per card. Phase 1 measures both end to end.
+server with software rendering. In that synthetic setting, the client-side
+work took two to six frames. **They say nothing about a phone, about the
+real kb canvas** (which renders more per card), **or about presentation**.
+Phase 1 measures all of it end to end.
 
 ### 7.5 Keeping live data cheap
 
