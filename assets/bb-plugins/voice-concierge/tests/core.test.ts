@@ -234,6 +234,24 @@ test("sphere styles: every style has a surface and a halo shader, a label and a 
   }
 });
 
+test("look: one setting per style and knob, values clamped into range, bad values back to the default", async () => {
+  const { KNOBS, settingKey, tunesFrom, formatKnob, clampKnob } = await import("../core/look.ts");
+  const { SPHERE_STYLES, meshFragmentSource, haloFragmentSource } = await import("../core/sphere-styles.ts");
+  const keys = SPHERE_STYLES.flatMap(s => KNOBS.map(k => settingKey(s, k)));
+  assert.equal(new Set(keys).size, SPHERE_STYLES.length * KNOBS.length);
+  assert.equal(settingKey("jelly", "vividness"), "jellyVividness");
+  const t = tunesFrom({ jellyVividness: 5, jellyHue: -400, jellyGlow: "x", auroraMotion: 0.5 });
+  assert.deepEqual(t.jelly, { vividness: 2, motion: 1, glow: 1, hue: -180 });
+  assert.equal(t.aurora.motion, 0.5);
+  assert.deepEqual(t.frosted, { vividness: 1, motion: 1, glow: 1, hue: 0 });
+  assert.equal(clampKnob("glow", Number.NaN), 1);
+  assert.equal(formatKnob("hue", 30), "+30°");
+  assert.equal(formatKnob("vividness", 1.25), "125%");
+  // every knob reaches the shaders
+  for (const style of SPHERE_STYLES) for (const u of ["uVivid", "uMotion", "uGlow", "uHue"]) assert.match(meshFragmentSource(style), new RegExp(u));
+  assert.match(haloFragmentSource("jelly"), /uGlow/);
+});
+
 test("icosphere: 10242 unit vertices and 20480 triangles at detail 5, all indices in range", async () => {
   const { icosphere } = await import("../sphere.ts");
   const { positions, indices } = icosphere(5);

@@ -8,6 +8,7 @@
 // noise runs per vertex, about 10k of them; the style's shading only on the ball's own pixels), 4x MSAA, at the
 // device pixel ratio capped at 2 and at most 720 pixels a side; no frames while the page is hidden or the sphere is
 // off screen; with reduced motion, one still frame per change.
+import { DEFAULT_TUNE, type Tune } from "./core/look.ts";
 import { HALO_VERTEX_SOURCE, haloFragmentSource, MESH_VERTEX_SOURCE, meshFragmentSource, type SphereStyle } from "./core/sphere-styles.ts";
 
 /** What the call is doing; the renderer tells speaking from listening by the audio levels. */
@@ -31,7 +32,7 @@ export interface SphereOptions {
 const SPEAKING_ON = 0.035;
 const SPEAKING_HOLD_MS = 450;
 const BREATH_S = 4;
-const UNIFORMS = ["uRes", "uTime", "uFlow", "uBreath", "uLevel", "uListen", "uSpeak", "uThink", "uConnect", "uSpin", "uMute", "uBubbles"] as const;
+const UNIFORMS = ["uRes", "uTime", "uFlow", "uBreath", "uLevel", "uListen", "uSpeak", "uThink", "uConnect", "uSpin", "uMute", "uBubbles", "uVivid", "uMotion", "uGlow", "uHue"] as const;
 const MAX_SIDE = 720;
 const CALM_FRAME_MS = 33; // 30 fps while idle or small: nothing there moves fast
 const DETAIL = 5; // icosphere subdivisions: 10242 vertices, 20480 triangles
@@ -71,6 +72,7 @@ export class Sphere {
   private weights = { listen: 0, speak: 0, think: 0, connect: 0, mute: 0 };
   private detail = 1; // render-resolution factor (lower while the sphere is shown small)
   private lastDraw = 0;
+  private tune: Tune = DEFAULT_TUNE;
 
   constructor(canvas: HTMLCanvasElement, style: SphereStyle, options: SphereOptions) {
     this.canvas = canvas;
@@ -122,6 +124,12 @@ export class Sphere {
     if (style === this.style || this.disposed) return;
     this.style = style;
     this.use(style);
+    this.kick();
+  }
+
+  /** The style's knobs (core/look.ts): vividness, motion, glow and hue. */
+  setTune(tune: Tune): void {
+    this.tune = tune;
     this.kick();
   }
 
@@ -185,7 +193,7 @@ export class Sphere {
     // Loudness, compressed (quiet speech already moves it, shouting does not blow it up), followed by a soft
     // underdamped spring (~3.5 Hz, damping 0.5): it swells and settles like jelly.
     const raw = still ? 0 : look === "speaking" ? levels.remote : look === "listening" ? levels.mic : 0;
-    const voice = Math.tanh(1.6 * raw);
+    const voice = Math.tanh(2.2 * raw);
     if (still || dtCalm === 0) {
       this.level = voice;
       this.velocity = 0;
@@ -208,10 +216,12 @@ export class Sphere {
     w.connect += ((look === "connecting" ? 1 : 0) - w.connect) * ease;
     w.mute += ((muted && mode !== "idle" ? 1 : 0) - w.mute) * ease;
 
+    // The motion knob speeds the inner drift up or slows it down (the displacement scales with it in the shader).
+    const pace = 0.3 + 0.7 * this.tune.motion;
     this.clock += dtCalm;
-    this.drift += dtCalm * (1 + 1.6 * w.think + 0.6 * w.connect + 0.5 * this.level);
-    this.spin += dtCalm * (0.6 + 0.8 * this.level);
-    this.flow += dtCalm * Math.min(0.5 + 1.0 * this.level, 1.2);
+    this.drift += dtCalm * pace * (1 + 1.6 * w.think + 0.6 * w.connect + 0.5 * this.level);
+    this.spin += dtCalm * pace * (0.6 + 0.8 * this.level);
+    this.flow += dtCalm * pace * Math.min(0.5 + 1.0 * this.level, 1.2);
     this.draw(still);
     if (!still) this.kick();
   }
@@ -255,6 +265,10 @@ export class Sphere {
       gl.uniform1f(u.uSpin, this.spin);
       gl.uniform1f(u.uMute, w.mute);
       gl.uniform1f(u.uBubbles, 1);
+      gl.uniform1f(u.uVivid, this.tune.vividness);
+      gl.uniform1f(u.uMotion, still ? 0 : this.tune.motion);
+      gl.uniform1f(u.uGlow, this.tune.glow);
+      gl.uniform1f(u.uHue, (this.tune.hue * Math.PI) / 180);
     };
     // the halo first, behind; then the ball, opaque, nearest surface wins
     gl.disable(gl.DEPTH_TEST);

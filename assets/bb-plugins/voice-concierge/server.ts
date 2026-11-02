@@ -9,6 +9,7 @@ import type { BackendStatus, VoiceBackend } from "./core/backend.ts";
 import { CodexBackend } from "./core/codex.ts";
 import { ConciergeThread, isFresh } from "./core/concierge-thread.ts";
 import type { Machine } from "./core/hosts.ts";
+import { clampKnob, KNOB_LABELS, KNOB_RANGE, KNOBS, settingKey, tunesFrom } from "./core/look.ts";
 import { LIVE_CHANNEL, STYLE_CHANNEL, THREAD_CHANNEL } from "./core/live.ts";
 import { isSphereStyle, SPHERE_STYLES, STYLE_LABELS, type SphereStyle } from "./core/sphere-styles.ts";
 import { appendLine, type TranscriptLine } from "./core/transcript.ts";
@@ -26,6 +27,25 @@ const status = z.object({
   details: z.record(z.string(), z.string().nullable()),
 });
 const line = z.object({ at: z.number(), role: z.string(), text: z.string() });
+const tune = z.object({ vividness: z.number(), motion: z.number(), glow: z.number(), hue: z.number() });
+
+/** The sphere's knobs as plugin settings: four per style (jellyVividness, jellyMotion, …), each in its range. */
+function tuneDescriptors() {
+  const out: Record<string, { type: "number"; label: string; experimental_schema: z.ZodNumber; default: number }> = {};
+  for (const style of SPHERE_STYLES) {
+    for (const knob of KNOBS) {
+      const { min, max, default: d } = KNOB_RANGE[knob];
+      const scale = knob === "hue" ? `${min}..${max} degrees, 0 = its own colours` : `${min}..${max}, 1 = its own look`;
+      out[settingKey(style, knob)] = {
+        type: "number",
+        label: `${STYLE_LABELS[style]}: ${KNOB_LABELS[knob].toLowerCase()} (${scale})`,
+        experimental_schema: z.number().min(min).max(max),
+        default: d,
+      };
+    }
+  }
+  return out;
+}
 
 export const rpcContract = defineRpcContract({
   status: { input: z.null(), output: status },
@@ -37,8 +57,14 @@ export const rpcContract = defineRpcContract({
   transcript: { input: z.object({ limit: z.number().int().min(1).max(500).optional() }), output: z.object({ lines: z.array(line) }) },
   clearTranscript: { input: z.null(), output: z.object({ ok: z.boolean() }) },
   /** The sphere's art style (the plugin setting); setStyle is the page's quick switcher. */
-  style: { input: z.null(), output: z.object({ style: z.string(), autoMinimize: z.boolean() }) },
+  /** tunes: every style's knobs (core/look.ts), keyed by style. */
+  style: { input: z.null(), output: z.object({ style: z.string(), autoMinimize: z.boolean(), tunes: z.record(z.string(), tune) }) },
   setStyle: { input: z.object({ style: z.string() }), output: z.object({ style: z.string() }) },
+  /** Set some of one style's knobs; a null resets that knob to the style's own look. */
+  setTune: {
+    input: z.object({ style: z.string(), tune: z.record(z.string(), z.number().nullable()) }),
+    output: z.object({ tunes: z.record(z.string(), tune) }),
+  },
   /** The concierge's own bb thread, if it has one. */
   /** fresh: nothing said in it yet (the page keeps the orb large). */
   thread: { input: z.null(), output: z.object({ threadId: z.string().nullable(), fresh: z.boolean() }) },
@@ -109,12 +135,23 @@ export default async function plugin(bb: BbPluginApi) {
     },
   });
 
+  const tuneSettings = bb.settings.define(tuneDescriptors());
+
   const styleOf = (s: string): SphereStyle => (isSphereStyle(s) ? s : "jelly");
+  const look = async () => {
+    const [s, t] = await Promise.all([settings.get(), tuneSettings.get()]);
+    return { style: styleOf(s.sphereStyle), autoMinimize: s.orbAutoMinimize, tunes: tunesFrom(t) };
+  };
+  const publishLook = () => {
+    look().then(
+      payload => bb.realtime.publish(STYLE_CHANNEL, payload),
+      () => {},
+    );
+  };
   settings.onChange((next, prev) => {
-    if (next.sphereStyle !== prev.sphereStyle || next.orbAutoMinimize !== prev.orbAutoMinimize) {
-      bb.realtime.publish(STYLE_CHANNEL, { style: styleOf(next.sphereStyle), autoMinimize: next.orbAutoMinimize });
-    }
+    if (next.sphereStyle !== prev.sphereStyle || next.orbAutoMinimize !== prev.orbAutoMinimize) publishLook();
   });
+  tuneSettings.onChange(publishLook);
 
   const host = bb.hosts.experimental_client({ contract: hostContract, experimental_signals: hostSignals });
   const call =
@@ -281,14 +318,20 @@ export default async function plugin(bb: BbPluginApi) {
       bb.realtime.publish(THREAD_CHANNEL, { threadId });
       return { ok: true };
     },
-    style: async () => {
-      const s = await settings.get();
-      return { style: styleOf(s.sphereStyle), autoMinimize: s.orbAutoMinimize };
-    },
+    style: look,
     setStyle: async ({ style }) => {
       if (!isSphereStyle(style)) throw new Error(`Unknown sphere style ${style}`);
       await settings.experimental_set({ sphereStyle: style });
       return { style };
+    },
+    setTune: async ({ style, tune }) => {
+      if (!isSphereStyle(style)) throw new Error(`Unknown sphere style ${style}`);
+      const values: Record<string, number | null> = {};
+      for (const knob of KNOBS) {
+        const v = tune[knob];
+        if (v !== undefined) values[settingKey(style, knob)] = v === null ? null : clampKnob(knob, v);
+      }
+      return { tunes: tunesFrom(await tuneSettings.experimental_set(values)) };
     },
   });
 

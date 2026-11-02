@@ -35,8 +35,18 @@ agent (default: the Personal project's).
 icosphere (20k triangles) whose vertex shader displaces the surface with noise driven by the smoothed voice level and
 the call's phase (finer ripples for the owner's voice, broad swells for the concierge's, a slow roll while thinking)
 and derives normals from the displacement, so light, rim and gloss follow the shape. `core/sphere-styles.ts` holds the
-art styles, each one GLSL `body` function inside the shared frame. 4x MSAA, at most 720 px a side; paused while
-hidden or off screen; one still frame with reduced motion. Setting `sphereStyle`, or the swatches under the sphere.
+art styles, each a material in one GLSL `body` function inside the shared frame: candy (Beer-Lambert absorption
+through the body, subsurface glow, a glassy shell reflecting a soft studio), moonstone (a milky stone with the blue
+adularescence floating under its surface, following the view and the voice), aurora (curtains of light with fine rays
+drifting inside dark glass) and frosted glass (a warm light refracted by the shell and scattered by frost grain, with
+glints). A filmic tone curve finishes every style. 4x MSAA, at most 720 px a side; paused while hidden or off screen;
+one still frame with reduced motion (the motion knob is then 0). Setting `sphereStyle`, or the swatches under the
+sphere.
+
+Each style has four knobs (`core/look.ts`): vividness, motion, glow (0..2, 1 is the style's own look, already vivid)
+and hue (-180..180 degrees). They are plugin settings named `<style><Knob>` (`jellyVividness`, `auroraHue`, …), and
+the sliders button next to the swatches opens a panel that moves them live and saves them (RPC `setTune`, a moment
+after the last change). The `style` RPC and the style channel carry every style's tune.
 
 The page has two layouts. Stacked (below 880 px wide, so phones and narrow panels): the sphere on top, the
 conversation, and a call bar at the bottom within thumb reach (Talk; in a call Mute and Hang up), whose right end stays
@@ -67,6 +77,7 @@ kind for push-to-talk audio.
 | `core/concierge-thread.ts` | The concierge's own bb thread: create it, ask it and wait for the reply. |
 | `core/relay-tool.ts` | The `ask_concierge` dynamic tool and its answer. |
 | `core/sphere-styles.ts`, `sphere.ts` | The sphere's art styles (GLSL) and its WebGL renderer. |
+| `core/look.ts` | Each style's knobs: their settings, ranges and defaults. |
 | `core/orb.ts` | When the page docks the sphere small. |
 | `core/copy.ts` | The page's labels, hints, error wording and suggested questions. |
 | `core/hosts.ts` | Which machine runs the backend, from bb's host list. Pure. |

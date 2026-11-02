@@ -8,6 +8,7 @@ import type { LiveSignal, rpcContract } from "./server.ts";
 import { LIVE_CHANNEL, STYLE_CHANNEL, THREAD_CHANNEL } from "./core/live.ts";
 import { DOCK_AFTER_MS, DOCK_SOON_MS, orbMinimized } from "./core/orb.ts";
 import { barHint, friendlyError, idleHint, stateLabel, SUGGESTIONS } from "./core/copy.ts";
+import { DEFAULT_TUNE, formatKnob, KNOB_LABELS, KNOB_RANGE, KNOBS, type Knob, type Tune } from "./core/look.ts";
 import { isSphereStyle, SPHERE_STYLES, STYLE_LABELS, STYLE_SWATCHES, type SphereStyle } from "./core/sphere-styles.ts";
 import { Sphere, type SphereLook, type SphereMode } from "./sphere.ts";
 
@@ -303,6 +304,11 @@ function ConciergePage() {
   const [look, setLook] = useState<SphereLook>("idle");
   const [style, setStyle] = useState<SphereStyle | null>(null);
   const [auto, setAuto] = useState(true);
+  const [tunes, setTunes] = useState<Partial<Record<SphereStyle, Tune>>>({});
+  const [tuning, setTuning] = useState(false);
+  const tuneButton = useRef<HTMLButtonElement>(null);
+  const closeTuning = useCallback(() => setTuning(false), []);
+  const tuneSave = useRef<{ timer: number; style: SphereStyle | null; patch: Partial<Record<Knob, number | null>> }>({ timer: 0, style: null, patch: {} });
   const [settled, setSettled] = useState(false);
   const [brief, setBrief] = useState(false);
   const [override, setOverride] = useState<boolean | null>(null);
@@ -341,15 +347,18 @@ function ConciergePage() {
   }, [call.revision]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     rpc.call("style").then(
-      r => (setStyle(isSphereStyle(r.style) ? r.style : "jelly"), setAuto(r.autoMinimize)),
+      r => (setStyle(isSphereStyle(r.style) ? r.style : "jelly"), setAuto(r.autoMinimize), setTunes(r.tunes as Record<SphereStyle, Tune>)),
       () => setStyle("jelly"),
     );
   }, [rpc]);
   useRealtime(STYLE_CHANNEL, payload => {
-    const p = payload as { style?: string; autoMinimize?: unknown };
+    const p = payload as { style?: string; autoMinimize?: unknown; tunes?: Record<SphereStyle, Tune> };
     if (isSphereStyle(p.style ?? "")) setStyle(p.style as SphereStyle);
     if (typeof p.autoMinimize === "boolean") setAuto(p.autoMinimize);
+    // a knob being dragged here wins over the echo of its own save
+    if (p.tunes !== undefined && tuneSave.current.timer === 0) setTunes(p.tunes);
   });
+  useEffect(() => () => clearTimeout(tuneSave.current.timer), []);
   // A change of call phase hands the size back to the rule; a live call settles after a few seconds.
   useEffect(() => {
     setOverride(null);
@@ -377,6 +386,25 @@ function ConciergePage() {
   const pick = (next: SphereStyle) => {
     setStyle(next);
     rpc.call("setStyle", { style: next }).catch(() => {});
+  };
+  const tune = style !== null ? (tunes[style] ?? DEFAULT_TUNE) : DEFAULT_TUNE;
+  // A knob moves the sphere at once; the setting is saved a moment after the last change (null resets the knob).
+  const retune = (patch: Partial<Record<Knob, number | null>>) => {
+    if (style === null) return;
+    const next = { ...tune };
+    for (const k of KNOBS) if (k in patch) next[k] = patch[k] ?? KNOB_RANGE[k].default;
+    setTunes(t => ({ ...t, [style]: next }));
+    const save = tuneSave.current;
+    if (save.style !== style) save.patch = {};
+    save.style = style;
+    save.patch = { ...save.patch, ...patch };
+    clearTimeout(save.timer);
+    save.timer = window.setTimeout(() => {
+      const { style: s, patch: p } = save;
+      save.timer = 0;
+      save.patch = {};
+      if (s !== null) rpc.call("setTune", { style: s, tune: p }).catch(() => {});
+    }, 300);
   };
   // The sphere is a control too: idle, a tap starts the call; in a call, it docks or opens up.
   const tapSphere = () => {
@@ -433,6 +461,7 @@ function ConciergePage() {
     <Orb
       key={side ? "side" : "stack"}
       style={style}
+      tune={tune}
       place={side ? null : place}
       base={S}
       small={docked && !peek}
@@ -467,7 +496,7 @@ function ConciergePage() {
               <Controls size="large" ready={ready} narrow={size.width < 760} />
             </div>
             {alert}
-            {phase === "idle" && ready && <StylePicker style={style} onPick={pick} />}
+            {phase === "idle" && ready && <StylePicker style={style} onPick={pick} tuning={tuning} onTuning={setTuning} toggle={tuneButton} />}
           </div>
           {conversation}
         </div>
@@ -476,7 +505,7 @@ function ConciergePage() {
           <TopStage collapsed={docked || setup} canDock={phase !== "idle" && !sphereFailed} onDock={toggleDock}>
             <div ref={largeSlot} className="shrink-0" style={{ width: S, height: sphereFailed ? 8 : S }} aria-hidden="true" />
             <StateText label={label} caption={caption} hint={hint} live={phase !== "idle"} />
-            {phase === "idle" && ready && !sphereFailed && <StylePicker style={style} onPick={pick} />}
+            {phase === "idle" && ready && !sphereFailed && <StylePicker style={style} onPick={pick} tuning={tuning} onTuning={setTuning} toggle={tuneButton} />}
           </TopStage>
           {alert !== false && <div className="px-4 pb-2">{alert}</div>}
           {conversation}
@@ -484,6 +513,9 @@ function ConciergePage() {
         </div>
       )}
       {!side && sphere}
+      {tuning && style !== null && phase === "idle" && (
+        <TunePanel style={style} tune={tune} onTune={retune} opens={side ? "right" : "below"} root={root} anchor={tuneButton} onClose={closeTuning} />
+      )}
     </div>
   );
 }
@@ -492,6 +524,7 @@ function ConciergePage() {
  * keeps one size, so nothing is reallocated while it moves); side by side, it sits in the flow. */
 function Orb(props: {
   style: SphereStyle;
+  tune: Tune;
   place: Place | null;
   base: number;
   small: boolean;
@@ -503,7 +536,7 @@ function Orb(props: {
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const sphere = useRef<{ sphere: Sphere; unsubscribe: () => void } | null>(null);
-  const { style, place, base, small } = props;
+  const { style, tune, place, base, small } = props;
   useEffect(() => {
     if (canvas.current === null) return;
     if (sphere.current !== null) {
@@ -523,8 +556,12 @@ function Orb(props: {
       props.onFail(); // no WebGL2: the page works without the sphere
       return;
     }
+    s.setTune(tune);
     sphere.current = { sphere: s, unsubscribe: calls.subscribe(() => s.kick()) };
   }, [style]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    sphere.current?.sphere.setTune(tune);
+  }, [tune]);
   useEffect(
     () => () => {
       sphere.current?.unsubscribe();
@@ -835,7 +872,15 @@ function ErrorBanner({ error, canRetry, onRetry, onDismiss }: { error: string; c
   );
 }
 
-function StylePicker({ style, onPick }: { style: SphereStyle | null; onPick: (s: SphereStyle) => void }) {
+function StylePicker(props: {
+  style: SphereStyle | null;
+  onPick: (s: SphereStyle) => void;
+  tuning: boolean;
+  onTuning: (open: boolean) => void;
+  /** The tune button, which the page's tuning panel sits next to. */
+  toggle: React.RefObject<HTMLButtonElement | null>;
+}) {
+  const { style, onPick, tuning, toggle } = props;
   const [named, setNamed] = useState<SphereStyle | null>(null);
   useEffect(() => {
     if (named === null) return;
@@ -843,28 +888,142 @@ function StylePicker({ style, onPick }: { style: SphereStyle | null; onPick: (s:
     return () => clearTimeout(t);
   }, [named]);
   return (
-    <div className="flex flex-col items-center">
-      <div className="flex items-center" role="radiogroup" aria-label="Sphere style">
-        {SPHERE_STYLES.map(s => (
-          <button
-            key={s}
-            role="radio"
-            aria-checked={s === style}
-            aria-label={STYLE_LABELS[s]}
-            title={STYLE_LABELS[s]}
-            className="flex h-11 w-11 items-center justify-center rounded-full"
-            onClick={() => (onPick(s), setNamed(s))}
-          >
-            <span
-              className={`h-6 w-6 rounded-full transition-shadow ${s === style ? "ring-2 ring-foreground/70 ring-offset-2 ring-offset-background" : "opacity-70 hover:opacity-100"}`}
-              style={{ background: STYLE_SWATCHES[s] }}
-            />
-          </button>
-        ))}
+    <div className="relative flex flex-col items-center">
+      <div className="flex items-center">
+        <div className="flex items-center" role="radiogroup" aria-label="Sphere style">
+          {SPHERE_STYLES.map(s => (
+            <button
+              key={s}
+              role="radio"
+              aria-checked={s === style}
+              aria-label={STYLE_LABELS[s]}
+              title={STYLE_LABELS[s]}
+              className="group flex h-11 w-11 items-center justify-center rounded-full"
+              onClick={() => (onPick(s), setNamed(s))}
+            >
+              <span
+                className={`h-6 w-6 rounded-full transition-[box-shadow,transform,opacity] duration-200 group-active:scale-90 ${s === style ? "ring-2 ring-foreground/70 ring-offset-2 ring-offset-background" : "opacity-70 hover:opacity-100"}`}
+                style={{ background: STYLE_SWATCHES[s] }}
+              />
+            </button>
+          ))}
+        </div>
+        <button
+          ref={toggle}
+          className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:text-foreground active:scale-95 ${tuning ? "bg-muted/70 text-foreground" : "text-muted-foreground"}`}
+          aria-label="Tune the sphere"
+          aria-expanded={tuning}
+          title="Tune the sphere"
+          onClick={() => props.onTuning(!tuning)}
+        >
+          <Icon name="sliders" size={18} />
+        </button>
       </div>
       <div className="h-4 text-[11px] text-muted-foreground" aria-live="polite" style={{ opacity: named ? 1 : 0, transition: motion("opacity") }}>
         {named !== null ? STYLE_LABELS[named] : ""}
       </div>
+    </div>
+  );
+}
+
+/** The compact tuning panel: the current style's four knobs, applied live and saved to the plugin settings. */
+function TunePanel(props: {
+  style: SphereStyle;
+  tune: Tune;
+  onTune: (patch: Partial<Record<Knob, number | null>>) => void;
+  opens: "below" | "right";
+  root: React.RefObject<HTMLDivElement | null>;
+  anchor: React.RefObject<HTMLButtonElement | null>;
+  onClose: () => void;
+}) {
+  const panel = useRef<HTMLDivElement>(null);
+  const { onClose, root, anchor, opens } = props;
+  // Placed in the page's coordinates next to the tune button, kept inside the page.
+  const [at, setAt] = useState<{ left: number; top: number } | null>(null);
+  useLayoutEffect(() => {
+    const place = () => {
+      const r = root.current?.getBoundingClientRect(), a = anchor.current?.getBoundingClientRect(), p = panel.current;
+      if (r === undefined || a === undefined || p === null) return;
+      const w = p.offsetWidth, h = p.offsetHeight, m = 12;
+      const left = opens === "below" ? a.left + a.width / 2 - w / 2 - r.left : a.right + m - r.left;
+      const top = opens === "below" ? a.bottom + 4 - r.top : a.bottom - h - r.top;
+      // side by side, it also keeps clear of the floating button in the bottom-right corner
+      const bottom = opens === "right" ? 76 : m;
+      setAt({ left: Math.max(m, Math.min(left, r.width - w - m)), top: Math.max(m, Math.min(top, r.height - h - bottom)) });
+    };
+    place();
+    const ro = new ResizeObserver(place);
+    if (root.current !== null) ro.observe(root.current);
+    return () => ro.disconnect();
+  }, [root, anchor, opens]);
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    const away = (e: PointerEvent) => {
+      const el = panel.current;
+      // a tap outside closes it; the toggle button handles its own taps
+      const t = e.target as Node;
+      if (el !== null && !el.contains(t) && !anchor.current?.contains(t)) onClose();
+    };
+    document.addEventListener("keydown", key);
+    document.addEventListener("pointerdown", away);
+    return () => (document.removeEventListener("keydown", key), document.removeEventListener("pointerdown", away));
+  }, [onClose, anchor]);
+  useEffect(() => {
+    const el = panel.current;
+    if (el === null) return;
+    el.querySelector("input")?.focus({ preventScroll: true });
+    if (!reducedMotion()) el.animate([{ opacity: 0, scale: "0.96" }, { opacity: 1, scale: "1" }], { duration: 200, easing: EASE });
+  }, []);
+  const changed = KNOBS.some(k => props.tune[k] !== KNOB_RANGE[k].default);
+  return (
+    <div
+      ref={panel}
+      role="dialog"
+      aria-label={`Tune ${STYLE_LABELS[props.style]}`}
+      className="absolute z-30 w-[min(300px,calc(100vw-32px))] rounded-xl border border-border bg-popover p-3 text-popover-foreground shadow-lg"
+      style={{ left: at?.left ?? 0, top: at?.top ?? 0, visibility: at === null ? "hidden" : "visible" }}
+    >
+      <div className="mb-1 flex items-center justify-between">
+        <div className="text-xs font-medium">{STYLE_LABELS[props.style]}</div>
+        <div className="flex items-center">
+          <button
+            className="h-8 rounded-md px-2 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40"
+            disabled={!changed}
+            onClick={() => props.onTune({ vividness: null, motion: null, glow: null, hue: null })}
+          >
+            Reset
+          </button>
+          <button className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground" aria-label="Close" onClick={onClose}>
+            <Icon name="x" size={14} />
+          </button>
+        </div>
+      </div>
+      {KNOBS.map(k => {
+        const r = KNOB_RANGE[k];
+        const id = `vc-tune-${k}`;
+        return (
+          <div key={k} className="flex h-11 items-center gap-3">
+            <label htmlFor={id} className="w-16 shrink-0 text-xs text-muted-foreground">
+              {KNOB_LABELS[k]}
+            </label>
+            <input
+              id={id}
+              type="range"
+              min={r.min}
+              max={r.max}
+              step={r.step}
+              value={props.tune[k]}
+              onChange={e => props.onTune({ [k]: Number(e.target.value) })}
+              onDoubleClick={() => props.onTune({ [k]: null })}
+              className="h-11 min-w-0 flex-1 cursor-pointer accent-foreground"
+              style={k === "hue" ? { accentColor: `hsl(${props.tune.hue + 330} 80% 60%)` } : undefined}
+            />
+            <span className="w-11 shrink-0 text-right text-xs tabular-nums text-muted-foreground">{formatKnob(k, props.tune[k])}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -967,6 +1126,7 @@ const ICONS: Record<string, string> = {
   copy: "M8 8h12v12H8zM4 16V4h12",
   check: "M20 6 9 17l-5-5",
   keyboard: "M2 6h20v12H2zM6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8",
+  sliders: "M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1M15 4v4M9 10v4M17 16v4",
 };
 
 /** Line icons in the style of bb's own (24-grid, 2px round strokes). */
