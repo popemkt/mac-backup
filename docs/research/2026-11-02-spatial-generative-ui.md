@@ -1,7 +1,7 @@
 # A spatial, generative output surface for bb's voice concierge
 
 Date: 2026-11-02. Design only: nothing here is built. It pairs with the voice
-concierge plugin ([PR #128](https://github.com/popemkt/dotfiles/pull/128),
+concierge plugin ([PR #128](https://github.com/popemkt/mac-backup/pull/128),
 `assets/bb-plugins/voice-concierge`, research in
 `docs/research/2026-11-01-bb-voice-concierge.md`).
 
