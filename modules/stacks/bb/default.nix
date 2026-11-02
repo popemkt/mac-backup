@@ -10,6 +10,21 @@ in
 {
   options.my.stacks.bb = mkStack {
     description = "bb agent IDE";
+    componentOptions.env = lib.mkOption {
+      type = lib.types.attrsOf (lib.types.attrsOf lib.types.str);
+      default = { };
+      example = {
+        bytetum.BB_SERVER_PORT = "38896";
+      };
+      description = ''
+        Variables merged into one person's bb managed env (~/.bb/env.json),
+        keyed by person, on top of the stack's own (BB_TELEMETRY). bb's
+        launcher, CLI and server read that file over the process environment,
+        so this is how a host points a person's `bb` at their own server.
+        Merged on every activation: a changed value is rewritten, a dropped
+        key stays until `bb-app env unset` removes it.
+      '';
+    };
   };
 
   config = lib.mkIf config.my.stacks.bb.enable {
@@ -49,20 +64,28 @@ in
       "assets/bb-plugins/session-import"
     ];
 
-    # No anonymous usage telemetry (PostHog) from any bb server or host
-    # daemon: the desktop app's and a bb-app's alike. bb reads its managed
-    # env, ~/.bb/env.json (`bb-app env`), over the process environment, so
-    # the key is merged there; `bb-app env set` keeps working for the rest.
+    # bb's managed env, ~/.bb/env.json (`bb-app env`), which bb reads over
+    # the process environment: no anonymous usage telemetry (PostHog) from
+    # any bb server or host daemon, the desktop app's and a bb-app's alike,
+    # plus the person's own `env` entries. The keys are merged in;
+    # `bb-app env set` keeps working for the rest.
     my.everyone =
-      { lib, pkgs, ... }:
+      hm@{ lib, pkgs, ... }:
+      let
+        env = {
+          BB_TELEMETRY = "false";
+        }
+        // config.my.stacks.bb.env.${hm.config.home.username} or { };
+      in
       {
-        home.activation.bbTelemetryOff = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        home.activation.bbManagedEnv = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           env_file="$HOME/.bb/env.json"
           $DRY_RUN_CMD mkdir -p "$HOME/.bb"
           [ -s "$env_file" ] || $DRY_RUN_CMD sh -c 'umask 077; echo "{}" > "$1"' _ "$env_file"
           if [ -z "''${DRY_RUN_CMD:-}" ]; then
             tmp="$(mktemp)"
-            ${lib.getExe pkgs.jq} '.env = ((.env // {}) + {BB_TELEMETRY: "false"})' "$env_file" > "$tmp"
+            ${lib.getExe pkgs.jq} --argjson add ${lib.escapeShellArg (builtins.toJSON env)} \
+              '.env = ((.env // {}) + $add)' "$env_file" > "$tmp"
             command cat "$tmp" > "$env_file"
             rm -f "$tmp"
           fi

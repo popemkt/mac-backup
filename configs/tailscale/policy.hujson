@@ -69,11 +69,12 @@
       "ip": ["tcp:443"],
     },
 
-    // Tailnet members can reach popemkt's bb server on the shared server.
-    // bb's API is unauthenticated, so this grant is its only access control.
+    // Tailnet members can reach popemkt's and bytetum's bb servers on the
+    // shared server. bb's API is unauthenticated, so this grant is its only
+    // access control.
     {
       "src": ["autogroup:member"],
-      "dst": ["svc:bb-popemkt"],
+      "dst": ["svc:bb-popemkt", "svc:bb-bytetum"],
       "ip": ["tcp:443"],
     },
 
@@ -122,6 +123,7 @@
       "svc:marginalia-bytetum": ["tag:shared-server"],
       "svc:adhoc-popemkt": ["tag:shared-server"],
       "svc:bb-popemkt": ["tag:shared-server"],
+      "svc:bb-bytetum": ["tag:shared-server"],
       "svc:axioms-popemkt": ["tag:shared-server"],
     },
   },

@@ -110,7 +110,7 @@ tailnet members. It has no backend while that port is unused.
 The shared server (`shared-server`, tagged `tag:shared-server`) publishes one
 T3 Code server per person. Each target is derived from that instance's port in
 `hosts/shared-server/default.nix`; both people may reach both. It also
-publishes each person's personal kb (their home store; `my.services` apps, below), bytetum's Marginalia, and an ad hoc
+publishes each person's personal kb (their home store; `my.services` apps, below), each person's bb server, bytetum's Marginalia, and an ad hoc
 endpoint for popemkt's temporary HTTP apps, like the personal host's.
 
 | Service | Tailnet URL | Local target | Purpose |
@@ -122,6 +122,7 @@ endpoint for popemkt's temporary HTTP apps, like the personal host's.
 | `svc:marginalia-bytetum` | `https://marginalia-bytetum.<tailnet-domain>` | `unix:/run/marginalia-bytetum/marginalia.sock` | bytetum's Marginalia reading library (`my.services.marginalia-bytetum`, `app = "marginalia"`; bytetum's Tailscale login or the bearer token, [marginalia-service.md](marginalia-service.md)) |
 | `svc:adhoc-popemkt` | `https://adhoc-popemkt.<tailnet-domain>` | `127.0.0.1:9001` | popemkt's temporary HTTP apps |
 | `svc:bb-popemkt` | `https://bb-popemkt.<tailnet-domain>` | `127.0.0.1:38886` | popemkt's bb server (`my.services.bb`; its API is unauthenticated) |
+| `svc:bb-bytetum` | `https://bb-bytetum.<tailnet-domain>` | `127.0.0.1:38896` | bytetum's bb server (`my.services.bb-bytetum`, `app = "bb"`; its API is unauthenticated) |
 
 A native app placed with `my.services.<app>` on a NixOS host is exposed the
 same way, as `svc:<app>-<owner>` (`<app>` is the entry's `app`, its name
