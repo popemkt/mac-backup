@@ -28,27 +28,36 @@ needs a bot because kb deletes nightlies after 14 days.
 (`app = "marginalia"`, owner `bytetum`), published as
 `svc:marginalia-bytetum`, so it is at
 `https://marginalia-bytetum.<tailnet-domain>`. The unit is
-`app-marginalia-bytetum`, running `marginalia serve` as bytetum with `HOST`
-and `PORT` set by `my.services`: loopback port 7879. The app's `package` is
+`app-marginalia-bytetum`, running `marginalia serve --socket
+/run/marginalia-bytetum/marginalia.sock` as bytetum. The app's `package` is
 `pkgs.marginalia`, run by store path, so a rebuild that moves the pin
 restarts it.
 
-It listens on a loopback port, not an owner-only socket: the app is
-authenticated by its own bearer token, and the Service's HTTPS needs a target
-either way. Any account on the host can reach the port, and none can use it
-without the token. Its policy grant is for tailnet members, as for the kb
-Services; the token is what stops them.
+It listens on an owner-only socket, not a loopback port: `my.services` makes
+its directory bytetum's with mode 0700, so only bytetum and root (tailscaled,
+which proxies the Service) can connect. That is what makes the Service's
+`Tailscale-User-Login` header trustworthy. tailscaled sets it on requests
+from untagged devices and strips any copy a client sends, and no other
+account on the host can reach the socket to forge it. So the app accepts
+requests carrying a login listed in `MARGINALIA_TAILSCALE_LOGINS` with no
+token: bytetum's own phone, laptop and desktop app sign in by being on the
+tailnet. Tagged devices get no header, so programs on this host (Hermes,
+Claude Code, the backup and kb-sync timers) still send the bearer token. The
+app honours the logins only on a socket, never on a TCP listener. Its policy
+grant is for tailnet members, as for the kb Services; the login check and the
+token are what stop them.
 
 | Setting | Value |
 |---|---|
 | `MARGINALIA_DATA` | `~/.local/share/marginalia-nix/data` (`db/` and `blobs/`; the app creates it) |
 | `MARGINALIA_TOKEN_FILE` | `~/.config/marginalia/token` |
+| `MARGINALIA_TAILSCALE_LOGINS` | `bytetum@github`: accepted without a token |
 | `LLM_*`, `FIRECRAWL_*` | unset: the built-in agent is off until a key file is declared |
 
-The embedded database admits one process per data directory. This instance's
-directory is its own; the hand-made systemd user unit `marginalia` still
-serves `~/.local/share/marginalia/data` on `100.103.153.13:7878`, and nothing
-here touches it.
+The embedded database admits one process per data directory. The data moved
+here from the hand-made systemd user unit `marginalia`
+(`~/.local/share/marginalia/data` on `100.103.153.13:7878`), which is now
+stopped and disabled.
 
 ### Token
 
@@ -72,11 +81,12 @@ An agent must not read or print the file.
 
 ### Checking it
 
-`GET /health` answers without a token. `my.services` has no health-check
-option, so this is by hand:
+`GET /health` answers without a token, and `GET /me` says how a request was
+let in (`tailscale` or `token`). `my.services` has no health-check option, so
+this is by hand:
 
 ```bash
-curl -s http://127.0.0.1:7879/health
+curl -s --unix-socket /run/marginalia-bytetum/marginalia.sock http://localhost/health
 curl -s https://marginalia-bytetum.<tailnet-domain>/health
 ```
 

@@ -213,26 +213,33 @@ in
   my.services.kb-bytetum = kbHome "bytetum" [ ];
 
   # bytetum's Marginalia reading library (github.com/bytetum/marginalia;
-  # pkgs/marginalia, pinned by hand), as svc:marginalia-bytetum. The Service
-  # puts HTTPS on its loopback port, which any account on this host can also
-  # reach, so the app's own bearer token is its access control: it reads the
-  # token from MARGINALIA_TOKEN_FILE and refuses to start without it. The
-  # token is machine state, never declared (a person-only file, written once
-  # by bytetum; docs/marginalia-service.md → Token). Its database is embedded
-  # and takes one process per data directory, so this fresh directory is not
-  # the one the hand-made user unit `marginalia` still serves
-  # (~/.local/share/marginalia/data on 100.103.153.13:7878).
-  my.services.marginalia-bytetum = {
-    app = "marginalia";
-    owner = "bytetum";
-    port = 7879;
-    package = pkgs.marginalia;
-    args = [ "serve" ];
-    environment = {
-      MARGINALIA_DATA = "${config.users.users.bytetum.home}/.local/share/marginalia-nix/data";
-      MARGINALIA_TOKEN_FILE = "${config.users.users.bytetum.home}/.config/marginalia/token";
+  # pkgs/marginalia, pinned by hand), as svc:marginalia-bytetum. It listens on
+  # an owner-only socket, so only bytetum and tailscaled reach it, and that is
+  # what lets it trust the Service's Tailscale-User-Login header: requests
+  # from bytetum's own devices need no token. Everything else (tagged hosts,
+  # programs on this one) uses the bearer token from MARGINALIA_TOKEN_FILE,
+  # machine state never declared (a person-only file, written once by
+  # bytetum; docs/marginalia-service.md → Token).
+  my.services.marginalia-bytetum =
+    let
+      socket = "/run/marginalia-bytetum/marginalia.sock";
+    in
+    {
+      app = "marginalia";
+      owner = "bytetum";
+      inherit socket;
+      package = pkgs.marginalia;
+      args = [
+        "serve"
+        "--socket"
+        socket
+      ];
+      environment = {
+        MARGINALIA_DATA = "${config.users.users.bytetum.home}/.local/share/marginalia-nix/data";
+        MARGINALIA_TOKEN_FILE = "${config.users.users.bytetum.home}/.config/marginalia/token";
+        MARGINALIA_TAILSCALE_LOGINS = "bytetum@github";
+      };
     };
-  };
 
   # popemkt's bb server, as svc:bb-popemkt. Its API is unauthenticated and
   # runs commands as popemkt, so the tailnet grant is its access boundary;
