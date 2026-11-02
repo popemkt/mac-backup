@@ -34,6 +34,89 @@ let
       ]
       ++ extraArgs;
     };
+  # The `kb ui` arguments that let a person's bb frame their kb page.
+  bbFramesKb =
+    person:
+    let
+      bb = config.my.stacks.vpn.services."bb-${person}".publicOrigin;
+    in
+    [
+      # bb frames the page beside a thread (assets/bb-plugins/kb), and the
+      # framed page tells bb its tab session (kb DESIGN.md → Surfaces →
+      # Embedding the page). No other page may frame it.
+      "--embed-origin"
+      bb
+      # Framed by bb, the page loads bbim's hint bridge from bb itself, so
+      # bb's keyboard hints, gi, gs and j/k reach into it and bb's chords
+      # typed in it come back (assets/bb-plugins/bbim/core/README.md →
+      # Iframes). Needs kb with `--embed-script`.
+      "--embed-script"
+      "${bb}/api/v1/plugins/bbim/http/bridge.js"
+    ];
+  # A person's bb server and host daemon as the my.services app `bb`,
+  # published as svc:bb-<person>, beside their kb (kbEntry, the my.services
+  # entry of their kbHome); why it has this shape is beside the entries
+  # below. Each person's pair needs loopback ports of its own.
+  bbHome =
+    person:
+    {
+      serverPort,
+      daemonPort,
+      kbEntry,
+    }:
+    let
+      origin = config.my.stacks.vpn.services."bb-${person}".publicOrigin;
+      serverUrl = "http://127.0.0.1:${toString serverPort}";
+    in
+    {
+      app = "bb";
+      owner = person;
+      port = serverPort;
+      updatedBy.npmGlobal = "bb-app";
+      # bb-server has no in-app updates to turn off.
+      command = "bb-server --server-port ${toString serverPort}";
+      companions.daemon = {
+        # bb-host-daemon hands the daemon process what bb-app's launcher did
+        # (NODE_ENV, BB_APP_VERSION, BB_CLI_DIR, BB_BRIDGE_DIR, BB_DATA_DIR,
+        # BB_HOST_DAEMON_PORT, BB_SERVER_URL: bb-host-daemon.js
+        # createDaemonEnv). Without --auto-update it never reinstalls bb over a
+        # protocol mismatch; it logs one and keeps retrying.
+        command = "bb-host-daemon --server-url ${serverUrl} --host-daemon-port ${toString daemonPort}";
+        # The daemon links threads to the app's origin.
+        environment.BB_APP_URL = origin;
+        # A daemon restart cuts every thread on this machine off ("host daemon
+        # disconnected"). Neither a rebuild nor an upgrade restarts it until no
+        # thread on this machine, hidden ones included, is running a turn, a
+        # background agent, a background command, or a workflow. Threads on
+        # other machines (the Macs' own daemons) only see the server blink, so
+        # they do not count. If bb or the host id cannot answer, it counts as
+        # busy.
+        # GAP [[01M5P0D3VP9RXH16D7VJV282BT]]: it asks the server, so a daemon
+        # the server cannot see (down) never counts as idle.
+        idleCheck = ''
+          host=$(cat "$HOME/.bb/host-id") && [ -n "$host" ] || exit 1
+          bb thread list --include-hidden --json | jq -e --arg host "$host" '
+            type == "array" and all(.[] | select(.environmentHostId == $host);
+              .status != "active"
+              and ([.activity // {} | (.activeBackgroundAgentCount, .activeBackgroundCommandCount, .activeWorkflowCount) // 0] | add) == 0)
+          ' >/dev/null
+        '';
+      };
+      # The server's environment; the daemon inherits none of it.
+      environment = {
+        BB_APP_URL = origin;
+        # The address bb gives the machines it enrolls (Settings → Machines →
+        # Server URL overrides it when set): the same Service, since bb itself
+        # listens only on loopback.
+        BB_EXTERNAL_URL = origin;
+        # The kb plugin's defaults (assets/bb-plugins/kb, read by its server
+        # side): the kb page its thread panel frames, and kb's owner-only
+        # socket, which its agent tools call as the person, who owns both
+        # servers.
+        KB_URL = config.my.stacks.vpn.services."kb-${person}".publicOrigin;
+        KB_SOCKET = config.my.services.${kbEntry}.socket;
+      };
+    };
   # axioms' SpacetimeDB state (my.services.axioms below), and the limits on
   # both of its units.
   axiomsState.AXIOMS_STDB_HOME = "${config.users.users.popemkt.home}/.local/share/axioms/spacetime";
@@ -196,19 +279,7 @@ in
   # that Service's. A request with that Origin acts as the person, so the UI
   # listens on a Unix socket only they and root (tailscaled) can reach, not
   # on a loopback port every account can.
-  my.services.kb = kbHome "popemkt" [
-    # bb frames the page beside a thread (assets/bb-plugins/kb), and the
-    # framed page tells bb its tab session (kb DESIGN.md → Surfaces →
-    # Embedding the page). No other page may frame it.
-    "--embed-origin"
-    config.my.stacks.vpn.services.bb-popemkt.publicOrigin
-    # Framed by bb, the page loads bbim's hint bridge from bb itself, so
-    # bb's keyboard hints, gi, gs and j/k reach into it and bb's chords
-    # typed in it come back (assets/bb-plugins/bbim/core/README.md →
-    # Iframes). Needs kb with `--embed-script`.
-    "--embed-script"
-    "${config.my.stacks.vpn.services.bb-popemkt.publicOrigin}/api/v1/plugins/bbim/http/bridge.js"
-  ];
+  my.services.kb = kbHome "popemkt" (bbFramesKb "popemkt");
   # bytetum runs no bb, so nothing frames their page.
   my.services.kb-bytetum = kbHome "bytetum" [ ];
 
@@ -268,53 +339,10 @@ in
   # which moves the copy to the new version. To take an upgrade at once,
   # restart both in one command, which interrupts every thread:
   # `sudo systemctl restart app-bb app-bb-daemon`.
-  my.services.bb = {
-    owner = "popemkt";
-    port = 38886;
-    updatedBy.npmGlobal = "bb-app";
-    # bb-server has no in-app updates to turn off.
-    command = "bb-server --server-port 38886";
-    companions.daemon = {
-      # bb-host-daemon hands the daemon process what bb-app's launcher did
-      # (NODE_ENV, BB_APP_VERSION, BB_CLI_DIR, BB_BRIDGE_DIR, BB_DATA_DIR,
-      # BB_HOST_DAEMON_PORT, BB_SERVER_URL: bb-host-daemon.js
-      # createDaemonEnv). Without --auto-update it never reinstalls bb over a
-      # protocol mismatch; it logs one and keeps retrying.
-      command = "bb-host-daemon --server-url ${config.my.services.bb.listenOrigin} --host-daemon-port 38887";
-      # The daemon links threads to the app's origin.
-      environment.BB_APP_URL = config.my.stacks.vpn.services.bb-popemkt.publicOrigin;
-      # A daemon restart cuts every thread on this machine off ("host daemon
-      # disconnected"). Neither a rebuild nor an upgrade restarts it until no
-      # thread on this machine, hidden ones included, is running a turn, a
-      # background agent, a background command, or a workflow. Threads on
-      # other machines (the Macs' own daemons) only see the server blink, so
-      # they do not count. If bb or the host id cannot answer, it counts as
-      # busy.
-      # GAP [[01M5P0D3VP9RXH16D7VJV282BT]]: it asks the server, so a daemon
-      # the server cannot see (down) never counts as idle.
-      idleCheck = ''
-        host=$(cat "$HOME/.bb/host-id") && [ -n "$host" ] || exit 1
-        bb thread list --include-hidden --json | jq -e --arg host "$host" '
-          type == "array" and all(.[] | select(.environmentHostId == $host);
-            .status != "active"
-            and ([.activity // {} | (.activeBackgroundAgentCount, .activeBackgroundCommandCount, .activeWorkflowCount) // 0] | add) == 0)
-        ' >/dev/null
-      '';
-    };
-    # The server's environment; the daemon inherits none of it.
-    environment = {
-      BB_APP_URL = config.my.stacks.vpn.services.bb-popemkt.publicOrigin;
-      # The address bb gives the machines it enrolls (Settings → Machines →
-      # Server URL overrides it when set): the same Service, since bb itself
-      # listens only on loopback.
-      BB_EXTERNAL_URL = config.my.stacks.vpn.services.bb-popemkt.publicOrigin;
-      # The kb plugin's defaults (assets/bb-plugins/kb, read by its server
-      # side): the kb page its
-      # thread panel frames, and kb's owner-only socket, which its agent
-      # tools call as popemkt, who owns both servers.
-      KB_URL = config.my.stacks.vpn.services.kb-popemkt.publicOrigin;
-      KB_SOCKET = config.my.services.kb.socket;
-    };
+  my.services.bb = bbHome "popemkt" {
+    serverPort = 38886;
+    daemonPort = 38887;
+    kbEntry = "kb";
   };
 
   # popemkt's axioms (pkgs/axioms) in live mode, as svc:axioms-popemkt. Two
