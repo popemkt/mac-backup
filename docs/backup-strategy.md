@@ -278,7 +278,7 @@ from the package, so nothing in the directory is configuration. Copy it with
 
 ## Marginalia Library
 
-<!-- GAP [[01M66FVYBMPZV44NS7CTC00ST4]]: marginalia-bytetum's data directory has no backup. -->
+<!-- GAP [[01M66FVYBMPZV44NS7CTC00ST4]]: marginalia-bytetum's backup is not declared here. -->
 Marginalia ([marginalia-service.md](marginalia-service.md)) keeps a person's
 saved articles, highlights and syntheses in its data directory
 (`~/.local/share/marginalia-nix/data` on shared-server: an embedded SurrealDB
