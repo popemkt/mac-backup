@@ -1,6 +1,8 @@
 # A spatial, generative output surface for bb's voice concierge
 
-Date: 2026-11-02. Design only: nothing here is built. It pairs with the voice
+Date: 2026-11-02. Design only: nothing here is built. **Superseded in part by
+[v2](2026-11-02-spatial-generative-ui-v2.md)** (2026-11-03): free placement with presets, the engine in kb, a
+data-source contract, data flow, a flat mode, and a latency budget. v2 §0 lists what changed. It pairs with the voice
 concierge plugin ([PR #128](https://github.com/popemkt/mac-backup/pull/128),
 `assets/bb-plugins/voice-concierge`, research in
 `docs/research/2026-11-01-bb-voice-concierge.md`).
