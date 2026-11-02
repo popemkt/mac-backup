@@ -7,7 +7,7 @@
 // Cost: WebGL2, two draws per frame: a full-screen triangle for the halo and an icosphere of 20k triangles (the
 // noise runs per vertex, about 10k of them; the style's shading only on the ball's own pixels), 4x MSAA, at the
 // device pixel ratio capped at 2 and at most 720 pixels a side; no frames while the page is hidden or the sphere is
-// off screen; with reduced motion, one still frame per change.
+// off screen; with reduced motion, one still frame per change. A device that cannot keep up gets fewer pixels.
 import { DEFAULT_TUNE, type Tune } from "./core/look.ts";
 import { HALO_VERTEX_SOURCE, haloFragmentSource, MESH_VERTEX_SOURCE, meshFragmentSource, type SphereStyle } from "./core/sphere-styles.ts";
 
@@ -73,6 +73,10 @@ export class Sphere {
   private detail = 1; // render-resolution factor (lower while the sphere is shown small)
   private lastDraw = 0;
   private tune: Tune = DEFAULT_TUNE;
+  private quality = 1; // lowered when the device cannot keep up (see adapt)
+  private frameMs = 16.7; // smoothed interval between full-rate frames
+  private lastFull = 0;
+  private lastAdapt = 0;
 
   constructor(canvas: HTMLCanvasElement, style: SphereStyle, options: SphereOptions) {
     this.canvas = canvas;
@@ -216,14 +220,38 @@ export class Sphere {
     w.connect += ((look === "connecting" ? 1 : 0) - w.connect) * ease;
     w.mute += ((muted && mode !== "idle" ? 1 : 0) - w.mute) * ease;
 
-    // The motion knob speeds the inner drift up or slows it down (the displacement scales with it in the shader).
-    const pace = 0.3 + 0.7 * this.tune.motion;
+    // The motion knob speeds the inner drift up or slows it down, and at 0 stops it (the displacement and the breath
+    // scale with it too); the voice still brightens the sphere.
+    const pace = this.tune.motion;
+    this.adapt(now, look);
     this.clock += dtCalm;
     this.drift += dtCalm * pace * (1 + 1.6 * w.think + 0.6 * w.connect + 0.5 * this.level);
     this.spin += dtCalm * pace * (0.6 + 0.8 * this.level);
     this.flow += dtCalm * pace * Math.min(0.5 + 1.0 * this.level, 1.2);
     this.draw(still);
     if (!still) this.kick();
+  }
+
+  /**
+   * Adaptive resolution: while the sphere draws at full rate, a slow device (frames over ~26 ms, under ~38 fps) gets
+   * fewer pixels, a step a second down to 55%; a device with room to spare gets them back, slowly.
+   */
+  private adapt(now: number, look: SphereLook): void {
+    const full = look !== "idle" && this.detail === 1;
+    if (!full) {
+      this.lastFull = 0;
+      return;
+    }
+    if (this.lastFull !== 0) this.frameMs += (Math.min(now - this.lastFull, 100) - this.frameMs) * 0.05;
+    this.lastFull = now;
+    if (now - this.lastAdapt < 1000) return;
+    if (this.frameMs > 26 && this.quality > 0.55) {
+      this.quality = Math.max(0.55, this.quality * 0.88);
+      this.lastAdapt = now;
+    } else if (this.frameMs < 18 && this.quality < 1 && now - this.lastAdapt > 4000) {
+      this.quality = Math.min(1, this.quality + 0.05);
+      this.lastAdapt = now;
+    }
   }
 
   private lookFor(mode: SphereMode, remote: number, now: number): SphereLook {
@@ -235,7 +263,7 @@ export class Sphere {
   private draw(still: boolean): void {
     const { gl, canvas } = this;
     const coarse = matchMedia("(pointer: coarse)").matches;
-    const dpr = Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 2) * this.detail;
+    const dpr = Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 2) * this.detail * this.quality;
     const side = Math.max(canvas.clientWidth, canvas.clientHeight) * dpr;
     const scale = side > MAX_SIDE ? (dpr * MAX_SIDE) / side : dpr;
     const width = Math.max(1, Math.round(canvas.clientWidth * scale));
@@ -251,7 +279,7 @@ export class Sphere {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const w = this.weights;
     // ~4 s breath, 2.2%; a touch deeper while thinking.
-    const breath = still ? 1 : 1 + (0.022 + 0.006 * w.think) * Math.sin((this.clock * 2 * Math.PI) / BREATH_S);
+    const breath = still ? 1 : 1 + (0.022 + 0.006 * w.think) * Math.min(1, this.tune.motion) * Math.sin((this.clock * 2 * Math.PI) / BREATH_S);
     const set = ({ u }: Program) => {
       gl.uniform2f(u.uRes, width, height);
       gl.uniform1f(u.uTime, this.drift + 7.3);

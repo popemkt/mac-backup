@@ -8,7 +8,7 @@ import type { LiveSignal, rpcContract } from "./server.ts";
 import { LIVE_CHANNEL, STYLE_CHANNEL, THREAD_CHANNEL } from "./core/live.ts";
 import { DOCK_AFTER_MS, DOCK_SOON_MS, orbMinimized } from "./core/orb.ts";
 import { barHint, friendlyError, idleHint, stateLabel, SUGGESTIONS } from "./core/copy.ts";
-import { DEFAULT_TUNE, formatKnob, KNOB_LABELS, KNOB_RANGE, KNOBS, type Knob, type Tune } from "./core/look.ts";
+import { DEFAULT_TUNE, formatKnob, KNOB_LABELS, KNOB_RANGE, KNOBS, type Tune, type TunePatch, TuneSaver } from "./core/look.ts";
 import { isSphereStyle, SPHERE_STYLES, STYLE_LABELS, STYLE_SWATCHES, type SphereStyle } from "./core/sphere-styles.ts";
 import { Sphere, type SphereLook, type SphereMode } from "./sphere.ts";
 
@@ -100,7 +100,12 @@ class CallManager {
 
   receive(signal: LiveSignal): void {
     const { event } = signal;
-    if (this.state.conversationId !== null && signal.conversationId !== null && signal.conversationId !== this.state.conversationId) return;
+    // Another call's events (another device, another tab) are not this page's: idle, it takes only events that belong
+    // to no call (a sign-in finishing); in a call, only its own.
+    if (signal.conversationId !== null) {
+      if (this.state.phase === "idle") return;
+      if (this.state.conversationId !== null && signal.conversationId !== this.state.conversationId) return;
+    }
     switch (event.kind) {
       case "transcript":
         if (event.final) this.set({ caption: null, revision: this.state.revision + 1 });
@@ -264,28 +269,47 @@ function useSize(ref: React.RefObject<HTMLElement | null>): { width: number; hei
  * no scroll control of its own, so this finds its scroller inside the box.
  */
 function useStickToEnd(box: React.RefObject<HTMLElement | null>, key: string): void {
+  // whether the person was reading at the end; kept across a swap of the chat, so a reader scrolled up stays put
+  const atEnd = useRef(true);
   useEffect(() => {
     const el = box.current;
     if (el === null) return;
-    let atEnd = true;
     let scroller: HTMLElement | null = null;
+    let frame = 0;
+    let retry = 0;
+    const onScroll = () => {
+      if (scroller !== null) atEnd.current = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 48;
+    };
+    let scanned = -Infinity;
+    let throttled = false;
     const find = () => {
       if (scroller?.isConnected) return scroller;
-      scroller = [el, ...Array.from(el.querySelectorAll<HTMLElement>("*"))].find(n => /(auto|scroll)/.test(getComputedStyle(n).overflowY) && n.scrollHeight > n.clientHeight) ?? null;
+      const now = performance.now();
+      throttled = now - scanned < 500; // a full scan at most twice a second, until it has something to scroll
+      if (throttled) return null;
+      scanned = now;
+      scroller?.removeEventListener("scroll", onScroll);
+      const all = [el, ...Array.from(el.querySelectorAll<HTMLElement>("*"))];
+      scroller = all.find(n => /(auto|scroll)/.test(getComputedStyle(n).overflowY) && n.scrollHeight > n.clientHeight) ?? null;
       scroller?.addEventListener("scroll", onScroll, { passive: true });
       return scroller;
     };
-    const onScroll = () => {
-      if (scroller !== null) atEnd = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 48;
-    };
+    // after the box resizes or the chat's content changes (its first page landing, a new message), once per frame
     const stick = () => {
-      const s = find();
-      if (s !== null && atEnd) s.scrollTop = s.scrollHeight;
+      if (frame !== 0) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        const s = find();
+        if (s !== null && atEnd.current) s.scrollTop = s.scrollHeight;
+        else if (s === null && throttled && retry === 0) retry = window.setTimeout(() => ((retry = 0), stick()), 520);
+      });
     };
     const ro = new ResizeObserver(stick);
     ro.observe(el);
-    const settle = window.setTimeout(stick, 400); // the chat's first page has landed by then
-    return () => (ro.disconnect(), clearTimeout(settle), scroller?.removeEventListener("scroll", onScroll));
+    const mo = new MutationObserver(stick);
+    mo.observe(el, { childList: true, subtree: true });
+    stick();
+    return () => (ro.disconnect(), mo.disconnect(), cancelAnimationFrame(frame), clearTimeout(retry), scroller?.removeEventListener("scroll", onScroll));
   }, [box, key]);
 }
 
@@ -339,7 +363,12 @@ function ConciergePage() {
   const [tuning, setTuning] = useState(false);
   const tuneButton = useRef<HTMLButtonElement>(null);
   const closeTuning = useCallback(() => setTuning(false), []);
-  const tuneSave = useRef<{ timer: number; style: SphereStyle | null; patch: Partial<Record<Knob, number | null>> }>({ timer: 0, style: null, patch: {} });
+  const [tuneError, setTuneError] = useState<string | null>(null);
+  const saver = useRef<TuneSaver | null>(null);
+  saver.current ??= new TuneSaver(
+    (s, patch) => rpc.call("setTune", { style: s, tune: patch }).then(() => setTuneError(null)),
+    e => setTuneError(message(e)),
+  );
   const [settled, setSettled] = useState(false);
   const [brief, setBrief] = useState(false);
   const [override, setOverride] = useState<boolean | null>(null);
@@ -386,10 +415,10 @@ function ConciergePage() {
     const p = payload as { style?: string; autoMinimize?: unknown; tunes?: Record<SphereStyle, Tune> };
     if (isSphereStyle(p.style ?? "")) setStyle(p.style as SphereStyle);
     if (typeof p.autoMinimize === "boolean") setAuto(p.autoMinimize);
-    // a knob being dragged here wins over the echo of its own save
-    if (p.tunes !== undefined && tuneSave.current.timer === 0) setTunes(p.tunes);
+    // a knob being moved here wins over the echo of its own saves
+    if (p.tunes !== undefined && saver.current?.quiet() !== false) setTunes(p.tunes);
   });
-  useEffect(() => () => clearTimeout(tuneSave.current.timer), []);
+  useEffect(() => () => saver.current?.flush(), []);
   // A change of call phase hands the size back to the rule; a live call settles after a few seconds.
   useEffect(() => {
     setOverride(null);
@@ -420,22 +449,12 @@ function ConciergePage() {
   };
   const tune = style !== null ? (tunes[style] ?? DEFAULT_TUNE) : DEFAULT_TUNE;
   // A knob moves the sphere at once; the setting is saved a moment after the last change (null resets the knob).
-  const retune = (patch: Partial<Record<Knob, number | null>>) => {
+  const retune = (patch: TunePatch) => {
     if (style === null) return;
     const next = { ...tune };
     for (const k of KNOBS) if (k in patch) next[k] = patch[k] ?? KNOB_RANGE[k].default;
     setTunes(t => ({ ...t, [style]: next }));
-    const save = tuneSave.current;
-    if (save.style !== style) save.patch = {};
-    save.style = style;
-    save.patch = { ...save.patch, ...patch };
-    clearTimeout(save.timer);
-    save.timer = window.setTimeout(() => {
-      const { style: s, patch: p } = save;
-      save.timer = 0;
-      save.patch = {};
-      if (s !== null) rpc.call("setTune", { style: s, tune: p }).catch(() => {});
-    }, 300);
+    saver.current?.edit(style, patch);
   };
   // The sphere is a control too: idle, a tap starts the call; in a call, it docks or opens up.
   const tapSphere = () => {
@@ -455,7 +474,7 @@ function ConciergePage() {
   // The sphere's size and where it sits.
   const body = Math.max(0, size.height - 48);
   const S = side
-    ? Math.round(Math.min(body * 0.4, size.width * 0.26, 240))
+    ? Math.round(Math.min(body * (error !== null ? 0.24 : 0.4), size.width * 0.26, 240)) // an error needs the room
     : Math.round(!ready && !checking ? Math.min(body * 0.2, 140) : Math.min(body * 0.3, size.width * 0.62, 248));
   const largeSlot = useRef<HTMLDivElement>(null);
   const smallSlot = useRef<HTMLDivElement>(null);
@@ -520,7 +539,8 @@ function ConciergePage() {
           // a phone held sideways: keep the conversation clear of the floating button in the bottom-right corner
           style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))", paddingRight: size.width < 880 ? 72 : undefined }}
         >
-          <div className="flex w-[40%] min-w-0 max-w-[420px] shrink-0 flex-col items-center justify-center gap-1">
+          {/* centred while it fits; when it does not (a long error on a short screen), it scrolls from the top */}
+          <div className="flex w-[40%] min-w-0 max-w-[420px] shrink-0 flex-col items-center gap-1 overflow-y-auto py-1 [&>:first-child]:mt-auto [&>:last-child]:mb-auto">
             {sphere}
             <StateText label={label} caption={caption} hint={hint} live={phase !== "idle"} />
             <div className="mt-2">
@@ -545,7 +565,7 @@ function ConciergePage() {
       )}
       {!side && sphere}
       {tuning && style !== null && phase === "idle" && (
-        <TunePanel style={style} tune={tune} onTune={retune} opens={side ? "right" : "below"} root={root} anchor={tuneButton} onClose={closeTuning} />
+        <TunePanel style={style} tune={tune} onTune={retune} error={tuneError} opens={side ? "right" : "below"} root={root} anchor={tuneButton} onClose={closeTuning} />
       )}
     </div>
   );
@@ -921,12 +941,28 @@ function StylePicker(props: {
   return (
     <div className="relative flex flex-col items-center">
       <div className="flex items-center">
-        <div className="flex items-center" role="radiogroup" aria-label="Sphere style">
+        <div
+          className="flex items-center"
+          role="radiogroup"
+          aria-label="Sphere style"
+          onKeyDown={e => {
+            const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+            if (step === 0) return;
+            e.preventDefault();
+            const n = SPHERE_STYLES.length;
+            const next = SPHERE_STYLES[(SPHERE_STYLES.indexOf(style ?? SPHERE_STYLES[0]) + step + n) % n]!;
+            onPick(next);
+            setNamed(next);
+            e.currentTarget.querySelector<HTMLElement>(`[data-style="${next}"]`)?.focus();
+          }}
+        >
           {SPHERE_STYLES.map(s => (
             <button
               key={s}
+              data-style={s}
               role="radio"
               aria-checked={s === style}
+              tabIndex={s === (style ?? SPHERE_STYLES[0]) ? 0 : -1}
               aria-label={STYLE_LABELS[s]}
               title={STYLE_LABELS[s]}
               className="group flex h-11 w-11 items-center justify-center rounded-full"
@@ -961,7 +997,9 @@ function StylePicker(props: {
 function TunePanel(props: {
   style: SphereStyle;
   tune: Tune;
-  onTune: (patch: Partial<Record<Knob, number | null>>) => void;
+  onTune: (patch: TunePatch) => void;
+  /** Why the last save failed, if it did. */
+  error: string | null;
   opens: "below" | "right";
   root: React.RefObject<HTMLDivElement | null>;
   anchor: React.RefObject<HTMLButtonElement | null>;
@@ -1006,7 +1044,11 @@ function TunePanel(props: {
     if (el === null) return;
     el.querySelector("input")?.focus({ preventScroll: true });
     if (!reducedMotion()) el.animate([{ opacity: 0, scale: "0.96" }, { opacity: 1, scale: "1" }], { duration: 200, easing: EASE });
-  }, []);
+    // closed with the keyboard (or a tap inside): focus goes back to the tune button
+    return () => {
+      if (el.contains(document.activeElement) || document.activeElement === document.body) anchor.current?.focus({ preventScroll: true });
+    };
+  }, [anchor]);
   const changed = KNOBS.some(k => props.tune[k] !== KNOB_RANGE[k].default);
   return (
     <div
@@ -1016,17 +1058,17 @@ function TunePanel(props: {
       className="absolute z-30 w-[min(300px,calc(100vw-32px))] rounded-xl border border-border bg-popover p-3 text-popover-foreground shadow-lg"
       style={{ left: at?.left ?? 0, top: at?.top ?? 0, visibility: at === null ? "hidden" : "visible" }}
     >
-      <div className="mb-1 flex items-center justify-between">
+      <div className="-mt-2 flex items-center justify-between">
         <div className="text-xs font-medium">{STYLE_LABELS[props.style]}</div>
         <div className="flex items-center">
           <button
-            className="h-8 rounded-md px-2 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40"
+            className="h-11 rounded-md px-3 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40"
             disabled={!changed}
             onClick={() => props.onTune({ vividness: null, motion: null, glow: null, hue: null })}
           >
             Reset
           </button>
-          <button className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground" aria-label="Close" onClick={onClose}>
+          <button className="-mr-2 flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground hover:text-foreground" aria-label="Close" onClick={onClose}>
             <Icon name="x" size={14} />
           </button>
         </div>
@@ -1046,6 +1088,7 @@ function TunePanel(props: {
               max={r.max}
               step={r.step}
               value={props.tune[k]}
+              aria-valuetext={k === "hue" ? `${formatKnob(k, props.tune[k])} degrees` : formatKnob(k, props.tune[k])}
               onChange={e => props.onTune({ [k]: Number(e.target.value) })}
               onDoubleClick={() => props.onTune({ [k]: null })}
               className="h-11 min-w-0 flex-1 cursor-pointer accent-foreground"
@@ -1055,6 +1098,12 @@ function TunePanel(props: {
           </div>
         );
       })}
+      {props.error !== null && (
+        <div className="mt-1 text-xs text-destructive" role="alert">
+          Couldn't save these settings: {props.error}
+        </div>
+      )}
+      <div className="mt-1 text-[11px] text-muted-foreground">Saved to the plugin settings as you go.</div>
     </div>
   );
 }

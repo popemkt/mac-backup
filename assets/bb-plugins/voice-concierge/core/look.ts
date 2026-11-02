@@ -42,3 +42,55 @@ export function tunesFrom(values: Record<string, unknown>): Record<SphereStyle, 
 export function formatKnob(knob: Knob, value: number): string {
   return knob === "hue" ? `${value > 0 ? "+" : ""}${Math.round(value)}°` : `${Math.round(value * 100)}%`;
 }
+
+export type TunePatch = Partial<Record<Knob, number | null>>;
+
+/**
+ * Saves knob changes a moment after the last one, per style, so a drag is one write and switching styles mid-drag
+ * loses nothing. `quiet` says when the server's echo of the settings may replace what the page shows: not while a
+ * change waits or is being written, nor just after (an older write's echo can still be on its way).
+ */
+export class TuneSaver {
+  private readonly pending = new Map<SphereStyle, TunePatch>();
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  private inflight = 0;
+  private settledAt = -Infinity;
+
+  private readonly send: (style: SphereStyle, patch: TunePatch) => Promise<unknown>;
+  private readonly onError: (e: unknown) => void;
+  private readonly delayMs: number;
+  private readonly now: () => number;
+
+  constructor(send: (style: SphereStyle, patch: TunePatch) => Promise<unknown>, onError: (e: unknown) => void, delayMs = 300, now: () => number = Date.now) {
+    this.send = send;
+    this.onError = onError;
+    this.delayMs = delayMs;
+    this.now = now;
+  }
+
+  edit(style: SphereStyle, patch: TunePatch): void {
+    this.pending.set(style, { ...this.pending.get(style), ...patch });
+    if (this.timer !== null) clearTimeout(this.timer);
+    this.timer = setTimeout(() => this.flush(), this.delayMs);
+  }
+
+  /** Write every waiting change now (also when the page goes away). */
+  flush(): void {
+    if (this.timer !== null) clearTimeout(this.timer);
+    this.timer = null;
+    for (const [style, patch] of this.pending) {
+      this.inflight++;
+      this.send(style, patch)
+        .catch(this.onError)
+        .finally(() => {
+          this.inflight--;
+          this.settledAt = this.now();
+        });
+    }
+    this.pending.clear();
+  }
+
+  quiet(): boolean {
+    return this.pending.size === 0 && this.inflight === 0 && this.now() - this.settledAt > 800;
+  }
+}

@@ -130,12 +130,7 @@ const JELLY = /* glsl */ `
 uniform float uBubbles;
 vec3 body(Ctx c) {
   vec3 sigma = vec3(0.5, 2.2, 1.7) * (0.65 + 0.45 * c.vivid); // absorbs green, then blue: a raspberry sweet
-  float sw = 0.0;
-  for (int i = 0; i < 2; i++) {
-    float k = (float(i) + 0.5) / 2.0;
-    sw += fbm3(warp(vec3(c.p, mix(c.z, -c.z, k)) * 1.05 + vec3(0.0, -c.t * 0.02, 0.0), c.t * 0.05));
-  }
-  sw *= 0.5;
+  float sw = fbm3(warp(vec3(c.p, 0.0) * 1.05 + vec3(0.0, -c.t * 0.02, 0.0), c.t * 0.05)); // the swirls, mid-depth
   float thick = 2.0 * c.z * (0.85 + 0.45 * sw) * (1.1 - 0.35 * smoothstep(0.4, -0.9, c.p.y));
   vec3 back = vec3(1.0, 0.86, 0.7) * (1.45 + 0.7 * c.level + 0.3 * c.speak);
   vec3 col = back * exp(-sigma * thick);
@@ -172,16 +167,18 @@ const MOONSTONE = /* glsl */ `
 // is strongest where the surface faces a slowly turning axis, seen a little below the surface, so it glides across
 // the stone as the shape moves and as the voice turns it, and a fainter violet sheen answers it from the other side.
 vec3 body(Ctx c) {
-  vec3 milk = vec3(0.5, 0.52, 0.57), deep = vec3(0.07, 0.08, 0.12);
+  vec3 milk = vec3(0.58, 0.6, 0.65), deep = vec3(0.09, 0.1, 0.14);
   float veil = 0.5 + 0.5 * fbm3(warp(vec3(c.p * 0.9, c.z) + vec3(0.0, 0.0, c.t * 0.03), c.t * 0.04));
   vec3 col = mix(deep, milk, 0.2 + 0.55 * c.z * (0.6 + 0.6 * veil));
   col += vec3(0.75, 0.78, 0.85) * pow(1.0 - c.ndv, 2.0) * 0.25; // the milky rim, where light scatters back out
   float a = c.t * 0.25 + c.level * 1.4 + c.think * c.t * 0.2;
   vec3 axis = normalize(vec3(0.55 * cos(a), 0.55 * sin(a) + 0.2, 0.85));
   vec3 below = normalize(c.n - c.v * 0.35);
-  float sheen = pow(smoothstep(0.45, 0.98, dot(below, axis)), 1.5);
+  float sheen = pow(smoothstep(0.6, 0.99, dot(below, axis)), 1.3);
   float billow = 0.5 + 0.5 * snoise(vec3(c.p * 0.75 + c.n.xy * 0.6, c.t * 0.1));
-  col += vec3(0.2, 0.5, 1.0) * sheen * (0.55 + 0.7 * billow) * (1.2 + 1.2 * c.level + 0.3 * c.listen) * (0.55 + 0.6 * c.vivid) * c.glow;
+  // seen through the milk: soft-edged, a little veiled, never brighter than a glow under the surface
+  col = mix(col, col * 0.45 + vec3(0.22, 0.5, 1.0) * 1.15, sheen * (0.6 + 0.4 * billow) * min(1.0, (0.95 + 0.9 * c.level + 0.2 * c.listen) * (0.55 + 0.5 * c.vivid) * c.glow));
+  col += vec3(0.3, 0.55, 1.0) * sheen * max(0.0, c.glow * (0.55 + 0.5 * c.vivid) - 1.0) * 0.5; // past 100%, it glows
   float sheen2 = smoothstep(0.85, 1.0, dot(below, normalize(vec3(-axis.x, -axis.y, 0.9))));
   col += vec3(0.55, 0.4, 1.0) * sheen2 * 0.25 * c.vivid * c.glow;
   // polished: a glassy reflection

@@ -252,6 +252,39 @@ test("look: one setting per style and knob, values clamped into range, bad value
   assert.match(haloFragmentSource("jelly"), /uGlow/);
 });
 
+test("TuneSaver: one write per style after the last change, nothing lost across styles, quiet only when settled", async () => {
+  const { TuneSaver } = await import("../core/look.ts");
+  let clock = 0;
+  const sent: [string, unknown][] = [];
+  const errors: unknown[] = [];
+  let fail = false;
+  const saver = new TuneSaver(
+    async (style, patch) => {
+      sent.push([style, patch]);
+      if (fail) throw new Error("offline");
+    },
+    e => errors.push(e),
+    20,
+    () => clock,
+  );
+  assert.equal(saver.quiet(), true);
+  saver.edit("jelly", { glow: 1.2 });
+  saver.edit("jelly", { glow: 1.4, hue: 10 });
+  saver.edit("aurora", { motion: 0.5 });
+  assert.equal(saver.quiet(), false);
+  await new Promise(r => setTimeout(r, 40));
+  assert.deepEqual(sent, [["jelly", { glow: 1.4, hue: 10 }], ["aurora", { motion: 0.5 }]]);
+  assert.equal(saver.quiet(), false); // an echo of an older write may still be on its way
+  clock = 1000;
+  assert.equal(saver.quiet(), true);
+  fail = true;
+  saver.edit("frosted", { vividness: 0 });
+  saver.flush(); // the page going away writes at once
+  await new Promise(r => setTimeout(r, 5));
+  assert.equal(sent.length, 3);
+  assert.equal(errors.length, 1);
+});
+
 test("icosphere: 10242 unit vertices and 20480 triangles at detail 5, all indices in range", async () => {
   const { icosphere } = await import("../sphere.ts");
   const { positions, indices } = icosphere(5);
