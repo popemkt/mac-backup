@@ -117,6 +117,12 @@ let
         KB_SOCKET = config.my.services.${kbEntry}.socket;
       };
     };
+  # bytetum's bb ports (my.services.bb-bytetum below); popemkt's are bb's
+  # defaults.
+  bytetumBb = {
+    serverPort = 38896;
+    daemonPort = 38897;
+  };
   # axioms' SpacetimeDB state (my.services.axioms below), and the limits on
   # both of its units.
   axiomsState.AXIOMS_STDB_HOME = "${config.users.users.popemkt.home}/.local/share/axioms/spacetime";
@@ -280,8 +286,7 @@ in
   # listens on a Unix socket only they and root (tailscaled) can reach, not
   # on a loopback port every account can.
   my.services.kb = kbHome "popemkt" (bbFramesKb "popemkt");
-  # bytetum runs no bb, so nothing frames their page.
-  my.services.kb-bytetum = kbHome "bytetum" [ ];
+  my.services.kb-bytetum = kbHome "bytetum" (bbFramesKb "bytetum");
 
   # bytetum's Marginalia reading library (github.com/bytetum/marginalia;
   # pkgs/marginalia, pinned by hand), as svc:marginalia-bytetum. It listens on
@@ -343,6 +348,18 @@ in
     serverPort = 38886;
     daemonPort = 38887;
     kbEntry = "kb";
+  };
+
+  # bytetum's bb, as svc:bb-bytetum: the same two units (app-bb-bytetum and
+  # app-bb-bytetum-daemon), on ports of its own, with its data, and so its
+  # machine identity, in bytetum's ~/.bb. Outside a thread the bb CLI asks
+  # the server on BB_SERVER_PORT (38886 when unset, popemkt's), so bytetum's
+  # managed env names theirs; their idle check and bb-plugins-sync then talk
+  # to their own server.
+  my.services.bb-bytetum = bbHome "bytetum" (bytetumBb // { kbEntry = "kb-bytetum"; });
+  my.stacks.bb.env.bytetum = {
+    BB_SERVER_PORT = toString bytetumBb.serverPort;
+    BB_HOST_DAEMON_PORT = toString bytetumBb.daemonPort;
   };
 
   # popemkt's axioms (pkgs/axioms) in live mode, as svc:axioms-popemkt. Two
