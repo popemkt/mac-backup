@@ -258,6 +258,37 @@ function useSize(ref: React.RefObject<HTMLElement | null>): { width: number; hei
   return size;
 }
 
+/**
+ * Keeps a chat's scroller at its newest message when its box changes size (the sphere's stage opening or closing
+ * above it) or the chat is swapped (the call's timeline), unless the person has scrolled up to read. ThreadChat has
+ * no scroll control of its own, so this finds its scroller inside the box.
+ */
+function useStickToEnd(box: React.RefObject<HTMLElement | null>, key: string): void {
+  useEffect(() => {
+    const el = box.current;
+    if (el === null) return;
+    let atEnd = true;
+    let scroller: HTMLElement | null = null;
+    const find = () => {
+      if (scroller?.isConnected) return scroller;
+      scroller = [el, ...Array.from(el.querySelectorAll<HTMLElement>("*"))].find(n => /(auto|scroll)/.test(getComputedStyle(n).overflowY) && n.scrollHeight > n.clientHeight) ?? null;
+      scroller?.addEventListener("scroll", onScroll, { passive: true });
+      return scroller;
+    };
+    const onScroll = () => {
+      if (scroller !== null) atEnd = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 48;
+    };
+    const stick = () => {
+      const s = find();
+      if (s !== null && atEnd) s.scrollTop = s.scrollHeight;
+    };
+    const ro = new ResizeObserver(stick);
+    ro.observe(el);
+    const settle = window.setTimeout(stick, 400); // the chat's first page has landed by then
+    return () => (ro.disconnect(), clearTimeout(settle), scroller?.removeEventListener("scroll", onScroll));
+  }, [box, key]);
+}
+
 /** Sets `inert` on an element (React 18 does not pass the attribute through). */
 function useInert(ref: React.RefObject<HTMLElement | null>, inert: boolean): void {
   useEffect(() => {
@@ -1047,6 +1078,8 @@ function Conversation(props: {
   useEffect(() => {
     setTyping(false);
   }, [threadId]);
+  const chat = useRef<HTMLDivElement>(null);
+  useStickToEnd(chat, `${threadId}:${props.inCall}`);
   const say = (text: string) => {
     setFailure(null);
     props.onSent();
@@ -1102,7 +1135,11 @@ function Conversation(props: {
             </div>
           </div>
         ) : (
-          <div className="h-full" style={{ maskImage: "linear-gradient(to bottom, transparent, #000 16px)", WebkitMaskImage: "linear-gradient(to bottom, transparent, #000 16px)" }}>
+          <div
+            ref={chat}
+            className="h-full"
+            style={{ maskImage: "linear-gradient(to bottom, transparent, #000 16px)", WebkitMaskImage: "linear-gradient(to bottom, transparent, #000 16px)" }}
+          >
             <ThreadChat threadId={threadId} variant={props.inCall ? "timeline" : "compact"} />
           </div>
         )}
