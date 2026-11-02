@@ -39,7 +39,7 @@ Claim tags:
 
 | v1 | v2 | Why |
 |---|---|---|
-| Five fixed regions; the agent placed items by region | Free placement anywhere in 3D, plus layout presets that arrange and then let go (§5) | Owner direction 2 |
+| Five fixed regions; the agent placed items by region | Free placement anywhere in 3D (the page's plane bent around the viewer in the room projection), plus layout presets that arrange and then let go (§5) | Owner direction 2 |
 | A protocol of our own and seven `spatial_*` tools in a bb plugin | **kb's canvas verbs, called through `kb_call`**; no new agent tool set | kb's canvas already has the scene model, the verbs, undo, 2D and 3D, and a dataflow run. Two vocabularies would break Rule 1 |
 | A `spatial-kit` folder in the dotfiles bb plugins | **The engine lives in kb**; bb keeps only the voice side (§8) | It would otherwise be built twice |
 | Sources were bb queries inside the plugin | **One source contract: kb read actions with an optional live feed.** Commands are kb write actions. Adapters are kb extension families (§4) | "One contract, every implementation" |
@@ -69,31 +69,45 @@ Claim tags:
    - The scene is a kb canvas document: a `#canvas` node, with one page per
      concierge session.
    - **Flat** is kb's DOM canvas as it is today.
-   - **Spatial** is a new 3D projection, `room`. It stands items around the
-     viewer and reads the *same* x, y and z: x is the arc length around the
-     viewer, y the height, z the distance.
-   - Because of that mapping, the flat canvas needs no change at all, and
-     moving an item in either projection moves it in both.
+   - **Spatial** is a new 3D projection, `room`, set per page. It bends the
+     page's plane into a cylinder around the viewer:
+     - the floor plan's x runs around the viewer;
+     - its y runs up the wall;
+     - kb's elevation (z) comes off the wall toward the viewer.
+
+     So `on`, layers, snapping and frames keep their meaning; the plane only
+     stands up.
+   - Flat draws the page as kb does today. A move in either projection is a
+     move in both. The room projection gets a contract of its own: domain,
+     seam, inverse picking, orientation and the elevation limit (§3.1).
 3. **An item is a component plus a binding, and both are nodes.**
    - A placed component is a canvas item standing for a **view node**: kb's
      generative-UI mode A, where the view key comes from kb's view catalog
      and its params are checked against the view's schema.
-   - The view node's params include its **bindings**: which read action
-     supplies each input, with what input, and whether it is live, read once,
-     or polled.
+   - Its **bindings** say which read action supplies each input, with what
+     input, and whether the binding is live, read once, or polled. They are
+     node fields, read and written through the view key's existing
+     `config.read/write`.
    - Generated UI is a `code.view`, which already exists in kb: sandboxed,
      with a grant. Styling is the view's style params plus kb's look tokens.
 4. **One source contract, many adapters.**
    - A query is a kb **read action**. A live query is a read action that also
      declares a **change feed**: the subscription hub re-runs it when the
      feed fires and pushes the result, as it already does for datalog `rows`.
-   - A command is a kb **write action**, whose approval is decided by the
-     governance family's policies.
+   - A command is a kb **write action**. **Prerequisite:** kb enforces no
+     approval today ("Current stance": governance contributes no guard, so
+     every call runs [doc]). Commands wait until enforcement is restored
+     (§3.5).
    - Sources are kb extension families: core kb, bb (new), GitHub, files,
      HTTP and static, with Google Calendar through the routines family.
 5. **Data flow is `ext.canvas.run` made typed and live.**
-   - A view key declares typed ports, and an edge between two items standing
-     for nodes carries JSON from an output to an input.
+   - Today `canvas.run` carries text and stores each output on its node, and
+     runs only on demand [doc, `flow.ts`]. Typed JSON ports and live re-runs
+     are a substantial extension of that contract, not a free reuse.
+   - There is **one component execution contract** for both the on-demand
+     run and the live scheduler: a component declares typed ports and has one
+     performer and one output model. Headless components (query, transform)
+     and views are both components.
    - Queries and transforms are **pushed**: they re-run when their input
      changes.
    - Model steps (instructions) and commands are **pulled**: they run only
@@ -108,17 +122,23 @@ Claim tags:
    - A frame may keep a preset live, so new members arrange themselves.
    - Anything a hand moved is pinned and left alone.
 7. **Speed: a reflex path with no model, three paths in total.**
-   - The concierge's server already receives the person's final transcript.
-     A small grammar over the canvas vocabulary plus the spoken handles
-     ("number two") turns common asks into kb canvas ops directly.
+   - The concierge's host already emits the person's final transcript
+     (`host.ts`). A small grammar over the canvas vocabulary plus the spoken
+     handles ("number two") turns common asks into kb canvas ops directly.
+     - The router **claims the turn**. The voice model's own delegation of
+       that turn (`ask_concierge`) is then answered at once from the claim,
+       never relayed (§7.2).
    - Data is read from an in-memory cache that bb's change events keep
      current.
-   - Measured in the prototype: parsing takes about 0 ms, a ghost card paints
-     in 33–54 ms, and a populated card in 66–101 ms median (p95 at most
-     125 ms), counted from the final transcript.
+   - **What the prototype measured** (local callback timings, from a
+     synthetic call): routing about 0 ms, ghost after 33–54 ms, populated
+     after 66–101 ms median (p95 125.3 ms).
+     - This counts no transcription, socket, kb transaction or real view.
+     - The end-to-end targets (≤ 1 s from the end of speech) are
+       **unvalidated** until phase 1 measures them.
    - Asks the grammar misses go to a fast model. Only open-ended asks take
-     the concierge thread's 20–30 s path, and they fill a ghost card the
-     reflex already placed.
+     the concierge thread's 20–30 s path; a ghost is placed when the
+     delegation is dispatched, and the thread fills it.
 8. **Where code lives:**
    - **kb** gets the engine: the scene, projections, presets, the catalog,
      the source contract, live reads, dataflow and the bb source family.
@@ -149,7 +169,7 @@ Claim tags:
 **Prototype.**
 [`canvas.html`](#prototype-v2) shows one scene in both projections, with five
 presets, typed ports and wires (query → filter → list → detail → command), and
-the reflex path with its measured latency. The screenshots are in the design
+the reflex path with its local callback timings. The screenshots are in the design
 thread's storage and are not committed (§10).
 
 ## 2. Pre-made tech: adopt, borrow, or build
@@ -182,12 +202,15 @@ rest on it, adopting three's `CSS3DRenderer` now and uikit with WebXR later.
 
 ## 3. Model
 
-In kb terms, this needs four additions; everything else already exists:
+In kb terms, this needs these additions; everything else exists:
 
-- a view item;
-- port declarations on a view key;
-- a change feed on read actions;
-- the room projection.
+- view items (an item standing for a view node draws the view);
+- **one component execution contract** with typed JSON ports, used by both
+  `canvas.run` and the live scheduler;
+- a change feed on read actions, owned by the existing subscription hub;
+- the `room` projection and its contract;
+- renderers for media, PDF and HTML files, plus the faces of §6.1;
+- restored approval enforcement before any command (§3.5).
 
 ### 3.1 Scene
 
@@ -201,33 +224,57 @@ type CanvasItem = {                 // kb's existing item record (doc.ts), abbre
   nodeId?: NodeId;                  // the item stands for a node — here, a view node
   locked?: boolean; billboard?: boolean; link?: Link;
 };
-// The room projection reads the same numbers: x = arc length at the page's radius R,
-// y = height (screen-up), z = distance offset (toward or away from the viewer).
-// azimuth = x / R; position = (R+z)·(sin az, −y, −cos az); the item faces the viewer.
-type RoomCamera = { projection: "room"; radius: number; yaw: number; pitch: number; fov: number };
+// The room projection bends the page's plane into a cylinder around the viewer.
+// The floor plan becomes the wall: x → around (azimuth = (x − x0) / R), y → up the wall,
+// and kb's elevation z → off the wall, toward the axis. distance = R − z, with z ≤ R − nearLimit.
+// R is derived per page so the page's extent spans at most θmax (default 240°): nothing wraps.
+type RoomCamera = { projection: "room"; thetaMax: number; nearLimit: number; yaw: number; pitch: number; fov: number };
 ```
 
-- **No new geometry.** A flat item lies in the floor plan as today. In the
-  room projection, the floor plan is unrolled around the viewer. Free 3D
-  placement is x, y and z, and flat mode shows z as scale and paint order.
+- **The geometry is kb's, read with the plane standing up.** kb's floor plan
+  is x/y and its elevation is z; `place`, `arrange` and snapping work on that
+  surface [doc].
+  - The room keeps all of it and changes only where the surface is.
+    "On top of" means in front of it, toward the viewer. Layers stand out
+    from the wall by their value. Frames, groups and rotations are what they
+    are on the plane.
+  - **Flat needs no change:** it is kb's top view, exactly as today (it
+    shows elevation as kb already does, not as a new scale).
+- **The room projection contract** joins `CANVAS_PROJECTIONS` and states:
+  - **Domain:** x within the page's extent, mapped to at most `thetaMax`. A
+    page wider than that gets a larger radius, so distant items never meet
+    across a seam.
+  - **The near limit:** elevation is capped so that the distance R − z stays
+    at or above `nearLimit`.
+  - **Inverse picking and dragging:** a ray hits the cylinder (or an item's
+    own panel) and gives back x and y; z stays unless the gesture is a push
+    or a pull.
+  - **Orientation and size:** each item is a flat panel tangent to the
+    cylinder at its centre, facing the axis, at its width and height. Items
+    wider than 20° of arc are drawn as bent strips (later).
+  - **The shared suite:** pick, select, focus, and "a move in one projection
+    shows in the other".
 - **What changes in kb:** a `room` value beside `2d-ortho` and
-  `3d-perspective` in the view node's camera. The tabletop 3D view stays as
-  it is.
+  `3d-perspective` in the view node's camera, plus that contract. The
+  tabletop 3D view stays as it is.
 
 ### 3.2 Components are view nodes
 
 ```ts
 // An item whose nodeId is a view node draws that view (generative-UI mode A, DESIGN.md → View nodes).
-type ViewNode = {
-  "sys.f.view": ViewOptionId;          // which component: thread.list, record.card, timeline, code.view …
-  params: Record<string, Json>;        // checked against the view key's Schema
-  bindings?: Record<PortName, Binding>;
-  style?: StyleParams;                 // kb's look tokens: tone, density, emphasis; never raw CSS
+// Stored as node fields, read and written through the view key's existing config.read/write;
+// no new top-level storage. Shown here as the decoded settings.
+type ViewSettings = {
+  "sys.f.view": ViewOptionId;          // which component: record.list, record.card, timeline, code.view …
+  settings: Decoded<ViewKey["params"]>; // includes bindings and look (kb's tokens: tone, density, emphasis; never raw CSS)
 };
-type ViewKey = /* kb's existing key */ {
-  id: string; params: Schema; events?: EventSpec;
-  ports?: { inputs?: Record<PortName, JsonSchema>; outputs?: Record<PortName, JsonSchema> }; // new
+// One component execution contract, used by canvas.run and the live scheduler alike.
+type Component = {
+  ports: { inputs: Record<PortName, JsonSchema>; outputs: Record<PortName, JsonSchema> };
+  perform: "query" | "transform" | "view" | "instruction" | "command"; // how it runs (§3.4)
+  // Outputs are stored as today (the node's output field), now JSON, typed by its output port.
 };
+// A view key may declare the component it is; a headless component (query, transform) has no view.
 ```
 
 **The catalog is kb's view catalog** (`ViewKeyPoint`), and it is published in
@@ -270,6 +317,10 @@ type ChangeFeed = {
 };
 ```
 
+- **Feeds are owned by the existing subscription hub, not a new one.** Every
+  adapter joins one shared suite: cancellation, reconnect with a fresh
+  snapshot, deduplication of equal (action, input) pairs, and no stale answer
+  after a newer one.
 - **Live reads generalise what kb already does for datalog.** kb's server
   re-runs a `rows` subscription when the transaction tail moves and pushes
   the answer over `/ws` [doc].
@@ -286,15 +337,18 @@ type ChangeFeed = {
 ### 3.4 Data flow: typed ports, push and pull
 
 - **Wires already exist.** In `ext.canvas.run`, an edge between two items
-  standing for nodes carries the output of one into the other [doc]. v2
-  keeps that and adds:
+  standing for nodes carries the output of one into the other [doc]. Today
+  that output is **text**, stored on the node, and a run happens only when
+  asked. v2 extends that one contract rather than adding a second engine:
   - **Types:** an edge from port to port is allowed only when the output's
     JSON Schema fits the input's. `connect` and the agent are refused with
     the mismatch named.
-  - **A live scheduler beside the on-demand run.** The pure engine orders
-    components upstream first; a live change re-runs only the downstream
-    cone of what changed, and cancels runs its old input started (Observable's
-    invalidation).
+  - **JSON values,** typed by ports, stored where outputs are stored today.
+  - **A live mode of the same run:** one engine, one performer per
+    component, one output model. The pure engine orders components upstream
+    first. A live change re-runs only the downstream cone of what changed, and
+    cancels runs its old input started (Observable's invalidation). An
+    explicit run and a live update produce the same receipts.
 - **Push and pull** (Rete's dataflow/control-flow split):
 
   | Component | Runs when | Example |
@@ -316,14 +370,24 @@ type CommandView = { "sys.f.view": "command"; params: { action: ActionId; input:
 ```
 
 A command item shows exactly what it will do: the action, the resolved input,
-and the target named in words. It runs through the invoke core, so the
-governance policies decide:
+and the target named in words. It runs through the invoke core.
 
-- A person's press is allowed.
-- An agent's call asks.
-- **A voice "yes"** is accepted as the person's approval of *the one command
-  on screen*, matching the concierge's rule to say what it will send and
-  wait. The receipt records the actor `voice`.
+- **Prerequisite: enforcement.** kb's "Current stance" today is that the
+  governance family contributes no guard, so every call runs whatever its
+  mode declares [doc, DESIGN.md → Action registry]. Command items stay
+  disabled until that guard is restored for at least `outsideRoot` writes.
+  Once it is:
+  - A person's press is allowed.
+  - An agent's call asks.
+- **A voice "yes" approves one pending action, not "what is on screen".**
+  - Showing a command creates a pending approval:
+    `{actionId, inputDigest, revision, expiresAt (≈ 20 s), used: false}`.
+  - The concierge reads it out. A "yes" transcribed while it is pending, and
+    unchanged, resolves exactly that record, once.
+  - If the input or the revision changed in the meantime (a live update
+    re-resolved it), or the record expired, the "yes" approves nothing and
+    the concierge asks again.
+  - The receipt records the actor `voice` and the digest.
 - Commands never run from a live update.
 
 ### 3.6 Anything is an item
@@ -334,16 +398,21 @@ an item standing for a node whose view draws it. No content type gets a
 storage shape of its own** (Rule 1: "if a feature needs its own storage shape,
 the model is wrong").
 
-| Content | Item | Drawn by | Heavy? |
+| Content | Item record | Renderer | Heavy? |
 |---|---|---|---|
-| Note, sticky, heading | `text`, or an item standing for a node (exists) | kb's text surface | no |
-| A kb node, a kb view (outline, table, graph, chart) | an item standing for the node or the view node (exists, plus view items) | the view | sometimes (graph) |
-| A bb thread, task, PR, lane, automation | an item standing for a view node bound to `@kb/ext-bb` | record views | no |
-| Image, video, audio, PDF, markdown or HTML file, an artifact from a thread | `file` (exists) whose source is a kb asset or a bb file | media views; a sandboxed frame for HTML | yes (video, PDF, HTML) |
-| A website | `link` (exists) with `embed: true` | a third-party frame, or a link card | **yes** |
-| Raw HTML or generated UI | an item standing for a `code.view` node (exists) | kb's sandbox (QuickJS or a Worker, MCP Apps bridge) | yes |
-| Shapes, arrows, ink | `shape`, `path`, edges (exist) | the canvas | no |
-| A 3D model (later) | an item with depth (volume) bound to a `.glb` asset | the room projection; `<model>` in Safari | yes |
+| Note, sticky, heading | `text`, or an item standing for a node (exists) | exists (kb's text surface) | no |
+| A kb node, a kb view (outline, table, graph, chart) | an item standing for the node or the view node | the view exists; drawing a view inside a canvas item is new | sometimes (graph) |
+| A bb thread, task, PR, lane, automation | an item standing for a view node bound to `@kb/ext-bb` | new (record views) | no |
+| Image | `file` (exists) | exists for eligible kb asset images only [doc, `doc.ts`] | sometimes |
+| Video, audio, PDF, markdown | `file` (exists) whose source is a kb asset or a bb file | **new** media and document renderers | yes |
+| An HTML file, or an artifact from a thread | `file` (exists) | **new**: an HTML document renderer in an opaque-origin sandboxed frame with no network (isolation, not sanitising); its own contract, phase 3 | yes |
+| Generated UI | an item standing for a `code.view` node (exists) | exists: kb's sandbox draws allowlisted element data and **forbids arbitrary HTML** and navigation attributes [doc] | yes |
+| A website | `link` (exists) with `embed: true` | **new**: a third-party frame, or a link card (§6.1) | **yes** |
+| Shapes, arrows, ink | `shape`, `path`, edges (exist) | exists | no |
+| A 3D model (later) | an item with depth (volume) bound to a `.glb` asset | new (room projection; `<model>` in Safari) | yes |
+
+So the record exists for every row. Several renderers do not, and §9 phases
+them.
 
 A new kind of content is a new view key, plus at most a presentation for a
 record type, contributed by its family. The renderer, presets, wires,
@@ -354,7 +423,7 @@ record type, contributed by its family. The renderer, presets, wires,
 | Source | kb family | Reads (queries) | Live feed | Commands | Where it runs, and auth | Phase |
 |---|---|---|---|---|---|---|
 | **kb** | core | `graph.query` (datalog), `node.get`, the view's subject | the transaction tail (exists) | `node.*`, `ext.canvas.*` | kb's server | MVP (exists) |
-| **bb** | `@kb/ext-bb` (new) | threads (list, get, timeline tail, output), projects, environments (git status, diff), hosts, PR status (bb's `github-pr-status` plugin), tasks, automations, lanes (through bb's plugin RPC) | bb's realtime events (`thread:changed`, `environment:changed`, `host:changed`, `project:changed` [doc]) into **an in-memory cache, so a read is a memory lookup** | `thread.tell`, `spawn`, `stop`, `archive`, `task.update` (all asking) | Inside kb's server, against bb's HTTP API and realtime socket, with a token the kb bb plugin provisions (§8) | MVP |
+| **bb** | `@kb/ext-bb` (new) | threads (list, get, timeline tail, output), projects, environments (git status, diff), hosts, PR status (bb's `github-pr-status` plugin), tasks, automations, lanes (through bb's plugin RPC) | bb's realtime events (`thread:changed`, `environment:changed`, `host:changed`, `project:changed` [doc]) into **an in-memory cache, so a read is a memory lookup** | `thread.tell`, `spawn`, `stop`, `archive`, `task.update` (all asking, once enforcement is restored) | Inside kb's server, against bb's HTTP API and realtime socket, with a token the kb bb plugin provisions (§8) | MVP |
 | **GitHub** | `@kb/ext-github` | PRs, checks, reviews, issues | poll every 30–60 s while visible; webhooks later | merge, comment, request review (approval required) | kb's server, with a token through kb's secret pointer | 2 (bb already covers most PR facts) |
 | **Files and artifacts** | `@kb/ext-bb` files and kb locations | a file (markdown, image, HTML artifact), thread storage, workspace files on any bb machine (bb's `files.read`), kb assets | poll while visible, or a file watcher where kb runs | none | as above | 2 |
 | **Google Calendar** | the routines family (kb routines → Google Calendar design, @thread:thr_iuy8ys3ck8) | occurrences and agenda as kb nodes, so they are datalog | the transaction tail, as that design's sync writes nodes | the routine's own actions | kb ui on shared-server; scope `calendar.app.created` | 3 |
@@ -417,7 +486,7 @@ are given):
 
 | Projection | How | Status |
 |---|---|---|
-| **Flat** (default) | kb's DOM canvas. Items standing for view nodes render their view inside the card; edges are kb's bound edges, with port anchors. z appears as scale and paint order | exists, plus view items and port anchors |
+| **Flat** (default) | kb's DOM canvas. Items standing for view nodes render their view inside the card; edges are kb's bound edges, with port anchors. Elevation shows as kb already shows it | exists, plus view items and port anchors |
 | **Room** (spatial) | kb's three.js WebGPU stage draws the room, floor, light, edges (as lines in 3D) and far items (as rasterised textures, kb's LOD path). **Near items are real DOM in a `CSS3DRenderer` layer** that shares the camera, so they stay sharp, accessible and interactive. With HTML-in-Canvas, they become depth-correct textures (`HTMLTexture`) | new projection on the existing stage |
 | **XR** (headset) | WebXR immersive-vr. DOM is not composited there [doc], so each catalog component that is shown in XR needs a GPU "face" (uikit: card, list, stat, text); the rest show as their snapshot texture | phase 4 |
 | **Phone** | Flat, `column` preset, camera fit, no glass blur, one heavy view at a time, the orb in the bottom call bar | flat plus a preset |
@@ -455,22 +524,35 @@ drawing the item, and the renderer picks one per item per frame:
   | running code views | 6 | 3 |
   | heavy graphs | 2 | 1 |
 
-  When a slot is needed, the item least recently focused is demoted to its
-  snapshot. Media pauses when demoted; a frame is torn down, and its URL and
-  scroll position are kept.
+  **Counts are what is enforced.** When a slot is needed, the item least
+  recently focused is demoted to its snapshot.
+  - Media pauses when demoted.
+  - A frame is torn down, and only its URL is kept: a cross-origin frame's
+    scroll position and form state cannot be read, so they are **lost, and
+    the card says so** ("reloads when opened").
+  - **Demotion also ends what the live face owned:** its live bindings'
+    subscriptions, its sandbox worker, its timers. The face's owner disposes
+    them, and a contract test checks that a demoted face holds none.
 - **Culling uses a spatial index,** so each frame costs work for what is
   visible, not for everything on the page. kb's `describe` already indexes
   neighbours with a grid of squares; the renderer uses the same grid (or an
-  R-tree, `rbush`, MIT) over item boxes and asks it for the viewport. In the
-  room projection, what is visible is an interval of x (azimuth) plus a band
-  of y, which is even cheaper.
-- **Memory caps** are counted by the renderer (an estimate per face) and
-  enforced by demotion:
-  - live faces: about 300 MB on a desktop and 120 MB on a phone;
-  - snapshot cache: at most 512 px a side, kept least-recently-used, about
-    64 MB in memory, with persisted copies in kb assets.
-  - The page also listens to `memory` pressure signals where browsers
-    expose them.
+  R-tree, `rbush`, MIT) over item boxes and asks it for the viewport.
+  - In the room projection, the query is the camera frustum turned into
+    plane coordinates: an x range (azimuth, padded for perspective) and a
+    y band, widened by elevation, since near items cover more of the
+    view.
+  - Because the domain never wraps (§3.1), it is a single interval; the
+    index answers it, and an exact frustum test then filters the few
+    candidates.
+- **Memory is advisory.** A page cannot cap a browser's memory or measure a
+  cross-origin frame's.
+  - The renderer keeps an estimate per face and demotes early when the
+    estimate passes about 300 MB on a desktop (120 MB on a phone), or when
+    the browser reports memory pressure where it can.
+  - The counts above are the guarantee.
+  - The snapshot cache holds at most 512 px a side, least-recently-used,
+    about 64 MB in memory. Persisted snapshots are kb assets with an owner
+    (the item's node) and are **evicted with it, or after 30 days unseen**.
 - **Where snapshots come from:**
   - **Our own views:** the view's own snapshot. kb's sandbox already keeps
     a code view's snapshot as of the render. Where HTML-in-Canvas exists,
@@ -481,21 +563,29 @@ drawing the item, and the renderer picks one per item per frame:
     2. a capture by a server-side headless browser on the kb host. It is
        queued, `nice`d, at most one at a time, and cached by URL per day.
        The person can refresh it.
+  - **Each snapshot carries its provenance:** source (Open Graph,
+    server capture, the live face), time, and "signed out". A server capture
+    is not the person's authenticated view of the site, and the card says
+    so.
 - **Third-party frames:**
-  - When a website item is created, `@kb/ext-http` fetches its headers once.
-    A site that sends `X-Frame-Options: DENY|SAMEORIGIN`, or a CSP
-    `frame-ancestors` that does not include kb's origin, is recorded as
-    `embeddable: no`. Such an item never tries a frame: it is a **link card
-    with the snapshot and "Open"**.
-  - Because a refused frame still fires `load` in some browsers, the page
-    cannot be relied on to detect refusal, so detection happens on the server.
+  - **Header checks are advisory.** When a website item is created,
+    `@kb/ext-http` fetches its headers once. A site that sends
+    `X-Frame-Options: DENY|SAMEORIGIN`, or a CSP `frame-ancestors` that does
+    not include kb's origin, is recorded as `embeddable: no` and shown as a
+    **link card with the snapshot and "Open"**.
+  - Redirects, cookies and per-request responses can differ from what the
+    server saw, and some browsers fire `load` even for a refused frame. So a
+    site recorded as embeddable may still render blank. The card keeps a
+    **"Show as card"** switch that the person (or the agent, when told) can
+    flip, and the choice is stored.
   - A frame that is allowed gets:
     - `sandbox="allow-scripts allow-same-origin allow-forms allow-popups"`
       (its own origin, not kb's);
     - `referrerpolicy="no-referrer"` and `loading="lazy"`;
     - no `allow` for camera, microphone or geolocation.
-  - Raw or generated HTML never gets a third-party frame. It runs in kb's
-    sandbox on an opaque origin.
+  - HTML files run in the HTML document renderer (opaque origin, no
+    network), and generated UI runs in kb's sandbox. Neither gets kb's
+    origin.
 
 ## 7. Speed
 
@@ -514,14 +604,31 @@ drawing the item, and the renderer picks one per item per frame:
 speech ends ─► GPT-Live final transcript ─► concierge plugin server ─┬─ P0 reflex: grammar + handles + recency → kb canvas ops   (no model)
                                                                       ├─ P1 fast: small model, canvas vocabulary only → ops       (~1 s)
                                                                       └─ P2 deep: concierge bb thread (Claude) → fills the ghost  (20–30 s)
-voice reply ◄── GPT-Live speaks in parallel; the router appends one line of context so it doesn't narrate the canvas
+voice reply ◄── the voice model's own delegation of the same turn (ask_concierge) is answered by the server from the turn record
 ```
 
+- **The turn record is how the three paths stay exclusive.**
+  - Each final user transcript gets a turn id at the server, when the host
+    signal arrives (`host.ts` emits final transcripts [doc]).
+  - P0 tries it. On a parse, P0 **claims** the turn (`handled: P0`, with the
+    ops and a one-line result).
+  - The voice model independently delegates the same utterance through the
+    backing Codex agent to `ask_concierge` (concierge README, step 4). That
+    call reaches the same server, which matches it to the newest turn
+    (within a window, by transcript similarity, since the delegation carries
+    the model's paraphrase and no turn id):
+    - **claimed by P0:** answer at once with the one-line result, so the
+      voice says it and nothing is relayed;
+    - **not claimed:** place a ghost now ("Looking into it…"), mark the turn
+      `handled: P2`, and relay to the concierge thread as today.
+  - A second delegation for a turn already handled is answered from the
+    record (duplicate suppression).
+  - **Ordering is unverified.** The transcript may arrive after the
+    delegation starts. Phase 1 logs both timestamps for every turn. If the
+    delegation can win, P0 waits up to 150 ms for the transcript before the
+    server relays.
 - **P0, the reflex.**
-  - **Input.** The concierge server already receives transcripts and
-    activity from its host as signals (they are logged and shown as
-    captions), so the final user transcript is available without a new
-    channel [doc, the concierge's README].
+  - **Input.** The final user transcript from the turn record.
   - **Routing.** A grammar over the canvas verbs and the scene's handles
     (numbers, letters, "this", "that", "the voice one" by title fuzz)
     produces ops: `place`, `arrange`, `connect`, `camera`, select,
@@ -530,12 +637,9 @@ voice reply ◄── GPT-Live speaks in parallel; the router appends one line o
     owner-only Unix socket (the path `kb_call` uses).
   - **Showing.** The page applies them optimistically, and kb's push
     confirms them.
-  - **Telling the voice.** One line of context goes into the realtime session
-    (for example "canvas: list of 7 open threads shown"). It goes through the
-    concierge's backing Codex thread or `thread/realtime/appendText`, which
-    exists [doc]; how GPT-Live treats it is [unverified]. The fallback is a
-    persona rule: canvas reflexes happen by themselves, and you don't narrate
-    them.
+  - **Telling the voice:** through the answer to its own delegation, above.
+    No `appendText` is sent, since an appended text item could start
+    another response [unverified]; this way there is nothing to suppress.
 - **P1, the fast model, used only when P0 has no parse.** Two options, in
   order:
   1. The concierge's **backing Codex thread** gets the canvas ops as
@@ -546,10 +650,10 @@ voice reply ◄── GPT-Live speaks in parallel; the router appends one line o
      structured output constrained to the ops schema and the screen state
      (handles) as context. It is used only if option 1 exceeds 1.5 s.
 - **P2, the deep path.** Asked as today, through `ask_concierge` to the
-  concierge thread. The reflex has already placed a ghost ("Looking into the
-  reboots thread…"); the thread fills it through `kb_call` (`node.update` of
-  the view node's static binding or a markdown param), and streamed edits
-  show as they land.
+  concierge thread. The server placed the ghost when it relayed the turn.
+  The thread fills it through `kb_call` (`node.update` of the view node's
+  static binding or a markdown setting), and streamed edits show as they
+  land.
 
 ### 7.3 What makes it fast
 
@@ -562,8 +666,9 @@ voice reply ◄── GPT-Live speaks in parallel; the router appends one line o
   - On shared-server, a cold `bb thread list --json` (77 threads) takes
     **234 ms** and a `bb thread get` **277 ms**, of which spawning the
     process is about 46 ms [measured].
-  - The cache answers both in **under 0.1 ms** [measured in the prototype's
-    store].
+  - A cache answers both from memory, in well under a millisecond
+    [estimate]. The prototype's figure of under 0.1 ms comes from a static
+    7-row array, so it does not show that.
 - **Optimistic placement.** The ghost renders before kb confirms the write,
   and a refusal rolls it back with a toast. Undo is one step.
 - **Prefetch and speculation.**
@@ -583,17 +688,20 @@ voice reply ◄── GPT-Live speaks in parallel; the router appends one line o
 | Step | Expected | How measured |
 |---|---|---|
 | End of speech → final transcript at the plugin server | 200–600 ms [estimate; it depends on GPT-Live's turn detection] | Phase 1: timestamp the host signal against the audio level dropping to silence in the page |
-| Grammar routing (parse plus resolving handles) | **0–0.8 ms** (median 0, p95 0.8) [measured, prototype] | `performance.now` around the router, n = 20 per ask |
+| Grammar routing (parse plus resolving handles) | **0–0.8 ms** (median 0, p95 0.8) [measured: local prototype callback timing] | `performance.now` around the router, n = 20 per ask |
 | Ops → kb commit → push to the page | 10–40 ms [estimate: a local socket and one canvas transaction] | Phase 1: kb's action receipt timing plus the `/ws` push timestamp |
-| Ghost painted (optimistic) | **33–54 ms median, p95 ≤ 66 ms** [measured, room projection; 33 ms flat] | Two animation frames after applying ops, in a real-time headless Chrome 154 (software rendering) |
-| Data from the live cache | **< 0.1 ms** [measured, prototype store] | `performance.now` around the resolve |
-| Populated card painted | **66–101 ms median, p95 ≤ 125 ms** [measured] | As for the ghost |
-| **P0 total, end of speech → populated** | **≈ 0.3–0.8 s** [estimate from the rows above] | Phase 1 end to end: the audio level in the page → `paint` |
+| Ops applied → ghost frame callback (optimistic) | **33–54 ms median, p95 66.2 ms** in the room projection; 33 ms flat [measured: local prototype callback timing] | The second `requestAnimationFrame` callback after applying ops, in a real-time headless Chrome 154 (software rendering). This is a frame callback, not proof that pixels were presented. The helper also falls back to a 100 ms timer, which these values did not reach |
+| Data lookup | **< 0.1 ms** [measured over the prototype's 7-row static array; not representative of a real cache] | `performance.now` around the resolve |
+| Populated frame callback, **cumulative** (includes the ghost row) | **66–101 ms median, p95 125.3 ms** [measured: local prototype callback timing] | As above; from the same synthetic start |
+| **P0 total, end of speech → populated** | **≈ 0.3–0.8 s** [estimate; **unvalidated**] | Phase 1 end to end: the audio level dropping in the page → a presented frame (Event Timing / `requestVideoFrameCallback`-style presentation timestamps where available) |
 | P1 (backing Codex dynamic tool or small model) | 0.6–1.5 s [estimate] | Phase 2: timed per call, logged with the receipt |
 | P2 (concierge thread) | 20–30 s today [owner-observed]; first content streams earlier | Already logged by the concierge's call log |
 
 The prototype's `?measure=1&n=20` runs the four common asks 20 times from an
-empty scene and reports the median and p95 for each stage:
+empty scene. The clock starts at a synthetic call standing for the final
+transcript, so there is no transcription, host signal, socket, kb transaction,
+subscription or real view in these numbers. It reports the median and p95 for
+each stage (cumulative from that start):
 
 | Ask | Ghost (spatial) | Full (spatial) | Full (flat) |
 |---|---|---|---|
@@ -602,9 +710,10 @@ empty scene and reports the median and p95 for each stage:
 | connect 2 and 3 | — | 46.6 / 57 | 33.1 / 34 |
 | arrange as focus | — | 45.5 / 58.7 | 33.1 / 33.8 |
 
-Each cell is median / p95 in ms. The runs used software rendering on a busy
-server, so a phone or a laptop GPU should do as well or better. The real kb
-canvas renders more per card than the prototype does, which phase 1 measures.
+Each cell is median / p95 in ms. These are local callback timings on a
+server with software rendering. They show that the client-side reflex is not
+the bottleneck, but **they say nothing about a phone or about the real kb
+canvas**, which renders more per card. Phase 1 measures both end to end.
 
 ### 7.5 Keeping live data cheap
 
@@ -615,23 +724,38 @@ canvas renders more per card than the prototype does, which phase 1 measures.
   commits elsewhere in the graph. The server's `rows` subscriptions need the
   same check.
 - **Plan, in TypeScript, as a kb core change with a contract property:**
-  1. **Each query derives its read set** from kb's query IR (`@kb/query`
-     `ir.ts`).
-     - The read set is the attributes its patterns read, narrowed by any
-       constant entity or value. For example, `[?n :node/id "x"]` reads
-       `:node/id` of one node.
-     - A clause the IR passes through as `raw` makes the read set
-       *everything*, the safe default.
-  2. **Each transaction carries its write set:** the attributes and entities
-     it touched, which the transaction tail already records in order.
-  3. **A watched query is asked again only when the two sets intersect.**
-     Otherwise its answer moves to the new generation unchanged.
-  4. **The property, in the shared suite:** "a write that touches nothing a
-     query reads does not re-run it, and one that does always does." It
-     holds over the page's replica and the server's hub alike.
-  5. **Non-kb sources** are already precise. bb's events name an entity kind
-     and id, so the bb cache invalidates the bindings whose input names that
-     id, or whose list covers that kind.
+  1. **Each query derives a conservative read set** from kb's query IR
+     (`@kb/query` `ir.ts`).
+     - The read set is the **attributes** its patterns read, optionally
+       narrowed to an attribute and constant **value** pair. For example,
+       `[?n :node/id "x"]` depends on any datom of `:node/id` with value
+       `"x"`, whether asserted or retracted.
+     - The read set never narrows to "the entities the last answer found".
+       An insert, a delete, or a change that moves an entity into or out of
+       a join must still invalidate.
+     - Rules, `reach`, `children` and pull widen it to their attributes. A
+       clause the IR passes through as `raw` makes it *everything*.
+  2. **Each transaction carries its write set:** the attribute (and value)
+     of every datom it asserted **or retracted**, from the transaction tail.
+  3. **A watched query is asked again only when the two intersect.**
+     Otherwise its answer moves to the new generation unchanged. These still
+     cause a full re-ask, as now:
+     - a temporal expiry (`holdsUntilMs`);
+     - a change to a saved query a view references;
+     - a replica reset;
+     - a gap in the tail's history.
+  4. **The property, in the shared suite, is differential.** For random
+     transaction sequences, the filtered strategy's answers equal
+     unconditional re-computation at every generation, over the page's
+     replica and the server's hub alike.
+  - **Watched queries are already deduplicated** by EDN and generation, so
+    identical cards share one query. The cost the filter removes is
+    *distinct* queries re-run by writes that cannot affect them.
+  5. **Non-kb sources:** bb's events name an entity kind and id, so the bb
+     cache invalidates the bindings whose input names that id, or whose list
+     covers that kind. Ids alone do not guarantee freshness: on **reconnect**
+     the adapter takes a fresh snapshot and re-resolves everything it serves,
+     and the adapter suite checks that (§3.3).
   6. **Coalescing:** re-runs are batched per animation frame, and an answer
      is pushed only if it changed (as now).
 - **Measure before going further.** A phase 1 benchmark runs 50 and 200 live
@@ -648,9 +772,9 @@ canvas renders more per card than the prototype does, which phase 1 measures.
 
 | Piece | Home | Notes |
 |---|---|---|
-| The scene model, presets (arc, focus, board, timeline, tree, radial, shelf), the room mapping, typed ports and the live flow scheduler | kb `@kb/canvas` (pure, `scope:shared`) | Extends `arrange.ts`, `flow.ts`, `camera.ts` |
+| The scene model, presets (arc, focus, board, timeline, tree, radial, shelf), the room mapping and its contract, the component execution contract (typed ports, the live mode of `canvas.run`) | kb `@kb/canvas` (pure, `scope:shared`) | Extends `arrange.ts`, `flow.ts`, `camera.ts` |
 | Flat and room projections, port anchors, the `CSS3DRenderer` layer | kb `@kb/canvas-ui` | Joins `CANVAS_PROJECTIONS` and its contract suite |
-| View items, port declarations on `ViewKey`, generic record views | kb `@kb/views` and families | The catalog stays one |
+| View items, generic record views (a view key may name the component it is) | kb `@kb/views` and families | The catalog stays one |
 | Live reads (a `feed` on read actions, the subscription hub generalised from `rows`) | kb core | **The only core change.** It is mechanism, which belongs in core |
 | bb source (an in-memory cache fed by bb's realtime events, read actions, commands, record views) | kb `@kb/ext-bb` plus `@kb/bb` (shared) | A family like `code` or `canvas`; off when no bb is configured |
 | GitHub and HTTP sources | kb `@kb/ext-github`, `@kb/ext-http` | Later phases |
@@ -666,16 +790,18 @@ holds):
   frame.** A canvas should keep working outside bb.
 - **The voice fast path stays in bb.** It needs the transcript stream, which
   only the concierge has. It talks to kb as one more caller.
-- **The scene needs one new 3D projection (`room`), not a new geometry.**
-  The flat canvas is then untouched.
+- **The scene needs one new 3D projection (`room`), with its own contract,
+  not a new geometry.** The flat canvas is then untouched.
+- **Ports belong to components, not to views.** One execution contract
+  serves `canvas.run` and the live mode, including headless components.
 
 ## 9. Phased plan
 
 | Phase | Scope | Exit criterion | Size [estimate] |
 |---|---|---|---|
 | **0** | This doc and the prototype | The owner picks defaults | done |
-| **1 · Voice canvas, flat** | kb: live reads with **dependency-aware invalidation** (§7.5) and its benchmark; LOD faces and viewport culling (§6.1); `@kb/ext-bb` (threads, thread, PR status, the cache); view items; record views (list, card, detail, stat); port declarations and the live scheduler for query, transform and view; presets arc, focus, board, column, stack. bb: the concierge's canvas mode (frame, full screen, orb ornament); the P0 router with handles and recency; ghosts; the session report; `kb_call` tools for the concierge thread | "Show my open threads", "detail number 2", "connect 2 and 3", "make it a board" and "undo" each land **≤ 1 s after the end of speech**, measured end to end on the owner's machine. A thread's status change updates its card with no turn. Saved as a canvas page | kb 6–8 days, bb 3 days |
-| **2 · Room and commands** | The room projection with a CSS3D layer; websites (headers check, frames, snapshots) and media items; command items with spoken confirmation; P1 (backing Codex dynamic tools, measured); GitHub and files sources; presets timeline, tree, radial, shelf, force; prefetch; phone polish | Same asks in room mode within budget; "tell number three to stop" runs only after "yes" | 6–8 days |
+| **1 · Voice canvas, flat** | kb: the component execution contract (typed JSON ports, a live mode of `canvas.run`); live reads with **dependency-aware invalidation** (§7.5) and its benchmark; LOD faces and viewport culling (§6.1); `@kb/ext-bb` (threads, thread, PR status, the cache); view items; record views (list, card, detail, stat); port declarations and the live scheduler for query, transform and view; presets arc, focus, board, column, stack. bb: the concierge's canvas mode (frame, full screen, orb ornament); the turn record, P0 router with handles and recency, and delegation matching; ghosts; timestamps for transcript arrival and delegation order; the session report; `kb_call` tools for the concierge thread | "Show my open threads", "detail number 2", "connect 2 and 3", "make it a board" and "undo" each land **≤ 1 s after the end of speech**, measured end to end on the owner's machine. A thread's status change updates its card with no turn. Saved as a canvas page | kb 6–8 days, bb 3 days |
+| **2 · Room and commands** | kb's approval enforcement restored (the prerequisite for commands); the room projection with its contract and a CSS3D layer; websites (headers check, frames, snapshots) and media items; command items with spoken confirmation; P1 (backing Codex dynamic tools, measured); GitHub and files sources; presets timeline, tree, radial, shelf, force; prefetch; phone polish | Same asks in room mode within budget; "tell number three to stop" runs only after "yes" | 6–8 days |
 | **3 · Generated and wider** | `code.view` items streamed into the canvas; instructions on demand in live flows; HTTP and calendar (through routines) sources; HTML-in-Canvas where available | A generated chart bound to live bb data, which a person can promote into the catalog | open |
 | **4 · XR** | WebXR immersive-vr; uikit faces for card, list and stat; gaze and pinch as deixis | The same scene opens in a headset | open |
 
@@ -704,19 +830,23 @@ It shows:
 1. **The engine in kb, not a bb plugin?** *Default:* yes, as in §8, with the
    voice fast path and the frame in bb.
 2. **How are scenes kept?** *Default:* one pinned `Concierge` canvas with a
-   page per call. Pages older than 30 days are pruned unless starred, and
-   "save this" moves a page to its own canvas.
+   page per call, **kept until deleted**. There is no automatic pruning until
+   node ownership, backlinks and shared-view cleanup are defined for pages.
+   A manual "clear old sessions" removes only pages with no backlinks.
+   "Save this" moves a page to its own canvas.
 3. **Is every placed component a node?** *Default:* yes, a view node that is
-   a child of the page's canvas node, pruned with the page. Writing is
+   a child of the page's canvas node, removed with the page. Writing is
    cheap: one transaction for the node and its layout entry.
 4. **bb's own `ThreadChat` inside the canvas?** *Default:* no. kb's record
    views show bb data, and "open in bb" shows the real thread beside the
    canvas. Revisit if the views feel thin.
 5. **The default projection on a desktop?** *Default:* flat. Room is a
    toggle that each canvas remembers.
-6. **Does a voice "yes" approve a command?** *Default:* yes, for the one
-   command on screen, recorded as actor `voice`. Every other agent write
-   still asks.
+6. **Does a voice "yes" approve a command?** *Default:* yes, but only one
+   pending approval: matched by action, input digest and revision, valid for
+   about 20 s, used once, and recorded as actor `voice` (§3.5). This needs
+   kb's approval enforcement restored first; until then, command items stay
+   disabled.
 7. **How do we implement P1?** *Default:* the backing Codex thread's dynamic
    tools first; a direct small-model call only if that is above 1.5 s.
 8. **Model steps in live flows?** *Default:* never automatic; run on press,
