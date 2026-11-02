@@ -14,7 +14,7 @@ in
       type = lib.types.attrsOf (lib.types.attrsOf lib.types.str);
       default = { };
       example = {
-        bytetum.BB_SERVER_PORT = "38896";
+        bytetum.BB_SERVER_URL = "http://127.0.0.1:38896";
       };
       description = ''
         Variables merged into one person's bb managed env (~/.bb/env.json),

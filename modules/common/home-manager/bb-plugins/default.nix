@@ -31,7 +31,7 @@
 #
 # It installs only into a bb server this account owns (its data directory is
 # under this home): on a shared host the bb CLI of an account whose managed
-# env names no port of its own (my.stacks.bb.env) reaches whoever's server
+# env names no server of its own (my.stacks.bb.env) reaches whoever's server
 # listens on bb's default port.
 #
 # Home Manager activation runs bb-plugins-sync, and so does scripts/rebuild
