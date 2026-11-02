@@ -2,6 +2,8 @@
 
 /** How long a call runs before the sphere docks, when the conversation is still empty. */
 export const DOCK_AFTER_MS = 4000;
+/** When the conversation already has content: just long enough to see the call come alive. */
+export const DOCK_SOON_MS = 1500;
 
 export interface OrbInputs {
   /** The auto-minimize setting. */
@@ -12,6 +14,8 @@ export interface OrbInputs {
   hasContent: boolean;
   /** The call has been live for DOCK_AFTER_MS. */
   settled: boolean;
+  /** The call has been live for DOCK_SOON_MS. */
+  brief: boolean;
   /** The person's own choice from the toggle (or a tap on the sphere); it holds until the call's phase changes. */
   override: boolean | null;
   /** A mouse rests on the docked sphere: it opens up while it does. */
@@ -19,14 +23,13 @@ export interface OrbInputs {
 }
 
 /**
- * Docked during a call once the conversation has content or the call has run a few seconds; large again when the
- * call is over (idle), on hover, or when the person says so.
+ * Docked during a call, a moment after it comes alive when the conversation has content, or after a few seconds when
+ * it is empty; large while connecting, and again when the call is over (idle), on hover, or when the person says so.
  */
 export function orbMinimized(o: OrbInputs): boolean {
   if (o.hovered) return false;
   if (o.override !== null) return o.override;
   if (!o.auto) return false;
-  if (o.phase === "connecting") return o.hasContent;
-  if (o.phase === "live") return o.hasContent || o.settled;
+  if (o.phase === "live") return (o.hasContent && o.brief) || o.settled;
   return false;
 }

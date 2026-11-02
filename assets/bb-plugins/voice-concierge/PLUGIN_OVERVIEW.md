@@ -10,14 +10,17 @@ conversation of its own.
   "tell the night shift to stop". The voice model hands each question to its own Codex agent, which runs the bb
   CLI. The answer is spoken back in a sentence or two, and the live caption and the agent's current command show
   on the page.
-- While a call is up, a small pill on every bb page shows that the concierge is listening, with Mute and End.
+- While a call is up, a small pill on every other bb page shows what the concierge is doing, with Mute and Hang up
+  (at the top on a phone, bottom right on a desktop). On a touch screen a small mic tab on the right edge starts a
+  call from any page; it hides while you type.
 - The conversation is the concierge's own bb thread, pinned as "Voice concierge" in your Personal project and shown
   below the sphere on the page. Type there, or anywhere bb shows it, to continue the same conversation by text. It
   never appears in your work threads.
-- A sphere above the controls shows the call: a softly breathing, perfectly round orb while silent, that swells and
-  brightens with your voice and with the concierge's, and turns its inner light while the concierge is checking bb.
-  During a call it docks small (still alive) so more of the conversation shows, and grows back when you hang up,
-  tap it, or rest the mouse on it; the auto-minimize setting turns that off.
+- A sphere above the controls shows the call: a soft, physical ball that breathes while silent. Its surface really
+  moves: it ripples with your voice, swells rounder with the concierge's, and rolls slowly while the concierge is
+  checking bb. During a call it docks into a compact bar (still alive, with the state, the caption, Mute and Hang
+  up) so more of the conversation shows, and grows back when you hang up, tap it, or rest the mouse on it; the
+  auto-minimize setting turns that off. Held sideways, a phone shows the sphere and the conversation side by side.
 - The concierge writes into another thread only when you explicitly ask. It first says which thread and what it
   will send, and waits for your yes. It never reads secrets aloud.
 - `bb voice-concierge status | login | logout | transcript | thread | ask` from a terminal or an agent.

@@ -222,14 +222,25 @@ test("relay tool: answers with the thread's reply, refuses unknown tools and emp
   assert.match(failed.contentItems[0]!.text, /could not answer: busy/);
 });
 
-test("sphere styles: every style compiles into one frame with a body and a halo", async () => {
-  const { SPHERE_STYLES, STYLE_LABELS, fragmentSource } = await import("../core/sphere-styles.ts");
+test("sphere styles: every style has a surface and a halo shader, a label and a swatch", async () => {
+  const { SPHERE_STYLES, STYLE_LABELS, STYLE_SWATCHES, meshFragmentSource, haloFragmentSource, MESH_VERTEX_SOURCE } = await import(
+    "../core/sphere-styles.ts"
+  );
+  assert.match(MESH_VERTEX_SOURCE, /float displacement\(vec3 d\)/);
   for (const style of SPHERE_STYLES) {
-    const src = fragmentSource(style);
-    assert.match(src, /vec3 body\(Ctx c\)/);
-    assert.match(src, /vec3 haloColor\(Ctx c\)/);
-    assert.ok(STYLE_LABELS[style].length > 0);
+    assert.match(meshFragmentSource(style), /vec3 body\(Ctx c\)/);
+    assert.match(haloFragmentSource(style), /vec3 haloColor\(Ctx c\)/);
+    assert.ok(STYLE_LABELS[style].length > 0 && STYLE_SWATCHES[style].length > 0);
   }
+});
+
+test("icosphere: 10242 unit vertices and 20480 triangles at detail 5, all indices in range", async () => {
+  const { icosphere } = await import("../sphere.ts");
+  const { positions, indices } = icosphere(5);
+  assert.equal(positions.length / 3, 10242);
+  assert.equal(indices.length / 3, 20480);
+  for (let i = 0; i < positions.length; i += 3) assert.ok(Math.abs(Math.hypot(positions[i]!, positions[i + 1]!, positions[i + 2]!) - 1) < 1e-6);
+  assert.ok(Math.max(...indices) < 10242);
 });
 
 test("ConciergeThread.renew: a new thread becomes current and the previous is returned", async () => {
@@ -243,11 +254,13 @@ test("ConciergeThread.renew: a new thread becomes current and the previous is re
 test("orb: docks during a call once there is content or after a few seconds; hover, the toggle and hanging up open it", async () => {
   const { orbMinimized } = await import("../core/orb.ts");
   const { isFresh } = await import("../core/concierge-thread.ts");
-  const base = { auto: true, phase: "live" as const, hasContent: false, settled: false, override: null, hovered: false };
+  const base = { auto: true, phase: "live" as const, hasContent: false, settled: false, brief: false, override: null, hovered: false };
   assert.equal(orbMinimized(base), false);
-  assert.equal(orbMinimized({ ...base, settled: true }), true);
-  assert.equal(orbMinimized({ ...base, hasContent: true }), true);
-  assert.equal(orbMinimized({ ...base, phase: "connecting", hasContent: true }), true);
+  assert.equal(orbMinimized({ ...base, settled: true, brief: true }), true);
+  assert.equal(orbMinimized({ ...base, hasContent: true }), false);
+  assert.equal(orbMinimized({ ...base, hasContent: true, brief: true }), true);
+  assert.equal(orbMinimized({ ...base, brief: true }), false);
+  assert.equal(orbMinimized({ ...base, phase: "connecting", hasContent: true }), false);
   assert.equal(orbMinimized({ ...base, phase: "idle", hasContent: true, settled: true }), false);
   assert.equal(orbMinimized({ ...base, settled: true, hovered: true }), false);
   assert.equal(orbMinimized({ ...base, settled: true, override: false }), false);
@@ -256,4 +269,22 @@ test("orb: docks during a call once there is content or after a few seconds; hov
   assert.equal(isFresh(null), true);
   assert.equal(isFresh(" Ready. "), true);
   assert.equal(isFresh("You have three threads running."), false);
+});
+
+test("copy: state labels, the idle hint, and errors said plainly", async () => {
+  const { stateLabel, idleHint, friendlyError } = await import("../core/copy.ts");
+  const base = { look: "listening" as const, phase: "live" as const, muted: false, ready: true, checking: false };
+  assert.equal(stateLabel(base), "Listening");
+  assert.equal(stateLabel({ ...base, muted: true }), "Muted");
+  assert.equal(stateLabel({ ...base, look: "thinking" }), "Looking that up…");
+  assert.equal(stateLabel({ ...base, phase: "idle", look: "idle", ready: false, needsLogin: true }), "Sign in to talk");
+  assert.equal(stateLabel({ ...base, look: "speaking" }), "Speaking");
+  assert.equal(stateLabel({ ...base, phase: "connecting", look: "connecting" }), "Connecting…");
+  assert.equal(stateLabel({ ...base, phase: "idle", look: "idle" }), "Ready when you are");
+  assert.equal(stateLabel({ ...base, phase: "idle", look: "idle", ready: false, checking: true }), "Getting ready…");
+  assert.match(idleHint(false, true), /⌘⇧M/);
+  assert.equal(idleHint(true, false), "Tap Talk to start");
+  assert.match(friendlyError("NotAllowedError: Permission denied").text, /microphone is blocked/);
+  assert.match(friendlyError("The voice connection failed").text, /connection dropped/);
+  assert.deepEqual(friendlyError("something odd"), { text: "Something went wrong with the call. Try again.", details: "something odd" });
 });

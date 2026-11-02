@@ -44,6 +44,8 @@ export const rpcContract = defineRpcContract({
   thread: { input: z.null(), output: z.object({ threadId: z.string().nullable(), fresh: z.boolean() }) },
   /** Start a new conversation in a new thread; the old one stays as a normal (unpinned) thread. */
   newThread: { input: z.null(), output: z.object({ threadId: z.string() }) },
+  /** Type into the concierge's thread (the page's suggested questions). */
+  say: { input: z.object({ text: z.string().min(1).max(4000) }), output: z.object({ ok: z.boolean() }) },
 });
 
 export type LiveSignal = { conversationId: string | null; event: VoiceEvent };
@@ -272,6 +274,13 @@ export default async function plugin(bb: BbPluginApi) {
       return { threadId, fresh };
     },
     newThread: async () => ({ threadId: await newConciergeThread() }),
+    say: async ({ text }) => {
+      const threadId = await conciergeThread();
+      if (threadId === null) throw new Error("bb has no Personal project for the concierge's thread.");
+      await bb.sdk.threads.send({ threadId, input: [{ type: "text", text, mentions: [] }], mode: "queue-if-active" });
+      bb.realtime.publish(THREAD_CHANNEL, { threadId });
+      return { ok: true };
+    },
     style: async () => {
       const s = await settings.get();
       return { style: styleOf(s.sphereStyle), autoMinimize: s.orbAutoMinimize };

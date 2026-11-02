@@ -31,12 +31,25 @@ Archive it to start over: the next call creates a new one. Settings `threadProvi
 agent (default: the Personal project's).
 
 ## The sphere
-`sphere.ts` draws an analytic sphere with one full-screen WebGL2 draw per frame; `core/sphere-styles.ts` holds the
-art styles, each one GLSL `body` function inside a shared frame (breath, voice swell, rim, halo, grain). Setting
-`sphereStyle`, or the switcher under the sphere. With `orbAutoMinimize` (on by default) the page docks the sphere
-small during a call, at once when the conversation already has content and otherwise after a few seconds
-(`core/orb.ts`), and makes it large again when the call ends; a tap on it or the Minimize/Expand toggle sets the size
-by hand until the call's phase changes, and a resting mouse opens it up. Docked, it still animates and follows voice.
+`sphere.ts` draws a real, deforming ball in two WebGL2 draws per frame: a full-screen triangle for the halo, then an
+icosphere (20k triangles) whose vertex shader displaces the surface with noise driven by the smoothed voice level and
+the call's phase (finer ripples for the owner's voice, broad swells for the concierge's, a slow roll while thinking)
+and derives normals from the displacement, so light, rim and gloss follow the shape. `core/sphere-styles.ts` holds the
+art styles, each one GLSL `body` function inside the shared frame. 4x MSAA, at most 720 px a side; paused while
+hidden or off screen; one still frame with reduced motion. Setting `sphereStyle`, or the swatches under the sphere.
+
+The page has two layouts. Stacked (below 880 px wide, so phones and narrow panels): the sphere on top, the
+conversation, and a call bar at the bottom within thumb reach (Talk; in a call Mute and Hang up), whose right end stays
+clear of the round floating button bb and plugins keep in the bottom-right corner. Side by side (880 px and up, or a
+phone held sideways): sphere and controls on the left, conversation on the right. During a call the conversation
+shows without its composer (ThreadChat's `timeline` variant). Stacked, the sphere's one canvas floats over the page
+and glides between its places by transform, so its backing store is not reallocated while it moves.
+
+With `orbAutoMinimize` (on by default) the page docks the sphere into the call bar during a call, at once when
+the conversation already has content and otherwise after a few seconds (`core/orb.ts`), and makes it large again when
+the call ends; a tap on it or the toggle sets the size by hand until the call's phase changes, and a resting mouse
+opens it up. The page's words (state labels, the idle hint, errors as a person would say them, the empty
+conversation's suggestions) live in `core/copy.ts`.
 
 bb's account-pool routing is stripped from the app-server's environment: the pool hub has no realtime route.
 
@@ -55,13 +68,14 @@ kind for push-to-talk audio.
 | `core/relay-tool.ts` | The `ask_concierge` dynamic tool and its answer. |
 | `core/sphere-styles.ts`, `sphere.ts` | The sphere's art styles (GLSL) and its WebGL renderer. |
 | `core/orb.ts` | When the page docks the sphere small. |
+| `core/copy.ts` | The page's labels, hints, error wording and suggested questions. |
 | `core/hosts.ts` | Which machine runs the backend, from bb's host list. Pure. |
 | `core/persona.ts` | The concierge's rules and prompts, shared by every backend. Pure. |
 | `core/codex-events.ts`, `core/transcript.ts`, `core/jsonrpc.ts` | Notification mapping, the bounded transcript, the app-server JSON-RPC peer. |
 | `contract.ts` | Server ↔ host RPC contract and signals. |
 | `host.ts` | Host entry: `codex app-server`, probe, device-code sign-in, start/stop/text. |
 | `server.ts` | Settings, backend choice, the concierge's thread, RPC for the page, the call log, `bb voice-concierge`. |
-| `app.tsx` | The page, the call manager (survives navigation), the live overlay pill. |
+| `app.tsx` | The page, the call manager (survives navigation), the overlay (call pill, touch mic tab). |
 | `skills/voice-concierge/` | Tells agents about `bb voice-concierge`. |
 | `tests/` | `npm test`: core, the JSON-RPC peer, the Codex backend against a fake host, the thread relay, styles. |
 

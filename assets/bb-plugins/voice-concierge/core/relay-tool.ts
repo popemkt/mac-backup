@@ -15,7 +15,8 @@ export const ASK_TOOL_SPEC = {
     properties: {
       request: {
         type: "string",
-        description: "The person's request in their words, with whatever from the call is needed to understand it on its own; keep a trailing \"(confirmed)\".",
+        description:
+          "The request as the person would type it: short, in their words, first person, with only the context needed to understand it on its own (it shows in their conversation). Add \"(confirmed)\" at the end when they confirmed it.",
       },
     },
     required: ["request"],
