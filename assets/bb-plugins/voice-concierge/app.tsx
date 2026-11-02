@@ -364,11 +364,15 @@ function ConciergePage() {
   const tuneButton = useRef<HTMLButtonElement>(null);
   const closeTuning = useCallback(() => setTuning(false), []);
   const [tuneError, setTuneError] = useState<string | null>(null);
-  const saver = useRef<TuneSaver | null>(null);
-  saver.current ??= new TuneSaver(
-    (s, patch) => rpc.call("setTune", { style: s, tune: patch }).then(() => setTuneError(null)),
-    e => setTuneError(message(e)),
-  );
+  const saver = useRef<TuneSaver<Record<string, Tune>> | null>(null);
+  if (saver.current === null) {
+    saver.current = new TuneSaver(
+      (s, patch) => rpc.call("setTune", { style: s, tune: patch }).then(r => (setTuneError(null), r.tunes)),
+      e => setTuneError(message(e)),
+    );
+    // once every change is written, show what the server has (the settings it clamped and stored)
+    saver.current.onSettled = t => setTunes(t as Record<SphereStyle, Tune>);
+  }
   const [settled, setSettled] = useState(false);
   const [brief, setBrief] = useState(false);
   const [override, setOverride] = useState<boolean | null>(null);
@@ -474,7 +478,7 @@ function ConciergePage() {
   // The sphere's size and where it sits.
   const body = Math.max(0, size.height - 48);
   const S = side
-    ? Math.round(Math.min(body * (error !== null ? 0.24 : 0.4), size.width * 0.26, 240)) // an error needs the room
+    ? Math.round(Math.min(body * 0.4, size.width * 0.26, 240))
     : Math.round(!ready && !checking ? Math.min(body * 0.2, 140) : Math.min(body * 0.3, size.width * 0.62, 248));
   const largeSlot = useRef<HTMLDivElement>(null);
   const smallSlot = useRef<HTMLDivElement>(null);
@@ -541,12 +545,12 @@ function ConciergePage() {
         >
           {/* centred while it fits; when it does not (a long error on a short screen), it scrolls from the top */}
           <div className="flex w-[40%] min-w-0 max-w-[420px] shrink-0 flex-col items-center gap-1 overflow-y-auto py-1 [&>:first-child]:mt-auto [&>:last-child]:mb-auto">
-            {sphere}
+            {/* the sphere is decoration: while an error shows, the error and its way out come first, in its place */}
+            {error === null ? sphere : alert}
             <StateText label={label} caption={caption} hint={hint} live={phase !== "idle"} />
             <div className="mt-2">
               <Controls size="large" ready={ready} narrow={size.width < 760} />
             </div>
-            {alert}
             {phase === "idle" && ready && <StylePicker style={style} onPick={pick} tuning={tuning} onTuning={setTuning} toggle={tuneButton} />}
           </div>
           {conversation}
@@ -910,11 +914,11 @@ function ErrorBanner({ error, canRetry, onRetry, onDismiss }: { error: string; c
         </details>
       )}
       <div className="flex justify-end gap-1">
-        <button className="h-11 rounded-full px-4 text-xs hover:bg-red-500/15" onClick={onDismiss}>
+        <button className="h-11 whitespace-nowrap rounded-full px-4 text-xs hover:bg-red-500/15" onClick={onDismiss}>
           Dismiss
         </button>
         {canRetry && (
-          <button className="h-11 rounded-full border border-red-500/40 px-4 text-xs font-medium hover:bg-red-500/15" onClick={onRetry}>
+          <button className="h-11 whitespace-nowrap rounded-full border border-red-500/40 px-4 text-xs font-medium hover:bg-red-500/15" onClick={onRetry}>
             Try again
           </button>
         )}

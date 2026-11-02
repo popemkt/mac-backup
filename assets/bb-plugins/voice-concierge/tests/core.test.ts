@@ -285,6 +285,37 @@ test("TuneSaver: one write per style after the last change, nothing lost across 
   assert.equal(errors.length, 1);
 });
 
+test("TuneSaver: writes for one style never overtake each other; the settled state comes from the last answer", async () => {
+  const { TuneSaver } = await import("../core/look.ts");
+  const order: string[] = [];
+  const gates: (() => void)[] = [];
+  const saver = new TuneSaver<string>(
+    (_style, patch) =>
+      new Promise<string>(resolve => {
+        const v = String(patch.glow);
+        order.push(`start ${v}`);
+        gates.push(() => (order.push(`end ${v}`), resolve(v)));
+      }),
+    () => {},
+    1,
+  );
+  let settled: string | null = null;
+  saver.onSettled = r => (settled = r);
+  saver.edit("jelly", { glow: 1 });
+  saver.flush();
+  saver.edit("jelly", { glow: 2 });
+  saver.flush();
+  await new Promise(r => setTimeout(r, 5));
+  assert.deepEqual(order, ["start 1"]); // the second write waits for the first
+  gates[0]!();
+  await new Promise(r => setTimeout(r, 5));
+  assert.deepEqual(order, ["start 1", "end 1", "start 2"]);
+  assert.equal(settled, null); // not settled while a write is still out
+  gates[1]!();
+  await new Promise(r => setTimeout(r, 5));
+  assert.equal(settled, "2");
+});
+
 test("icosphere: 10242 unit vertices and 20480 triangles at detail 5, all indices in range", async () => {
   const { icosphere } = await import("../sphere.ts");
   const { positions, indices } = icosphere(5);

@@ -47,21 +47,25 @@ export type TunePatch = Partial<Record<Knob, number | null>>;
 
 /**
  * Saves knob changes a moment after the last one, per style, so a drag is one write and switching styles mid-drag
- * loses nothing. `quiet` says when the server's echo of the settings may replace what the page shows: not while a
- * change waits or is being written, nor just after (an older write's echo can still be on its way).
+ * loses nothing. Writes for one style run one after another, so an older write never lands after a newer one; when
+ * the last write is acknowledged and nothing waits, `onSettled` gets the server's state. `quiet` says when the
+ * server's realtime echo may replace what the page shows: not while a change waits or is being written, nor just
+ * after (an older write's echo can still be on its way).
  */
-export class TuneSaver {
+export class TuneSaver<R = unknown> {
   private readonly pending = new Map<SphereStyle, TunePatch>();
+  private readonly chains = new Map<SphereStyle, Promise<void>>();
   private timer: ReturnType<typeof setTimeout> | null = null;
   private inflight = 0;
   private settledAt = -Infinity;
-
-  private readonly send: (style: SphereStyle, patch: TunePatch) => Promise<unknown>;
+  private readonly send: (style: SphereStyle, patch: TunePatch) => Promise<R>;
   private readonly onError: (e: unknown) => void;
   private readonly delayMs: number;
   private readonly now: () => number;
+  /** Told the server's answer to the last write, once nothing else waits or is being written. */
+  onSettled: ((result: R) => void) | null = null;
 
-  constructor(send: (style: SphereStyle, patch: TunePatch) => Promise<unknown>, onError: (e: unknown) => void, delayMs = 300, now: () => number = Date.now) {
+  constructor(send: (style: SphereStyle, patch: TunePatch) => Promise<R>, onError: (e: unknown) => void, delayMs = 300, now: () => number = Date.now) {
     this.send = send;
     this.onError = onError;
     this.delayMs = delayMs;
@@ -80,17 +84,24 @@ export class TuneSaver {
     this.timer = null;
     for (const [style, patch] of this.pending) {
       this.inflight++;
-      this.send(style, patch)
-        .catch(this.onError)
-        .finally(() => {
-          this.inflight--;
-          this.settledAt = this.now();
-        });
+      const next = (this.chains.get(style) ?? Promise.resolve()).then(() =>
+        this.send(style, patch).then(
+          result => this.settle(result, true),
+          e => (this.onError(e), this.settle(undefined, false)),
+        ),
+      );
+      this.chains.set(style, next);
     }
     this.pending.clear();
   }
 
   quiet(): boolean {
     return this.pending.size === 0 && this.inflight === 0 && this.now() - this.settledAt > 800;
+  }
+
+  private settle(result: R | undefined, ok: boolean): void {
+    this.inflight--;
+    this.settledAt = this.now();
+    if (ok && this.inflight === 0 && this.pending.size === 0) this.onSettled?.(result as R);
   }
 }

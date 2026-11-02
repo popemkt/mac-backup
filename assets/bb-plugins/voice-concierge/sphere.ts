@@ -77,6 +77,7 @@ export class Sphere {
   private frameMs = 16.7; // smoothed interval between full-rate frames
   private lastFull = 0;
   private lastAdapt = 0;
+  private calm = false;
 
   constructor(canvas: HTMLCanvasElement, style: SphereStyle, options: SphereOptions) {
     this.canvas = canvas;
@@ -223,7 +224,7 @@ export class Sphere {
     // The motion knob speeds the inner drift up or slows it down, and at 0 stops it (the displacement and the breath
     // scale with it too); the voice still brightens the sphere.
     const pace = this.tune.motion;
-    this.adapt(now, look);
+    if (!still) this.adapt(now, look);
     this.clock += dtCalm;
     this.drift += dtCalm * pace * (1 + 1.6 * w.think + 0.6 * w.connect + 0.5 * this.level);
     this.spin += dtCalm * pace * (0.6 + 0.8 * this.level);
@@ -233,22 +234,25 @@ export class Sphere {
   }
 
   /**
-   * Adaptive resolution: while the sphere draws at full rate, a slow device (frames over ~26 ms, under ~38 fps) gets
-   * fewer pixels, a step a second down to 55%; a device with room to spare gets them back, slowly.
+   * Adaptive resolution: a slow device gets fewer pixels, a step a second down to 55%, and gets them back slowly when
+   * it has room to spare. At full rate "slow" is frames over ~26 ms (under ~38 fps); at the calm 30 fps (idle, or
+   * shown small), frames over ~50 ms.
    */
   private adapt(now: number, look: SphereLook): void {
-    const full = look !== "idle" && this.detail === 1;
-    if (!full) {
+    const calm = look === "idle" || this.detail < 1;
+    if (calm !== this.calm) {
+      this.calm = calm;
       this.lastFull = 0;
-      return;
+      this.frameMs = calm ? CALM_FRAME_MS : 16.7;
     }
-    if (this.lastFull !== 0) this.frameMs += (Math.min(now - this.lastFull, 100) - this.frameMs) * 0.05;
+    if (this.lastFull !== 0) this.frameMs += (Math.min(now - this.lastFull, 150) - this.frameMs) * 0.05;
     this.lastFull = now;
     if (now - this.lastAdapt < 1000) return;
-    if (this.frameMs > 26 && this.quality > 0.55) {
+    const [slow, easy] = calm ? [50, CALM_FRAME_MS + 4] : [26, 18];
+    if (this.frameMs > slow && this.quality > 0.55) {
       this.quality = Math.max(0.55, this.quality * 0.88);
       this.lastAdapt = now;
-    } else if (this.frameMs < 18 && this.quality < 1 && now - this.lastAdapt > 4000) {
+    } else if (this.frameMs < easy && this.quality < 1 && now - this.lastAdapt > 4000) {
       this.quality = Math.min(1, this.quality + 0.05);
       this.lastAdapt = now;
     }
