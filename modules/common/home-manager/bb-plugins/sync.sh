@@ -42,9 +42,9 @@ if [ -z "$bb" ]; then
 fi
 
 # Whose server: outside a thread the bb CLI targets 127.0.0.1:38886 unless
-# the person's managed env names another port (my.stacks.bb.env), and on a
-# host several people share that may be another person's server (its API is
-# unauthenticated). Install only into a server whose data directory is under
+# the person's managed env sets BB_SERVER_URL (my.stacks.bb.env), and on a
+# host several people share that may be another person's server (its API
+# is unauthenticated). Install only into a server whose data directory is under
 # this account's home, so one person's sync never re-registers another's
 # plugins. This is also the readiness probe:
 # dataDir is empty when no server answers.

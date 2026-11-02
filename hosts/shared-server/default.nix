@@ -353,12 +353,16 @@ in
   # bytetum's bb, as svc:bb-bytetum: the same two units (app-bb-bytetum and
   # app-bb-bytetum-daemon), on ports of its own, with its data, and so its
   # machine identity, in bytetum's ~/.bb. Outside a thread the bb CLI asks
-  # the server on BB_SERVER_PORT (38886 when unset, popemkt's), so bytetum's
-  # managed env names theirs; their idle check and bb-plugins-sync then talk
-  # to their own server.
+  # BB_SERVER_URL, or 127.0.0.1:38886 (popemkt's) when unset: bb's launcher
+  # settles that default before it reads the managed env, so a
+  # BB_SERVER_PORT there does not move it. bytetum's managed env names their
+  # server's URL and daemon port; their idle check and bb-plugins-sync then
+  # talk to their own server. bb-server drops BB_SERVER_URL and the daemon
+  # takes --server-url, so neither unit reads it.
+  # GAP [[01M6E5WQBRKZNQ24GTSBMR2S0Q]]: the daemon was enrolled by hand.
   my.services.bb-bytetum = bbHome "bytetum" (bytetumBb // { kbEntry = "kb-bytetum"; });
   my.stacks.bb.env.bytetum = {
-    BB_SERVER_PORT = toString bytetumBb.serverPort;
+    BB_SERVER_URL = config.my.services.bb-bytetum.listenOrigin;
     BB_HOST_DAEMON_PORT = toString bytetumBb.daemonPort;
   };
 

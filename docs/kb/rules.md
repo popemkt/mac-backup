@@ -19,6 +19,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 
 ## Gaps
 
+### GAP: a new person's bb host daemon needs a one-time enrollment by hand
+
+- **expected** — A first start of app-<bb entry>-daemon enrolls itself with its own server, as bb-app's launcher did (POST /internal/hosts/enroll-key on loopback, then BB_HOST_ENROLL_KEY and BB_HOST_ID for the daemon), so a new bbHome entry works after one rebuild
+- **current** — bb-host-daemon without ~/.bb/auth.json exits 'Not enrolled' and the unit restarts in a loop. popemkt's daemon inherited auth.json from the old launcher; bytetum's (2026-11-02) was enrolled by hand: stop the unit, curl -X POST -d '{}' http://127.0.0.1:<serverPort>/internal/hosts/enroll-key, run bb-host-daemon once with BB_HOST_ENROLL_KEY and BB_HOST_ID until auth.json exists, start the unit
+- **impact** — Rebuilding a fresh bbHome entry, or losing ~/.bb/auth.json, leaves that person's bb with no machine to run threads on until someone enrolls it by hand
+- **closes** — bbHome's daemon command fetches an enroll key from its server when ~/.bb/auth.json is missing (changes popemkt's daemon unit too, so it restarts once when idle)
+- **node** — `01M6E5WQBRKZNQ24GTSBMR2S0Q`
+
 ### GAP: agent-prompt review rules are not ported to this repo
 
 - **expected** — The dotfiles skills and agent directory has a stated review checklist for every prompt or skill change, with the mechanical half actually checked.
