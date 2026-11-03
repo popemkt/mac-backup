@@ -3,6 +3,10 @@
 Date: 2026-11-03. Design only: nothing here is built. This is a **delta** on
 [v2](2026-11-02-spatial-generative-ui-v2.md), not a rewrite.
 
+**Extended by the [v3.1 addendum](2026-11-02-spatial-generative-ui-v3.1.md)**
+(2026-11-03): a space belongs to a bb thread; motion and material tokens;
+chains shown whole or in part; the component library.
+
 - **What carries over from v2:**
   - the room projection and its contract;
   - presets;
