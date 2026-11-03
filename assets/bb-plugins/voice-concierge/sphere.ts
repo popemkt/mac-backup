@@ -7,7 +7,8 @@
 // Cost: WebGL2, two draws per frame: a full-screen triangle for the halo and an icosphere of 20k triangles (the
 // noise runs per vertex, about 10k of them; the style's shading only on the ball's own pixels), 4x MSAA, at the
 // device pixel ratio capped at 2 and at most 720 pixels a side; no frames while the page is hidden or the sphere is
-// off screen; with reduced motion, one still frame per change.
+// off screen; with reduced motion, one still frame per change. A device that cannot keep up gets fewer pixels.
+import { DEFAULT_TUNE, type Tune } from "./core/look.ts";
 import { HALO_VERTEX_SOURCE, haloFragmentSource, MESH_VERTEX_SOURCE, meshFragmentSource, type SphereStyle } from "./core/sphere-styles.ts";
 
 /** What the call is doing; the renderer tells speaking from listening by the audio levels. */
@@ -31,7 +32,7 @@ export interface SphereOptions {
 const SPEAKING_ON = 0.035;
 const SPEAKING_HOLD_MS = 450;
 const BREATH_S = 4;
-const UNIFORMS = ["uRes", "uTime", "uFlow", "uBreath", "uLevel", "uListen", "uSpeak", "uThink", "uConnect", "uSpin", "uMute", "uBubbles"] as const;
+const UNIFORMS = ["uRes", "uTime", "uFlow", "uBreath", "uLevel", "uListen", "uSpeak", "uThink", "uConnect", "uSpin", "uMute", "uBubbles", "uVivid", "uMotion", "uGlow", "uHue"] as const;
 const MAX_SIDE = 720;
 const CALM_FRAME_MS = 33; // 30 fps while idle or small: nothing there moves fast
 const DETAIL = 5; // icosphere subdivisions: 10242 vertices, 20480 triangles
@@ -71,6 +72,12 @@ export class Sphere {
   private weights = { listen: 0, speak: 0, think: 0, connect: 0, mute: 0 };
   private detail = 1; // render-resolution factor (lower while the sphere is shown small)
   private lastDraw = 0;
+  private tune: Tune = DEFAULT_TUNE;
+  private quality = 1; // lowered when the device cannot keep up (see adapt)
+  private frameMs = 16.7; // smoothed interval between full-rate frames
+  private lastFull = 0;
+  private lastAdapt = 0;
+  private calm = false;
 
   constructor(canvas: HTMLCanvasElement, style: SphereStyle, options: SphereOptions) {
     this.canvas = canvas;
@@ -122,6 +129,12 @@ export class Sphere {
     if (style === this.style || this.disposed) return;
     this.style = style;
     this.use(style);
+    this.kick();
+  }
+
+  /** The style's knobs (core/look.ts): vividness, motion, glow and hue. */
+  setTune(tune: Tune): void {
+    this.tune = tune;
     this.kick();
   }
 
@@ -185,7 +198,7 @@ export class Sphere {
     // Loudness, compressed (quiet speech already moves it, shouting does not blow it up), followed by a soft
     // underdamped spring (~3.5 Hz, damping 0.5): it swells and settles like jelly.
     const raw = still ? 0 : look === "speaking" ? levels.remote : look === "listening" ? levels.mic : 0;
-    const voice = Math.tanh(1.6 * raw);
+    const voice = Math.tanh(2.2 * raw);
     if (still || dtCalm === 0) {
       this.level = voice;
       this.velocity = 0;
@@ -208,12 +221,41 @@ export class Sphere {
     w.connect += ((look === "connecting" ? 1 : 0) - w.connect) * ease;
     w.mute += ((muted && mode !== "idle" ? 1 : 0) - w.mute) * ease;
 
+    // The motion knob speeds the inner drift up or slows it down, and at 0 stops it (the displacement and the breath
+    // scale with it too); the voice still brightens the sphere.
+    const pace = this.tune.motion;
+    if (!still) this.adapt(now, look);
     this.clock += dtCalm;
-    this.drift += dtCalm * (1 + 1.6 * w.think + 0.6 * w.connect + 0.5 * this.level);
-    this.spin += dtCalm * (0.6 + 0.8 * this.level);
-    this.flow += dtCalm * Math.min(0.5 + 1.0 * this.level, 1.2);
+    this.drift += dtCalm * pace * (1 + 1.6 * w.think + 0.6 * w.connect + 0.5 * this.level);
+    this.spin += dtCalm * pace * (0.6 + 0.8 * this.level);
+    this.flow += dtCalm * pace * Math.min(0.5 + 1.0 * this.level, 1.2);
     this.draw(still);
     if (!still) this.kick();
+  }
+
+  /**
+   * Adaptive resolution: a slow device gets fewer pixels, a step a second down to 55%, and gets them back slowly when
+   * it has room to spare. At full rate "slow" is frames over ~26 ms (under ~38 fps); at the calm 30 fps (idle, or
+   * shown small), frames over ~50 ms.
+   */
+  private adapt(now: number, look: SphereLook): void {
+    const calm = look === "idle" || this.detail < 1;
+    if (calm !== this.calm) {
+      this.calm = calm;
+      this.lastFull = 0;
+      this.frameMs = calm ? CALM_FRAME_MS : 16.7;
+    }
+    if (this.lastFull !== 0) this.frameMs += (Math.min(now - this.lastFull, 150) - this.frameMs) * 0.05;
+    this.lastFull = now;
+    if (now - this.lastAdapt < 1000) return;
+    const [slow, easy] = calm ? [50, CALM_FRAME_MS + 4] : [26, 18];
+    if (this.frameMs > slow && this.quality > 0.55) {
+      this.quality = Math.max(0.55, this.quality * 0.88);
+      this.lastAdapt = now;
+    } else if (this.frameMs < easy && this.quality < 1 && now - this.lastAdapt > 4000) {
+      this.quality = Math.min(1, this.quality + 0.05);
+      this.lastAdapt = now;
+    }
   }
 
   private lookFor(mode: SphereMode, remote: number, now: number): SphereLook {
@@ -225,7 +267,7 @@ export class Sphere {
   private draw(still: boolean): void {
     const { gl, canvas } = this;
     const coarse = matchMedia("(pointer: coarse)").matches;
-    const dpr = Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 2) * this.detail;
+    const dpr = Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 2) * this.detail * this.quality;
     const side = Math.max(canvas.clientWidth, canvas.clientHeight) * dpr;
     const scale = side > MAX_SIDE ? (dpr * MAX_SIDE) / side : dpr;
     const width = Math.max(1, Math.round(canvas.clientWidth * scale));
@@ -241,7 +283,7 @@ export class Sphere {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const w = this.weights;
     // ~4 s breath, 2.2%; a touch deeper while thinking.
-    const breath = still ? 1 : 1 + (0.022 + 0.006 * w.think) * Math.sin((this.clock * 2 * Math.PI) / BREATH_S);
+    const breath = still ? 1 : 1 + (0.022 + 0.006 * w.think) * Math.min(1, this.tune.motion) * Math.sin((this.clock * 2 * Math.PI) / BREATH_S);
     const set = ({ u }: Program) => {
       gl.uniform2f(u.uRes, width, height);
       gl.uniform1f(u.uTime, this.drift + 7.3);
@@ -255,6 +297,10 @@ export class Sphere {
       gl.uniform1f(u.uSpin, this.spin);
       gl.uniform1f(u.uMute, w.mute);
       gl.uniform1f(u.uBubbles, 1);
+      gl.uniform1f(u.uVivid, this.tune.vividness);
+      gl.uniform1f(u.uMotion, still ? 0 : this.tune.motion);
+      gl.uniform1f(u.uGlow, this.tune.glow);
+      gl.uniform1f(u.uHue, (this.tune.hue * Math.PI) / 180);
     };
     // the halo first, behind; then the ball, opaque, nearest surface wins
     gl.disable(gl.DEPTH_TEST);

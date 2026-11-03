@@ -234,6 +234,88 @@ test("sphere styles: every style has a surface and a halo shader, a label and a 
   }
 });
 
+test("look: one setting per style and knob, values clamped into range, bad values back to the default", async () => {
+  const { KNOBS, settingKey, tunesFrom, formatKnob, clampKnob } = await import("../core/look.ts");
+  const { SPHERE_STYLES, meshFragmentSource, haloFragmentSource } = await import("../core/sphere-styles.ts");
+  const keys = SPHERE_STYLES.flatMap(s => KNOBS.map(k => settingKey(s, k)));
+  assert.equal(new Set(keys).size, SPHERE_STYLES.length * KNOBS.length);
+  assert.equal(settingKey("jelly", "vividness"), "jellyVividness");
+  const t = tunesFrom({ jellyVividness: 5, jellyHue: -400, jellyGlow: "x", auroraMotion: 0.5 });
+  assert.deepEqual(t.jelly, { vividness: 2, motion: 1, glow: 1, hue: -180 });
+  assert.equal(t.aurora.motion, 0.5);
+  assert.deepEqual(t.frosted, { vividness: 1, motion: 1, glow: 1, hue: 0 });
+  assert.equal(clampKnob("glow", Number.NaN), 1);
+  assert.equal(formatKnob("hue", 30), "+30°");
+  assert.equal(formatKnob("vividness", 1.25), "125%");
+  // every knob reaches the shaders
+  for (const style of SPHERE_STYLES) for (const u of ["uVivid", "uMotion", "uGlow", "uHue"]) assert.match(meshFragmentSource(style), new RegExp(u));
+  assert.match(haloFragmentSource("jelly"), /uGlow/);
+});
+
+test("TuneSaver: one write per style after the last change, nothing lost across styles, quiet only when settled", async () => {
+  const { TuneSaver } = await import("../core/look.ts");
+  let clock = 0;
+  const sent: [string, unknown][] = [];
+  const errors: unknown[] = [];
+  let fail = false;
+  const saver = new TuneSaver(
+    async (style, patch) => {
+      sent.push([style, patch]);
+      if (fail) throw new Error("offline");
+    },
+    e => errors.push(e),
+    20,
+    () => clock,
+  );
+  assert.equal(saver.quiet(), true);
+  saver.edit("jelly", { glow: 1.2 });
+  saver.edit("jelly", { glow: 1.4, hue: 10 });
+  saver.edit("aurora", { motion: 0.5 });
+  assert.equal(saver.quiet(), false);
+  await new Promise(r => setTimeout(r, 40));
+  assert.deepEqual(sent, [["jelly", { glow: 1.4, hue: 10 }], ["aurora", { motion: 0.5 }]]);
+  assert.equal(saver.quiet(), false); // an echo of an older write may still be on its way
+  clock = 1000;
+  assert.equal(saver.quiet(), true);
+  fail = true;
+  saver.edit("frosted", { vividness: 0 });
+  saver.flush(); // the page going away writes at once
+  await new Promise(r => setTimeout(r, 5));
+  assert.equal(sent.length, 3);
+  assert.equal(errors.length, 1);
+});
+
+test("TuneSaver: writes for one style never overtake each other; the settled state comes from the last answer", async () => {
+  const { TuneSaver } = await import("../core/look.ts");
+  const order: string[] = [];
+  const gates: (() => void)[] = [];
+  const saver = new TuneSaver<string>(
+    (_style, patch) =>
+      new Promise<string>(resolve => {
+        const v = String(patch.glow);
+        order.push(`start ${v}`);
+        gates.push(() => (order.push(`end ${v}`), resolve(v)));
+      }),
+    () => {},
+    1,
+  );
+  let settled: string | null = null;
+  saver.onSettled = r => (settled = r);
+  saver.edit("jelly", { glow: 1 });
+  saver.flush();
+  saver.edit("jelly", { glow: 2 });
+  saver.flush();
+  await new Promise(r => setTimeout(r, 5));
+  assert.deepEqual(order, ["start 1"]); // the second write waits for the first
+  gates[0]!();
+  await new Promise(r => setTimeout(r, 5));
+  assert.deepEqual(order, ["start 1", "end 1", "start 2"]);
+  assert.equal(settled, null); // not settled while a write is still out
+  gates[1]!();
+  await new Promise(r => setTimeout(r, 5));
+  assert.equal(settled, "2");
+});
+
 test("icosphere: 10242 unit vertices and 20480 triangles at detail 5, all indices in range", async () => {
   const { icosphere } = await import("../sphere.ts");
   const { positions, indices } = icosphere(5);

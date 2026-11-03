@@ -22,7 +22,9 @@ bb voice-concierge ask '<text>'  # ask that thread and print its reply (what a c
 Settings (`bb plugin config voice-concierge set <key> <value>`): `machine` (name or id; empty = the bb server's
 machine, else any connected machine where Codex is signed in), `codexHome` (`dedicated`, the plugin's own
 login, or `user`, that machine's `~/.codex`), `version` (`v3` GPT-Live, or `v1`), `voice`, `sphereStyle`,
-`orbAutoMinimize` (dock the sphere small during a call), `threadMode` (`reuse` or `new` per call),
+`orbAutoMinimize` (dock the sphere small during a call), the sphere's knobs `<style><Knob>` for each style
+(`jelly`, `moonstone`, `aurora`, `frosted`) and knob (`Vividness`, `Motion`, `Glow` 0..2 with 1 the style's own look;
+`Hue` -180..180 degrees), e.g. `jellyGlow`, `threadMode` (`reuse` or `new` per call),
 `threadProvider`, `threadModel` (the concierge thread's agent), `instructions`.
 
 Starting a call needs a microphone in a window (bb desktop app, or a browser on https or localhost); an agent

@@ -21,6 +21,9 @@ conversation of its own.
   checking bb. During a call it docks into a compact bar (still alive, with the state, the caption, Mute and Hang
   up) so more of the conversation shows, and grows back when you hang up, tap it, or rest the mouse on it; the
   auto-minimize setting turns that off. Held sideways, a phone shows the sphere and the conversation side by side.
+- Four looks for the sphere, each a material: candy, moonstone, aurora and frosted glass. Pick one with the swatches
+  under the sphere; the sliders button next to them tunes it (vividness, motion, glow, hue), also in the plugin
+  settings.
 - The concierge writes into another thread only when you explicitly ask. It first says which thread and what it
   will send, and waits for your yes. It never reads secrets aloud.
 - `bb voice-concierge status | login | logout | transcript | thread | ask` from a terminal or an agent.
