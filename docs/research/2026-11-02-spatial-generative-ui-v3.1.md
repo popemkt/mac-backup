@@ -24,6 +24,7 @@ Claim tags are as in v3:
 | No motion spec | Motion and depth **tokens**, applied by the item shell (§4). No glass: depth comes from elevation and the spatial feel from motion |
 | A chain is items and wires | **A chain can be one unit** with three display modes (§5) |
 | Components unspecified; the first draft used bb's registry in the core | **A host-neutral core library:** Base UI primitives, shadcn-style components we own, Tailwind v4 tokens, and a zod catalog. bb's components appear only in the bb shell (§6) |
+| Agent scripts are plain JS (v3 §4.1) | **TypeScript everywhere** (§7): scripts, rules and generated components are TS. Types are stripped on the plugin server (sucrase, 0.1–1 ms measured). The model writes against `.d.ts` typings of the space API. A full typecheck runs only when a skill or rule is saved or promoted, and zod still validates at runtime |
 | Ring 0 draws only websites and approval chrome (v3 §5) | Ring 0 also draws **host panes** (`bb.chat`, `bb.diff`, `bb.source`). A chat pane is a timeline by default. Only the person can write in it, after explicitly activating it, and its target thread is fixed (§6) |
 
 ## 1. A space is a plugin surface bound to a thread
@@ -763,16 +764,127 @@ The owner's lean, confirmed by the survey, with one addition.
     `prefers-reduced-transparency`.
   - *Default:* off. The owner tries it in phase 2.
 
-## 7. Phases
+## 7. TypeScript, not plain JS
+
+The codebase is TypeScript, so what the agent writes is TypeScript too:
+
+- `space_run` scripts;
+- rules;
+- draft components;
+- recipes.
+
+The types serve the model and the review. They cost almost nothing at run
+time.
+
+### 7.1 Strip on the server, just before running
+
+- **Where:** on the plugin server, where every script already arrives
+  (`space_run`, a rule saved, a skill saved). The frame never compiles
+  anything, so rings 1–3 carry no compiler, and v3's CSP is unchanged.
+- **The library: sucrase 3.35** (`transforms: ["typescript"]`).
+  - It is pure JS and stable, and it runs the same in Node, Bun and a
+    browser, so the kb host and any fallback can use it unchanged.
+  - **It preserves line numbers,** so a runtime error points at the line
+    the agent wrote, with no source map [measured: both samples kept
+    their line counts; the stripper contract suite pins it].
+  - Node's built-in `module.stripTypeScriptTypes` was as fast in the
+    measurement, but it still prints an experimental warning on Node 24.
+    It can replace sucrase behind the same interface once it is stable.
+    Each host's stripper passes one contract suite.
+- **Only erasable syntax** (TypeScript's `erasableSyntaxOnly`): no enums,
+  runtime namespaces, parameter properties or decorators.
+  - Then stripping is purely removing types. Any conforming stripper gives
+    the same JavaScript.
+  - The typecheck and the stripper refuse the same things.
+
+**What it costs**, measured today on shared-server:
+
+| Step | Median | p95 | One-time cost |
+|---|---|---|---|
+| sucrase, a 15-line `space_run` script | **0.12 ms** | 0.46 ms | 31 ms to load; 7.9 ms for the first call |
+| sucrase, a 49-line component | **0.54 ms** | 0.98 ms | — |
+| Node 24 `stripTypeScriptTypes`, the same script and component | 0.11 ms, 0.30 ms | 0.19 ms, 0.47 ms | 39 ms for the first call; experimental |
+| esbuild-wasm `transform` | 3.4 ms | 6.3 ms | 17 ms to initialise |
+| `typescript` `transpileModule` | 1.5 ms | 5.6 ms | 181 ms to load |
+| **Full typecheck**: API typings + script + component, `strict`, lib es2022 + dom | **164 ms** (reusing the program) | 221 ms | 357 ms cold |
+| sucrase bundled for a browser | 201 KB minified, **46.5 KB gzipped** | | (why it stays on the server) |
+
+How the numbers were taken: Node 24.20, 16 cores, a load average of about
+4.8, run under `nice` 15, with `process.hrtime`. The stripping steps ran 300
+times each (esbuild 100), and the warm typecheck 10 times. The script,
+typings and harness are in the design thread's storage (`v3/`).
+
+**So the fast path is untouched:**
+
+- P0 and P1 run no code (v3 §4.3).
+- P2 gains about 0.1–1 ms per script, against its 20–30 s.
+- The owner's estimate of 1–5 ms holds with room to spare. The one-time
+  31 ms load happens when the plugin starts.
+
+### 7.2 Typings for the model
+
+- **`space-api.d.ts`** is generated from the core's own TypeScript source,
+  so it cannot drift from the API. It covers:
+  - the `space` proxy;
+  - the record types (§2.1);
+  - the ops;
+  - `propose`.
+- **Per-space declarations are generated too:**
+  - each granted source's input and output types, from its JSON Schema;
+  - each catalog component's props, from its zod schema (`z.infer` for
+    built-ins).
+
+  The model then writes `space.source("bb.threads", …)` and gets
+  `Thread[]` back, typed.
+- **How the model receives them:**
+  - a condensed form in `contributeInstructions`, only for threads with a
+    space (about 1.5k tokens [estimate]);
+  - the full form through `space_describe({types: true})`.
+
+### 7.3 A full typecheck, only on save or promote
+
+- **When:** a skill, rule or recipe is saved or promoted.
+  - Not on every `space_run`: scripts run at once, and their runtime
+    errors go back to the agent as in v3.
+- **How:**
+  - a TypeScript 5.9 program with `strict`, `erasableSyntaxOnly`,
+    `noEmit` and `skipLibCheck`, the API typings and the space's
+    declarations;
+  - in a worker thread on the plugin server;
+  - the program is reused between checks, so a check takes about 160 ms
+    warm.
+- **Errors go back for self-repair** as `file:line message`, for example
+  (measured): `bad.ts:1 Type '"nowhere"' is not assignable to type 'Near |
+  undefined'.`
+  - A skill with errors is saved as a draft marked `typecheck: failed`.
+    **It cannot be promoted** (v3 §4.2).
+- **Promotion typechecks the whole dependency closure** (§5's recipes),
+  against the pinned versions.
+
+### 7.4 zod still guards run time
+
+Types vanish when stripped, and data from sources and guests is untrusted,
+so validation at run time stays:
+
+- a component's props are validated by its zod schema on mount and on every
+  update;
+- a binding's value is validated against its port's schema (v2 §3.4);
+- a source's answer is validated where it enters, by its schema.
+
+For built-ins, **zod is the one source**: TypeScript types (`z.infer`),
+JSON Schema for the wire and the catalog (§6.2), and run-time checks all
+come from it.
+
+## 8. Phases
 
 | v3 phase | Adds |
 |---|---|
 | 1a spike | <ul><li>The record store in the opaque frame, with its gzipped size measured against 40 KB</li><li>Theme tokens over the port</li><li>The frame's own bundle (React, Base UI, `@space/ui`, the compiled Tailwind CSS)</li><li>Spring cost on the laptop and phone</li></ul> |
 | 1b-i · workspace | <ul><li>The thread binding (§1): panel action, keyed storage, the metadata pointer, lifecycle handlers, start-up reconciliation</li><li>The record store with scopes, side effects and migrations; the diff log; snapshots in git; diff-based undo</li><li>**Workspace parity (§3):** the fork's tools and verbs on records, plus eraser, half-bound arrow, rich and auto-size text, note, duplicate, z-order actions, copy and cut as records, copy as SVG/PNG, assets and upload, export SVG/PNG/JSON</li><li>Item shell with springs, hover, press and elevation</li><li>Base UI, `@space/ui` and the zod catalog</li></ul> |
-| 1b-ii · compute | <ul><li>Tools scoped by `threadId`</li><li>Bindings, sources, the scheduler</li><li>Chains in `output` and `expanded` modes, flat</li><li>The first catalog set</li><li>The 60 fps budget, measured by hand from a trace</li></ul> |
+| 1b-ii · compute | <ul><li>Tools scoped by `threadId`</li><li>TypeScript (§7): sucrase on the server, the generated typings, typechecks on save, the stripper contract suite</li><li>Bindings, sources, the scheduler</li><li>Chains in `output` and `expanded` modes, flat</li><li>The first catalog set</li><li>The 60 fps budget, measured by hand from a trace</li></ul> |
 | 2 | <ul><li>DOT-3's mic on any thread</li><li>Parallax, focus by dwell, ornaments, camera flights, the room morph, "atmosphere" to try</li><li>Chains in `pinned` mode and unfolding in depth</li><li>Recipes</li><li>Host panes</li><li>Website items</li><li>The `.tldr` import on records</li><li>A2UI catalog export and A2UI surfaces</li></ul> |
 
-## 8. Open questions, each with my default
+## 9. Open questions, each with my default
 
 1. **Adopt `@tldraw/store`, or write our own store?** *Default:* adopt it,
    pinned, if it fits 40 KB gzipped in 1a. Otherwise write our own, with
@@ -791,6 +903,12 @@ The owner's lean, confirmed by the survey, with one addition.
 8. **What does a new chain show?** *Default:* `output`, with the chain chip.
 9. **Can a voice switch targets mid-turn?** *Default:* no. The switch ends
    the open turn, and the next utterance goes to the new target.
+10. **Which TypeScript stripper?** *Default:* sucrase. Node's built-in
+    stripper can take over behind the same contract once it is no longer
+    experimental.
+11. **Typecheck `space_run` scripts as well?** *Default:* no: only on save
+    or promote, as the owner asked. A `space_check` tool can be added if
+    runtime errors prove too costly for the agent.
 
 ## Sources
 
@@ -824,6 +942,14 @@ The owner's lean, confirmed by the survey, with one addition.
   tldraw, member by member); `DESIGN.md` → Canvas documents (export,
   import); `packages/extension/canvas/src/shapes.ts`;
   `packages/extension/canvas-ui/src/{canvas-paste,canvas-history,canvas-keymap}.ts`.
+- **TypeScript tooling:**
+  - sucrase 3.35.1 (https://github.com/alangpierce/sucrase);
+  - TypeScript 5.9.3 (`erasableSyntaxOnly`);
+  - esbuild-wasm 0.25.12;
+  - Node 24 `module.stripTypeScriptTypes`.
+
+  The measurements are in `v3/ts-measurements.json` in the design thread's
+  storage.
 - **DOT-3** (bb task): voice on any thread.
 - **visionOS:** Apple's Human Interface Guidelines (depth, ornaments, the
   hover effect, motion),
