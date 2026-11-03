@@ -23,8 +23,8 @@
 # nightlies included. kb does (popemkt/kb deletes nightlies after 14 days),
 # which is why kb's pin needs a bot that keeps moving it.
 let
-  version = "0.1.1-nightly.20261101135306";
-  hash = "sha256-sEP7Z2NCxll+L3E2A84iCupEdKnfTml5jpyAj+Xg5w0=";
+  version = "0.1.1-nightly.20261103105013";
+  hash = "sha256-RKn3Rdc0Wein+fW61phnkB4Pep/RPoCfsX+WES6aQbo=";
 in
 stdenvNoCC.mkDerivation {
   pname = "marginalia";
