@@ -94,9 +94,15 @@ notifications), and it carries the conversation.
   - **History comes along as history.** Authority starts fresh: no
     pending approvals, ports, runs or deduplication state. Rules are copied
     but start their own runs.
-  - **Forking from an earlier message** copies the space as it stood at
-    that turn. Transactions name their turn, so the message maps to a
-    revision.
+  - **Forking from an earlier message uses checkpoints, not turn labels.**
+    - When each user message arrives, the bb host records a checkpoint:
+      the message id and the log offset at that moment. This happens for
+      every message, including turns that write nothing.
+    - A fork from that message copies the log **up to that offset,
+      everything included, in order**: the person's, the rules' and P0's
+      writes as well.
+    - A late result from an earlier turn falls after the offset, so it is
+      not copied.
 
 ### 1.4 Voice on any thread (DOT-3), merged
 
@@ -217,8 +223,13 @@ phase 2 [estimate].
     ratio** [estimate], given to the focused item, its neighbours and
     ornaments first.
   - All other panels draw `glassLite`, which has no blur.
-  - The runtime **falls back to `glassLite` everywhere** while presented
-    frames degrade, judged by long animation frames and rAF deltas.
+  - **The fallback to `glassLite` is conservative.**
+    - A device tier, chosen at start from the GPU and the pixel ratio,
+      sets the starting blur budget.
+    - A manual "reduce glass" setting is always available.
+    - Long animation frames and rAF deltas are only heuristic triggers. A
+      GPU or compositor stall can leave them looking healthy, so the doc
+      does not promise to detect lost presentation.
 - **Ring 0 panes move in sync** (websites and host panes, v3 §5 and §4).
   - **Ring 1's animation state is authoritative.** On every retarget it
     sends a versioned state: position, velocity, target, camera, and a
@@ -239,10 +250,13 @@ phase 2 [estimate].
   - Shadows are pre-rendered layers whose opacity changes.
   - The focus glow is a gradient layer moved by `transform`, never a
     repainted background.
-- **Springs run on the compositor.** A spring becomes Web Animations
+- **DOM springs run on the compositor.** A spring becomes Web Animations
   keyframes with a `linear()` easing sampled from it. A retarget computes
   new keyframes from the current position and velocity, so the main thread
   is free between retargets.
+  - This covers DOM items only.
+  - The room's camera and the GPU stage run on the stage's own frame loop
+    (`@space/stage`), within the same 4 ms main-thread budget.
 - **Per frame:** at most 4 ms of main-thread work during motion, plus the
   glass area budget above. That leaves room for v2's reflex path.
 - **P0's first visible change never waits for motion.** The ghost appears
