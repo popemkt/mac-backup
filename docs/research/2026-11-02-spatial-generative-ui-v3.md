@@ -261,6 +261,11 @@ space.arrange(board, "kanban");
 
 **The transaction boundary.**
 
+- **Reads within a run are consistent.**
+  - A run reads each source as it stood in the bb host's cache when the
+    run started: the same input gives the same answer for the whole run.
+  - Each answer carries its cache age, so the script (and `space_describe`)
+    can tell how fresh it is.
 - **The script runs against a snapshot at revision R.**
   - Every mutation, staged skill, staged asset and **command proposal** is
     buffered.
@@ -360,10 +365,16 @@ when: { sources: ["bb"] }  # eligibility, as space-agent's context tags
 | Rules | Yes: a worker from a prewarmed pool | off the reaction path; lower priority |
 | P2 scripts and draft components | Yes: a worker, then a nested frame from a prewarmed pool | a separate path, with its own budget; small next to P2's 20–30 s; the ghost is placed at dispatch |
 
-- **Committing is optimistic.**
-  - The bb host bumps the revision in memory and signals at once.
-  - The git commit follows asynchronously, off the visible path.
-  - A crash between the two replays the transaction log at start-up.
+- **Committing is durable first, then visible.**
+  1. The bb host appends the transaction to its log and `fsync`s it.
+  2. Only then does it bump the revision, signal, and move the run's
+     proposals into an **outbox keyed by `runId`**, which is idempotent.
+  3. The git commit follows asynchronously, off the visible path.
+  - A restart replays the log into git.
+  - **It voids every approval that was pending, never executing one,** so
+    no command can run for a transaction or approval that a crash lost.
+  - The append is a small local write [estimate: ≲ 5 ms; measured in
+    phase 1].
 - **Phase 1 measures the new P0 hop chain,** cold and warm: RPC, commit,
   signal, port, draw. It also measures first use of a reviewed skill, pool
   misses, and git under rule load.
@@ -405,9 +416,10 @@ compose reviewed, pinned things and never run new code.**
   - **It is not a `srcdoc` or `blob:` document,** since those inherit the
     parent's CSP.
   - **The runtime is inline and hash-pinned,** not module scripts.
-    - Requests from an opaque frame carry `Origin: null`, and a bb route's
-      default `"local"` auth accepts only no `Origin` or bb's own [doc, bb
-      plugin guide → `bb.http`].
+    - CORS-mode requests from an opaque frame (module scripts, `fetch`)
+      carry `Origin: null`. A bb route's default `"local"` auth rejects
+      that: it accepts only no `Origin` or bb's own [doc, bb plugin guide →
+      `bb.http`; confirmed in bb's server code by the review].
     - A GET navigation sends no `Origin`, so the frame document itself
       loads.
     - Everything after that arrives over the port, so the frame needs no
@@ -426,6 +438,22 @@ compose reviewed, pinned things and never run new code.**
 - **Websites (ring 4) are not in the space frame's subtree at all.**
   - Ring 0 draws them in its own layer, positioned from the item rects
     that ring 1 reports (a CSS3D layer in room mode, synced to the camera).
+  - **They are sandboxed too:** `sandbox="allow-scripts allow-forms"`.
+    - There is no `allow-same-origin`, so even a site that navigates itself
+      to bb's origin stays opaque and cannot touch ring 0.
+    - There are no popups and no top navigation.
+    - `allow=""` grants no camera, microphone, geolocation or autoplay, and
+      `referrerpolicy="no-referrer"` is set.
+  - **Some URLs are refused.** The server checks the URL and every redirect
+    hop (v2 §6.1's header check), and refuses:
+    - bb's own origin;
+    - plugin routes;
+    - loopback and private addresses;
+    - anything that carries credentials.
+  - **A site that breaks without its own origin** (storage, cookies) gets
+    v2's link card, with a snapshot and "open in browser".
+  - **Ring 0's approval chrome is a top layer** above every frame, and no
+    frame's rect may overlap it.
   - A website item's URL is a **gated field**: setting or changing it is a
     command, shown with the **full URL**, because an allowed origin can
     still receive data in a path or query string.
@@ -457,10 +485,14 @@ compose reviewed, pinned things and never run new code.**
       turn.
 - **One pending command per space.** A new proposal voids the one before
   it, and the concierge reads again.
-- **Media and voice.** While a command is pending, ring 1 pauses media
-  items, and frames are created with `allow="autoplay 'none'"`. A command
-  marked destructive needs a press, never a voice "yes": guest audio could
-  otherwise say "yes" into the microphone.
+- **Voice approves only what the person asked for.**
+  - A spoken "yes" can approve only a command that P0 or P1 proposed from
+    the person's own utterance in that turn ("tell number three to stop").
+  - **Anything a guest proposed** (a script, a component) **needs a
+    press,** as does any command marked destructive.
+  - Muting cannot be guaranteed: a site may play audio after interaction,
+    and guests have Web Audio and speech synthesis. So no audio a guest
+    produces can approve anything.
 
 **Reads, writes, residual risks.**
 
@@ -489,7 +521,7 @@ compose reviewed, pinned things and never run new code.**
 | Phase | Scope | Exit criterion | Size [estimate] |
 |---|---|---|---|
 | **0** | v2, plus this delta | The owner confirms §7's defaults | done |
-| **1a · Feasibility spike (entry gate)** | In bb web and desktop:<ul><li>serve the ring 1 shell from a plugin route;</li><li>read the effective CSP;</li><li>load the inline runtime and WASM;</li><li>render CSS;</li><li>start and kill `blob:` workers;</li><li>open ring 3 frames;</li><li>check WebGPU inside the sandbox;</li><li>run negative tests for egress, window messages and approval</li></ul> | Each ring exists as specified, or this doc changes before any build | 1–2 days |
+| **1a · Feasibility spike (entry gate)** | In bb web and desktop:<ul><li>serve the ring 1 shell from a plugin route;</li><li>read the effective CSP;</li><li>load the inline runtime and WASM;</li><li>render CSS;</li><li>start and kill `blob:` workers;</li><li>open ring 3 frames;</li><li>check WebGPU inside the sandbox;</li><li>run negative tests for egress, window messages, approval, and website frames (self-navigation to bb's origin, popups, overlap with the approval chrome)</li></ul> | Each ring exists as specified, or this doc changes before any build | 1–2 days |
 | **1b · Fork, flat, bb** | <ul><li>The space repo and its `AGENTS.md` (linking kb's shared rules)</li><li>The dependency-closure manifest, then the fork of `@space/scene` (with the world, camera, page and context rewrites), `@space/kit`, `@space/sandbox` and the flat parts of `@space/surface`</li><li>`SpaceHost` and its contract suites</li><li>The bb host (folder and git, the transaction log, the bb source and cache, assets)</li><li>Rings 0–2 and ports</li><li>The live scheduler (push/pull) and its reconnect suite</li><li>LOD faces and culling (v2 §6.1)</li><li>The space plugin (panel, full screen, `space_run`, `space_describe`)</li><li>The concierge opens and drives it (P0 over RPC, the turn record)</li><li>Built-in skills: list, card, detail, board, stat, markdown</li></ul> | <ul><li>v2 phase 1's asks each land in ≤ 1 s, measured end to end, with the hop chain of §4.3</li><li>A `space_run` script places a live board, a conflicting run retries, and one undo reverts it</li><li>A rule moves a card on a status change with no turn, and a rule loop is suspended</li></ul> | 10–12 days |
 | **2 · Room, library, commands** | <ul><li>`room` on `@space/stage`, with the CSS3D layer</li><li>Skill layers, pinning, the reviewed intent registry, promotion</li><li>Ring 3 draft components with a pool</li><li>The command gate and the approval RPC, with press and voice</li><li>Website items in ring 0</li><li>P1 compositions</li></ul> | <ul><li>"Make that a chart and keep it" yields a draft</li><li>After promotion, "show the chart for X" composes it via P0</li><li>"Tell number three to stop" runs only after "yes"</li></ul> | 8–10 days |
 | **3 · kb host** | <ul><li>The kb adapter (scenes, sources, commands, refs, the kb view bridge)</li><li>The `space/1` ↔ `CanvasDoc` subset converter and sidecar, with fixtures in both repos</li><li>Dependency-aware invalidation in kb, if kb approves it separately</li></ul> | <ul><li>A space opens with kb as its host</li><li>The subset survives parse → kb edit → reimport</li></ul> | 5–6 days |
@@ -515,8 +547,9 @@ compose reviewed, pinned things and never run new code.**
 6. **Ring 3 for generated UI: a frame, or drawing-as-data?** *Default:* a
    frame (it can hold anything), within v2's live budget. kb's
    drawing-as-data in a worker is the lighter option.
-7. **Voice approval for destructive commands?** *Default:* no; those need
-   a press.
+7. **What may a voice "yes" approve?** *Default:* only a command that P0
+   or P1 proposed from the person's own utterance, and never a destructive
+   one. Everything else needs a press.
 8. **Syncing with kb's canvas?** *Default:* none automatic. Provenance
    headers, `FORKED.md`, and hand-ported geometry fixes.
 9. **Should kb's canvas adopt `@space/scene`?** *Default:* not decided here.
