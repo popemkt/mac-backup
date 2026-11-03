@@ -15,6 +15,7 @@ v3; bb facts are from the Plugin SDK guide shipped with the running bb
 | No motion spec | Motion and material **tokens**, applied by the item shell, so every component gets them (§2) |
 | A chain is items and wires | **A chain can be one unit** with three display modes (§3) |
 | Components: built-in skills, unspecified | **bb's shadcn registry inside the space frame**, bb host components as ring 0 panes, and a spatial skin (§4) |
+| Ring 0 draws only websites and approval chrome (v3 §5) | Ring 0 also draws **host panes** (`bb.chat`, `bb.diff`, `bb.source`). A chat pane is a timeline by default. Only the person can write in it, after explicitly activating it, and its target thread is fixed (§4) |
 
 ## 1. A space is a plugin surface bound to a thread
 
@@ -48,11 +49,54 @@ notifications), and it carries the conversation.
 |---|---|---|
 | One space per thread, or several? | **One per thread, with pages.** v3's scene already has pages; a second space is a fork (below) | One place to look. Tools need no space id. Pages carry "another view of the same work" |
 | Where does the state live? | Under the plugin's data directory, beside its `data.db` [unverified that a plugin may keep a folder there; otherwise everything goes in the database]: `spaces/<threadId>/` (scene, skills, assets, the git history, the transaction log), indexed in the plugin's SQLite database. The thread's **plugin metadata** holds only a pointer `{space: {id, rev, panel}}` (the namespace is capped at 256 KiB [doc]) | Keyed by thread, owned by the plugin, and small on the thread record |
-| Can another thread see it? | **Read-only**, by reference: `space_describe {threadId}` from another thread, and a `ref {source: "bb", id: <thread>}` card in another space. Only the owning thread writes | One writer per space; no locking |
-| Forking | **The thread fork forks the space** at its current revision. Its git history is branched into `spaces/<newThreadId>/`. The plugin's own "Fork with space" action seeds the fork's metadata [doc: explicit forks may seed plugin metadata; plain forks never inherit it]. **A plain bb fork** is detected on `thread.created` through its `sourceThreadId` [doc]; its panel offers "Bring the space from the source thread". | The fork starts where you were, without copying a space you didn't want |
+| Can another thread see it? | **Read-only**, by reference: `space_describe {threadId}` from another thread, and a `ref {source: "bb", id: <thread>}` card in another space. Only the owning thread's space accepts writes, and its writers (that thread's agent, the person, rules, voice) all go through v3's revision-checked commit queue | One owner per space; races are resolved by the queue, not by locks |
+| Forking | **Only the plugin's "Fork with space" copies a space.** It calls `threads.fork` with a metadata seed [doc: explicit forks may seed plugin metadata; plain forks never inherit it]. **A plain bb fork copies nothing:** it is detected on `thread.created` through its `sourceThreadId` [doc], and its panel offers "Bring the space from the source thread", which runs the same copy. §1.4 gives the copy procedure | The fork starts where you were, and nobody gets a space they didn't ask for |
 | Archive | On `thread.archived` [doc], the space **freezes**: rules stop, live bindings and their subscriptions are released, workers and frames are torn down, and the data is kept. Opening it shows its last snapshot, read-only. `thread.unarchived` resumes it with fresh reads | An archived thread costs nothing, and comes back intact |
 | Delete | On `thread.deleted`, the space moves to the plugin's trash and is removed after 7 days. "Export space" saves a copy first | Recoverable for a week |
 | Missed events | At start-up, the plugin reconciles: spaces whose thread is archived or deleted are frozen or trashed. Events that arrive while it is unloaded are not replayed [doc] | |
+
+### 1.4 Lifecycle, forks and authority
+
+- **Each space has a lifecycle state and an epoch,** both persisted:
+  `active`, `frozen` (the thread is archived) or `deleted`.
+  - A lifecycle transition is serialised with the space's commit queue,
+    and bumps the epoch.
+  - **Every commit, proposal and approval carries the epoch it was made
+    under, and is refused if the epoch has moved.**
+  - When a command is about to execute, its thread's state is checked
+    again.
+- **Freezing** (`thread.archived`):
+  - voids every pending approval;
+  - cancels queued and in-flight runs (their commits will be refused by
+    epoch);
+  - stops rules and releases subscriptions;
+  - tears down workers, frames and host panes.
+
+  A command that already executed stays executed; its receipt says so. An
+  opened frozen space is drawn from its last snapshot, and nothing in it
+  can write.
+- **Unfreezing** (`thread.unarchived`) starts a new epoch with fresh reads.
+  No earlier run or approval comes back.
+- **Deleting** does what freezing does, then moves the space to the trash.
+- **At start-up,** the handlers are registered first, then every space is
+  reconciled against its thread's state, and only then are writes enabled.
+  The handlers are idempotent, since events and reconciliation can overlap
+  [doc].
+- **The copy that forking does** is a plugin operation, idempotent per
+  `(source, revision, destination)`:
+  1. **Pin a committed revision:** an offset in the durable transaction
+     log, not git's HEAD, which can lag (v3 §4.3).
+  2. **Materialise the scene at that revision** into
+     `spaces/<newThreadId>/` from the log, with the exact set of assets and
+     skills it references. The destination is marked `initializing`, so a
+     crash leaves something recoverable.
+  3. **Publish the metadata pointer only when the copy is ready.**
+  - **History comes along as history.** Authority starts fresh: no
+    pending approvals, ports, runs or deduplication state. Rules are copied
+    but start their own runs.
+  - **Forking from an earlier message** copies the space as it stood at
+    that turn. Transactions name their turn, so the message maps to a
+    revision.
 
 ### 1.3 Voice on any thread (DOT-3), merged
 
@@ -76,11 +120,23 @@ It merges as follows:
   - **P2 is the target thread itself**: the instruction lands there as a
     `[voice]` message, and that thread's own agent, on whatever provider,
     calls `space_run`.
-- **The turn record** (v2 §7.2) is keyed by `(voice session, target
-  thread)`. Switching the target ends the turn that was open.
-- **Approval** (v3 §5) uses the target thread's space. A spoken "yes"
-  counts only for a command proposed from the person's utterance to that
-  thread.
+- **Every dispatch gets an immutable identity:** `(sessionId,
+  targetThreadId, turnId, targetEpoch)`.
+  - `targetEpoch` changes on every target switch, so A → B → A does not
+    alias.
+  - Every P0, P1 and P2 result, scene receipt and approval carries that
+    identity. **Nothing reads "the current target" when it completes.**
+- **On a target switch:**
+  - Pending voice approvals are voided.
+  - Work already dispatched **finishes against its original target, and
+    is never rebound.** A late P1 composition lands in the space it was
+    asked for.
+  - A P2 run is just that thread's turn. Its answer is read aloud only if
+    the target has not changed; otherwise it becomes a notification for
+    that thread.
+- **Approval** follows v3 §5 exactly: a spoken "yes" approves only a P0 or
+  P1 proposal made from the person's utterance under the same dispatch
+  identity. A P2 or guest proposal needs a press.
 - **The concierge thread** is the default target. It is a thread like any
   other, with its own space.
 
@@ -153,26 +209,51 @@ phase 2 [estimate].
   - Switching between flat and room morphs every item along the cylinder
     mapping (v2 §3.1) with `move`.
 - **Glass.**
-  - Panels are glass (`glass`): background blur, a tint drawn from the
-    theme, a 1 px edge and a faint specular gradient.
-  - Blur is expensive, so at most **8 glass panes blur at once**: the
-    focused item, its neighbours and ornaments. All others draw
-    `glassLite`, which has no blur.
-- **Websites move in sync.** Website frames live in ring 0 (v3 §5), so ring
-  0 runs **the same spring solver from the same targets and start time**.
-  If phase 2 measures more than 1 px of drift, a website shows its snapshot
-  face while it moves, and goes live when it settles.
+  - Panels are glass (`glass`): a `backdrop-filter` blur behind the panel
+    (not `filter`, which would blur the panel itself), a tint drawn from
+    the theme, a 1 px edge and a faint specular gradient.
+  - Blur is expensive, and its cost is pixels, not panes. It is budgeted
+    by **blurred area: at most about 1.5 viewports at the device's pixel
+    ratio** [estimate], given to the focused item, its neighbours and
+    ornaments first.
+  - All other panels draw `glassLite`, which has no blur.
+  - The runtime **falls back to `glassLite` everywhere** while presented
+    frames degrade, judged by long animation frames and rAF deltas.
+- **Ring 0 panes move in sync** (websites and host panes, v3 §5 and §4).
+  - **Ring 1's animation state is authoritative.** On every retarget it
+    sends a versioned state: position, velocity, target, camera, and a
+    timestamp on a shared timeline (wall-clock milliseconds, converted from
+    each frame's `performance.timeOrigin`).
+  - Ring 0 integrates the same spring from that state.
+  - **A pane takes no input while it moves.** It goes live once both sides
+    agree on its settled rect.
+  - If a state message is lost, the pane is hidden or backgrounded, or its
+    drift is detected at runtime, it shows its snapshot face until it
+    resyncs, keeping its focus and scroll position.
 
 ### 2.3 Budgets
 
 - **60 fps on the owner's laptop, during a 30-item preset move,** with
   fewer than 1 % of frames dropped. 120 Hz where the display offers it.
-- **Only compositor properties animate:** `transform`, `opacity`, and
-  `filter` on at most 8 glass panes. Layout never animates.
-- **Per frame:** at most 4 ms of main-thread work during motion, which
-  leaves room for v2's reflex path.
-- **Measured in phase 1,** from a Chrome performance trace (frame
-  timings), on the laptop and on the phone.
+- **What may animate:** `transform` and `opacity`. Layout never animates.
+  - Shadows are pre-rendered layers whose opacity changes.
+  - The focus glow is a gradient layer moved by `transform`, never a
+    repainted background.
+- **Springs run on the compositor.** A spring becomes Web Animations
+  keyframes with a `linear()` easing sampled from it. A retarget computes
+  new keyframes from the current position and velocity, so the main thread
+  is free between retargets.
+- **Per frame:** at most 4 ms of main-thread work during motion, plus the
+  glass area budget above. That leaves room for v2's reflex path.
+- **P0's first visible change never waits for motion.** The ghost appears
+  at its target at once and settles from there.
+- **The shell's motion is enforced; components' own motion is
+  cooperative.** Radix overlays are portalled into each face's own root,
+  so they stay inside its shell and its reduced-motion setting.
+- **Measured in phase 1** from Chrome performance traces (presented frames,
+  not just rAF), on the laptop and on the phone, at 60 and 120 Hz, with
+  real panes. Also measured: time from input to the visible change, rapid
+  retargeting, background and resume, and reduced motion.
 
 ### 2.4 Phone and reduced motion
 
@@ -201,11 +282,31 @@ chain is **a group with a role**.
 ```ts
 type Chain = GroupItem & {
   role: "chain";
-  display: "output" | "pinned" | "expanded";
-  pinned: ItemId[];                 // steps kept visible in "pinned"
-  ports: { inputs: BoundaryPort[]; outputs: BoundaryPort[] };   // derived: the wires crossing its edge
+  display: "output" | "pinned" | "expanded";   // the only display state that is committed
+  pinned: ItemId[];                            // steps kept visible in "pinned"
+  exports: { inputs: ExportedPort[]; outputs: ExportedPort[] };
 };
+type ExportedPort = { id: PortId /* stable */; inner: { item: ItemId; port: PortName }; schema: JsonSchema };
 ```
+
+- **The interface is declared, not derived.**
+  - **Outputs** are the sinks the chain exports, whether or not anything
+    outside consumes them. An isolated query → transform → view chain
+    exports its view.
+  - **Inputs** are the inner inputs that are left unbound or wired from
+    outside.
+  - Port ids are stable, so rewiring inside keeps the outside wires.
+- **Graphs, not only pipes.**
+  - Fan-in, fan-out and several sinks are allowed. In `output` mode the
+    chain shows every exported sink.
+  - **Cycles are refused,** as v2 refuses live loops.
+  - A chain inside a chain is a component like any other.
+  - Steps are ordered by a deterministic topological sort (ties broken by
+    item id), which the rail, pipeline and depth layouts all follow.
+- **Commands inside a chain stay dormant proposals** (v3 §5). Hidden steps
+  keep running, but a hidden command never runs because of that.
+- **Grouping, ungrouping and any rewiring of exports** happen in one
+  scene transaction, with type checking.
 
 **Display modes:**
 
@@ -225,8 +326,21 @@ type Chain = GroupItem & {
     output on receding depth layers, offset so each is visible, and the
     output stays in front. Collapsing folds them back.
 
-**Visibility never changes execution.** Hidden steps keep running. Their
-subscriptions belong to the flow scheduler, not to faces (v2 §6.1).
+**The unfolded positions are projection geometry, not scene edits.**
+
+- They are derived per projection from stable item ids. The steps' logical
+  transforms and wires never change, so collapsing restores exactly what
+  was there, even after concurrent edits.
+- Hit-testing uses the animated geometry that ring 1 holds.
+- The depth stack stays within the room's near limit (v2 §3.1) and moves
+  focus to the item in front.
+- Nested and large chains are in the room and LOD contract suites.
+
+**Visibility never changes execution.**
+
+- Hidden steps keep running. Their subscriptions belong to the flow
+  scheduler, not to faces (v2 §6.1).
+- Their faces are demoted to glyphs, which releases their frames and panes.
 
 **Toggling, per chain:**
 
@@ -248,9 +362,20 @@ subscriptions belong to the flow scheduler, not to faces (v2 §6.1).
   selection must be one connected subgraph, or it is refused with the gap
   named.
 - Ungrouping keeps the items and wires.
-- **A chain can be saved as a skill** (kind `recipe`, with its boundary
-  ports). It joins the library (v3 §4.2), and P1 or P0 can then compose
-  the whole chain by name.
+- **A chain can be saved as a skill** (kind `recipe`, with its exported
+  ports).
+  - **It is a draft first** (v3 §4.2), in the draft namespace, on the slow
+    path.
+  - **Promotion reviews the whole dependency closure:** every component it
+    uses must be reviewed and pinned. Its bounded expansion is checked too.
+  - Private refs and command targets become parameters, and its required
+    sources are declared.
+  - A recipe that is missing a grant, or depends on a draft, is refused on
+    the fast path.
+  - Instantiating it gives fresh item ids, and its commands still need
+    approval at each use.
+  - Only after promotion can P1, or P0 through reviewed intents, compose
+    the whole chain by name.
 
 **Inspecting a step** opens its detail as an ornament:
 
@@ -267,8 +392,9 @@ This works in any display mode.
 1. **bb's shadcn registry, vendored into the space frame.**
    - What bb's SDK ships for plugin UI is **vendored shadcn source**: the
      `@bb` registry has about 46 stock items (button, card, dialog, table,
-     command, chart, form, …), generated from bb's own component source and
-     pinned to the running bb's release [doc].
+     `command`, chart, form, …), generated from bb's own component source.
+     It is pinned to a bb release **when vendored** and updated by hand,
+     so each bb upgrade is a tested re-vendor [doc].
    - So "shadcn" and "bb's own components" are one choice. Using the
      registry gives consistency with bb by construction.
    - **Two caveats from v3's rings:**
@@ -287,6 +413,19 @@ This works in any display mode.
      over the item's rect, in sync with the same springs.
    - They are built-in skills: `bb.chat` (another thread's chat in your
      space), `bb.diff` and `bb.source`.
+   - **A chat pane is a timeline (`variant="timeline"`) by default:** no
+     composer, actions or controls.
+     - The host fixes its target thread when the pane is created, and draws
+       that thread's name in ring 0's own label.
+     - A guest cannot pass any props: no composer content, focus, actions
+       or permission policy.
+   - **"Reply here" is a person-only activation** in ring 0's chrome. It
+     opens an interactive pane whose target cannot change while it is open.
+     What the person types there is their own message.
+   - Anything a guest wants sent or stopped on another thread is a
+     proposal (v3 §5).
+   - At most **2 live host panes** at once; others show snapshots, under
+     v2's LOD budget.
    - Markdown inside ordinary cards uses a renderer bundled in the frame,
      since panes cost more than cards.
 3. **The spatial skin** is the item shell of §2: glass, depth, hover,
@@ -295,9 +434,16 @@ This works in any display mode.
 4. **The look follows bb's theme, live.**
    - bb's Tailwind compiles against the host's CSS variables [doc]. Ring 0
      reads the computed variables from bb's document and sends them over
-     the `look` port, and ring 1 sets them on its root.
-   - Custom palettes and dark mode then match bb exactly, and the frame
-     defines no colours of its own.
+     the `look` port. Ring 1 accepts **only the allowlisted token names,
+     with checked value types** (colour, length, radius), and sets them on
+     its root.
+   - Custom palettes and dark mode then follow bb, and the frame defines no
+     colours of its own.
+   - The frame's CSS is compiled separately (it cannot use the plugin
+     build's shims). It uses a system font stack that matches bb's, since
+     fonts load only from `data:`.
+   - Its portal root lives inside the frame. Tokens are not pixels, so the
+     spike compares screenshots against bb.
 5. **Every component is a catalog entry:** a built-in skill (`SKILL.md`,
    ports, intents, `mount → {update, dispose}`; v3 §3.2, §4.2).
    - **The first set:**
