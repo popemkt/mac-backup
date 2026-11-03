@@ -4,6 +4,11 @@ Date: 2026-11-03. Design only: nothing here is built. This revises
 [v1](2026-11-02-spatial-generative-ui.md) after the owner's feedback, and
 replaces it where the two differ (§0 lists where).
 
+**Amended by the [v3 delta](2026-11-02-spatial-generative-ui-v3.md)**
+(2026-11-03): the engine moves out of kb into a standalone fork of kb's
+canvas, shipped first as a bb plugin; the agent acts in plain JS in a
+sandbox; skills are the extension point. v3 §0 lists what changed.
+
 **The owner's direction (condensed).**
 1. A second mode of the voice concierge: a panel that can expand to full
    screen, with the voice as its input.
