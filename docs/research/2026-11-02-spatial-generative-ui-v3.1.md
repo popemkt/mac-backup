@@ -50,12 +50,12 @@ notifications), and it carries the conversation.
 | One space per thread, or several? | **One per thread, with pages.** v3's scene already has pages; a second space is a fork (below) | One place to look. Tools need no space id. Pages carry "another view of the same work" |
 | Where does the state live? | Under the plugin's data directory, beside its `data.db` [unverified that a plugin may keep a folder there; otherwise everything goes in the database]: `spaces/<threadId>/` (scene, skills, assets, the git history, the transaction log), indexed in the plugin's SQLite database. The thread's **plugin metadata** holds only a pointer `{space: {id, rev, panel}}` (the namespace is capped at 256 KiB [doc]) | Keyed by thread, owned by the plugin, and small on the thread record |
 | Can another thread see it? | **Read-only**, by reference: `space_describe {threadId}` from another thread, and a `ref {source: "bb", id: <thread>}` card in another space. Only the owning thread's space accepts writes, and its writers (that thread's agent, the person, rules, voice) all go through v3's revision-checked commit queue | One owner per space; races are resolved by the queue, not by locks |
-| Forking | **Only the plugin's "Fork with space" copies a space.** It calls `threads.fork` with a metadata seed [doc: explicit forks may seed plugin metadata; plain forks never inherit it]. **A plain bb fork copies nothing:** it is detected on `thread.created` through its `sourceThreadId` [doc], and its panel offers "Bring the space from the source thread", which runs the same copy. §1.4 gives the copy procedure | The fork starts where you were, and nobody gets a space they didn't ask for |
+| Forking | **Only the plugin's "Fork with space" copies a space.** It calls `threads.fork` with a metadata seed [doc: explicit forks may seed plugin metadata; plain forks never inherit it]. **A plain bb fork copies nothing:** it is detected on `thread.created` through its `sourceThreadId` [doc], and its panel offers "Bring the space from the source thread", which runs the same copy. §1.3 gives the copy procedure | The fork starts where you were, and nobody gets a space they didn't ask for |
 | Archive | On `thread.archived` [doc], the space **freezes**: rules stop, live bindings and their subscriptions are released, workers and frames are torn down, and the data is kept. Opening it shows its last snapshot, read-only. `thread.unarchived` resumes it with fresh reads | An archived thread costs nothing, and comes back intact |
 | Delete | On `thread.deleted`, the space moves to the plugin's trash and is removed after 7 days. "Export space" saves a copy first | Recoverable for a week |
 | Missed events | At start-up, the plugin reconciles: spaces whose thread is archived or deleted are frozen or trashed. Events that arrive while it is unloaded are not replayed [doc] | |
 
-### 1.4 Lifecycle, forks and authority
+### 1.3 Lifecycle, forks and authority
 
 - **Each space has a lifecycle state and an epoch,** both persisted:
   `active`, `frozen` (the thread is archived) or `deleted`.
@@ -98,7 +98,7 @@ notifications), and it carries the conversation.
     that turn. Transactions name their turn, so the message maps to a
     revision.
 
-### 1.3 Voice on any thread (DOT-3), merged
+### 1.4 Voice on any thread (DOT-3), merged
 
 DOT-3's design:
 
