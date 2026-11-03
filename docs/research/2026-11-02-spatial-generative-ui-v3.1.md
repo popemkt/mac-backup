@@ -24,7 +24,9 @@ Claim tags are as in v3:
 | No motion spec | Motion and depth **tokens**, applied by the item shell (§4). No glass: depth comes from elevation and the spatial feel from motion |
 | A chain is items and wires | **A chain can be one unit** with three display modes (§5) |
 | Components unspecified; the first draft used bb's registry in the core | **A host-neutral core library:** Base UI primitives, shadcn-style components we own, Tailwind v4 tokens, and a zod catalog. bb's components appear only in the bb shell (§6) |
-| Agent scripts are plain JS (v3 §4.1) | **TypeScript everywhere** (§7): scripts, rules and generated components are TS. Types are stripped on the plugin server (sucrase, 0.1–1 ms measured). The model writes against `.d.ts` typings of the space API. A full typecheck runs only when a skill or rule is saved or promoted, and zod still validates at runtime |
+| Agent scripts are plain JS (v3 §4.1) | **TypeScript only** (§7). `.js` is refused, and a full typecheck runs on save or promote |
+| Ports are JSON Schema (v2 §3.4) | **Ports are zod schemas:** one declaration gives the run-time check, the static type (`z.infer`) and the wire schema. A wire is checked statically in authored code and structurally when drawn. A mismatch is refused with a reason, or offered an adapter. Generic ports are supported (§7.2) |
+| Rings decide where code runs (v3 §5) | **Three code tiers, copying kb's** (§7.3): built core, closure-bundled skills trusted by digest, and live agent code that is stripped and run in **QuickJS** when untrusted or a **Worker** when trusted, both from kb's engines. **Rules must be trusted before they run,** which is stricter than v3 §4.1 |
 | Ring 0 draws only websites and approval chrome (v3 §5) | Ring 0 also draws **host panes** (`bb.chat`, `bb.diff`, `bb.source`). A chat pane is a timeline by default. Only the person can write in it, after explicitly activating it, and its target thread is fixed (§6) |
 
 ## 1. A space is a plugin surface bound to a thread
@@ -764,92 +766,219 @@ The owner's lean, confirmed by the survey, with one addition.
     `prefers-reduced-transparency`.
   - *Default:* off. The owner tries it in phase 2.
 
-## 7. TypeScript, not plain JS
+## 7. TypeScript only, typed ports, and three code tiers
 
-The codebase is TypeScript, so what the agent writes is TypeScript too:
+### 7.1 The policy: TypeScript only
 
-- `space_run` scripts;
-- rules;
-- draft components;
-- recipes.
+- **Every source is `.ts` or `.tsx`:**
+  - core;
+  - the bb plugin;
+  - skills;
+  - space plugins;
+  - recipes;
+  - rules;
+  - `space_run` scripts;
+  - generated components.
 
-The types serve the model and the review. They cost almost nothing at run
-time.
+  Saving a skill **refuses `.js` sources**, and the compiler runs with
+  `allowJs: false`. Only `.d.ts`, `.json`, `.md` and assets may sit beside
+  them.
+- **Plain JS is valid loose TS, so the check on save is what enforces
+  types:**
+  - `strict` (with `noImplicitAny`) and `erasableSyntaxOnly`;
+  - **no explicit `any`**: one walk of the syntax tree for `AnyKeyword`
+    refuses it, with its line. `unknown` is the escape hatch.
+- **A `space_run` script is TypeScript too,** but it is not typechecked
+  when it runs (§7.6). Its types serve the model, and its runtime errors go
+  back as in v3.
 
-### 7.1 Strip on the server, just before running
+### 7.2 Typed ports: one zod declaration, both checks
 
-- **Where:** on the plugin server, where every script already arrives
-  (`space_run`, a rule saved, a skill saved). The frame never compiles
-  anything, so rings 1–3 carry no compiler, and v3's CSP is unchanged.
-- **The library: sucrase 3.35** (`transforms: ["typescript"]`).
-  - It is pure JS and stable, and it runs the same in Node, Bun and a
-    browser, so the kb host and any fallback can use it unchanged.
-  - **It preserves line numbers,** so a runtime error points at the line
-    the agent wrote, with no source map [measured: both samples kept
-    their line counts; the stripper contract suite pins it].
-  - Node's built-in `module.stripTypeScriptTypes` was as fast in the
-    measurement, but it still prints an experimental warning on Node 24.
-    It can replace sucrase behind the same interface once it is stable.
-    Each host's stripper passes one contract suite.
+Every card, data source and compute node declares its inputs and outputs
+as **zod schemas**. Its TypeScript types come from them (`z.infer`), so one
+declaration is both the runtime check and the static type.
+
+```ts
+const Thread = z.object({ id: z.string(), title: z.string(), status: z.enum(["active", "idle", "failed"]) });
+
+export const ports = definePorts({
+  inputs:  { rows: z.array(Thread) },
+  outputs: { selected: z.string() },
+});
+type Inputs = PortTypes<typeof ports>["inputs"];       // { rows: { id: string; title: string; status: "active" | "idle" | "failed" }[] }
+
+// Generic ports: a type parameter, bound when the wire is drawn.
+export const first = defineGeneric((T) => ({
+  inputs:  { items: z.array(T) },
+  outputs: { item: T.optional() },
+}));                                                   // T[] → T | undefined
+```
+
+- **On the wire,** a port's schema is JSON Schema 2020-12 (zod's
+  `toJSONSchema`). That is the same form as v2's ports and §6.2's catalog.
+  A type parameter is written `{"$typeVar": "T"}`.
+- **A wire is allowed only when the output's type fits the input's.** It
+  is checked in two places:
+  - **Statically, for authored code.** The SDK types `connect<T>(from:
+    Out<T>, to: In<T>)`, so a skill or recipe that wires a mismatch fails
+    its typecheck on save (§7.6).
+  - **At run time, when a wire is drawn,** by a person, P0, P1 or a
+    script. The `connect` op checks the two JSON Schemas inside the
+    transaction. A refusal fails the op; in a script, it fails the whole
+    run, and the reason goes to the agent.
+- **The run-time check is structural, and conservative.**
+  - It covers a defined subset of keywords: `type`, `properties`,
+    `required`, `additionalProperties`, `items`, `prefixItems`, `enum`,
+    `const`, `anyOf`/`oneOf`, nullable types, and `$typeVar`.
+  - It has three answers:
+    - **fits:** the wire is drawn;
+    - **does not fit:** the wire is refused, **with the reason** as a JSON
+      pointer path and the two types, for example `rows: array of Thread
+      given, Thread expected`;
+    - **cannot tell** (keywords outside the subset): the wire is drawn
+      only with a **validating adapter**, where the input port's zod schema
+      checks every value. A failing value marks the wire as an error, and
+      the downstream keeps its last good value.
+  - **Generics unify** at connect time. Wiring `Thread[]` into
+    `first.items` binds `T = Thread`, so `first.item` is a `Thread`
+    downstream.
+- **Adapters are offered.**
+  - When a wire is refused, `connect` searches the catalog's adapters for
+    one, or a chain of at most two, that bridges the types:
+    - `first: T[] → T`;
+    - `wrap: T → T[]`;
+    - `pick<K>: T → T[K]`;
+    - `map(pick)`;
+    - `count: T[] → number`;
+    - `toText: T → string`.
+  - The adapters are ordinary generic components.
+  - By voice: "connect 2 and 3" → "That gives a list of threads, and it
+    takes one thread. Use the first one?"
+- **zod still guards run time,** since stripped types vanish and data from
+  sources and guests is untrusted:
+  - a component's props are validated on mount and on every update;
+  - a value crossing a wire is validated by the input port;
+  - a source's answer is validated where it enters.
+
+### 7.3 Three code tiers, copying kb's model
+
+kb already has this model, and its two engines. Space reuses them rather
+than rebuilding them [doc, kb `DESIGN.md` → Sandbox → Engines, Trust,
+Limits; `packages/app/runtime/src/extension-closure.ts`;
+`packages/infrastructure/sandbox-{quickjs,worker}`].
+
+| Tier | What | How it is built | Who trusts it | Where it runs |
+|---|---|---|---|---|
+| **a · core and the bb plugin** | `@space/*` and the bb host and shell | TS, built by bb on install (`bb plugin build`) | The repo's review | Rings 0, 0′ and 1 |
+| **b · installed skills and space plugins** | A TS package: its components, transforms, rules, recipes | **Bundled into one closure,** as kb's extension closure is. Host modules (`@space/sdk`, `@space/ui`, `react`, `zod`) are left for the runtime to provide, and the bundle is refused if it mentions a way to load code it does not hold (kb's `LOADS_CODE` list: `import()` of a non-literal, `eval`, `Function`, `Worker`, and the rest) | **The owner, by its digest** (SHA-256 of exactly the closure's bytes and its grant), per machine. This is v3's "promotion" | Trusted components in ring 1. Its scripts and rules in the **Worker** engine (ring 2) |
+| **c · live agent code** | `space_run` scripts, draft components, draft rules | **Types stripped** with sucrase on the plugin server (§7.4); drafts are bundled too, so they have a digest | Nobody yet | **QuickJS-wasm** when untrusted, the **Worker** engine once its digest is trusted. Draft components render in ring 3 |
+
+- **The engines are kb's.**
+  - `@kb/sandbox-quickjs` and `@kb/sandbox-worker` sit behind one engine
+    port and one capability API.
+  - Limits per turn: 500 ms and a 32 MB heap in QuickJS; 5 s in a Worker
+    [doc].
+  - Space forks them with `@kb/sandbox` (v3 §3.1).
+- **QuickJS runs inside a blob Worker** in ring 2, never on the frame's main
+  thread.
+  - That is the fix kb names for its own gap (QuickJS on the frame's main
+    thread can hold it for 500 ms). Space starts with it.
+  - The Worker gives a kill switch; QuickJS gives the memory cap.
+- **Code that runs on its own must be trusted first.** kb's rule is that
+  a script never runs untrusted, because nobody is watching it [doc]. So
+  **a rule is enabled only once its digest is trusted.**
+  - This is stricter than v3 §4.1, where draft rules ran within budgets.
+  - A `space_run` script runs untrusted in QuickJS, because it runs once,
+    inside a turn someone asked for.
+- **Trust changes the engine and its limits, never the capabilities.** A
+  trusted run has the same API, the same grant and the same command gate
+  (v3 §5) [doc, kb's model].
+- **Digests depend on the bundler.** A closure built by esbuild on the bb
+  host and by `Bun.build` on the kb host has different bytes, so it is
+  trusted separately on each host, as kb's trust is already per machine.
+  Both bundlers pass one closure contract suite, so they refuse the same
+  things.
+
+### 7.4 Where bundling and stripping run, and what they cost
+
+- **Both run on the plugin server,** where every script and skill
+  arrives.
+  - **Never in the page.** esbuild-wasm is 12 MB to load into a frame, and
+    a digest must be computed by the host over exactly what runs, never by
+    the guest.
+  - The kb host uses `Bun.build`, as kb's closure already does.
+- **Bundling** (tier b, and drafts in tier c) uses **native esbuild** on
+  the plugin server. If bb's plugin install cannot take esbuild's native
+  binary [unverified], it falls back to **esbuild-wasm** on the same server.
+  It runs only on save, promote and install, never on the reaction path.
+- **Stripping** (tier c) uses **sucrase**:
+  - It is pure JS, and it keeps line numbers [measured: both samples kept
+    their line counts]. So a runtime error points at the line the agent
+    wrote.
+  - Node's built-in `module.stripTypeScriptTypes` was as fast, but it is
+    still experimental on Node 24. It can take over behind the same
+    stripper contract later.
 - **Only erasable syntax** (TypeScript's `erasableSyntaxOnly`): no enums,
-  runtime namespaces, parameter properties or decorators.
-  - Then stripping is purely removing types. Any conforming stripper gives
-    the same JavaScript.
-  - The typecheck and the stripper refuse the same things.
+  runtime namespaces, parameter properties or decorators. Stripping is then
+  purely removing types, and any conforming stripper gives the same
+  JavaScript.
 
-**What it costs**, measured today on shared-server:
+**Measured today on shared-server.** The setup: Node 24.20, 16 cores, a
+load average of about 4.8, `nice` 15, `process.hrtime`. Each figure is the
+median, with p95 in brackets. The harnesses and samples are in the design
+thread's storage (`v3/`).
 
-| Step | Median | p95 | One-time cost |
-|---|---|---|---|
-| sucrase, a 15-line `space_run` script | **0.12 ms** | 0.46 ms | 31 ms to load; 7.9 ms for the first call |
-| sucrase, a 49-line component | **0.54 ms** | 0.98 ms | — |
-| Node 24 `stripTypeScriptTypes`, the same script and component | 0.11 ms, 0.30 ms | 0.19 ms, 0.47 ms | 39 ms for the first call; experimental |
-| esbuild-wasm `transform` | 3.4 ms | 6.3 ms | 17 ms to initialise |
-| `typescript` `transpileModule` | 1.5 ms | 5.6 ms | 181 ms to load |
-| **Full typecheck**: API typings + script + component, `strict`, lib es2022 + dom | **164 ms** (reusing the program) | 221 ms | 357 ms cold |
-| sucrase bundled for a browser | 201 KB minified, **46.5 KB gzipped** | | (why it stays on the server) |
-
-How the numbers were taken: Node 24.20, 16 cores, a load average of about
-4.8, run under `nice` 15, with `process.hrtime`. The stripping steps ran 300
-times each (esbuild 100), and the warm typecheck 10 times. The script,
-typings and harness are in the design thread's storage (`v3/`).
+| Step | Warm | One-time |
+|---|---|---|
+| sucrase strip, a 15-line `space_run` script | **0.12 ms** (0.46) | 31 ms to load; 7.9 ms for the first call |
+| sucrase strip, a 49-line component | 0.54 ms (0.98) | — |
+| Node 24 `stripTypeScriptTypes`, the same two | 0.11 ms, 0.30 ms | 39 ms for the first call; experimental |
+| **QuickJS-wasm: a fresh 32 MB runtime, then run the stripped script against a stub API (7 ops)** | **0.59 ms** (1.02) | 17.7 ms to start the module; 13 ms for the first run |
+| **Bundle a skill closure** (2 files, host modules left out) with native esbuild | **8.9 ms** (10.6) | 6 ms to start; 19.5 ms for the first build |
+| The same with esbuild-wasm, on the server | 70 ms (86) | 414 ms for the first build |
+| SHA-256 digest of that closure | < 0.5 ms | — |
+| **Full typecheck**: API typings + script + component, `strict`, lib es2022 + dom | **164 ms** (221), reusing the program | 357 ms cold |
+| For comparison: TS `transpileModule`; esbuild-wasm `transform` | 1.5 ms; 3.4 ms | 181 ms to load; 17 ms to start |
+| sucrase bundled for a browser | 201 KB minified, 46.5 KB gzipped | (why it stays on the server) |
 
 **So the fast path is untouched:**
 
 - P0 and P1 run no code (v3 §4.3).
-- P2 gains about 0.1–1 ms per script, against its 20–30 s.
-- The owner's estimate of 1–5 ms holds with room to spare. The one-time
-  31 ms load happens when the plugin starts.
+- **A P2 script costs about 1–2 ms** in strip plus QuickJS, against P2's
+  20–30 s.
+- Bundling and typechecking happen only on save, promote and install,
+  where 10–400 ms is invisible.
+- The QuickJS module starts once, inside a prewarmed worker. These are
+  Node figures; the browser's QuickJS in a worker is the same wasm, and
+  phase 1a measures it there.
 
-### 7.2 Typings for the model
+### 7.5 Typings for the model
 
 - **`space-api.d.ts`** is generated from the core's own TypeScript source,
   so it cannot drift from the API. It covers:
   - the `space` proxy;
   - the record types (§2.1);
   - the ops;
+  - `definePorts`;
   - `propose`.
 - **Per-space declarations are generated too:**
-  - each granted source's input and output types, from its JSON Schema;
-  - each catalog component's props, from its zod schema (`z.infer` for
-    built-ins).
+  - each granted source's input and output types, from its port schemas;
+  - each catalog component's ports (`z.infer`).
 
-  The model then writes `space.source("bb.threads", …)` and gets
-  `Thread[]` back, typed.
+  The model then writes `space.source("bb.threads", …)` and gets a typed
+  `Thread[]` back.
 - **How the model receives them:**
   - a condensed form in `contributeInstructions`, only for threads with a
     space (about 1.5k tokens [estimate]);
   - the full form through `space_describe({types: true})`.
 
-### 7.3 A full typecheck, only on save or promote
+### 7.6 A full typecheck, only on save or promote
 
-- **When:** a skill, rule or recipe is saved or promoted.
-  - Not on every `space_run`: scripts run at once, and their runtime
-    errors go back to the agent as in v3.
+- **When:** a skill, space plugin, rule or recipe is saved or promoted.
 - **How:**
   - a TypeScript 5.9 program with `strict`, `erasableSyntaxOnly`,
-    `noEmit` and `skipLibCheck`, the API typings and the space's
-    declarations;
+    `allowJs: false`, `noEmit` and `skipLibCheck`, the API typings and the
+    space's declarations, plus the `any` walk (§7.1);
   - in a worker thread on the plugin server;
   - the program is reused between checks, so a check takes about 160 ms
     warm.
@@ -857,23 +986,11 @@ typings and harness are in the design thread's storage (`v3/`).
   (measured): `bad.ts:1 Type '"nowhere"' is not assignable to type 'Near |
   undefined'.`
   - A skill with errors is saved as a draft marked `typecheck: failed`.
-    **It cannot be promoted** (v3 §4.2).
+    **It cannot be promoted**, so its digest is never offered for trust.
 - **Promotion typechecks the whole dependency closure** (§5's recipes),
   against the pinned versions.
-
-### 7.4 zod still guards run time
-
-Types vanish when stripped, and data from sources and guests is untrusted,
-so validation at run time stays:
-
-- a component's props are validated by its zod schema on mount and on every
-  update;
-- a binding's value is validated against its port's schema (v2 §3.4);
-- a source's answer is validated where it enters, by its schema.
-
-For built-ins, **zod is the one source**: TypeScript types (`z.infer`),
-JSON Schema for the wire and the catalog (§6.2), and run-time checks all
-come from it.
+- **Mismatched wires in authored code fail here,** through `connect<T>`
+  (§7.2).
 
 ## 8. Phases
 
@@ -881,7 +998,7 @@ come from it.
 |---|---|
 | 1a spike | <ul><li>The record store in the opaque frame, with its gzipped size measured against 40 KB</li><li>Theme tokens over the port</li><li>The frame's own bundle (React, Base UI, `@space/ui`, the compiled Tailwind CSS)</li><li>Spring cost on the laptop and phone</li></ul> |
 | 1b-i · workspace | <ul><li>The thread binding (§1): panel action, keyed storage, the metadata pointer, lifecycle handlers, start-up reconciliation</li><li>The record store with scopes, side effects and migrations; the diff log; snapshots in git; diff-based undo</li><li>**Workspace parity (§3):** the fork's tools and verbs on records, plus eraser, half-bound arrow, rich and auto-size text, note, duplicate, z-order actions, copy and cut as records, copy as SVG/PNG, assets and upload, export SVG/PNG/JSON</li><li>Item shell with springs, hover, press and elevation</li><li>Base UI, `@space/ui` and the zod catalog</li></ul> |
-| 1b-ii · compute | <ul><li>Tools scoped by `threadId`</li><li>TypeScript (§7): sucrase on the server, the generated typings, typechecks on save, the stripper contract suite</li><li>Bindings, sources, the scheduler</li><li>Chains in `output` and `expanded` modes, flat</li><li>The first catalog set</li><li>The 60 fps budget, measured by hand from a trace</li></ul> |
+| 1b-ii · compute | <ul><li>Tools scoped by `threadId`</li><li>TypeScript only (§7): sucrase on the server, typed zod ports with the structural wire check and generics, the three code tiers on kb's forked engines (QuickJS in a blob Worker), closure bundling with esbuild and trust by digest, the generated typings, typechecks on save, the stripper and closure contract suites</li><li>Bindings, sources, the scheduler</li><li>Chains in `output` and `expanded` modes, flat</li><li>The first catalog set</li><li>The 60 fps budget, measured by hand from a trace</li></ul> |
 | 2 | <ul><li>DOT-3's mic on any thread</li><li>Parallax, focus by dwell, ornaments, camera flights, the room morph, "atmosphere" to try</li><li>Chains in `pinned` mode and unfolding in depth</li><li>Recipes</li><li>Host panes</li><li>Website items</li><li>The `.tldr` import on records</li><li>A2UI catalog export and A2UI surfaces</li></ul> |
 
 ## 9. Open questions, each with my default
@@ -909,6 +1026,11 @@ come from it.
 11. **Typecheck `space_run` scripts as well?** *Default:* no: only on save
     or promote, as the owner asked. A `space_check` tool can be added if
     runtime errors prove too costly for the agent.
+12. **Native esbuild or esbuild-wasm on the bb host?** *Default:* native,
+    if bb's plugin install accepts esbuild's platform binary (checked in
+    1a). Otherwise wasm (70 ms warm), since it runs only on save.
+13. **What may a wire do when compatibility cannot be told?** *Default:*
+    it is drawn with a validating adapter, never silently.
 
 ## Sources
 
@@ -946,10 +1068,17 @@ come from it.
   - sucrase 3.35.1 (https://github.com/alangpierce/sucrase);
   - TypeScript 5.9.3 (`erasableSyntaxOnly`);
   - esbuild-wasm 0.25.12;
-  - Node 24 `module.stripTypeScriptTypes`.
+  - Node 24 `module.stripTypeScriptTypes`;
+  - esbuild 0.25.12 (native);
+  - quickjs-emscripten 0.31.0.
 
-  The measurements are in `v3/ts-measurements.json` in the design thread's
-  storage.
+  The measurements and harnesses are in the design thread's storage:
+  `v3/ts-measurements.json`, `v3/bundle-bench.cjs`, `v3/qjs-bench.cjs` and
+  `v3/skillpkg/`.
+- **kb's code-tier model:**
+  - `DESIGN.md` → Sandbox (Engines, Trust, Limits);
+  - `packages/app/runtime/src/extension-closure.ts`;
+  - `packages/infrastructure/sandbox-quickjs` and `sandbox-worker`.
 - **DOT-3** (bb task): voice on any thread.
 - **visionOS:** Apple's Human Interface Guidelines (depth, ornaments, the
   hover effect, motion),
