@@ -27,26 +27,26 @@
   };
   cli-proxy-api = {
     pname = "cli-proxy-api";
-    version = "8.0.52";
+    version = "8.0.56";
     src = fetchurl {
-      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.52/CLIProxyAPI_8.0.52_darwin_aarch64.tar.gz";
-      sha256 = "sha256-IpR5fEDKDf+4mYTojvskI3jNU48whqswGtczx8DBUck=";
+      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.56/CLIProxyAPI_8.0.56_darwin_aarch64.tar.gz";
+      sha256 = "sha256-NWu0xk0+8COBkkgb4dDv3m1JW7p0ve/mC628Xc5ph5k=";
     };
   };
   cursor-cli = {
     pname = "cursor-cli";
-    version = "2026.10.22-27dcf5f";
+    version = "2026.11.05-86047df";
     src = fetchurl {
-      url = "https://downloads.cursor.com/lab/2026.10.22-27dcf5f/darwin/arm64/agent-cli-package.tar.gz";
-      sha256 = "sha256-L1sKPdX7lRzs/6yBOGfYoI2BDlmDfVn9XxLWm5IjmNc=";
+      url = "https://downloads.cursor.com/lab/2026.11.05-86047df/darwin/arm64/agent-cli-package.tar.gz";
+      sha256 = "sha256-Z4R+R+Pr0ytkw/tObzbUdfGXG3bgM7DtbJ4Bo8G0QNc=";
     };
   };
   genoffice = {
     pname = "genoffice";
-    version = "0.12.600";
+    version = "0.12.852";
     src = fetchurl {
-      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.12.600/GenOffice-0.12.600-arm64.dmg";
-      sha256 = "sha256-oPPmiBErct2upJ/M7acltUhhNC2C+PXWKLlJyQq1i6o=";
+      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.12.852/GenOffice-0.12.852-arm64.dmg";
+      sha256 = "sha256-dyTq1IRojUvAYdvf3xMmNAt/uBAceW0nYLK69jch9Ss=";
     };
   };
   kb = {
@@ -75,10 +75,10 @@
   };
   vite-plus = {
     pname = "vite-plus";
-    version = "1.4.0";
+    version = "1.5.0";
     src = fetchurl {
-      url = "https://github.com/voidzero-dev/vite-plus/releases/download/v1.4.0/vp-aarch64-apple-darwin.tar.gz";
-      sha256 = "sha256-1U0ljOZ9Q8De/7CTKYJSQdsZfC8g5yhxEhIn8D+0AxI=";
+      url = "https://github.com/voidzero-dev/vite-plus/releases/download/v1.5.0/vp-aarch64-apple-darwin.tar.gz";
+      sha256 = "sha256-obcC0izi59/2ENYpPbxH9ysXOHysKa94XXUznudyBCY=";
     };
   };
 }
