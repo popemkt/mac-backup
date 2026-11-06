@@ -187,6 +187,34 @@ darwin-rebuild build --flake ~/.dotfiles
 nix diff-closures /run/current-system ./result
 ```
 
+### Outbound connections time out (NixOS hosts)
+
+Every NixOS host runs `connectivity-probe`
+(`modules/nixos/system/connectivity-probe.nix`): every 5 minutes it opens TCP
+connections to fixed IPv4 and IPv6 endpoints and logs one line with the result,
+ICMP reachability, the default route, Wi-Fi signal, conntrack and socket counts.
+
+```bash
+journalctl -u connectivity-probe              # every probe
+journalctl -u connectivity-probe -p warning   # failed probes, with sockets by process
+```
+
+Read a failed line against the cause it points to:
+
+- IPv4 TCP fails while ICMP and IPv6 work, with a low conntrack count and no
+  Wi-Fi events: the router or ISP, not this host. Nothing in this repo fixes it.
+- `syn-sent` or `established` far above normal, or one process dominating
+  "sockets by process": a local process is fanning out connections.
+- `wifi[...]` at a very low level, or `wpa_supplicant` beacon-loss events in
+  `journalctl -u wpa_supplicant`: Wi-Fi.
+
+A service that keeps failing and restarting can cause traffic by itself: a
+start that downloads before it fails repeats the download on each restart. Check
+`journalctl -u <unit> | grep -c 'Scheduled restart'` and the `incoming IP
+traffic` figure on its `Consumed` lines. That is how the 2026-11-06 outage
+investigation found `t3-code-popemkt` downloading a 117 MB release every 13
+seconds since 2026-11-04, because `tar` was missing from its `PATH`.
+
 ## Getting Help
 
 1. [nix-darwin manual](https://daiderd.com/nix-darwin/manual/)

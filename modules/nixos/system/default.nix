@@ -11,6 +11,7 @@
 {
   imports = [
     ../../stacks/nixos.nix
+    ./connectivity-probe.nix
     ./services.nix
   ];
 
