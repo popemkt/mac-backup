@@ -71,10 +71,16 @@ in
           "network-online.target"
           "home-manager-${instance.user}.service"
         ];
+        # tar and gzip: the npm launcher (t3 >= 0.1.5) downloads the ~117 MB
+        # runtime release on first start and unpacks it with `tar` from PATH.
+        # Without them it fails after the download, deletes it, and fetches it
+        # again on every restart.
         path = with pkgs; [
           bash
           coreutils
           git
+          gnutar
+          gzip
           nodejs
         ];
         script = ''
@@ -85,7 +91,11 @@ in
           User = instance.user;
           WorkingDirectory = home;
           Restart = "on-failure";
+          # A start that fails costs a release download, so the delay between
+          # retries grows from 10 s to 15 min instead of staying at 10 s.
           RestartSec = 10;
+          RestartSteps = 6;
+          RestartMaxDelaySec = "15min";
         };
       }
     ) cfg.instances;
