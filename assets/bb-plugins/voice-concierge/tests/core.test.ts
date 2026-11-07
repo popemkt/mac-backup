@@ -252,13 +252,13 @@ test("look: one setting per style and knob, values clamped into range, bad value
   assert.match(haloFragmentSource("jelly"), /uGlow/);
 });
 
-test("TuneSaver: one write per style after the last change, nothing lost across styles, quiet only when settled", async () => {
-  const { TuneSaver } = await import("../core/look.ts");
+test("SettingsSaver: one write per style after the last change, nothing lost across styles, quiet only when settled", async () => {
+  const { SettingsSaver } = await import("../core/look.ts");
   let clock = 0;
   const sent: [string, unknown][] = [];
   const errors: unknown[] = [];
   let fail = false;
-  const saver = new TuneSaver(
+  const saver = new SettingsSaver(
     async (style, patch) => {
       sent.push([style, patch]);
       if (fail) throw new Error("offline");
@@ -285,11 +285,11 @@ test("TuneSaver: one write per style after the last change, nothing lost across 
   assert.equal(errors.length, 1);
 });
 
-test("TuneSaver: writes for one style never overtake each other; the settled state comes from the last answer", async () => {
-  const { TuneSaver } = await import("../core/look.ts");
+test("SettingsSaver: writes for one style never overtake each other; the settled state comes from the last answer", async () => {
+  const { SettingsSaver } = await import("../core/look.ts");
   const order: string[] = [];
   const gates: (() => void)[] = [];
-  const saver = new TuneSaver<string>(
+  const saver = new SettingsSaver<string>(
     (_style, patch) =>
       new Promise<string>(resolve => {
         const v = String(patch.glow);
@@ -369,4 +369,124 @@ test("copy: state labels, the idle hint, and errors said plainly", async () => {
   assert.match(friendlyError("NotAllowedError: Permission denied").text, /microphone is blocked/);
   assert.match(friendlyError("The voice connection failed").text, /connection dropped/);
   assert.deepEqual(friendlyError("something odd"), { text: "Something went wrong with the call. Try again.", details: "something odd" });
+});
+
+import { VISUAL_STYLES, controlsFor } from "../core/visuals.ts";
+import { defaultsFor, knobsFor } from "../core/look.ts";
+
+test("every visual exposes bounded defaults and only its own controls", () => {
+  for (const style of VISUAL_STYLES) {
+    const defaults = defaultsFor(style);
+    for (const [key, range] of Object.entries(controlsFor(style))) {
+      assert.ok(defaults[key]! >= range.min && defaults[key]! <= range.max, `${style}.${key}`);
+    }
+    assert.deepEqual(Object.keys(defaults), knobsFor(style));
+  }
+  assert.ok(knobsFor("chromeOrbit").includes("rings"));
+  assert.ok(!knobsFor("jelly").includes("rings"));
+});
+
+test("orbit bands: closed manifold, finite vertices, outward winding and Uint16-safe indices", async () => {
+  const { orbitBands } = await import("../core/chrome-orbit.ts");
+  const { positions, indices } = orbitBands();
+  assert.equal(positions.length / 3, 9 * 128 * 16);
+  assert.equal(indices.length, 9 * 128 * 16 * 6);
+  assert.ok(Array.from(positions).every(Number.isFinite));
+  const edges = new Map<string, number>();
+  const point = (index: number) => {
+    const a = positions[index * 3]!, b = positions[index * 3 + 1]!;
+    return [(1 + 0.1 * Math.cos(b)) * Math.cos(a), (1 + 0.1 * Math.cos(b)) * Math.sin(a), 0.05 * Math.sin(b)];
+  };
+  for (let i = 0; i < indices.length; i += 3) {
+    const ids = [indices[i]!, indices[i + 1]!, indices[i + 2]!];
+    assert.ok(ids.every(id => id < positions.length / 3));
+    assert.equal(new Set(ids.map(id => positions[id * 3 + 2])).size, 1);
+    const [a, b, c] = ids.map(point);
+    const u = b!.map((v, j) => v - a![j]!);
+    const v = c!.map((value, j) => value - a![j]!);
+    const cross = [u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!];
+    const major = positions[ids[0]! * 3]!, section = positions[ids[0]! * 3 + 1]!;
+    const normal = [Math.cos(major) * Math.cos(section) / 0.1, Math.sin(major) * Math.cos(section) / 0.1, Math.sin(section) / 0.05];
+    assert.ok(cross.reduce((sum, value, j) => sum + value * normal[j]!, 0) > 0);
+    for (let j = 0; j < 3; j++) {
+      const from = ids[j]!, to = ids[(j + 1) % 3]!;
+      const key = `${Math.min(from, to)}:${Math.max(from, to)}`;
+      edges.set(key, (edges.get(key) ?? 0) + (from < to ? 1 : -1));
+    }
+  }
+  assert.ok(Array.from(edges.values()).every(balance => balance === 0));
+});
+
+import { VisualInteraction } from "../core/visual-interaction.ts";
+
+test("visual interaction: chrome intro, timed alignment and indefinite alignment", () => {
+  const visual = new VisualInteraction("chromeOrbit", 0);
+  assert.equal(visual.tick(0, 0).align, 1);
+  for (let i = 0; i < 30; i++) visual.tick(0.1, 900 + i * 100);
+  assert.ok(visual.tick(0.1, 4000).align < 0.001);
+  assert.equal(visual.activate(4000, 1), true);
+  for (let i = 0; i < 9; i++) visual.tick(0.1, 4000 + i * 100);
+  assert.ok(visual.tick(0.1, 4900).align > 0.99);
+  for (let i = 0; i < 30; i++) visual.tick(0.1, 5000 + i * 100);
+  assert.ok(visual.tick(0.1, 8000).align < 0.001);
+  visual.activate(8000, 0);
+  for (let i = 0; i < 30; i++) visual.tick(0.1, 100000 + i * 100);
+  assert.ok(visual.tick(0.1, 104000).align > 0.999);
+  visual.activate(104000);
+  for (let i = 0; i < 30; i++) visual.tick(0.1, 104000 + i * 100);
+  assert.ok(visual.tick(0.1, 108000).align < 0.001);
+});
+
+test("visual interaction: call gestures are unconsumed, pointer bounded and invalid values neutral", () => {
+  const visual = new VisualInteraction("jelly", 0);
+  assert.equal(visual.activate(0), false);
+  visual.point(20, -20);
+  for (let i = 0; i < 20; i++) visual.tick(0.1, i * 100);
+  const p = visual.tick(0.1, 2100);
+  assert.ok(p.x > 0.99 && p.x <= 1.12);
+  assert.ok(p.y < -0.99 && p.y >= -1.12);
+  visual.point(NaN, Infinity);
+  for (let i = 0; i < 30; i++) visual.tick(0.1, 2200 + i * 100);
+  const neutral = visual.tick(0.1, 5300);
+  assert.ok(Math.abs(neutral.x) < 0.001 && Math.abs(neutral.y) < 0.001);
+});
+
+test("visual interaction: reduced motion suppresses pointer and tap, reset clears previous visual state", () => {
+  const visual = new VisualInteraction("chromeOrbit", 0, true);
+  assert.equal(visual.tick(0, 0, true).align, 0);
+  visual.reset("aiBlob", 0);
+  visual.point(1, 1);
+  assert.equal(visual.activate(0), true);
+  assert.ok(visual.tick(0.01, 10).tap > 0);
+  const still = visual.tick(0.1, 100, true);
+  assert.deepEqual([still.x, still.y, still.tap], [0, 0, 0]);
+  visual.reset("gradientBlob", 200);
+  const reset = visual.tick(0, 200);
+  for (const key of ["x", "y", "vx", "vy", "tap", "press", "intro"] as const) assert.equal(reset[key], 0);
+  assert.equal(visual.activate(200), true);
+});
+
+test("SettingsSaver: string settings coalesce and serialize while local preview owns echoes", async () => {
+  const { SettingsSaver } = await import("../core/look.ts");
+  let now = 0;
+  const written: string[] = [];
+  let release: (() => void) | undefined;
+  const saver = new SettingsSaver<void, string, { value: string }>(async (_key, patch) => {
+    written.push(patch.value);
+    if (written.length === 1) await new Promise<void>(resolve => { release = resolve; });
+  }, e => { throw e; }, 10000, () => now);
+  saver.edit("style", { value: "jelly" });
+  saver.edit("style", { value: "chromeOrbit" });
+  saver.flush();
+  await new Promise(resolve => setImmediate(resolve));
+  saver.edit("style", { value: "aiBlob" });
+  saver.flush();
+  assert.deepEqual(written, ["chromeOrbit"]);
+  assert.equal(saver.quiet(), false);
+  release!();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(written, ["chromeOrbit", "aiBlob"]);
+  assert.equal(saver.quiet(), false);
+  now = 801;
+  assert.equal(saver.quiet(), true);
 });

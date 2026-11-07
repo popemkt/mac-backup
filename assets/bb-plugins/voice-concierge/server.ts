@@ -9,7 +9,8 @@ import type { BackendStatus, VoiceBackend } from "./core/backend.ts";
 import { CodexBackend } from "./core/codex.ts";
 import { ConciergeThread, isFresh } from "./core/concierge-thread.ts";
 import type { Machine } from "./core/hosts.ts";
-import { clampKnob, KNOB_LABELS, KNOB_RANGE, KNOBS, settingKey, tunesFrom } from "./core/look.ts";
+import { clampKnob, knobsFor, settingKey, tunesFrom } from "./core/look.ts";
+import { controlsFor } from "./core/visuals.ts";
 import { LIVE_CHANNEL, STYLE_CHANNEL, THREAD_CHANNEL } from "./core/live.ts";
 import { isSphereStyle, SPHERE_STYLES, STYLE_LABELS, type SphereStyle } from "./core/sphere-styles.ts";
 import { appendLine, type TranscriptLine } from "./core/transcript.ts";
@@ -27,18 +28,18 @@ const status = z.object({
   details: z.record(z.string(), z.string().nullable()),
 });
 const line = z.object({ at: z.number(), role: z.string(), text: z.string() });
-const tune = z.object({ vividness: z.number(), motion: z.number(), glow: z.number(), hue: z.number() });
+const tune = z.object({ vividness: z.number(), motion: z.number(), glow: z.number(), hue: z.number() }).catchall(z.number());
 
-/** The sphere's knobs as plugin settings: four per style (jellyVividness, jellyMotion, …), each in its range. */
+/** Every style's numeric controls as plugin settings, each with its declared range. */
 function tuneDescriptors() {
   const out: Record<string, { type: "number"; label: string; experimental_schema: z.ZodNumber; default: number }> = {};
   for (const style of SPHERE_STYLES) {
-    for (const knob of KNOBS) {
-      const { min, max, default: d } = KNOB_RANGE[knob];
-      const scale = knob === "hue" ? `${min}..${max} degrees, 0 = its own colours` : `${min}..${max}, 1 = its own look`;
+    for (const knob of knobsFor(style)) {
+      const { min, max, default: d } = controlsFor(style)[knob]!;
+      const scale = knob === "hue" ? `${min}..${max} degrees, 0 = its own colours` : `${min}..${max}, default ${d}`;
       out[settingKey(style, knob)] = {
         type: "number",
-        label: `${STYLE_LABELS[style]}: ${KNOB_LABELS[knob].toLowerCase()} (${scale})`,
+        label: `${STYLE_LABELS[style]}: ${controlsFor(style)[knob]!.label.toLowerCase()} (${scale})`,
         experimental_schema: z.number().min(min).max(max),
         default: d,
       };
@@ -326,10 +327,13 @@ export default async function plugin(bb: BbPluginApi) {
     },
     setTune: async ({ style, tune }) => {
       if (!isSphereStyle(style)) throw new Error(`Unknown sphere style ${style}`);
+      for (const knob of Object.keys(tune)) {
+        if (!knobsFor(style).includes(knob)) throw new Error(`Unknown control ${knob} for ${style}`);
+      }
       const values: Record<string, number | null> = {};
-      for (const knob of KNOBS) {
+      for (const knob of knobsFor(style)) {
         const v = tune[knob];
-        if (v !== undefined) values[settingKey(style, knob)] = v === null ? null : clampKnob(knob, v);
+        if (v !== undefined) values[settingKey(style, knob)] = v === null ? null : clampKnob(knob, v, style);
       }
       return { tunes: tunesFrom(await tuneSettings.experimental_set(values)) };
     },
