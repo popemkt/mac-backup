@@ -23,8 +23,8 @@ Settings (`bb plugin config voice-concierge set <key> <value>`): `machine` (name
 machine, else any connected machine where Codex is signed in), `codexHome` (`dedicated`, the plugin's own
 login, or `user`, that machine's `~/.codex`), `version` (`v3` GPT-Live, or `v1`), `voice`, `sphereStyle`,
 `orbAutoMinimize` (dock the sphere small during a call), the sphere's knobs `<style><Knob>` for each style
-(`jelly`, `moonstone`, `aurora`, `frosted`) and knob (`Vividness`, `Motion`, `Glow` 0..2 with 1 the style's own look;
-`Hue` -180..180 degrees), e.g. `jellyGlow`, `threadMode` (`reuse` or `new` per call),
+(`jelly`, `moonstone`, `aurora`, `frosted`, `chromeOrbit`, `aiBlob`, `gradientBlob`), e.g. `jellyGlow`.
+See `core/visuals.ts` for the common and style-specific knobs, ranges and defaults. Also: `threadMode` (`reuse` or `new` per call),
 `threadProvider`, `threadModel` (the concierge thread's agent), `instructions`.
 
 Starting a call needs a microphone in a window (bb desktop app, or a browser on https or localhost); an agent
@@ -32,3 +32,5 @@ cannot start one from the CLI. A call uses the person's ChatGPT plan.
 
 If you are the concierge's agent (its bb thread): follow your first message. Read by default; write into another
 thread only when the person asks and, for a `[voice]` request, the message ends with "(confirmed)".
+
+For visual tuning behavior and implementation provenance, see [The sphere](../../README.md#the-sphere).

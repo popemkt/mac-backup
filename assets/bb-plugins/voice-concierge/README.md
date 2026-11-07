@@ -31,22 +31,30 @@ Archive it to start over: the next call creates a new one. Settings `threadProvi
 agent (default: the Personal project's).
 
 ## The sphere
-`sphere.ts` draws a real, deforming ball in two WebGL2 draws per frame: a full-screen triangle for the halo, then an
-icosphere (20k triangles) whose vertex shader displaces the surface with noise driven by the smoothed voice level and
-the call's phase (finer ripples for the owner's voice, broad swells for the concierge's, a slow roll while thinking)
-and derives normals from the displacement, so light, rim and gloss follow the shape. `core/sphere-styles.ts` holds the
-art styles, each a material in one GLSL `body` function inside the shared frame: candy (Beer-Lambert absorption
-through the body, subsurface glow, a glassy shell reflecting a soft studio), moonstone (a milky stone with the blue
-adularescence floating under its surface, following the view and the voice), aurora (curtains of light with fine rays
-drifting inside dark glass) and frosted glass (a warm light refracted by the shell and scattered by frost grain, with
-glints). A filmic tone curve finishes every style. 4x MSAA, at most 720 px a side; paused while hidden or off screen;
-one still frame with reduced motion (the motion knob is then 0). Setting `sphereStyle`, or the swatches under the
-sphere.
+`sphere.ts` draws the selected visual in WebGL2: a halo followed by a deformed icosphere or,
+for Chrome Orbit, concentric metal bands. Voice levels and call phase drive the motion;
+light, rim and gloss follow the surface. `core/sphere-styles.ts` holds the GLSL materials:
+candy jelly, moonstone, aurora and frosted glass, plus Chrome Orbit, AI Blob and Gradient Blob.
+The three new visuals are original implementations inspired by public descriptions, rather
+than copies of paid React Bits source, and do not promise parity with those demos.
+A filmic tone curve finishes every style. Rendering uses 4x MSAA, at most 720 px a side,
+pauses while hidden or off screen, and draws one still frame with reduced motion.
+Pick a visual with `sphereStyle` or the swatches under the sphere.
+Chrome Orbit owns pointer and tap interactions for alignment; AI Blob responds to held
+presses and drags with a directional squish, and Gradient Blob morphs toward the pointer.
+Releasing a press lets the motion rebound; repeated taps add to the existing movement.
+Entrance, pointer and press motion use damped springs, with a static reduced-motion state.
+Use the explicit Talk and dock controls with these interactive visuals. The four material
+spheres retain their call tap. Interaction strength adjusts gesture response; AI pulse
+strength and Gradient breathing adjust their respective effects independently.
 
-Each style has four knobs (`core/look.ts`): vividness, motion, glow (0..2, 1 is the style's own look, already vivid)
-and hue (-180..180 degrees). They are plugin settings named `<style><Knob>` (`jellyVividness`, `auroraHue`, …), and
-the sliders button next to the swatches opens a panel that moves them live and saves them (RPC `setTune`, a moment
-after the last change). The `style` RPC and the style channel carry every style's tune.
+The sliders button applies controls live and saves them per style after the last change
+(RPC `setTune`). Reset restores the selected style's defaults. Every style retains
+Vividness, Motion, Glow and Hue; the new styles also expose their own numeric appearance
+controls. `core/visuals.ts` is the canonical registry of identities, ranges and defaults,
+shared by settings validation and the tuning panel. Settings use `<style><Knob>` names
+such as `jellyVividness` and `chromeOrbitRings`. The `style` RPC and style channel carry
+all styles' tuning.
 
 The page has two layouts. Stacked (below 880 px wide, so phones and narrow panels): the sphere on top, the
 conversation, and a call bar at the bottom within thumb reach (Talk; in a call Mute and Hang up), whose right end stays
@@ -57,7 +65,7 @@ and glides between its places by transform, so its backing store is not realloca
 
 With `orbAutoMinimize` (on by default) the page docks the sphere into the call bar during a call, at once when
 the conversation already has content and otherwise after a few seconds (`core/orb.ts`), and makes it large again when
-the call ends; a tap on it or the toggle sets the size by hand until the call's phase changes, and a resting mouse
+the call ends; the dock toggle (or a tap on a material sphere) sets the size by hand until the call's phase changes, and a resting mouse
 opens it up. The page's words (state labels, the idle hint, errors as a person would say them, the empty
 conversation's suggestions) live in `core/copy.ts`.
 
@@ -77,7 +85,8 @@ kind for push-to-talk audio.
 | `core/concierge-thread.ts` | The concierge's own bb thread: create it, ask it and wait for the reply. |
 | `core/relay-tool.ts` | The `ask_concierge` dynamic tool and its answer. |
 | `core/sphere-styles.ts`, `sphere.ts` | The sphere's art styles (GLSL) and its WebGL renderer. |
-| `core/look.ts` | Each style's knobs: their settings, ranges and defaults. |
+| `core/visuals.ts` | Visual identities and control metadata. |
+| `core/look.ts` | Tuning settings, validation and saving. |
 | `core/orb.ts` | When the page docks the sphere small. |
 | `core/copy.ts` | The page's labels, hints, error wording and suggested questions. |
 | `core/hosts.ts` | Which machine runs the backend, from bb's host list. Pure. |

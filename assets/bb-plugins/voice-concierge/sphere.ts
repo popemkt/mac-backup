@@ -8,8 +8,12 @@
 // noise runs per vertex, about 10k of them; the style's shading only on the ball's own pixels), 4x MSAA, at the
 // device pixel ratio capped at 2 and at most 720 pixels a side; no frames while the page is hidden or the sphere is
 // off screen; with reduced motion, one still frame per change. A device that cannot keep up gets fewer pixels.
-import { DEFAULT_TUNE, type Tune } from "./core/look.ts";
-import { HALO_VERTEX_SOURCE, haloFragmentSource, MESH_VERTEX_SOURCE, meshFragmentSource, type SphereStyle } from "./core/sphere-styles.ts";
+import { DEFAULT_TUNE, defaultsFor, type Tune } from "./core/look.ts";
+import { HALO_VERTEX_SOURCE, haloFragmentSource, meshVertexSource, meshFragmentSource, EXTRA_CONTROLS, controlUniform, type SphereStyle } from "./core/sphere-styles.ts";
+import { advanceSpring } from "./core/spring.ts";
+import { VisualInteraction, type VisualGesture } from "./core/visual-interaction.ts";
+import { VISUALS } from "./core/visuals.ts";
+import { orbitBands } from "./core/chrome-orbit.ts";
 
 /** What the call is doing; the renderer tells speaking from listening by the audio levels. */
 export type SphereMode = "idle" | "connecting" | "live" | "thinking";
@@ -27,12 +31,16 @@ export interface SphereOptions {
   read(): { mode: SphereMode; levels: Levels; muted?: boolean };
   /** Told when the visible look changes (for a label next to the sphere). */
   onLook?(look: SphereLook): void;
+  /** Requested alignment, including automatic hold release. */
+  onAlignment?(aligned: boolean): void;
+  /** Keep the call UI usable if the browser loses its graphics context. */
+  onUnavailable?(): void;
 }
 
 const SPEAKING_ON = 0.035;
 const SPEAKING_HOLD_MS = 450;
 const BREATH_S = 4;
-const UNIFORMS = ["uRes", "uTime", "uFlow", "uBreath", "uLevel", "uListen", "uSpeak", "uThink", "uConnect", "uSpin", "uMute", "uBubbles", "uVivid", "uMotion", "uGlow", "uHue"] as const;
+const UNIFORMS = ["uRes", "uTime", "uFlow", "uBreath", "uLevel", "uListen", "uSpeak", "uThink", "uConnect", "uSpin", "uMute", "uBubbles", "uVivid", "uMotion", "uGlow", "uHue", "uPointer", "uAlign", "uTap", "uVelocity", "uTapPoint", "uPress", "uIntro", ...EXTRA_CONTROLS.map(controlUniform)] as const;
 const MAX_SIDE = 720;
 const CALM_FRAME_MS = 33; // 30 fps while idle or small: nothing there moves fast
 const DETAIL = 5; // icosphere subdivisions: 10242 vertices, 20480 triangles
@@ -54,17 +62,19 @@ export class Sphere {
   private readonly cleanups: (() => void)[] = [];
   private readonly programs = new Map<SphereStyle, Programs>();
   private readonly haloVao: WebGLVertexArrayObject;
-  private readonly meshVao: WebGLVertexArrayObject;
-  private readonly meshCount: number;
+  private readonly meshes = new Map<string, { vao: WebGLVertexArrayObject; count: number }>();
   private style: SphereStyle;
   private frame = 0;
+  private wakeTimer: ReturnType<typeof setTimeout> | undefined;
+  private started = false;
+  private readonly buffers: WebGLBuffer[] = [];
   private disposed = false;
   private last = 0;
   private clock = 0; // wall time, for the breath
   private drift = 0; // inner movement time: slow, faster while thinking
   private spin = 0; // how far the voice's ripples have travelled
   private flow = 0; // surface time: quicker with the voice
-  private visible = true;
+  private visible = false;
   private look: SphereLook = "idle";
   private speakingUntil = 0;
   private level = 0;
@@ -78,32 +88,45 @@ export class Sphere {
   private lastFull = 0;
   private lastAdapt = 0;
   private calm = false;
+  private readonly interaction: VisualInteraction;
+  private reportedAlignment: boolean | undefined;
+  private gesture: VisualGesture = { x: 0, y: 0, vx: 0, vy: 0, align: 0, tap: 0, press: 0, intro: 1, tapX: 0, tapY: 0 };
 
   constructor(canvas: HTMLCanvasElement, style: SphereStyle, options: SphereOptions) {
     this.canvas = canvas;
     this.style = style;
+    this.interaction = new VisualInteraction(style, performance.now(), matchMedia("(prefers-reduced-motion: reduce)").matches);
     this.options = options;
     const gl = canvas.getContext("webgl2", { antialias: true, depth: true, alpha: true, premultipliedAlpha: true, powerPreference: "low-power" });
     if (gl === null) throw new Error("WebGL2 is not available");
     this.gl = gl;
     this.haloVao = gl.createVertexArray();
     gl.bindVertexArray(this.haloVao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    const buffer = gl.createBuffer()!;
+    this.buffers.push(buffer);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-    const ico = icosphere(DETAIL);
-    this.meshVao = gl.createVertexArray();
-    gl.bindVertexArray(this.meshVao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-    gl.bufferData(gl.ARRAY_BUFFER, ico.positions, gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gl.createBuffer());
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, ico.indices, gl.STATIC_DRAW);
+    for (const [kind, geometry] of [["sphere", icosphere(DETAIL)], ["rings", orbitBands()]] as const) {
+      const vao = gl.createVertexArray()!;
+      gl.bindVertexArray(vao);
+      const vertexBuffer = gl.createBuffer()!;
+      this.buffers.push(vertexBuffer);
+      gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, geometry.positions, gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+      const indexBuffer = gl.createBuffer()!;
+      this.buffers.push(indexBuffer);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, geometry.indices, gl.STATIC_DRAW);
+      this.meshes.set(kind, { vao, count: geometry.indices.length });
+    }
     gl.bindVertexArray(null);
-    this.meshCount = ico.indices.length;
-    this.use(style); // compile now: a broken shader fails here, where the page can fall back
+    this.tune = defaultsFor(style);
+    try { this.use(style); } // compile now: a broken shader fails here, where the page can fall back
+    catch (e) { this.releaseGpu(); throw e; }
 
     this.reduced = matchMedia("(prefers-reduced-motion: reduce)");
     const resize = new ResizeObserver(() => this.kick());
@@ -114,9 +137,12 @@ export class Sphere {
     });
     seen.observe(canvas);
     const onChange = () => this.kick();
+    const onLost = () => { this.dispose(); this.options.onUnavailable?.(); };
+    canvas.addEventListener("webglcontextlost", onLost);
     document.addEventListener("visibilitychange", onChange);
     this.reduced.addEventListener("change", onChange);
     this.cleanups.push(
+      () => canvas.removeEventListener("webglcontextlost", onLost),
       () => resize.disconnect(),
       () => seen.disconnect(),
       () => document.removeEventListener("visibilitychange", onChange),
@@ -127,12 +153,33 @@ export class Sphere {
 
   setStyle(style: SphereStyle): void {
     if (style === this.style || this.disposed) return;
-    this.style = style;
     this.use(style);
+    this.style = style;
+    this.tune = defaultsFor(style);
+    this.started = false;
     this.kick();
   }
 
-  /** The style's knobs (core/look.ts): vividness, motion, glow and hue. */
+  /** Visual gestures are independent of the call controls. */
+  point(x: number, y: number): void {
+    this.interaction.point(x, y);
+    this.kick();
+  }
+
+  setPressed(held: boolean): void {
+    this.interaction.press(held);
+    this.kick();
+  }
+
+  clearPointer(): void { this.setPressed(false); this.point(0, 0); }
+
+  activate(): boolean {
+    const consumed = this.interaction.activate(performance.now(), this.tune.alignHold ?? 2.5);
+    if (consumed) { this.reportAlignment(); this.kick(); }
+    return consumed;
+  }
+
+  /** The style's shared and material-specific controls (core/visuals.ts). */
   setTune(tune: Tune): void {
     this.tune = tune;
     this.kick();
@@ -150,6 +197,7 @@ export class Sphere {
   }
 
   dispose(): void {
+    if (this.disposed) return;
     this.disposed = true;
     cancelAnimationFrame(this.frame);
     this.frame = 0;
@@ -158,7 +206,23 @@ export class Sphere {
       this.gl.deleteProgram(p.halo.program);
       this.gl.deleteProgram(p.mesh.program);
     }
-    this.gl.getExtension("WEBGL_lose_context")?.loseContext();
+    clearTimeout(this.wakeTimer);
+    this.releaseGpu();
+  }
+
+  private reportAlignment(): void {
+    const aligned = this.interaction.isAligned;
+    if (aligned === this.reportedAlignment) return;
+    this.reportedAlignment = aligned;
+    this.options.onAlignment?.(aligned);
+  }
+
+  private releaseGpu(): void {
+    for (const buffer of this.buffers) this.gl.deleteBuffer(buffer);
+    this.buffers.length = 0;
+    this.gl.deleteVertexArray(this.haloVao);
+    for (const mesh of this.meshes.values()) this.gl.deleteVertexArray(mesh.vao);
+    this.meshes.clear();
   }
 
   private use(style: SphereStyle): Programs {
@@ -169,7 +233,9 @@ export class Sphere {
         const u = Object.fromEntries(UNIFORMS.map(n => [n, this.gl.getUniformLocation(program, n)])) as Program["u"];
         return { program, u };
       };
-      p = { halo: make(HALO_VERTEX_SOURCE, haloFragmentSource(style)), mesh: make(MESH_VERTEX_SOURCE, meshFragmentSource(style)) };
+      const halo = make(HALO_VERTEX_SOURCE, haloFragmentSource(style));
+      try { p = { halo, mesh: make(meshVertexSource(style), meshFragmentSource(style)) }; }
+      catch (e) { this.gl.deleteProgram(halo.program); throw e; }
       this.programs.set(style, p);
     }
     return p;
@@ -177,9 +243,13 @@ export class Sphere {
 
   private tick(now: number): void {
     this.frame = 0;
-    if (document.hidden || !this.visible) return; // resumes on the visibility or intersection change
+    if (document.hidden || !this.visible) { this.last = 0; this.lastDraw = 0; this.lastFull = 0; return; } // resumes on the visibility or intersection change
     const still = this.reduced.matches;
-    const dt = this.last === 0 || still ? 0 : Math.min((now - this.last) / 1000, 0.1);
+    if (!this.started) {
+      this.started = true;
+      this.interaction.reset(this.style, now, still);
+    }
+    const dt = this.last === 0 || still ? 0 : Math.max(0, (now - this.last) / 1000);
     this.last = still ? 0 : now;
 
     const { mode, levels, muted = false } = this.options.read();
@@ -189,11 +259,11 @@ export class Sphere {
       this.options.onLook?.(look);
     }
     // Calm looks (idle, or the sphere shown small) draw at 30 fps.
-    if (!still && (look === "idle" || this.detail < 1) && now - this.lastDraw < CALM_FRAME_MS) {
+    if (!still && ((look === "idle" && VISUALS[this.style].interaction === "call") || this.detail < 1) && now - this.lastDraw < CALM_FRAME_MS) {
       this.kick();
       return;
     }
-    const dtCalm = this.lastDraw === 0 || still ? dt : Math.min((now - this.lastDraw) / 1000, 0.1);
+    const dtCalm = this.lastDraw === 0 || still ? dt : Math.max(0, (now - this.lastDraw) / 1000);
     this.lastDraw = now;
     // Loudness, compressed (quiet speech already moves it, shouting does not blow it up), followed by a soft
     // underdamped spring (~3.5 Hz, damping 0.5): it swells and settles like jelly.
@@ -203,14 +273,10 @@ export class Sphere {
       this.level = voice;
       this.velocity = 0;
     } else {
-      const omega = 2 * Math.PI * 3.5;
-      const steps = Math.ceil(dtCalm / 0.008);
-      const h = dtCalm / steps;
-      for (let i = 0; i < steps; i++) {
-        this.velocity += (omega * omega * (voice - this.level) - 2 * 0.5 * omega * this.velocity) * h;
-        this.level += this.velocity * h;
-      }
-      this.level = Math.max(0, Math.min(1.15, this.level));
+      const spring = { value: this.level, velocity: this.velocity };
+      advanceSpring(spring, voice, dtCalm, 3.5, 0.5);
+      this.level = Math.max(0, Math.min(1.15, spring.value));
+      this.velocity = spring.velocity;
     }
     // States cross-fade over ~0.4 s.
     const ease = still ? 1 : 1 - Math.exp(-dtCalm / 0.4);
@@ -229,8 +295,14 @@ export class Sphere {
     this.drift += dtCalm * pace * (1 + 1.6 * w.think + 0.6 * w.connect + 0.5 * this.level);
     this.spin += dtCalm * pace * (0.6 + 0.8 * this.level);
     this.flow += dtCalm * pace * Math.min(0.5 + 1.0 * this.level, 1.2);
+    this.gesture = this.interaction.tick(dtCalm, now, still);
+    this.reportAlignment();
     this.draw(still);
+    clearTimeout(this.wakeTimer);
     if (!still) this.kick();
+    else if (Number.isFinite(this.interaction.wakeAt)) {
+      this.wakeTimer = setTimeout(() => this.kick(), Math.max(0, this.interaction.wakeAt - now));
+    }
   }
 
   /**
@@ -239,7 +311,7 @@ export class Sphere {
    * shown small), frames over ~50 ms.
    */
   private adapt(now: number, look: SphereLook): void {
-    const calm = look === "idle" || this.detail < 1;
+    const calm = (look === "idle" && VISUALS[this.style].interaction === "call") || this.detail < 1;
     if (calm !== this.calm) {
       this.calm = calm;
       this.lastFull = 0;
@@ -297,10 +369,19 @@ export class Sphere {
       gl.uniform1f(u.uSpin, this.spin);
       gl.uniform1f(u.uMute, w.mute);
       gl.uniform1f(u.uBubbles, 1);
+      const response = this.tune.interactionStrength ?? 1;
+      gl.uniform2f(u.uPointer, this.gesture.x * response, this.gesture.y * response);
+      gl.uniform2f(u.uVelocity, this.gesture.vx * response, this.gesture.vy * response);
+      gl.uniform2f(u.uTapPoint, this.gesture.tapX, this.gesture.tapY);
+      gl.uniform1f(u.uPress, this.gesture.press * response);
+      gl.uniform1f(u.uIntro, this.gesture.intro);
+      gl.uniform1f(u.uAlign, this.gesture.align);
+      gl.uniform1f(u.uTap, this.gesture.tap * response);
       gl.uniform1f(u.uVivid, this.tune.vividness);
       gl.uniform1f(u.uMotion, still ? 0 : this.tune.motion);
       gl.uniform1f(u.uGlow, this.tune.glow);
       gl.uniform1f(u.uHue, (this.tune.hue * Math.PI) / 180);
+      for (const key of EXTRA_CONTROLS) gl.uniform1f(u[controlUniform(key)] ?? null, this.tune[key] ?? 0);
     };
     // the halo first, behind; then the ball, opaque, nearest surface wins
     gl.disable(gl.DEPTH_TEST);
@@ -308,15 +389,19 @@ export class Sphere {
     set(halo);
     gl.bindVertexArray(this.haloVao);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LESS);
     gl.enable(gl.CULL_FACE);
     gl.cullFace(gl.BACK);
     gl.useProgram(mesh.program);
     set(mesh);
-    gl.bindVertexArray(this.meshVao);
-    gl.drawElements(gl.TRIANGLES, this.meshCount, gl.UNSIGNED_SHORT, 0);
+    const geometry = this.meshes.get(VISUALS[this.style].geometry)!;
+    gl.bindVertexArray(geometry.vao);
+    gl.drawElements(gl.TRIANGLES, geometry.count, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(null);
+    gl.disable(gl.BLEND);
   }
 }
 
@@ -357,18 +442,21 @@ function unit([x, y, z]: number[]): number[] {
 }
 
 function link(gl: WebGL2RenderingContext, vs: string, fs: string): WebGLProgram {
-  const compile = (type: number, src: string) => {
-    const s = gl.createShader(type)!;
-    gl.shaderSource(s, src);
-    gl.compileShader(s);
-    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(`sphere shader: ${gl.getShaderInfoLog(s) ?? "compile failed"}`);
-    return s;
-  };
-  const p = gl.createProgram()!;
-  gl.attachShader(p, compile(gl.VERTEX_SHADER, vs));
-  gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
-  gl.bindAttribLocation(p, 0, "aPos");
-  gl.linkProgram(p);
-  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(`sphere program: ${gl.getProgramInfoLog(p) ?? "link failed"}`);
-  return p;
+  const shaders: WebGLShader[] = [];
+  const program = gl.createProgram()!;
+  try {
+    for (const [type, src] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]] as const) {
+      const shader = gl.createShader(type)!;
+      shaders.push(shader);
+      gl.shaderSource(shader, src);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(`sphere shader: ${gl.getShaderInfoLog(shader) ?? "compile failed"}`);
+      gl.attachShader(program, shader);
+    }
+    gl.bindAttribLocation(program, 0, "aPos");
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(`sphere program: ${gl.getProgramInfoLog(program) ?? "link failed"}`);
+    return program;
+  } catch (e) { gl.deleteProgram(program); throw e; }
+  finally { for (const shader of shaders) gl.deleteShader(shader); }
 }
