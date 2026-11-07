@@ -45,6 +45,11 @@ in
       # project, or everything, read through each machine's `canvas-link`
       # (modules/stacks/ai-agents/canvas-links).
       "assets/bb-plugins/canvas-links"
+      # The Chief hierarchy (coordinator, a project chief per project, a
+      # task architect per bb Task) as roles in thread metadata on ordinary,
+      # visible threads: cm_* agent tools by role, task handoff attached on
+      # the board, automatic report-up, the `Chief` page; `bb chief-mode`.
+      "assets/bb-plugins/chief-mode"
       # The Context composer page: what feeds a thread's agent, with
       # token weights; keep, drop or add, a trajectory side chat, and
       # spawn with the composition. Reads the inventory through
