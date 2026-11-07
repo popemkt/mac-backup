@@ -115,6 +115,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A trigger from docs/research/2026-10-25-kb-topology.md fires: then a host entry runs kb graph.changes against each store a thread's machine holds, links are keyed by (root, id), and open goes through location.open.
 - **node** — `01M5QJFVQ61E19BAB2KXC0FA4M`
 
+### GAP: kb Nix wrapper hard-codes Bun launch flags for releases without lib/kb/launch-flags
+
+- **expected** — pkgs/kb reads the Bun launch flags only from the pinned release's lib/kb/launch-flags (kb's one launch contract)
+- **current** — pkgs/kb falls back to a literal '--no-env-file --config=/dev/null' when the release predates launch-flags
+- **impact** — If kb changes its launch flags, the fallback could drift; only reached on old pins
+- **closes** — Drop the fallback branch in pkgs/kb/default.nix once the kb pin ships lib/kb/launch-flags
+- **node** — `01M6W0GDWZJB8RJXMA6WDT425X`
+
 ### GAP: kb.server has no NixOS side
 
 - **expected** — kb.server runs on NixOS as a supervised service for a named person, rendered from the same service declaration the macOS launchd agent comes from.
