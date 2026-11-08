@@ -24,12 +24,12 @@ const STRIPPED_ENV = ["CODEX_OPENAI_BASE_URL", "CODEX_POOL_AUTH_TOKEN", "CODEX_H
 const SDP_TIMEOUT_MS = 45_000;
 const ASK_TIMEOUT_MS = 150_000;
 
-/** Ask the concierge's bb thread through the bb CLI on this machine and return its reply. */
-async function askConcierge(request: string): Promise<string> {
+/** Ask the call's bb thread through the bb CLI on this machine and return its reply; `call` picks the thread. */
+async function askConcierge(request: string, call: string | null): Promise<string> {
   const bb = await which("bb");
   if (bb === null) throw new Error("no bb CLI on this machine");
   return new Promise((resolve, reject) => {
-    execFile(bb, ["voice-concierge", "ask", request], { timeout: ASK_TIMEOUT_MS, maxBuffer: 1 << 20 }, (err, stdout, stderr) =>
+    execFile(bb, ["voice-concierge", "ask", ...(call === null ? [] : ["--call", call]), "--", request], { timeout: ASK_TIMEOUT_MS, maxBuffer: 1 << 20 }, (err, stdout, stderr) =>
       err === null ? resolve(stdout) : reject(new Error(stderr.trim() || err.message)),
     );
   });

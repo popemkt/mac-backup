@@ -490,3 +490,110 @@ test("SettingsSaver: string settings coalesce and serialize while local preview 
   now = 801;
   assert.equal(saver.quiet(), true);
 });
+
+import { CallTargets, CONCIERGE_TITLE, LATE_REPLY, type CallTarget } from "../core/call-target.ts";
+import { QUEUED_REPLY, relay, voiceMessage } from "../core/concierge-thread.ts";
+
+function fakeTargets(opts: { threads: Record<string, { title: string | null; statuses: string[]; output?: string }>; concierge?: string | null }) {
+  const store = new Map<string, CallTarget>();
+  const sent: [string, string][] = [];
+  const conciergeAsked: string[] = [];
+  let t = 0;
+  const targets = new CallTargets({
+    threads: {
+      info: async id => {
+        const th = opts.threads[id];
+        if (th === undefined) return null;
+        const status = th.statuses.length > 1 ? th.statuses.shift()! : th.statuses[0]!;
+        return { title: th.title, status };
+      },
+      send: async (id, text) => void sent.push([id, text]),
+      output: async id => opts.threads[id]?.output ?? null,
+    },
+    concierge: {
+      current: async () => opts.concierge ?? null,
+      ensure: async () => opts.concierge ?? null,
+      ask: async text => (conciergeAsked.push(text), "From the concierge."),
+    },
+    store: { get: async id => store.get(id) ?? null, set: async (id, v) => void store.set(id, v), delete: async id => void store.delete(id) },
+    sleep: async ms => void (t += ms),
+    now: () => t,
+  });
+  return { targets, store, sent, conciergeAsked };
+}
+
+test("CallTargets.resolve: a thread is its own target; none, or the concierge's own thread, is the concierge", async () => {
+  const { targets } = fakeTargets({ threads: { thr_work: { title: " Fix the build ", statuses: ["idle"] }, thr_c: { title: "Voice concierge", statuses: ["idle"] } }, concierge: "thr_c" });
+  assert.deepEqual(await targets.resolve("thr_work"), { threadId: "thr_work", title: "Fix the build", concierge: false });
+  assert.deepEqual(await targets.resolve(null), { threadId: "thr_c", title: CONCIERGE_TITLE, concierge: true });
+  assert.deepEqual(await targets.resolve("thr_c"), { threadId: "thr_c", title: CONCIERGE_TITLE, concierge: true });
+  await assert.rejects(targets.resolve("thr_archived"), /archived or gone/);
+  const untitled = fakeTargets({ threads: { thr_x: { title: null, statuses: ["idle"] } } });
+  assert.equal((await untitled.targets.resolve("thr_x")).title, "Untitled thread");
+});
+
+test("CallTargets.ask: a call's requests go to its own thread, with the spoken-reply rules; never to the wrong one", async () => {
+  const { targets, sent, conciergeAsked } = fakeTargets({
+    threads: { thr_work: { title: "Fix the build", statuses: ["idle", "idle", "active", "idle"], output: "The build is green." } },
+    concierge: "thr_c",
+  });
+  await targets.started("call_1", await targets.resolve("thr_work"));
+  assert.equal(await targets.ask("is the build green?", "call_1"), "The build is green.");
+  assert.deepEqual(sent, [["thr_work", voiceMessage("is the build green?")]]);
+  assert.match(sent[0]![1], /^\[voice\] is the build green\?/);
+  assert.match(sent[0]![1], /spoken aloud/);
+  assert.match(sent[0]![1], /\(confirmed\)/);
+  assert.deepEqual(conciergeAsked, []);
+  // No call id: the concierge's thread (the CLI). An id not on record: refused, never the concierge.
+  assert.equal(await targets.ask("what needs me?", null), "From the concierge.");
+  await assert.rejects(targets.ask("hi", "call_unknown"), /not live/);
+  // Ended: its record is gone.
+  await targets.ended("call_1");
+  await assert.rejects(targets.ask("hi", "call_1"), /not live/);
+});
+
+test("CallTargets.retarget: a live call moves (pinned until then); a call with nothing to relay to cannot", async () => {
+  const { targets, store } = fakeTargets({ threads: { thr_a: { title: "A", statuses: ["idle"] }, thr_b: { title: "B", statuses: ["idle"] } }, concierge: "thr_c" });
+  await targets.started("call_1", await targets.resolve("thr_a"));
+  assert.equal((await targets.retarget("call_1", "thr_b")).title, "B");
+  assert.equal(store.get("call_1")?.threadId, "thr_b");
+  assert.deepEqual(await targets.retarget("call_1", null), { threadId: "thr_c", title: CONCIERGE_TITLE, concierge: true });
+  await assert.rejects(targets.retarget("call_x", "thr_a"), /not live/);
+  await targets.started("call_2", { threadId: null, title: CONCIERGE_TITLE, concierge: true });
+  await assert.rejects(targets.retarget("call_2", "thr_a"), /cannot move/);
+  await assert.rejects(targets.retarget("call_1", "thr_gone"), /archived or gone/);
+  assert.equal(store.get("call_1")?.threadId, "thr_c");
+});
+
+test("relay: a busy work thread gets the message queued and the call is told; a slow turn answers late", async () => {
+  let t = 0;
+  const sent: string[] = [];
+  const api = (statuses: string[], output: string | null) => ({
+    status: async () => (statuses.length > 1 ? statuses.shift()! : statuses[0]!),
+    send: async (_: string, m: string) => void sent.push(m),
+    output: async () => output,
+  });
+  const o = { timeoutMs: 1_000, sleep: async (ms: number) => void (t += ms), now: () => t };
+  assert.equal(await relay(api(["active"], "x"), "thr", "m1", { ...o, busy: "queue" }), QUEUED_REPLY);
+  assert.deepEqual(sent, ["m1"]);
+  assert.equal(await relay(api(["idle", "active"], null), "thr", "m2", { ...o, busy: "queue", late: LATE_REPLY }), LATE_REPLY);
+  await assert.rejects(relay(api(["idle", "active"], null), "thr", "m3", { ...o, busy: "queue" }), /still working/);
+  await assert.rejects(relay(api(["active"], null), "thr", "m4", { ...o, busy: "wait" }), /busy/);
+  await assert.rejects(relay(api([null as unknown as string], null), "thr", "m5", { ...o, busy: "wait" }), /gone/);
+});
+
+test("relay tool: passes the call's id (the Codex thread) so the server can pick the call's thread", async () => {
+  const { answerToolCall, ASK_TOOL } = await import("../core/relay-tool.ts");
+  const calls: (string | null)[] = [];
+  const ask = async (_: string, call: string | null) => (calls.push(call), "ok");
+  await answerToolCall({ tool: ASK_TOOL, threadId: "codex_thr_1", arguments: { request: "hi" } }, ask);
+  await answerToolCall({ tool: ASK_TOOL, arguments: { request: "hi" } }, ask);
+  assert.deepEqual(calls, ["codex_thr_1", null]);
+});
+
+test("voice prompt: relaying, it says calls are connected to one thread, which the person can move", () => {
+  const ctx = { machine: "m", hasBbCli: true, extra: "", relay: true };
+  assert.match(voicePrompt(ctx), /connected to one bb thread/);
+  assert.match(voicePrompt(ctx), /move the call/);
+  assert.doesNotMatch(voicePrompt({ ...ctx, relay: false }), /connected to one bb thread/);
+});

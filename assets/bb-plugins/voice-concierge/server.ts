@@ -7,6 +7,7 @@ import { z } from "zod";
 import { codexHomeMode, hostContract, hostSignals, type VoiceEvent } from "./contract.ts";
 import type { BackendStatus, VoiceBackend } from "./core/backend.ts";
 import { CodexBackend } from "./core/codex.ts";
+import { CallTargets, type CallTarget } from "./core/call-target.ts";
 import { ConciergeThread, isFresh } from "./core/concierge-thread.ts";
 import type { Machine } from "./core/hosts.ts";
 import { clampKnob, knobsFor, settingKey, tunesFrom } from "./core/look.ts";
@@ -17,6 +18,8 @@ import { appendLine, type TranscriptLine } from "./core/transcript.ts";
 
 const TRANSCRIPT_KEY = "transcript";
 const THREAD_KEY = "conciergeThread";
+/** Per live call (`call/<conversationId>`): the CallTarget it talks to, read by `bb voice-concierge ask --call`. */
+const callKey = (conversationId: string) => `call/${conversationId}`;
 
 const status = z.object({
   backend: z.string(),
@@ -28,6 +31,9 @@ const status = z.object({
   details: z.record(z.string(), z.string().nullable()),
 });
 const line = z.object({ at: z.number(), role: z.string(), text: z.string() });
+/** The bb thread a call talks to (core/call-target.ts). */
+const target = z.object({ threadId: z.string().nullable(), title: z.string(), concierge: z.boolean() }) satisfies z.ZodType<CallTarget>;
+export type { CallTarget };
 const tune = z.object({ vividness: z.number(), motion: z.number(), glow: z.number(), hue: z.number() }).catchall(z.number());
 
 /** Every style's numeric controls as plugin settings, each with its declared range. */
@@ -52,7 +58,13 @@ export const rpcContract = defineRpcContract({
   status: { input: z.null(), output: status },
   login: { input: z.null(), output: z.object({ url: z.string(), code: z.string() }) },
   logout: { input: z.null(), output: z.object({ ok: z.boolean() }) },
-  start: { input: z.object({ sdp: z.string().min(1) }), output: z.object({ conversationId: z.string(), sdp: z.string() }) },
+  /** threadId: the thread to talk to (the one the person started the call from); null or absent: the concierge's own. */
+  start: {
+    input: z.object({ sdp: z.string().min(1), threadId: z.string().min(1).nullable().optional() }),
+    output: z.object({ conversationId: z.string(), sdp: z.string(), target }),
+  },
+  /** Move a live call to another thread (null: the concierge's own). The call stays pinned to it until moved again. */
+  retarget: { input: z.object({ conversationId: z.string(), threadId: z.string().min(1).nullable() }), output: target },
   sendText: { input: z.object({ conversationId: z.string(), text: z.string().min(1).max(4000) }), output: z.object({ ok: z.boolean() }) },
   stop: { input: z.object({ conversationId: z.string() }), output: z.object({ ok: z.boolean() }) },
   transcript: { input: z.object({ limit: z.number().int().min(1).max(500).optional() }), output: z.object({ lines: z.array(line) }) },
@@ -248,6 +260,33 @@ export default async function plugin(bb: BbPluginApi) {
     return b;
   }
 
+  // ---------------------------------------------------------------- which thread a call talks to
+  const targets = new CallTargets({
+    threads: {
+      info: async threadId => {
+        const t = await bb.sdk.threads.get({ threadId }).catch(() => null);
+        return t === null || t.archivedAt !== null ? null : { title: t.title, status: t.status };
+      },
+      send: async (threadId, text) => {
+        await bb.sdk.threads.send({ threadId, input: [{ type: "text", text, mentions: [] }], mode: "queue-if-active" });
+      },
+      output: async threadId => (await bb.sdk.threads.output({ threadId })).output,
+    },
+    concierge: {
+      current: () => concierge.current(),
+      ensure: mode => (mode === "new" ? newConciergeThread() : conciergeThread()),
+      ask: async text => {
+        if ((await conciergeThread()) === null) throw new Error("bb has no Personal project for the concierge's thread.");
+        return concierge.ask(text);
+      },
+    },
+    store: {
+      get: async id => (await bb.storage.kv.get<CallTarget>(callKey(id))) ?? null,
+      set: (id, t) => bb.storage.kv.set(callKey(id), t),
+      delete: id => bb.storage.kv.delete(callKey(id)),
+    },
+  });
+
   // ---------------------------------------------------------------- the conversation's own record
   let writing: Promise<unknown> = Promise.resolve();
   function record(role: string, text: string): void {
@@ -260,7 +299,10 @@ export default async function plugin(bb: BbPluginApi) {
     b.onEvent((conversationId, event) => {
       if (event.kind === "transcript" && event.final && event.text.trim() !== "") record(event.role, event.text.trim());
       if (event.kind === "error") record("system", `Error: ${event.message}`);
-      if (event.kind === "closed") record("system", `Call ended${event.reason === null ? "" : ` (${event.reason})`}`);
+      if (event.kind === "closed") {
+        record("system", `Call ended${event.reason === null ? "" : ` (${event.reason})`}`);
+        if (conversationId !== null) void targets.ended(conversationId).catch(() => {});
+      }
       bb.realtime.publish(LIVE_CHANNEL, { conversationId, event } satisfies LiveSignal);
     });
   }
@@ -282,12 +324,23 @@ export default async function plugin(bb: BbPluginApi) {
       await (await backend()).logout?.();
       return { ok: true };
     },
-    start: async ({ sdp }) => {
+    start: async ({ sdp, threadId }) => {
       const s = await settings.get();
-      const relay = (await (s.threadMode === "new" ? newConciergeThread() : conciergeThread()).catch(() => null)) !== null;
-      const session = await (await backend()).start({ offer: { kind: "webrtc", sdp }, voice: s.voice.trim() === "" ? null : s.voice.trim(), extra: s.instructions, relay });
-      record("system", "Call started");
-      return { conversationId: session.conversationId, sdp: session.answer.sdp };
+      const to = await targets.resolve(threadId ?? null, s.threadMode === "new" ? "new" : "reuse");
+      const session = await (await backend()).start({
+        offer: { kind: "webrtc", sdp },
+        voice: s.voice.trim() === "" ? null : s.voice.trim(),
+        extra: s.instructions,
+        relay: to.threadId !== null,
+      });
+      await targets.started(session.conversationId, to);
+      record("system", `Call started with ${to.title}`);
+      return { conversationId: session.conversationId, sdp: session.answer.sdp, target: to };
+    },
+    retarget: async ({ conversationId, threadId }) => {
+      const to = await targets.retarget(conversationId, threadId);
+      record("system", `Call moved to ${to.title}`);
+      return to;
     },
     sendText: async ({ conversationId, text }) => {
       await (await backend()).sendText(conversationId, text);
@@ -347,7 +400,9 @@ export default async function plugin(bb: BbPluginApi) {
   logout          sign the backend out
   transcript [N]  the last N lines said in calls (default 30)
   thread          the concierge's own bb thread
-  ask <request>   send a request to the concierge's thread and print its reply (the call's relay)`;
+  ask [--call <id>] <request>
+                  send a request to a call's thread (without --call, the concierge's own) and print its reply;
+                  the call's relay`;
 
   bb.cli.register({
     name: "voice-concierge",
@@ -358,7 +413,7 @@ export default async function plugin(bb: BbPluginApi) {
       { name: "logout", summary: "Sign the voice backend out", usage: "bb voice-concierge logout" },
       { name: "transcript", summary: "What was said in calls", usage: "bb voice-concierge transcript [N]" },
       { name: "thread", summary: "The concierge's own bb thread", usage: "bb voice-concierge thread" },
-      { name: "ask", summary: "Ask the concierge's thread and print its reply", usage: "bb voice-concierge ask '<request>'" },
+      { name: "ask", summary: "Ask a call's thread (default: the concierge's) and print its reply", usage: "bb voice-concierge ask [--call <id>] [--] '<request>'" },
     ],
     run: async argv => {
       const [cmd, arg] = argv;
@@ -392,10 +447,16 @@ export default async function plugin(bb: BbPluginApi) {
             return id === null ? { exitCode: 1, stderr: "bb has no Personal project for the concierge's thread." } : { exitCode: 0, stdout: id };
           }
           case "ask": {
-            const text = argv.slice(1).join(" ").trim();
-            if (text === "") return { exitCode: 2, stderr: "usage: bb voice-concierge ask '<request>'" };
-            if ((await conciergeThread()) === null) return { exitCode: 1, stderr: "bb has no Personal project for the concierge's thread." };
-            return { exitCode: 0, stdout: await concierge.ask(text) };
+            let rest = argv.slice(1);
+            let call: string | null = null;
+            if (rest[0] === "--call") {
+              call = rest[1] ?? "";
+              rest = rest.slice(2);
+            }
+            if (rest[0] === "--") rest = rest.slice(1);
+            const text = rest.join(" ").trim();
+            if (text === "" || call === "") return { exitCode: 2, stderr: "usage: bb voice-concierge ask [--call <id>] [--] '<request>'" };
+            return { exitCode: 0, stdout: await targets.ask(text, call) };
           }
           default:
             return { exitCode: cmd === undefined || cmd === "help" || cmd === "--help" || cmd === "-h" ? 0 : 2, stdout: HELP };

@@ -16,9 +16,10 @@ why it is shaped this way.
    WebSocket realtime would need an API key; WebRTC does not.
 4. Audio flows between the window and OpenAI. Codex keeps a sideband connection to the call: the voice model
    hands each question to the backing agent, which calls `ask_concierge`. The host answers that tool call by
-   running `bb voice-concierge ask '<request>'`, which sends it to the concierge's own bb thread
-   (`core/concierge-thread.ts`) and waits for that thread's reply, which is spoken back. A tool, not a shell
-   command: Codex's exec tool hands back after ~10 s, and the agent then has nothing to say.
+   running `bb voice-concierge ask --call <call> '<request>'`, which sends it to the call's bb thread
+   (`core/call-target.ts`; see [Talking to any thread](#talking-to-any-thread)) and waits for that thread's reply,
+   which is spoken back. A tool, not a shell command: Codex's exec tool hands back after ~10 s, and the agent then
+   has nothing to say.
 5. Captions and activity come back as host signals, are logged (final lines only, in `bb.storage`), and are
    published on the `live` realtime channel for the page and the overlay pill.
 
@@ -29,6 +30,29 @@ concierge's machine), pinned, titled "Voice concierge", with plugin metadata `ro
 `ThreadChat`, so typing there, or anywhere bb shows the thread, continues the same conversation the voice uses.
 Archive it to start over: the next call creates a new one. Settings `threadProvider` and `threadModel` choose its
 agent (default: the Personal project's).
+
+## Talking to any thread
+Every call talks to one bb thread, its *target* (`core/call-target.ts`):
+- **Talk** in a thread's header (an `experimental_threadAction` with `placement: "header"`; on a phone it folds into
+  the thread menu) starts a call with that thread. Its requests go to that thread as `[voice] <request>` plus a
+  note (`voiceMessage`: the reply is spoken, so keep it short; change nothing until a request ends with
+  "(confirmed)"), and that thread's agent's final reply is spoken.
+- The Voice concierge page, the sidebar footer button and the touch mic tab start a call with the concierge's own
+  thread when no thread is on screen; the shortcut and the footer button talk to the thread on screen if there is one.
+- **Pinned, not following focus.** A call stays with its thread while the person opens other threads. Following
+  focus would send the next spoken request (possibly a confirmed change) to whatever thread was clicked last, and
+  the voice model would lose the thread its context is about. Instead the header of the listening thread reads
+  **Listening · Hang up**, the floating pill on every page names the thread (tap it to go there), and every other
+  thread's header offers **Move call here** (the pill does too). The concierge's page shows which thread a call
+  is with, and **Move here** brings it back to the concierge.
+- A busy thread is not interrupted: the request is queued behind its turn and the call says so. A reply that takes
+  longer than the relay's limit (140 s) is announced as still working; the answer lands in the thread.
+- The server keeps each live call's target in plugin storage (`call/<id>`) and drops it when the call ends. The
+  relay looks the target up by the call's id (the backing Codex thread, which Codex passes with every tool call); an
+  id not on record is refused, never sent to the concierge instead.
+
+Only the person starts a call (a click, tap or shortcut in a window), and the microphone is on only during a call.
+Agents cannot start one: the CLI and agent tools have no way to open a window's microphone.
 
 ## The sphere
 `sphere.ts` draws the selected visual in WebGL2: a halo followed by a deformed icosphere or,
@@ -82,7 +106,8 @@ kind for push-to-talk audio.
 |---|---|
 | `core/backend.ts` | The voice-backend seam. |
 | `core/codex.ts` | The Codex backend: machine choice, sign-in, the backing Codex thread, live calls. |
-| `core/concierge-thread.ts` | The concierge's own bb thread: create it, ask it and wait for the reply. |
+| `core/concierge-thread.ts` | The concierge's own bb thread: create it, ask it; `relay`, which sends a request to any thread and waits for its reply. |
+| `core/call-target.ts` | Which thread each call talks to: resolve, record, move, and route each relayed request. |
 | `core/relay-tool.ts` | The `ask_concierge` dynamic tool and its answer. |
 | `core/sphere-styles.ts`, `sphere.ts` | The sphere's art styles (GLSL) and its WebGL renderer. |
 | `core/visuals.ts` | Visual identities and control metadata. |
@@ -95,9 +120,9 @@ kind for push-to-talk audio.
 | `contract.ts` | Server ↔ host RPC contract and signals. |
 | `host.ts` | Host entry: `codex app-server`, probe, device-code sign-in, start/stop/text. |
 | `server.ts` | Settings, backend choice, the concierge's thread, RPC for the page, the call log, `bb voice-concierge`. |
-| `app.tsx` | The page, the call manager (survives navigation), the overlay (call pill, touch mic tab). |
+| `app.tsx` | The page, the call manager (survives navigation), the overlay (call pill, touch mic tab), the thread header's Talk. |
 | `skills/voice-concierge/` | Tells agents about `bb voice-concierge`. |
-| `tests/` | `npm test`: core, the JSON-RPC peer, the Codex backend against a fake host, the thread relay, styles. |
+| `tests/` | `npm test`: core, the JSON-RPC peer, the Codex backend against a fake host, the thread relay, call targets, styles. |
 
 ## Develop
 ```sh

@@ -79,31 +79,70 @@ export class ConciergeThread {
    * Send one request and wait for the thread's reply: waits for any running turn to finish first (the owner may have
    * typed), then for the new turn to start and settle, and returns its final output.
    */
-  async ask(text: string, timeoutMs = 180_000): Promise<string> {
+  async ask(text: string, timeoutMs = ASK_TIMEOUT_MS): Promise<string> {
     const id = await this.current();
     if (id === null) throw new Error("The concierge has no thread yet");
-    const deadline = this.now() + timeoutMs;
-    await this.settle(id, deadline);
-    await this.deps.threads.send(id, `${VOICE_PREFIX}${text}`);
-    let started = false;
-    const startBy = this.now() + 20_000;
-    for (;;) {
-      const s = await this.deps.threads.status(id);
-      if (s === null) throw new Error("The concierge's thread is gone");
-      if (s === "error") throw new Error("The concierge's thread failed on that request");
-      if (BUSY.has(s)) started = true;
-      else if (started || this.now() > startBy) return (await this.deps.threads.output(id)) ?? "(no answer)";
-      if (this.now() > deadline) throw new Error("The concierge's thread is still working; ask again in a moment");
-      await this.sleep(POLL_MS);
-    }
+    return relay(this.deps.threads, id, `${VOICE_PREFIX}${text}`, { busy: "wait", timeoutMs, sleep: this.sleep, now: this.now });
   }
+}
 
-  private async settle(id: string, deadline: number): Promise<void> {
-    for (;;) {
-      const s = await this.deps.threads.status(id);
-      if (s === null || !BUSY.has(s)) return;
-      if (this.now() > deadline) throw new Error("The concierge's thread is busy");
-      await this.sleep(POLL_MS);
+/** How long a relayed request may take: under the host's 150 s limit on `bb voice-concierge ask`, so it answers first. */
+export const ASK_TIMEOUT_MS = 140_000;
+
+export interface RelayOptions {
+  /**
+   * A thread already in a turn: "wait" for it to finish, then send (the concierge's own thread, whose turns are short);
+   * "queue" the message behind it and answer at once (a work thread, whose turn may run for many minutes).
+   */
+  busy: "wait" | "queue";
+  timeoutMs: number;
+  /** Spoken in place of a reply that is not ready in time; null throws instead. */
+  late?: string | null;
+  sleep: (ms: number) => Promise<void>;
+  now: () => number;
+}
+
+/** What a queued request answers: the thread is mid-turn and will reply in the thread, not on the call. */
+export const QUEUED_REPLY = "That thread is in the middle of a turn. I queued your message; it will answer in the thread when it gets to it.";
+
+/**
+ * Send `message` to a thread and return the reply of the turn it starts (its final output). See RelayOptions for a
+ * thread that is already busy, and for a reply that does not come in time.
+ */
+export async function relay(threads: Pick<ConciergeThreadsApi, "status" | "send" | "output">, id: string, message: string, o: RelayOptions): Promise<string> {
+  const deadline = o.now() + o.timeoutMs;
+  for (;;) {
+    const s = await threads.status(id);
+    if (s === null) throw new Error("That thread is gone (archived or deleted)");
+    if (!BUSY.has(s)) break;
+    if (o.busy === "queue") {
+      await threads.send(id, message);
+      return QUEUED_REPLY;
     }
+    if (o.now() > deadline) throw new Error("The thread is busy");
+    await o.sleep(POLL_MS);
   }
+  await threads.send(id, message);
+  let started = false;
+  const startBy = o.now() + 20_000;
+  for (;;) {
+    const s = await threads.status(id);
+    if (s === null) throw new Error("That thread is gone (archived or deleted)");
+    if (s === "error") throw new Error("The thread failed on that request");
+    if (BUSY.has(s)) started = true;
+    else if (started || o.now() > startBy) return (await threads.output(id)) ?? "(no answer)";
+    if (o.now() > deadline) {
+      if (o.late != null) return o.late;
+      throw new Error("The thread is still working; ask again in a moment");
+    }
+    await o.sleep(POLL_MS);
+  }
+}
+
+/** Wraps a request relayed into a work thread, whose agent has no brief: how to answer for speech, and rule 2. */
+export function voiceMessage(request: string): string {
+  return `${VOICE_PREFIX}${request}
+
+(Relayed from a live voice call: your reply is spoken aloud. Answer in one or two plain sentences, the answer first, with no markdown, lists, ids or paths. If this asks you to change anything and does not end with "(confirmed)", do nothing yet and reply only with a one-line question to confirm.)
+`;
 }
