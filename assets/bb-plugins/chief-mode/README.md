@@ -4,6 +4,9 @@ This plugin runs the Chief hierarchy (coordinator → project chief → task arc
 on ordinary bb threads. [PLUGIN_OVERVIEW.md](PLUGIN_OVERVIEW.md) covers what a person gets, and
 [skills/chief-mode/SKILL.md](skills/chief-mode/SKILL.md) covers what an agent does.
 
+[docs/chief-mode.png](docs/chief-mode.png) is a one-page diagram of how it works. Its editable source is
+[docs/chief-mode.tldr](docs/chief-mode.tldr): open it in tldraw (tldraw.com → Open file, read locally).
+
 It reimplements the ideas of dilipgv's command-center plugin and shares none of its code
 (command-center has no license). The two can run side by side: their tool names differ (`cm_*`
 here, `chief_*` there) and they keep separate state.
