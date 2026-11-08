@@ -87,7 +87,7 @@ export const VISUALS = {
     interaction: "morph",
     geometry: "sphere",
     label: "Gradient Blob",
-    swatch: "linear-gradient(135deg, #ffb36b, #fb7185 45%, #8471ee)",
+    swatch: "radial-gradient(circle at 70% 30%, #c45aa0 0%, #7a40b8 42%, #10027d 100%)",
     knobs: {
       cursorMorph: { label: "Cursor morph", min: 0, max: 2, default: 1, step: 0.05 },
       interactionStrength: { label: "Interaction", min: 0, max: 2, default: 1, step: 0.05 },
