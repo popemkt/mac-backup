@@ -252,13 +252,13 @@ test("look: one setting per style and knob, values clamped into range, bad value
   assert.match(haloFragmentSource("jelly"), /uGlow/);
 });
 
-test("TuneSaver: one write per style after the last change, nothing lost across styles, quiet only when settled", async () => {
-  const { TuneSaver } = await import("../core/look.ts");
+test("SettingsSaver: one write per style after the last change, nothing lost across styles, quiet only when settled", async () => {
+  const { SettingsSaver } = await import("../core/look.ts");
   let clock = 0;
   const sent: [string, unknown][] = [];
   const errors: unknown[] = [];
   let fail = false;
-  const saver = new TuneSaver(
+  const saver = new SettingsSaver(
     async (style, patch) => {
       sent.push([style, patch]);
       if (fail) throw new Error("offline");
@@ -285,11 +285,11 @@ test("TuneSaver: one write per style after the last change, nothing lost across 
   assert.equal(errors.length, 1);
 });
 
-test("TuneSaver: writes for one style never overtake each other; the settled state comes from the last answer", async () => {
-  const { TuneSaver } = await import("../core/look.ts");
+test("SettingsSaver: writes for one style never overtake each other; the settled state comes from the last answer", async () => {
+  const { SettingsSaver } = await import("../core/look.ts");
   const order: string[] = [];
   const gates: (() => void)[] = [];
-  const saver = new TuneSaver<string>(
+  const saver = new SettingsSaver<string>(
     (_style, patch) =>
       new Promise<string>(resolve => {
         const v = String(patch.glow);
@@ -369,4 +369,300 @@ test("copy: state labels, the idle hint, and errors said plainly", async () => {
   assert.match(friendlyError("NotAllowedError: Permission denied").text, /microphone is blocked/);
   assert.match(friendlyError("The voice connection failed").text, /connection dropped/);
   assert.deepEqual(friendlyError("something odd"), { text: "Something went wrong with the call. Try again.", details: "something odd" });
+});
+
+import { VISUAL_STYLES, controlsFor } from "../core/visuals.ts";
+import { defaultsFor, knobsFor } from "../core/look.ts";
+
+test("every visual exposes bounded defaults and only its own controls", () => {
+  for (const style of VISUAL_STYLES) {
+    const defaults = defaultsFor(style);
+    for (const [key, range] of Object.entries(controlsFor(style))) {
+      assert.ok(defaults[key]! >= range.min && defaults[key]! <= range.max, `${style}.${key}`);
+    }
+    assert.deepEqual(Object.keys(defaults), knobsFor(style));
+  }
+  assert.ok(knobsFor("chromeOrbit").includes("rings"));
+  assert.ok(!knobsFor("jelly").includes("rings"));
+});
+
+test("orbit bands: closed manifold, finite vertices, outward winding and Uint16-safe indices", async () => {
+  const { orbitBands } = await import("../core/chrome-orbit.ts");
+  const { positions, indices } = orbitBands();
+  assert.equal(positions.length / 3, 9 * 128 * 16);
+  assert.equal(indices.length, 9 * 128 * 16 * 6);
+  assert.ok(Array.from(positions).every(Number.isFinite));
+  const edges = new Map<string, number>();
+  const point = (index: number) => {
+    const a = positions[index * 3]!, b = positions[index * 3 + 1]!;
+    return [(1 + 0.1 * Math.cos(b)) * Math.cos(a), (1 + 0.1 * Math.cos(b)) * Math.sin(a), 0.05 * Math.sin(b)];
+  };
+  for (let i = 0; i < indices.length; i += 3) {
+    const ids = [indices[i]!, indices[i + 1]!, indices[i + 2]!];
+    assert.ok(ids.every(id => id < positions.length / 3));
+    assert.equal(new Set(ids.map(id => positions[id * 3 + 2])).size, 1);
+    const [a, b, c] = ids.map(point);
+    const u = b!.map((v, j) => v - a![j]!);
+    const v = c!.map((value, j) => value - a![j]!);
+    const cross = [u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!];
+    const major = positions[ids[0]! * 3]!, section = positions[ids[0]! * 3 + 1]!;
+    const normal = [Math.cos(major) * Math.cos(section) / 0.1, Math.sin(major) * Math.cos(section) / 0.1, Math.sin(section) / 0.05];
+    assert.ok(cross.reduce((sum, value, j) => sum + value * normal[j]!, 0) > 0);
+    for (let j = 0; j < 3; j++) {
+      const from = ids[j]!, to = ids[(j + 1) % 3]!;
+      const key = `${Math.min(from, to)}:${Math.max(from, to)}`;
+      edges.set(key, (edges.get(key) ?? 0) + (from < to ? 1 : -1));
+    }
+  }
+  assert.ok(Array.from(edges.values()).every(balance => balance === 0));
+});
+
+import { VisualInteraction } from "../core/visual-interaction.ts";
+
+test("visual interaction: chrome intro, timed alignment and indefinite alignment", () => {
+  const visual = new VisualInteraction("chromeOrbit", 0);
+  assert.equal(visual.tick(0, 0).align, 1);
+  for (let i = 0; i < 30; i++) visual.tick(0.1, 900 + i * 100);
+  assert.ok(visual.tick(0.1, 4000).align < 0.001);
+  assert.equal(visual.activate(4000, 1), true);
+  for (let i = 0; i < 9; i++) visual.tick(0.1, 4000 + i * 100);
+  assert.ok(visual.tick(0.1, 4900).align > 0.99);
+  for (let i = 0; i < 30; i++) visual.tick(0.1, 5000 + i * 100);
+  assert.ok(visual.tick(0.1, 8000).align < 0.001);
+  visual.activate(8000, 0);
+  for (let i = 0; i < 30; i++) visual.tick(0.1, 100000 + i * 100);
+  assert.ok(visual.tick(0.1, 104000).align > 0.999);
+  visual.activate(104000);
+  for (let i = 0; i < 30; i++) visual.tick(0.1, 104000 + i * 100);
+  assert.ok(visual.tick(0.1, 108000).align < 0.001);
+});
+
+test("visual interaction: call gestures are unconsumed, pointer bounded and invalid values neutral", () => {
+  const visual = new VisualInteraction("jelly", 0);
+  assert.equal(visual.activate(0), false);
+  visual.point(20, -20);
+  for (let i = 0; i < 20; i++) visual.tick(0.1, i * 100);
+  const p = visual.tick(0.1, 2100);
+  assert.ok(p.x > 0.99 && p.x <= 1.12);
+  assert.ok(p.y < -0.99 && p.y >= -1.12);
+  visual.point(NaN, Infinity);
+  for (let i = 0; i < 30; i++) visual.tick(0.1, 2200 + i * 100);
+  const neutral = visual.tick(0.1, 5300);
+  assert.ok(Math.abs(neutral.x) < 0.001 && Math.abs(neutral.y) < 0.001);
+});
+
+test("visual interaction: reduced motion suppresses pointer and tap, reset clears previous visual state", () => {
+  const visual = new VisualInteraction("chromeOrbit", 0, true);
+  assert.equal(visual.tick(0, 0, true).align, 0);
+  visual.reset("aiBlob", 0);
+  visual.point(1, 1);
+  assert.equal(visual.activate(0), true);
+  assert.ok(visual.tick(0.01, 10).tap > 0);
+  const still = visual.tick(0.1, 100, true);
+  assert.deepEqual([still.x, still.y, still.tap], [0, 0, 0]);
+  visual.reset("gradientBlob", 200);
+  const reset = visual.tick(0, 200);
+  for (const key of ["x", "y", "vx", "vy", "tap", "press", "intro"] as const) assert.equal(reset[key], 0);
+  assert.equal(visual.activate(200), true);
+});
+
+test("SettingsSaver: string settings coalesce and serialize while local preview owns echoes", async () => {
+  const { SettingsSaver } = await import("../core/look.ts");
+  let now = 0;
+  const written: string[] = [];
+  let release: (() => void) | undefined;
+  const saver = new SettingsSaver<void, string, { value: string }>(async (_key, patch) => {
+    written.push(patch.value);
+    if (written.length === 1) await new Promise<void>(resolve => { release = resolve; });
+  }, e => { throw e; }, 10000, () => now);
+  saver.edit("style", { value: "jelly" });
+  saver.edit("style", { value: "chromeOrbit" });
+  saver.flush();
+  await new Promise(resolve => setImmediate(resolve));
+  saver.edit("style", { value: "aiBlob" });
+  saver.flush();
+  assert.deepEqual(written, ["chromeOrbit"]);
+  assert.equal(saver.quiet(), false);
+  release!();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(written, ["chromeOrbit", "aiBlob"]);
+  assert.equal(saver.quiet(), false);
+  now = 801;
+  assert.equal(saver.quiet(), true);
+});
+
+import { CallTargets, CONCIERGE_TITLE, LATE_REPLY } from "../core/call-target.ts";
+import { QUEUED_REPLY, relay, voiceMessage } from "../core/concierge-thread.ts";
+
+function fakeTargets(opts: { threads: Record<string, { title: string | null; statuses: string[]; output?: string }>; concierge?: string | null }) {
+  const sent: [string, string][] = [];
+  const conciergeAsked: string[] = [];
+  let t = 0;
+  const targets = new CallTargets({
+    threads: {
+      info: async id => {
+        const th = opts.threads[id];
+        if (th === undefined) return null;
+        const status = th.statuses.length > 1 ? th.statuses.shift()! : th.statuses[0]!;
+        return { title: th.title, status };
+      },
+      send: async (id, text) => void sent.push([id, text]),
+      output: async id => opts.threads[id]?.output ?? null,
+    },
+    concierge: {
+      current: async () => opts.concierge ?? null,
+      ensure: async () => opts.concierge ?? null,
+      ask: async text => (conciergeAsked.push(text), "From the concierge."),
+    },
+    sleep: async ms => void (t += ms),
+    now: () => t,
+  });
+  return { targets, sent, conciergeAsked };
+}
+
+test("CallTargets.resolve: a thread is its own target; none, or the concierge's own thread, is the concierge", async () => {
+  const { targets } = fakeTargets({ threads: { thr_work: { title: " Fix the build ", statuses: ["idle"] }, thr_c: { title: "Voice concierge", statuses: ["idle"] } }, concierge: "thr_c" });
+  assert.deepEqual(await targets.resolve("thr_work"), { threadId: "thr_work", title: "Fix the build", concierge: false });
+  assert.deepEqual(await targets.resolve(null), { threadId: "thr_c", title: CONCIERGE_TITLE, concierge: true });
+  assert.deepEqual(await targets.resolve("thr_c"), { threadId: "thr_c", title: CONCIERGE_TITLE, concierge: true });
+  await assert.rejects(targets.resolve("thr_archived"), /archived or gone/);
+  const untitled = fakeTargets({ threads: { thr_x: { title: null, statuses: ["idle"] } } });
+  assert.equal((await untitled.targets.resolve("thr_x")).title, "Untitled thread");
+});
+
+test("CallTargets.ask: a call's requests go to its own thread, with the spoken-reply rules; never to the wrong one", async () => {
+  const { targets, sent, conciergeAsked } = fakeTargets({
+    threads: { thr_work: { title: "Fix the build", statuses: ["idle", "idle", "active", "idle"], output: "The build is green." } },
+    concierge: "thr_c",
+  });
+  targets.started("call_1", await targets.resolve("thr_work"));
+  assert.equal(await targets.ask("is the build green?", "call_1"), "The build is green.");
+  assert.deepEqual(sent, [["thr_work", voiceMessage("is the build green?")]]);
+  assert.match(sent[0]![1], /^\[voice\] is the build green\?/);
+  assert.match(sent[0]![1], /spoken aloud/);
+  assert.match(sent[0]![1], /\(confirmed\)/);
+  assert.deepEqual(conciergeAsked, []);
+  // No call id: the concierge's thread (the CLI). An id not on record: refused, never the concierge.
+  assert.equal(await targets.ask("what needs me?", null), "From the concierge.");
+  await assert.rejects(targets.ask("hi", "call_unknown"), /not live/);
+  // Ended: its record is gone.
+  targets.ended("call_1");
+  await assert.rejects(targets.ask("hi", "call_1"), /not live/);
+});
+
+test("CallTargets.retarget: a live call moves (pinned until then); a call with nothing to relay to cannot", async () => {
+  const { targets } = fakeTargets({ threads: { thr_a: { title: "A", statuses: ["idle"] }, thr_b: { title: "B", statuses: ["idle"] } }, concierge: "thr_c" });
+  targets.started("call_1", await targets.resolve("thr_a"));
+  assert.equal((await targets.retarget("call_1", "thr_b")).title, "B");
+  assert.equal(targets.target("call_1")?.threadId, "thr_b");
+  assert.deepEqual(await targets.retarget("call_1", null), { threadId: "thr_c", title: CONCIERGE_TITLE, concierge: true });
+  await assert.rejects(targets.retarget("call_x", "thr_a"), /not live/);
+  targets.started("call_2", { threadId: null, title: CONCIERGE_TITLE, concierge: true });
+  await assert.rejects(targets.retarget("call_2", "thr_a"), /cannot move/);
+  await assert.rejects(targets.retarget("call_1", "thr_gone"), /archived or gone/);
+  assert.equal(targets.target("call_1")?.threadId, "thr_c");
+});
+
+test("CallTargets: a concierge call stays with its own concierge thread, even after a new conversation starts", async () => {
+  const t = fakeTargets({ threads: { thr_c1: { title: "Voice concierge", statuses: ["idle", "idle", "active", "idle"], output: "From the first." } }, concierge: "thr_c1" });
+  t.targets.started("call_1", await t.targets.resolve(null));
+  // A new conversation elsewhere: thr_c2 is the concierge's now; the call is still pinned to thr_c1.
+  assert.equal(await t.targets.ask("still there?", "call_1"), "From the first.");
+  assert.deepEqual(t.sent, [["thr_c1", "[voice] still there?"]]);
+  assert.deepEqual(t.conciergeAsked, []);
+  // Its thread archived: an explicit failure, not the new concierge thread.
+  const gone = fakeTargets({ threads: {}, concierge: "thr_c2" });
+  gone.targets.started("call_2", { threadId: "thr_c1", title: CONCIERGE_TITLE, concierge: true });
+  await assert.rejects(gone.targets.ask("hi", "call_2"), /gone/);
+  assert.deepEqual(gone.conciergeAsked, []);
+});
+
+test("CallTargets.retarget never brings back a call that ended while the thread was looked up", async () => {
+  let release!: () => void;
+  const slow = new Promise<void>(r => (release = r));
+  const targets = new CallTargets({
+    threads: { info: async id => (id === "thr_b" ? (await slow, { title: "B", status: "idle" }) : { title: "A", status: "idle" }), send: async () => {}, output: async () => null },
+    concierge: { current: async () => null, ensure: async () => null, ask: async () => "" },
+  });
+  targets.started("call_1", { threadId: "thr_a", title: "A", concierge: false });
+  const moving = targets.retarget("call_1", "thr_b");
+  targets.ended("call_1");
+  release();
+  await assert.rejects(moving, /ended or moved/);
+  assert.equal(targets.target("call_1"), null);
+  await assert.rejects(targets.ask("hi", "call_1"), /not live/);
+});
+
+test("relay: a busy work thread gets the message queued and the call is told; a slow turn answers late", async () => {
+  let t = 0;
+  const sent: string[] = [];
+  const api = (statuses: string[], output: string | null) => ({
+    status: async () => (statuses.length > 1 ? statuses.shift()! : statuses[0]!),
+    send: async (_: string, m: string) => void sent.push(m),
+    output: async () => output,
+  });
+  const o = { timeoutMs: 1_000, sleep: async (ms: number) => void (t += ms), now: () => t };
+  assert.equal(await relay(api(["active"], "x"), "thr", "m1", { ...o, busy: "queue" }), QUEUED_REPLY);
+  assert.deepEqual(sent, ["m1"]);
+  assert.equal(await relay(api(["idle", "active"], null), "thr", "m2", { ...o, busy: "queue", late: LATE_REPLY }), LATE_REPLY);
+  await assert.rejects(relay(api(["idle", "active"], null), "thr", "m3", { ...o, busy: "queue" }), /still working/);
+  await assert.rejects(relay(api(["active"], null), "thr", "m4", { ...o, busy: "wait" }), /busy/);
+  await assert.rejects(relay(api([null as unknown as string], null), "thr", "m5", { ...o, busy: "wait" }), /gone/);
+});
+
+test("relay tool: passes the call's id (the Codex thread) so the server can pick the call's thread", async () => {
+  const { answerToolCall, ASK_TOOL } = await import("../core/relay-tool.ts");
+  const calls: (string | null)[] = [];
+  const ask = async (_: string, call: string | null) => (calls.push(call), "ok");
+  await answerToolCall({ tool: ASK_TOOL, threadId: "codex_thr_1", arguments: { request: "hi" } }, ask);
+  await answerToolCall({ tool: ASK_TOOL, arguments: { request: "hi" } }, ask);
+  assert.deepEqual(calls, ["codex_thr_1", null]);
+});
+
+test("voice prompt: relaying, it says calls are connected to one thread, which the person can move", () => {
+  const ctx = { machine: "m", hasBbCli: true, extra: "", relay: true };
+  assert.match(voicePrompt(ctx), /connected to one bb thread/);
+  assert.match(voicePrompt(ctx), /move the call/);
+  assert.doesNotMatch(voicePrompt({ ...ctx, relay: false }), /connected to one bb thread/);
+});
+
+test("CallTargets: hanging up or moving a call withdraws a request still waiting to be sent", async () => {
+  let release!: () => void;
+  let busy = true;
+  const sent: [string, string][] = [];
+  const targets = new CallTargets({
+    threads: {
+      info: async () => ({ title: "Voice concierge", status: busy ? "active" : "idle" }),
+      send: async (id, text) => void sent.push([id, text]),
+      output: async () => "done",
+    },
+    concierge: { current: async () => "thr_a", ensure: async () => "thr_a", ask: async () => "" },
+    sleep: () => new Promise<void>(r => (release = r)),
+    now: () => 0,
+  });
+  targets.started("call_1", { threadId: "thr_a", title: CONCIERGE_TITLE, concierge: true });
+  const pending = targets.ask("do it (confirmed)", "call_1");
+  await new Promise(r => setTimeout(r, 0)); // the relay is now waiting for thr_a's turn
+  targets.ended("call_1");
+  busy = false;
+  release();
+  await assert.rejects(pending, /ended or moved/);
+  assert.deepEqual(sent, []);
+});
+
+test("CallTargets.started refuses a call that closed while it was starting, but not an older close of its id", () => {
+  let now = 100;
+  const targets = new CallTargets({
+    threads: { info: async () => null, send: async () => {}, output: async () => null },
+    concierge: { current: async () => null, ensure: async () => null, ask: async () => "" },
+    now: () => now,
+  });
+  const to = { threadId: "thr_a", title: "A", concierge: false };
+  targets.ended("call_1"); // closed at 100, before it was recorded
+  assert.throws(() => targets.started("call_1", to, 50), /closed while it was connecting/);
+  assert.equal(targets.target("call_1"), null);
+  targets.ended("call_2"); // an earlier call on a reused id closed at 100
+  now = 200;
+  targets.started("call_2", to, 150);
+  assert.equal(targets.target("call_2")?.threadId, "thr_a");
 });

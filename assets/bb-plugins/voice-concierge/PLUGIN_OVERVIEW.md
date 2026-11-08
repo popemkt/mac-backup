@@ -1,5 +1,5 @@
 Talk to bb out loud, hands-free: a realtime voice concierge that sees your threads and answers aloud, in a
-conversation of its own.
+conversation of its own, or with any thread you call from.
 
 ## What you get
 - **Voice concierge** in the navigation. **Talk** starts a call from the bb desktop app or a browser: the
@@ -13,17 +13,20 @@ conversation of its own.
 - While a call is up, a small pill on every other bb page shows what the concierge is doing, with Mute and Hang up
   (at the top on a phone, bottom right on a desktop). On a touch screen a small mic tab on the right edge starts a
   call from any page; it hides while you type.
-- The conversation is the concierge's own bb thread, pinned as "Voice concierge" in your Personal project and shown
-  below the sphere on the page. Type there, or anywhere bb shows it, to continue the same conversation by text. It
-  never appears in your work threads.
+- **Talk to any thread.** Every thread's header has **Talk**: the call then talks to that thread, and its own agent
+  answers aloud (questions straight away; anything that changes something is read back and waits for your yes). The
+  call stays with that thread while you look around bb: its header reads **Listening · Hang up**, the floating pill
+  names it, and any other thread's header offers **Move call here**.
+- Without a thread, the conversation is the concierge's own bb thread, pinned as "Voice concierge" in your Personal
+  project and shown below the sphere on the page. Type there, or anywhere bb shows it, to continue the same
+  conversation by text. A call with the concierge never appears in your work threads.
 - A sphere above the controls shows the call: a soft, physical ball that breathes while silent. Its surface really
   moves: it ripples with your voice, swells rounder with the concierge's, and rolls slowly while the concierge is
   checking bb. During a call it docks into a compact bar (still alive, with the state, the caption, Mute and Hang
   up) so more of the conversation shows, and grows back when you hang up, tap it, or rest the mouse on it; the
   auto-minimize setting turns that off. Held sideways, a phone shows the sphere and the conversation side by side.
-- Four looks for the sphere, each a material: candy, moonstone, aurora and frosted glass. Pick one with the swatches
-  under the sphere; the sliders button next to them tunes it (vividness, motion, glow, hue), also in the plugin
-  settings.
+- Pick a visual with the swatches under the sphere and use the sliders button to tune its material.
+  See [The sphere](README.md#the-sphere) for the visual styles and tuning behavior.
 - The concierge writes into another thread only when you explicitly ask. It first says which thread and what it
   will send, and waits for your yes. It never reads secrets aloud.
 - `bb voice-concierge status | login | logout | transcript | thread | ask` from a terminal or an agent.
@@ -37,5 +40,8 @@ name in the plugin settings. It works the same with one machine or several. Call
 ## What it does not do (yet)
 - No wake word: you press Talk. A phone is not tested yet.
 - The "ask before writing" rule is an instruction to the agent, not an enforced check: bb does not mark which
-  agent sent a CLI message, so no hook can tell the concierge's `bb thread tell` from your own.
+  agent sent a CLI message, so no hook can tell the concierge's `bb thread tell` from your own. On a call with a
+  work thread, the same rule travels with each spoken request as a note to that thread's agent.
+- The default shortcut (⌘⇧M) is also bb's model picker shortcut in the composer; rebind it in bb's shortcuts if
+  it opens the picker instead of talking.
 - Codex's realtime API is experimental; a Codex update can break calls until the plugin follows.

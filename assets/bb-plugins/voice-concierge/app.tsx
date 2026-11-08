@@ -1,14 +1,16 @@
 // bb-plugin-voice-concierge — the frontend. The call itself (microphone, WebRTC peer, speaker) lives in a module-level
-// CallManager so it survives moving around bb; the "Voice concierge" page starts and ends calls and shows the
-// conversation, and an app overlay keeps a small live pill (mute, hang up) on every page while a call is up.
+// CallManager so it survives moving around bb. Every call talks to one thread (core/call-target.ts): Talk in a
+// thread's header calls that thread, the "Voice concierge" page calls the concierge's own. An app overlay keeps a
+// small live pill (the thread's name, mute, hang up, move here) on every page while a call is up.
 import type React from "react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
-import { definePluginApp, experimental_copyToClipboard, ThreadChat, useBbNavigate, useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
-import type { LiveSignal, rpcContract } from "./server.ts";
+import { definePluginApp, experimental_copyToClipboard, ThreadChat, useBbContext, useBbNavigate, useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
+import type { CallTarget, LiveSignal, rpcContract } from "./server.ts";
 import { LIVE_CHANNEL, STYLE_CHANNEL, THREAD_CHANNEL } from "./core/live.ts";
 import { DOCK_AFTER_MS, DOCK_SOON_MS, orbMinimized } from "./core/orb.ts";
 import { barHint, friendlyError, idleHint, stateLabel, SUGGESTIONS } from "./core/copy.ts";
-import { DEFAULT_TUNE, formatKnob, KNOB_LABELS, KNOB_RANGE, KNOBS, type Tune, type TunePatch, TuneSaver } from "./core/look.ts";
+import { DEFAULT_TUNE, defaultsFor, knobsFor, formatKnob, type Tune, type TunePatch, SettingsSaver } from "./core/look.ts";
+import { controlsFor, VISUALS, INTERACTION_HINTS } from "./core/visuals.ts";
 import { isSphereStyle, SPHERE_STYLES, STYLE_LABELS, STYLE_SWATCHES, type SphereStyle } from "./core/sphere-styles.ts";
 import { Sphere, type SphereLook, type SphereMode } from "./sphere.ts";
 
@@ -28,13 +30,21 @@ interface CallState {
   activity: string | null;
   /** Bumped on every final line, so the page refetches the transcript. */
   revision: number;
+  /** The thread the call was asked to talk to while it connects (null: the concierge's own). */
+  asked: string | null;
+  /** The thread the live call talks to; it stays pinned there until the person moves it. */
+  target: CallTarget | null;
 }
 
 /** One call at a time, for the whole app. */
 class CallManager {
-  private state: CallState = { phase: "idle", conversationId: null, muted: false, error: null, caption: null, activity: null, revision: 0 };
+  private state: CallState = { phase: "idle", conversationId: null, muted: false, error: null, caption: null, activity: null, revision: 0, asked: null, target: null };
   private readonly listeners = new Set<() => void>();
   private pc: RTCPeerConnection | null = null;
+  /** Bumped by every start and stop; see start(). */
+  private attempts = 0;
+  /** Calls that closed while this window was still connecting (their id not known here yet); checked when it is. */
+  private closedWhileConnecting = new Set<string>();
   private mic: MediaStream | null = null;
   private speaker: HTMLAudioElement | null = null;
   private rpc: Rpc | null = null;
@@ -49,47 +59,98 @@ class CallManager {
     for (const l of this.listeners) l();
   }
 
-  async start(rpc: Rpc): Promise<void> {
+  /**
+   * Start a call that talks to `threadId` (the thread the person started it from), or to the concierge's own thread.
+   * Only ever called from the person's own click, tap or shortcut: nothing else opens the microphone.
+   */
+  async start(rpc: Rpc, threadId: string | null = null): Promise<void> {
     if (this.state.phase !== "idle") return;
+    // Each attempt has its own number; hanging up (or a newer attempt) makes it stale, and a stale attempt stops what
+    // it opened and touches nothing else, so a permission prompt answered after Cancel never starts a call.
+    const attempt = ++this.attempts;
+    const stale = () => attempt !== this.attempts;
     this.rpc = rpc;
-    this.set({ phase: "connecting", error: null, caption: null, activity: null });
+    this.closedWhileConnecting.clear();
+    this.set({ phase: "connecting", error: null, caption: null, activity: null, asked: threadId, target: null });
+    let mic: MediaStream | null = null;
+    let pc: RTCPeerConnection | null = null;
+    const abandon = () => {
+      pc?.close();
+      for (const t of mic?.getTracks() ?? []) t.stop();
+    };
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error("This page cannot use the microphone (it needs https or localhost, and microphone permission)");
-      this.mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
-      const pc = new RTCPeerConnection();
+      mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      if (stale()) return abandon();
+      this.mic = mic;
+      pc = new RTCPeerConnection();
       this.pc = pc;
-      for (const track of this.mic.getAudioTracks()) pc.addTrack(track, this.mic);
-      this.meters.mic = this.meter(this.mic);
+      for (const track of mic.getAudioTracks()) pc.addTrack(track, mic);
+      this.meters.mic = this.meter(mic);
       // The realtime events channel Codex's call expects next to the audio.
       pc.createDataChannel("oai-events");
       this.speaker ??= Object.assign(document.createElement("audio"), { autoplay: true });
-      pc.ontrack = e => {
+      const peer = pc;
+      peer.ontrack = e => {
+        if (this.pc !== peer) return;
         const stream = e.streams[0] ?? new MediaStream([e.track]);
         if (this.speaker !== null) this.speaker.srcObject = stream;
         this.meters.remote?.close();
         this.meters.remote = this.meter(stream);
       };
-      pc.onconnectionstatechange = () => {
-        if (pc.connectionState === "failed") void this.stop("The voice connection failed");
+      peer.onconnectionstatechange = () => {
+        if (peer.connectionState === "failed" && this.pc === peer) void this.stop("The voice connection failed");
       };
       await pc.setLocalDescription(await pc.createOffer());
       await iceGathered(pc, 2_000);
-      const { conversationId, sdp } = await rpc.call("start", { sdp: pc.localDescription?.sdp ?? "" });
-      if (this.pc !== pc) return; // hung up while connecting
+      if (stale()) return abandon();
+      const { conversationId, sdp, target } = await rpc.call("start", { sdp: pc.localDescription?.sdp ?? "", threadId });
+      if (stale()) {
+        // hung up while connecting: the call exists on the server now, so end it there too
+        abandon();
+        await rpc.call("stop", { conversationId }).catch(() => {});
+        return;
+      }
+      if (this.closedWhileConnecting.has(conversationId)) throw new Error("The call closed while it was connecting");
       await pc.setRemoteDescription({ type: "answer", sdp });
-      this.set({ phase: "live", conversationId, muted: false });
+      if (stale()) {
+        abandon();
+        await rpc.call("stop", { conversationId }).catch(() => {});
+        return;
+      }
+      if (this.closedWhileConnecting.has(conversationId)) throw new Error("The call closed while it was connecting");
+      this.closedWhileConnecting.clear();
+      this.set({ phase: "live", conversationId, muted: false, target });
     } catch (e) {
+      if (stale()) return abandon(); // a newer call (or the hang-up) owns the state now
       this.teardown();
-      this.set({ phase: "idle", error: message(e) });
+      this.set({ phase: "idle", error: message(e), asked: null, target: null });
     }
   }
 
+  /** Move the live call to another thread (null: the concierge's own); it stays there until moved again. */
+  async retarget(threadId: string | null): Promise<void> {
+    const id = this.state.conversationId;
+    if (this.state.phase !== "live" || id === null || this.rpc === null) return;
+    try {
+      const target = await this.rpc.call("retarget", { conversationId: id, threadId });
+      if (this.state.conversationId === id) this.set({ target, error: null });
+    } catch (e) {
+      this.set({ error: message(e) });
+    }
+  }
+
+  clearError(): void {
+    if (this.state.error !== null) this.set({ error: null });
+  }
+
   async stop(error: string | null = null): Promise<void> {
+    this.attempts++; // any attempt still connecting is now stale
     const id = this.state.conversationId;
     this.set({ phase: "ending" });
     this.teardown();
     if (id !== null && this.rpc !== null) await this.rpc.call("stop", { conversationId: id }).catch(() => {});
-    this.set({ phase: "idle", conversationId: null, caption: null, activity: null, error });
+    this.set({ phase: "idle", conversationId: null, caption: null, activity: null, error, asked: null, target: null });
   }
 
   toggleMute(): void {
@@ -104,7 +165,10 @@ class CallManager {
     // to no call (a sign-in finishing); in a call, only its own.
     if (signal.conversationId !== null) {
       if (this.state.phase === "idle") return;
-      if (this.state.conversationId !== null && signal.conversationId !== this.state.conversationId) return;
+      // While connecting, this call's id is not known yet: a close is remembered (it may be this call's), the rest
+      // belongs to other calls.
+      if (this.state.phase === "connecting" && event.kind === "closed") this.closedWhileConnecting.add(signal.conversationId);
+      if (signal.conversationId !== this.state.conversationId) return;
     }
     switch (event.kind) {
       case "transcript":
@@ -122,8 +186,9 @@ class CallManager {
         return;
       case "closed":
         if (this.state.phase === "live" || this.state.phase === "connecting") {
+          this.attempts++;
           this.teardown();
-          this.set({ phase: "idle", conversationId: null, caption: null, activity: null, revision: this.state.revision + 1 });
+          this.set({ phase: "idle", conversationId: null, caption: null, activity: null, revision: this.state.revision + 1, asked: null, target: null });
         }
         return;
       case "login":
@@ -197,19 +262,29 @@ function iceGathered(pc: RTCPeerConnection, timeoutMs: number): Promise<void> {
 const calls = new CallManager();
 const useCall = () => useSyncExternalStore(calls.subscribe, calls.snapshot);
 
-/** What a command or the sidebar button needs to start a call from anywhere; the always-mounted overlay fills it. */
-const anywhere: { rpc: Rpc | null; open: (() => void) | null } = { rpc: null, open: null };
+/**
+ * What a command or the sidebar button needs to start a call from anywhere; the always-mounted overlay fills it.
+ * `threadId`: the thread on screen (from the route), null on any other page.
+ */
+const anywhere: { rpc: Rpc | null; open: (() => void) | null; threadId: string | null } = { rpc: null, open: null, threadId: null };
 
-/** Open the Voice concierge page and start talking; during a call, hang up. */
+/**
+ * Talk to the thread on screen, or, on any other page, open the Voice concierge page and talk to the concierge;
+ * during a call, hang up.
+ */
 function talkOrHangUp(): void {
   const { phase } = calls.snapshot();
   if (phase === "live" || phase === "connecting") {
     void calls.stop();
     return;
   }
-  anywhere.open?.();
-  if (phase === "idle" && anywhere.rpc !== null) void calls.start(anywhere.rpc);
+  const threadId = anywhere.threadId;
+  if (threadId === null) anywhere.open?.();
+  if (phase === "idle" && anywhere.rpc !== null) void calls.start(anywhere.rpc, threadId);
 }
+
+/** Who answers on this call, for captions and the pill: the thread's title, or "Concierge". */
+const answerer = (t: CallTarget | null) => (t === null || t.concierge ? "Concierge" : t.title);
 
 // ------------------------------------------------------------------ page
 
@@ -364,9 +439,17 @@ function ConciergePage() {
   const tuneButton = useRef<HTMLButtonElement>(null);
   const closeTuning = useCallback(() => setTuning(false), []);
   const [tuneError, setTuneError] = useState<string | null>(null);
-  const saver = useRef<TuneSaver<Record<string, Tune>> | null>(null);
+  const [styleError, setStyleError] = useState<string | null>(null);
+  const styleSaver = useRef<SettingsSaver<unknown, "style", { value: SphereStyle }> | null>(null);
+  if (styleSaver.current === null) {
+    styleSaver.current = new SettingsSaver(
+      (_key, patch) => rpc.call("setStyle", { style: patch.value }).then(r => (setStyleError(null), r)),
+      e => setStyleError(message(e)),
+    );
+  }
+  const saver = useRef<SettingsSaver<Record<string, Tune>> | null>(null);
   if (saver.current === null) {
-    saver.current = new TuneSaver(
+    saver.current = new SettingsSaver(
       (s, patch) => rpc.call("setTune", { style: s, tune: patch }).then(r => (setTuneError(null), r.tunes)),
       e => setTuneError(message(e)),
     );
@@ -411,18 +494,22 @@ function ConciergePage() {
   }, [call.revision]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     rpc.call("style").then(
-      r => (setStyle(isSphereStyle(r.style) ? r.style : "jelly"), setAuto(r.autoMinimize), setTunes(r.tunes as Record<SphereStyle, Tune>)),
+      r => {
+        if (styleSaver.current?.quiet() !== false) setStyle(isSphereStyle(r.style) ? r.style : "jelly");
+        setAuto(r.autoMinimize);
+        if (saver.current?.quiet() !== false) setTunes(r.tunes as Record<SphereStyle, Tune>);
+      },
       () => setStyle("jelly"),
     );
   }, [rpc]);
   useRealtime(STYLE_CHANNEL, payload => {
     const p = payload as { style?: string; autoMinimize?: unknown; tunes?: Record<SphereStyle, Tune> };
-    if (isSphereStyle(p.style ?? "")) setStyle(p.style as SphereStyle);
+    if (isSphereStyle(p.style ?? "") && styleSaver.current?.quiet() !== false) setStyle(p.style as SphereStyle);
     if (typeof p.autoMinimize === "boolean") setAuto(p.autoMinimize);
     // a knob being moved here wins over the echo of its own saves
     if (p.tunes !== undefined && saver.current?.quiet() !== false) setTunes(p.tunes);
   });
-  useEffect(() => () => saver.current?.flush(), []);
+  useEffect(() => () => { saver.current?.flush(); styleSaver.current?.flush(); }, []);
   // A change of call phase hands the size back to the rule; a live call settles after a few seconds.
   useEffect(() => {
     setOverride(null);
@@ -449,14 +536,14 @@ function ConciergePage() {
   };
   const pick = (next: SphereStyle) => {
     setStyle(next);
-    rpc.call("setStyle", { style: next }).catch(() => {});
+    styleSaver.current?.edit("style", { value: next });
   };
-  const tune = style !== null ? (tunes[style] ?? DEFAULT_TUNE) : DEFAULT_TUNE;
+  const tune = style !== null ? (tunes[style] ?? defaultsFor(style)) : DEFAULT_TUNE;
   // A knob moves the sphere at once; the setting is saved a moment after the last change (null resets the knob).
   const retune = (patch: TunePatch) => {
     if (style === null) return;
     const next = { ...tune };
-    for (const k of KNOBS) if (k in patch) next[k] = patch[k] ?? KNOB_RANGE[k].default;
+    for (const k of knobsFor(style)) if (k in patch) next[k] = patch[k] ?? controlsFor(style)[k]!.default;
     setTunes(t => ({ ...t, [style]: next }));
     saver.current?.edit(style, patch);
   };
@@ -472,7 +559,7 @@ function ConciergePage() {
 
   const labels = { look, phase, muted: call.muted, ready, checking, needsLogin };
   const label = stateLabel(labels);
-  const caption = call.caption !== null ? { who: call.caption.role === "user" ? "You" : "Concierge", text: call.caption.text } : null;
+  const caption = call.caption !== null ? { who: call.caption.role === "user" ? "You" : answerer(call.target), text: call.caption.text } : null;
   const hint = call.activity ?? (phase === "idle" && ready ? idleHint(touch, isMac()) : null);
 
   // The sphere's size and where it sits.
@@ -534,6 +621,7 @@ function ConciergePage() {
   return (
     <div ref={root} className="relative flex h-full min-h-0 flex-col overflow-hidden text-sm">
       <StatusLine status={status} error={statusError} checking={checking} phase={phase} muted={call.muted} onRefresh={refreshStatus} />
+      {call.target !== null && !call.target.concierge && <ElsewhereBar target={call.target} />}
       {status !== null && !status.ready && (
         <SetupCard status={status} login={login} signingIn={signingIn} onSignIn={signIn} onRefresh={refreshStatus} />
       )}
@@ -551,7 +639,7 @@ function ConciergePage() {
             <div className="mt-2">
               <Controls size="large" ready={ready} narrow={size.width < 760} />
             </div>
-            {phase === "idle" && ready && <StylePicker style={style} onPick={pick} tuning={tuning} onTuning={setTuning} toggle={tuneButton} />}
+            {phase === "idle" && ready && <StylePicker error={styleError} style={style} onPick={pick} tuning={tuning} onTuning={setTuning} toggle={tuneButton} />}
           </div>
           {conversation}
         </div>
@@ -560,7 +648,7 @@ function ConciergePage() {
           <TopStage collapsed={docked || setup} canDock={phase !== "idle" && !sphereFailed} onDock={toggleDock}>
             <div ref={largeSlot} className="shrink-0" style={{ width: S, height: sphereFailed ? 8 : S }} aria-hidden="true" />
             <StateText label={label} caption={caption} hint={hint} live={phase !== "idle"} />
-            {phase === "idle" && ready && !sphereFailed && <StylePicker style={style} onPick={pick} tuning={tuning} onTuning={setTuning} toggle={tuneButton} />}
+            {phase === "idle" && ready && !sphereFailed && <StylePicker error={styleError} style={style} onPick={pick} tuning={tuning} onTuning={setTuning} toggle={tuneButton} />}
           </TopStage>
           {alert !== false && <div className="px-4 pb-2">{alert}</div>}
           {conversation}
@@ -590,12 +678,19 @@ function Orb(props: {
   onFail: () => void;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const press = useRef<{ id: number; x: number; y: number } | null>(null);
+  const dragged = useRef(false);
+  const spaceArmed = useRef(false);
+  const [aligned, setAligned] = useState(false);
   const sphere = useRef<{ sphere: Sphere; unsubscribe: () => void } | null>(null);
   const { style, tune, place, base, small } = props;
   useEffect(() => {
     if (canvas.current === null) return;
     if (sphere.current !== null) {
-      sphere.current.sphere.setStyle(style);
+      try {
+        sphere.current.sphere.setStyle(style);
+        sphere.current.sphere.setTune(tune);
+      } catch { props.onFail(); }
       return;
     }
     let s: Sphere;
@@ -606,6 +701,8 @@ function Orb(props: {
           return { mode: sphereMode(c), levels: calls.levels(), muted: c.muted };
         },
         onLook: props.onLook,
+        onUnavailable: props.onFail,
+        onAlignment: setAligned,
       });
     } catch {
       props.onFail(); // no WebGL2: the page works without the sphere
@@ -630,29 +727,96 @@ function Orb(props: {
     const t = setTimeout(() => sphere.current?.sphere.setDetail(small ? Math.max(0.3, 96 / base) : 1), small ? MS : 0);
     return () => clearTimeout(t);
   }, [small, base]);
+  useEffect(() => {
+    sphere.current?.sphere.clearPointer();
+    press.current = null;
+    dragged.current = false;
+    spaceArmed.current = false;
+  }, [small, style]);
   const floating = place !== null;
+  const interactive = !small && VISUALS[style].interaction !== "call";
+  const activate = () => {
+    if (!interactive || !sphere.current?.sphere.activate()) props.onTap();
+  };
+  const point = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    sphere.current?.sphere.point(2 * (e.clientX - r.left) / r.width - 1, 1 - 2 * (e.clientY - r.top) / r.height);
+  };
+  const interactionLabel = { align: aligned ? "Unfold the chrome rings" : "Align the chrome rings", squish: "Squish the glowing orb", morph: "Pulse the gradient blob", call: props.label }[VISUALS[style].interaction];
   return (
     <canvas
       ref={canvas}
       role="button"
       tabIndex={0}
-      aria-label={props.label}
+      aria-label={interactive ? interactionLabel : props.label}
+      aria-pressed={interactive && VISUALS[style].interaction === "align" ? aligned : undefined}
       className={`shrink-0 cursor-pointer touch-manipulation rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring ${floating ? "absolute left-0 top-0 z-10" : ""}`}
       style={
         floating
           ? {
               width: base,
               height: base,
+              touchAction: interactive ? "none" : "manipulation",
               transformOrigin: "0 0",
               transform: `translate(${place.x}px, ${place.y}px) scale(${place.size / base})`,
               transition: motion("transform"),
             }
-          : { width: base, height: base }
+          : { width: base, height: base, touchAction: interactive ? "none" : "manipulation" }
       }
-      onClick={props.onTap}
-      onKeyDown={e => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), props.onTap())}
+      onClick={() => { if (!dragged.current) activate(); dragged.current = false; }}
+      onKeyDown={e => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        if (e.key === " " && !e.repeat) { spaceArmed.current = true; if (interactive) sphere.current?.sphere.setPressed(true); }
+        if (e.key === "Enter" && !e.repeat) { if (interactive) sphere.current?.sphere.setPressed(true); activate(); }
+      }}
+      onKeyUp={e => {
+        if (e.key === "Enter") { sphere.current?.sphere.setPressed(false); return; }
+        if (e.key !== " ") return;
+        e.preventDefault();
+        sphere.current?.sphere.setPressed(false);
+        if (spaceArmed.current) activate();
+        spaceArmed.current = false;
+      }}
+      onBlur={() => {
+        spaceArmed.current = false;
+        sphere.current?.sphere.clearPointer();
+      }}
+      onPointerDown={e => {
+        dragged.current = false;
+        if (!interactive || !e.isPrimary || e.button !== 0) return;
+        press.current = { id: e.pointerId, x: e.clientX, y: e.clientY };
+        point(e);
+        sphere.current?.sphere.setPressed(true);
+        e.currentTarget.setPointerCapture(e.pointerId);
+      }}
+      onPointerUp={e => {
+        if (press.current?.id !== e.pointerId) return;
+        press.current = null;
+        sphere.current?.sphere.setPressed(false);
+        if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+        if (e.pointerType !== "mouse") sphere.current?.sphere.clearPointer();
+      }}
+      onPointerMove={e => {
+        if (!interactive) return;
+        const down = press.current;
+        if (down && down.id !== e.pointerId) return;
+        if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 7) dragged.current = true;
+        point(e);
+      }}
       onPointerEnter={e => e.pointerType === "mouse" && props.onPeek(true)}
-      onPointerLeave={() => props.onPeek(false)}
+      onPointerLeave={() => { if (press.current === null) sphere.current?.sphere.clearPointer(); props.onPeek(false); }}
+      onPointerCancel={() => {
+        press.current = null;
+        dragged.current = true;
+        sphere.current?.sphere.clearPointer();
+      }}
+      onLostPointerCapture={() => {
+        if (press.current === null) return;
+        press.current = null;
+        dragged.current = true;
+        sphere.current?.sphere.clearPointer();
+      }}
     />
   );
 }
@@ -798,6 +962,27 @@ function Controls({ size, ready, narrow = false, wide = false }: { size: "large"
   );
 }
 
+/** On the concierge's page during a call with another thread: which thread is listening, and a way to bring it here. */
+function ElsewhereBar({ target }: { target: CallTarget }) {
+  const navigate = useBbNavigate();
+  return (
+    <div className="mx-4 mb-2 flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-xs" role="status">
+      <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-emerald-500" />
+      <span className="min-w-0 flex-1 truncate">
+        This call is with <span className="font-medium">{target.title}</span>; its agent answers.
+      </span>
+      {target.threadId !== null && (
+        <button className="h-8 shrink-0 rounded-md px-2 hover:bg-muted/70" onClick={() => navigate.toThread(target.threadId!)}>
+          Open
+        </button>
+      )}
+      <button className="h-8 shrink-0 rounded-md px-2 font-medium hover:bg-muted/70" onClick={() => void calls.retarget(null)}>
+        Move here
+      </button>
+    </div>
+  );
+}
+
 function StatusLine(props: { status: Status | null; error: string | null; checking: boolean; phase: Phase; muted: boolean; onRefresh: () => void }) {
   const { status, error, checking, phase } = props;
   const inCall = phase === "live" || phase === "connecting";
@@ -928,6 +1113,7 @@ function ErrorBanner({ error, canRetry, onRetry, onDismiss }: { error: string; c
 }
 
 function StylePicker(props: {
+  error: string | null;
   style: SphereStyle | null;
   onPick: (s: SphereStyle) => void;
   tuning: boolean;
@@ -936,27 +1122,20 @@ function StylePicker(props: {
   toggle: React.RefObject<HTMLButtonElement | null>;
 }) {
   const { style, onPick, tuning, toggle } = props;
-  const [named, setNamed] = useState<SphereStyle | null>(null);
-  useEffect(() => {
-    if (named === null) return;
-    const t = setTimeout(() => setNamed(null), 1500);
-    return () => clearTimeout(t);
-  }, [named]);
   return (
-    <div className="relative flex flex-col items-center">
-      <div className="flex items-center">
+    <div className="relative flex max-w-full flex-col items-center">
+      <div className="flex max-w-full items-center">
         <div
-          className="flex items-center"
+          className="flex min-w-0 flex-wrap items-center justify-center"
           role="radiogroup"
           aria-label="Sphere style"
           onKeyDown={e => {
             const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
-            if (step === 0) return;
+            if (step === 0 && e.key !== "Home" && e.key !== "End") return;
             e.preventDefault();
             const n = SPHERE_STYLES.length;
-            const next = SPHERE_STYLES[(SPHERE_STYLES.indexOf(style ?? SPHERE_STYLES[0]) + step + n) % n]!;
+            const next = SPHERE_STYLES[e.key === "Home" ? 0 : e.key === "End" ? n - 1 : (SPHERE_STYLES.indexOf(style ?? SPHERE_STYLES[0]) + step + n) % n]!;
             onPick(next);
-            setNamed(next);
             e.currentTarget.querySelector<HTMLElement>(`[data-style="${next}"]`)?.focus();
           }}
         >
@@ -969,8 +1148,8 @@ function StylePicker(props: {
               tabIndex={s === (style ?? SPHERE_STYLES[0]) ? 0 : -1}
               aria-label={STYLE_LABELS[s]}
               title={STYLE_LABELS[s]}
-              className="group flex h-11 w-11 items-center justify-center rounded-full"
-              onClick={() => (onPick(s), setNamed(s))}
+              className="group flex h-11 w-11 items-center justify-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
+              onClick={() => onPick(s)}
             >
               <span
                 className={`h-6 w-6 rounded-full transition-[box-shadow,transform,opacity] duration-200 group-active:scale-90 ${s === style ? "ring-2 ring-foreground/70 ring-offset-2 ring-offset-background" : "opacity-70 hover:opacity-100"}`}
@@ -981,7 +1160,7 @@ function StylePicker(props: {
         </div>
         <button
           ref={toggle}
-          className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:text-foreground active:scale-95 ${tuning ? "bg-muted/70 text-foreground" : "text-muted-foreground"}`}
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors hover:text-foreground active:scale-95 ${tuning ? "bg-muted/70 text-foreground" : "text-muted-foreground"}`}
           aria-label="Tune the sphere"
           aria-expanded={tuning}
           title="Tune the sphere"
@@ -990,14 +1169,18 @@ function StylePicker(props: {
           <Icon name="sliders" size={18} />
         </button>
       </div>
-      <div className="h-4 text-[11px] text-muted-foreground" aria-live="polite" style={{ opacity: named ? 1 : 0, transition: motion("opacity") }}>
-        {named !== null ? STYLE_LABELS[named] : ""}
+      <div className="text-center text-xs font-medium" aria-live="polite">
+        {STYLE_LABELS[style ?? SPHERE_STYLES[0]]}
       </div>
+      <div className="mt-1 max-w-64 text-center text-[11px] text-muted-foreground">
+        {style ? INTERACTION_HINTS[VISUALS[style].interaction] : ""}
+      </div>
+      {props.error && <div role="status" className="mt-1 max-w-64 text-center text-xs text-destructive">Couldn't save style: {props.error}</div>}
     </div>
   );
 }
 
-/** The compact tuning panel: the current style's four knobs, applied live and saved to the plugin settings. */
+/** The compact tuning panel: the current style's controls, applied live and saved to the plugin settings. */
 function TunePanel(props: {
   style: SphereStyle;
   tune: Tune;
@@ -1012,23 +1195,40 @@ function TunePanel(props: {
   const panel = useRef<HTMLDivElement>(null);
   const { onClose, root, anchor, opens } = props;
   // Placed in the page's coordinates next to the tune button, kept inside the page.
-  const [at, setAt] = useState<{ left: number; top: number } | null>(null);
+  const [at, setAt] = useState<{ left: number; top: number; maxHeight: number; width: number } | null>(null);
   useLayoutEffect(() => {
     const place = () => {
       const r = root.current?.getBoundingClientRect(), a = anchor.current?.getBoundingClientRect(), p = panel.current;
       if (r === undefined || a === undefined || p === null) return;
-      const w = p.offsetWidth, h = p.offsetHeight, m = 12;
+      const m = 12;
+      const viewport = window.visualViewport;
+      const visibleTop = Math.max(r.top, viewport?.offsetTop ?? 0);
+      const visibleBottom = Math.min(r.bottom, (viewport?.offsetTop ?? 0) + (viewport?.height ?? window.innerHeight)) - 64;
+      const maxHeight = Math.max(44, visibleBottom - visibleTop - m * 2);
+      const width = Math.max(44, Math.min(340, r.width - m * 2, window.innerWidth - m * 2));
+      const w = width, h = Math.min(p.offsetHeight, maxHeight);
       const left = opens === "below" ? a.left + a.width / 2 - w / 2 - r.left : a.right + m - r.left;
       const top = opens === "below" ? a.bottom + 4 - r.top : a.bottom - h - r.top;
-      // side by side, it also keeps clear of the floating button in the bottom-right corner
-      const bottom = opens === "right" ? 76 : m;
-      setAt({ left: Math.max(m, Math.min(left, r.width - w - m)), top: Math.max(m, Math.min(top, r.height - h - bottom)) });
+      // Keep the controls clear of the host's floating action button.
+      setAt({ left: Math.max(m, Math.min(left, r.width - w - m)), top: Math.max(visibleTop - r.top + m, Math.min(top, visibleBottom - r.top - h - m)), maxHeight, width });
     };
     place();
     const ro = new ResizeObserver(place);
     if (root.current !== null) ro.observe(root.current);
-    return () => ro.disconnect();
-  }, [root, anchor, opens]);
+    if (anchor.current !== null) ro.observe(anchor.current);
+    if (panel.current !== null) ro.observe(panel.current);
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    window.visualViewport?.addEventListener("resize", place);
+    window.visualViewport?.addEventListener("scroll", place);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+      window.visualViewport?.removeEventListener("resize", place);
+      window.visualViewport?.removeEventListener("scroll", place);
+    };
+  }, [root, anchor, opens, props.style]);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -1053,37 +1253,42 @@ function TunePanel(props: {
       if (el.contains(document.activeElement) || document.activeElement === document.body) anchor.current?.focus({ preventScroll: true });
     };
   }, [anchor]);
-  const changed = KNOBS.some(k => props.tune[k] !== KNOB_RANGE[k].default);
+  const controls = controlsFor(props.style);
+  const knobs = knobsFor(props.style);
+  const changed = knobs.some(k => props.tune[k] !== controls[k]!.default);
   return (
     <div
       ref={panel}
       role="dialog"
       aria-label={`Tune ${STYLE_LABELS[props.style]}`}
-      className="absolute z-30 w-[min(300px,calc(100vw-32px))] rounded-xl border border-border bg-popover p-3 text-popover-foreground shadow-lg"
-      style={{ left: at?.left ?? 0, top: at?.top ?? 0, visibility: at === null ? "hidden" : "visible" }}
+      className="absolute z-30 flex max-h-[80vh] flex-col overflow-hidden w-[min(340px,calc(100vw-32px))] rounded-xl border border-border bg-popover p-3 text-popover-foreground shadow-lg"
+      style={{ left: at?.left ?? 0, top: at?.top ?? 0, maxHeight: at?.maxHeight, width: at?.width, visibility: at === null ? "hidden" : "visible" }}
     >
-      <div className="-mt-2 flex items-center justify-between">
+      <div className="-mt-2 flex shrink-0 items-center justify-between">
         <div className="text-xs font-medium">{STYLE_LABELS[props.style]}</div>
         <div className="flex items-center">
           <button
             className="h-11 rounded-md px-3 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40"
             disabled={!changed}
-            onClick={() => props.onTune({ vividness: null, motion: null, glow: null, hue: null })}
+            onClick={() => props.onTune(Object.fromEntries(knobs.map(k => [k, null])))}
           >
             Reset
           </button>
-          <button className="-mr-2 flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground hover:text-foreground" aria-label="Close" onClick={onClose}>
+          <button className="-mr-2 flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground hover:text-foreground" aria-label="Close visual controls" onClick={onClose}>
             <Icon name="x" size={14} />
           </button>
         </div>
       </div>
-      {KNOBS.map(k => {
-        const r = KNOB_RANGE[k];
+      <div className="min-h-0 overflow-y-auto overscroll-contain">
+      {knobs.map((k, index) => {
+        const r = controls[k]!;
         const id = `vc-tune-${k}`;
         return (
-          <div key={k} className="flex h-11 items-center gap-3">
-            <label htmlFor={id} className="w-16 shrink-0 text-xs text-muted-foreground">
-              {KNOB_LABELS[k]}
+          <div key={k}>
+          {(index === 0 || (k in VISUALS[props.style].knobs && !(knobs[index - 1]! in VISUALS[props.style].knobs))) && <div className="mb-1 mt-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{index === 0 ? "Look" : "Material & interaction"}</div>}
+          <div className="flex min-h-11 items-center gap-2">
+            <label htmlFor={id} className="w-24 shrink-0 text-xs text-muted-foreground">
+              {r.label}
             </label>
             <input
               id={id}
@@ -1091,23 +1296,27 @@ function TunePanel(props: {
               min={r.min}
               max={r.max}
               step={r.step}
-              value={props.tune[k]}
-              aria-valuetext={k === "hue" ? `${formatKnob(k, props.tune[k])} degrees` : formatKnob(k, props.tune[k])}
+              value={props.tune[k] ?? r.default}
+              aria-valuetext={r.unit ? `${props.tune[k] ?? r.default} ${r.unit}` : formatKnob(k, props.tune[k] ?? r.default, props.style)}
               onChange={e => props.onTune({ [k]: Number(e.target.value) })}
               onDoubleClick={() => props.onTune({ [k]: null })}
               className="h-11 min-w-0 flex-1 cursor-pointer accent-foreground"
               style={k === "hue" ? { accentColor: `hsl(${props.tune.hue + 330} 80% 60%)` } : undefined}
             />
-            <span className="w-11 shrink-0 text-right text-xs tabular-nums text-muted-foreground">{formatKnob(k, props.tune[k])}</span>
+            <button type="button" className="min-h-11 w-11 shrink-0 rounded text-right text-xs tabular-nums text-muted-foreground hover:text-foreground disabled:opacity-50" title={`Reset ${r.label}`} aria-label={`Reset ${r.label}; current value ${formatKnob(k, props.tune[k] ?? r.default, props.style)}`} disabled={(props.tune[k] ?? r.default) === r.default} onClick={() => props.onTune({ [k]: null })}>{formatKnob(k, props.tune[k] ?? r.default, props.style)}</button>
+          </div>
           </div>
         );
       })}
+      </div>
+      <div className="shrink-0 border-t border-border pt-2">
       {props.error !== null && (
         <div className="mt-1 text-xs text-destructive" role="alert">
           Couldn't save these settings: {props.error}
         </div>
       )}
-      <div className="mt-1 text-[11px] text-muted-foreground">Saved to the plugin settings as you go.</div>
+      <div className="text-[11px] text-muted-foreground">Drag to preview · tap a value to reset.<br />Changes save automatically.</div>
+      </div>
     </div>
   );
 }
@@ -1217,6 +1426,8 @@ const ICONS: Record<string, string> = {
   check: "M20 6 9 17l-5-5",
   keyboard: "M2 6h20v12H2zM6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8",
   sliders: "M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1M15 4v4M9 10v4M17 16v4",
+  /** Bring the call here: an arrow into a tray. */
+  "move-here": "M12 3v12M7 10l5 5 5-5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4",
 };
 
 /** Line icons in the style of bb's own (24-grid, 2px round strokes). */
@@ -1272,10 +1483,14 @@ function LiveOverlay() {
   const call = useCall();
   const navigate = useBbNavigate();
   const rpc = useRpc<typeof rpcContract>();
+  const { threadId: focused } = useBbContext();
   useEffect(() => {
     anywhere.rpc = rpc;
     anywhere.open = () => navigate.toPluginPanel(PAGE);
   }, [rpc, navigate]);
+  useEffect(() => {
+    anywhere.threadId = focused;
+  }, [focused]);
   const touch = useTouch();
   const compact = useCompact();
   const keyboard = useKeyboardOpen();
@@ -1287,6 +1502,31 @@ function LiveOverlay() {
     return () => clearTimeout(t);
   }, [onPage, call.phase]);
   useRealtime(LIVE_CHANNEL, payload => calls.receive(payload as LiveSignal));
+  if (call.phase === "idle" && call.error !== null && !onPage) {
+    // A call started from a thread (or the shortcut) failed: say why where the person is, with the way to fix it.
+    const { text } = friendlyError(call.error);
+    return (
+      <div
+        role="alert"
+        className="pointer-events-auto fixed z-50 flex max-w-[min(420px,calc(100vw-24px))] items-center gap-1 rounded-full border border-border bg-background/90 py-1 pl-3 pr-1 text-xs backdrop-blur"
+        style={{
+          boxShadow: "0 6px 20px rgb(0 0 0 / 0.45)",
+          ...(compact
+            ? { top: "calc(env(safe-area-inset-top) + 56px)", left: "50%", transform: "translateX(-50%)" }
+            : { bottom: "calc(env(safe-area-inset-bottom) + 20px)", right: "84px" }),
+        }}
+      >
+        <Icon name="alert" size={14} className="shrink-0 text-destructive" />
+        <span className="min-w-0 truncate px-1">{text}</span>
+        <button className="shrink-0 whitespace-nowrap rounded-full px-2 py-1.5 font-medium hover:bg-muted/60" onClick={() => (calls.clearError(), navigate.toPluginPanel(PAGE))}>
+          Open
+        </button>
+        <button className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full hover:bg-muted/60" aria-label="Dismiss" onClick={() => calls.clearError()}>
+          <Icon name="x" size={14} />
+        </button>
+      </div>
+    );
+  }
   if (call.phase === "idle") {
     // On a touch screen, a small tab on the right edge stays one tap away on every page: clear of the composer and
     // of the floating buttons in the bottom corner, hidden while typing and on the concierge's own page.
@@ -1302,7 +1542,7 @@ function LiveOverlay() {
           transition: motion("opacity"),
         }}
         onPointerDown={() => setQuiet(false)}
-        aria-label="Talk to the voice concierge"
+        aria-label="Talk by voice (to the thread on screen, else the concierge)"
         onClick={talkOrHangUp}
       >
         <Icon name="mic" size={18} />
@@ -1312,6 +1552,10 @@ function LiveOverlay() {
   if (onPage) return null; // the page has the full controls
   const live = call.phase === "live";
   const text = !live ? (call.phase === "connecting" ? "Connecting…" : "Ending…") : call.activity !== null ? "Looking that up…" : call.muted ? "Muted" : "Listening";
+  const target = call.target;
+  // Pinned: the call stays with its thread while the person moves around; on another thread, one tap moves it there.
+  const canMove = live && target !== null && target.threadId !== null && focused !== null && focused !== target.threadId;
+  const openTarget = () => (target !== null && !target.concierge && target.threadId !== null ? navigate.toThread(target.threadId) : navigate.toPluginPanel(PAGE));
   return (
     <div
       className="pointer-events-auto fixed z-50 flex items-center gap-1 rounded-full border border-border bg-background/80 py-1 pl-3 pr-1 text-xs backdrop-blur"
@@ -1323,9 +1567,24 @@ function LiveOverlay() {
       }}
     >
       <span className={`h-2 w-2 shrink-0 rounded-full ${live ? (call.muted ? "bg-amber-500" : "animate-pulse bg-emerald-500") : "bg-muted-foreground"}`} />
-      <button className="whitespace-nowrap px-1.5 py-1.5 font-medium hover:underline" onClick={() => navigate.toPluginPanel(PAGE)} title="Open the Voice concierge">
-        Concierge · {text}
+      <button
+        className="flex min-w-0 max-w-[min(320px,60vw)] items-center whitespace-nowrap px-1.5 py-1.5 font-medium hover:underline"
+        onClick={openTarget}
+        title={target === null || target.concierge ? "Open the Voice concierge" : `Talking to the thread “${target.title}”: open it`}
+      >
+        <span className="min-w-0 truncate">{answerer(target)}</span>
+        <span className="shrink-0">&nbsp;· {text}</span>
       </button>
+      {canMove && (
+        <button
+          className={`flex shrink-0 items-center gap-1 rounded-full px-2 hover:bg-muted/60 ${compact ? "h-11" : "h-8"}`}
+          title="Move the voice call to this thread"
+          onClick={() => void calls.retarget(focused)}
+        >
+          <Icon name="move-here" size={14} />
+          {!compact && <span>Move here</span>}
+        </button>
+      )}
       {live && (
         <button
           className={`flex items-center justify-center rounded-full hover:bg-muted/60 ${compact ? "h-11 w-11" : "h-8 w-8"} ${call.muted ? "text-amber-500" : ""}`}
@@ -1355,10 +1614,57 @@ function useTouch(): boolean {
   return touch;
 }
 
+/** What the header action reads for every thread on screen: the one call and how to start it. */
+function useTalkData() {
+  return { call: useCall(), rpc: useRpc<typeof rpcContract>() };
+}
+
+/**
+ * Talk, in every thread's header (on a phone, at the top of its thread menu). Idle: start a call with this thread,
+ * whose agent answers aloud. In a call with this thread: says it is listening, and hangs up. In a call with another
+ * thread: moves the call here (calls stay pinned to their thread otherwise).
+ */
+function talkItem({ thread, data }: { thread: { id: string }; data: ReturnType<typeof useTalkData> }) {
+  const { call, rpc } = data;
+  const here = thread.id;
+  if (call.phase === "connecting" && call.asked === here) {
+    return { label: "Connecting…", detail: "Cancel the voice call", icon: ICON.phoneOff, variant: "destructive" as const, run: () => void calls.stop() };
+  }
+  if (call.phase === "live" && call.target?.threadId === here) {
+    return { label: call.muted ? "Muted · Hang up" : "Listening · Hang up", detail: "This thread is on a voice call", icon: ICON.phoneOff, variant: "destructive" as const, run: () => void calls.stop() };
+  }
+  if (call.phase === "live" && call.target !== null && call.target.threadId !== null) {
+    return { label: "Move call here", detail: `Now talking to ${answerer(call.target)}`, icon: ICON.moveHere, run: () => void calls.retarget(here) };
+  }
+  return {
+    label: "Talk",
+    detail: "Talk to this thread: its agent answers aloud",
+    icon: ICON.mic,
+    disabled: call.phase !== "idle",
+    run: () => void calls.start(rpc, here),
+  };
+}
+
+/** The plugin's own glyphs as app icons, for host-rendered surfaces (the header action). */
+const ICON = { mic: "voice-concierge/mic", phoneOff: "voice-concierge/phone-off", moveHere: "voice-concierge/move-here" } as const;
+const glyph = (name: keyof typeof ICONS) =>
+  function Glyph({ className }: { className?: string }) {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+        <path d={ICONS[name]} />
+      </svg>
+    );
+  };
+
 export default definePluginApp(app => {
   app.slots.navPanel({ id: PAGE, title: "Voice concierge", icon: "Mic", path: PAGE, component: ConciergePage });
   app.slots.experimental_appOverlay({ id: "live", component: LiveOverlay });
   // From anywhere: the command palette and a keyboard shortcut (rebindable), and one click in the sidebar footer.
-  app.commands.register({ id: "talk", title: "Voice concierge: talk / hang up", defaultShortcut: { key: "m", mod: true, shift: true }, run: talkOrHangUp });
-  app.slots.sidebarFooterAction({ id: "talk", title: "Talk to the voice concierge", icon: "Mic", run: talkOrHangUp });
+  app.commands.register({ id: "talk", title: "Voice: talk to this thread (or the concierge) / hang up", defaultShortcut: { key: "m", mod: true, shift: true }, run: talkOrHangUp });
+  app.slots.sidebarFooterAction({ id: "talk", title: "Talk by voice (to the thread on screen, else the concierge)", icon: "Mic", run: talkOrHangUp });
+  // In every thread: talk to that thread.
+  app.experimental_icons.register({ name: ICON.mic, component: glyph("mic") });
+  app.experimental_icons.register({ name: ICON.phoneOff, component: glyph("phone-off") });
+  app.experimental_icons.register({ name: ICON.moveHere, component: glyph("move-here") });
+  app.slots.experimental_threadAction({ id: "talk", title: "Talk by voice", icon: ICON.mic, group: "voice", placement: "header", useData: useTalkData, item: talkItem });
 });

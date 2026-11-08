@@ -1,32 +1,16 @@
-// The sphere's art styles, each a material that should read as itself at a glance: a candy (glossy, translucent,
-// glowing from within), a moonstone (milky, with the blue adularescence floating under its surface), an aurora globe
-// (curtains of the northern lights drifting inside dark glass) and a frosted glass globe (a warm light refracted and
-// scattered by the frost). Each style is one GLSL function, `vec3 body(Ctx c)`, the colour of the sphere's surface
-// at a point; a shared frame shades a real, deforming body around it. The body is a mesh (an icosphere, see
-// sphere.ts) whose vertex shader displaces the surface with slow noise driven by the voice and the call's phase, and
-// derives its normals from that displacement, so light, rim and gloss follow the moving shape; a second, cheap pass
-// draws the halo behind it. Rules every style keeps: almost a perfect ball when silent, soft low-frequency swells
-// (finer and livelier for the owner's voice, broader and rounder for the concierge's, a slow roll while thinking),
-// one hue family whose states differ by brightness, a small hue shift and speed, translucent glow, no sharp lines.
-//
+// Materials share one lighting and halo frame; sphere materials add radial
+// deformation, while chrome uses nested elliptical bands. Normals follow the
+// moving surface, with smooth cavity shading to reveal its folds.
 // The 3D simplex noise is Ashima Arts' / Stefan Gustavson's webgl-noise (MIT).
 
-export const SPHERE_STYLES = ["jelly", "moonstone", "aurora", "frosted"] as const;
-export type SphereStyle = (typeof SPHERE_STYLES)[number];
-export const STYLE_LABELS: Record<SphereStyle, string> = {
-  jelly: "Candy jelly",
-  moonstone: "Moonstone",
-  aurora: "Aurora orb",
-  frosted: "Frosted globe",
-};
+import { VISUALS, VISUAL_STYLES, type VisualStyle } from "./visuals.ts";
+import { AI_BLOB, GRADIENT_BLOB } from "./blob-styles.ts";
+import { CHROME_ORBIT, CHROME_VERTEX } from "./chrome-orbit.ts";
 
-/** A CSS swatch for each style, for the picker. */
-export const STYLE_SWATCHES: Record<SphereStyle, string> = {
-  jelly: "radial-gradient(circle at 35% 30%, #ffd7c8 0%, #ff5a4a 38%, #8a0f22 100%)",
-  moonstone: "radial-gradient(circle at 35% 30%, #eef2ff 0%, #9fb0d6 45%, #2b3350 100%)",
-  aurora: "linear-gradient(180deg, #d24bd6 0%, #2fd6c3 45%, #3cff8a 62%, #0b1226 100%)",
-  frosted: "radial-gradient(circle at 50% 55%, #fff1d6 0%, #f0c98a 28%, #9ea3ad 60%, #4a4d55 100%)",
-};
+export const SPHERE_STYLES = VISUAL_STYLES;
+export type SphereStyle = VisualStyle;
+export const STYLE_LABELS = Object.fromEntries(SPHERE_STYLES.map(s => [s, VISUALS[s].label])) as Record<SphereStyle, string>;
+export const STYLE_SWATCHES = Object.fromEntries(SPHERE_STYLES.map(s => [s, VISUALS[s].swatch])) as Record<SphereStyle, string>;
 
 export const isSphereStyle = (s: string): s is SphereStyle => (SPHERE_STYLES as readonly string[]).includes(s);
 
@@ -119,7 +103,7 @@ vec3 studio(vec3 r) {
   vec2 q = vec2(dot(r, bu), dot(r, bv)) / max(f, 1e-3);
   float box = f > 0.0 ? 1.0 - smoothstep(0.7, 1.0, max(abs(q.x) / 0.45, abs(q.y) / 0.32)) : 0.0;
   float strip = smoothstep(0.965, 0.995, dot(r, normalize(vec3(0.95, -0.05, 0.3))));
-  return vec3(1.0) * box * 1.7 + vec3(0.65, 0.75, 1.0) * strip * 0.7 + vec3(0.03, 0.035, 0.05) + vec3(0.04) * smoothstep(0.2, -0.8, r.y);
+  return vec3(1.0) * box * 1.15 + vec3(0.65, 0.75, 1.0) * strip * 0.7 + vec3(0.03, 0.035, 0.05) + vec3(0.04) * smoothstep(0.2, -0.8, r.y);
 }`;
 
 const JELLY = /* glsl */ `
@@ -152,8 +136,8 @@ vec3 body(Ctx c) {
   }
   // the glassy shell: the studio reflected, and a sharp glint of the key light
   float F = schlick(0.05, c.ndv);
-  col = col * (1.0 - F) + studio(c.r) * F * 4.5;
-  col += vec3(1.0, 0.98, 0.95) * pow(max(dot(c.r, c.key), 0.0), 180.0) * 2.4;
+  col = col * (1.0 - F) + studio(c.r) * F * 2.8;
+  col += vec3(1.0, 0.98, 0.95) * pow(max(dot(c.r, c.key), 0.0), 180.0) * 1.35;
   return hueShift(col, c.tint);
 }
 vec3 haloColor(Ctx c) { return hueShift(vec3(1.0, 0.36, 0.3), c.tint); }
@@ -256,32 +240,80 @@ const float HALO_VOICE = 0.28;
 const float HALO_FALLOFF = 7.0;
 const float LIGHTING = 0.7;`;
 
-const BODIES: Record<SphereStyle, string> = { jelly: JELLY, moonstone: MOONSTONE, aurora: AURORA, frosted: FROSTED };
+const MATERIALS: Record<SphereStyle, { body: string; helpers?: string; entranceScale?: number; displacement?: string; voice?: string; transform?: string; lighting?: number; cavity?: number; edgeSoftness?: number; maxDisplacement?: number }> = {
+  jelly: { body: JELLY },
+  moonstone: { body: MOONSTONE },
+  aurora: { body: AURORA },
+  frosted: { body: FROSTED },
+  aiBlob: {
+    body: AI_BLOB, helpers: `
+vec3 softSquash(vec3 p, vec2 direction, float strength) {
+  vec2 axis = length(direction) > 0.01 ? normalize(direction) : vec2(0.0, 1.0);
+  vec2 across = vec2(-axis.y, axis.x);
+  float amount = clamp(strength, -0.12, 0.22);
+  p.xy = axis * dot(p.xy, axis) * (1.0 - amount) + across * dot(p.xy, across) * (1.0 + amount * 0.65);
+  p.z *= 1.0 + amount * 0.35;
+  return p;
+}
+`, entranceScale: 0.82, lighting: 0.12, cavity: 0.0, maxDisplacement: 0.10,
+    displacement: "uWobble * 0.035 * sin(d.x * 2.5 + uFlow * 0.4) * cos(d.y * 2.0 - uFlow * 0.3) - (uPress * 0.035 + uTap * 0.025) * exp(-dot(d.xy - uTapPoint * 0.7, d.xy - uTapPoint * 0.7) * 7.0) * max(d.z, 0.0)",
+    voice: "uLevel * uReactivity * 0.022",
+    transform: "p = softSquash(p, uPointer, uPress * 0.075); p = softSquash(p, uTapPoint, uTap * 0.12); p.xy += uPointer * uHoverTilt * 0.025 + uVelocity * 0.004; p *= 0.97;",
+  },
+  gradientBlob: {
+    body: GRADIENT_BLOB, entranceScale: 0.86, helpers: `
+vec3 gradientViewDir(vec3 d) {
+  float roll = uTime * uRotationSpeed * 0.12;
+  float cs = cos(roll), sn = sin(roll);
+  return vec3(cs * d.x + sn * d.z, d.y, -sn * d.x + cs * d.z);
+}
+float contactWeight(vec3 dir, vec2 point, float sharpness) {
+  vec2 delta = dir.xy - point * 0.7;
+  return exp(-dot(delta, delta) * sharpness) * max(dir.z, 0.0);
+}
+`, lighting: 0.15, cavity: 0.0, edgeSoftness: 0.55, maxDisplacement: 0.20,
+    displacement: "uMorphIntensity * (0.12 * sin(d.x * 2.8 + uFlow * 0.6) * cos(d.y * 2.0 - uFlow * 0.4) + 0.07 * sin(d.z * 2.7 - uFlow * 0.3)) - (uPress * 0.045 + uTap * 0.035) * contactWeight(gradientViewDir(d), uTapPoint, 6.0) + uCursorMorph * 0.16 * contactWeight(gradientViewDir(d), uPointer, 5.0)",
+    voice: "uLevel * 0.025",
+    transform: "p = gradientViewDir(p); p *= vec3(1.0 + uPress * 0.035, 1.0 - uPress * 0.06, 1.0); p *= 0.86 * (1.0 + uBreatheStrength * 0.025 * sin(uTime * 1.4)); p.xy += uPointer * uParallax * 0.045 + uVelocity * 0.005;",
+  },
+  chromeOrbit: { body: CHROME_ORBIT, entranceScale: 0.82, lighting: 0.0, cavity: 0.0 },
+};
 
 /** The ball's radius on screen as a share of half the canvas, before breath and voice. */
 const R_SCREEN = "0.72";
 /** Camera distance in ball radii: a little perspective, so the deformations read in depth. */
 const CAMERA = "4.0";
 
+/** Extra numeric controls become uniforms through the same registry as settings and UI. */
+export function controlUniform(knob: string): string { return `u${knob[0]!.toUpperCase()}${knob.slice(1)}`; }
+export const EXTRA_CONTROLS = [...new Set(SPHERE_STYLES.flatMap(s => Object.keys(VISUALS[s].knobs)))];
+const CONTROL_UNIFORMS = EXTRA_CONTROLS.map(k => `uniform float ${controlUniform(k)};`).join("\n");
+
 const UNIFORMS = /* glsl */ `
 uniform vec2 uRes;
 uniform float uTime, uFlow, uBreath, uLevel, uListen, uSpeak, uThink, uConnect, uSpin, uMute;
-uniform float uVivid, uMotion, uGlow, uHue;`;
+uniform float uVivid, uMotion, uGlow, uHue;
+uniform vec2 uPointer, uVelocity, uTapPoint;
+uniform float uPress, uIntro;
+uniform float uAlign, uTap;
+${CONTROL_UNIFORMS}`;
 
 // The surface: a radial displacement of the unit sphere. The voice inflates the ball and moves it in broad, slow
 // swells (the concierge's voice a touch rounder, with two slow lobes); idle and thinking, a slow roll. The domain is
 // gently warped so the shapes stay organic. The motion knob scales all of it.
-const DISPLACE = /* glsl */ `
+const displacementSource = (deformation: string, voice: string, limit?: number) => /* glsl */ `
 float displacement(vec3 d) {
   vec3 q = d + 0.1 * vec3(snoise(d * 0.8 + vec3(0.0, 0.0, uFlow * 0.1)), snoise(d * 0.8 + vec3(4.3, 0.0, -uFlow * 0.08)), 0.0);
   float broad = snoise(q * 0.95 + vec3(uSpin * 0.2, 0.0, uFlow * 0.3));
   float lobes = sin(2.0 * atan(d.y, d.x) + uSpin * 0.7) * (1.0 - d.z * d.z);
   float slow = snoise(q * 0.75 + vec3(0.0, 0.0, uTime * 0.1));
-  float voice = uLevel * (0.05 + uListen * 0.042 * broad + uSpeak * (0.055 * broad + 0.035 * lobes));
-  return uMotion * (voice * (1.0 - uMute) + slow * (0.012 + 0.006 * uThink + 0.008 * uConnect));
+  float voice = ${voice};
+  float offset = uMotion * (${deformation} + voice * (1.0 - uMute));
+  return ${limit ? `${limit.toFixed(2)} * tanh(offset / ${limit.toFixed(2)})` : "offset"};
 }`;
 
-export const MESH_VERTEX_SOURCE = /* glsl */ `#version 300 es
+export function meshVertexSource(style: SphereStyle): string {
+  return /* glsl */ `#version 300 es
 precision highp float;
 in vec3 aPos;
 ${UNIFORMS}
@@ -289,23 +321,43 @@ out vec3 vDir;
 out vec3 vPos;
 out vec3 vNormal;
 out float vDisp;
+out float vCavity;
 ${NOISE}
-${DISPLACE}
-vec3 surface(vec3 d) { return d * (1.0 + displacement(d)) * uBreath; }
-void main() {
+${MATERIALS[style].helpers ?? ""}
+${displacementSource(MATERIALS[style].displacement ?? "slow * (0.012 + 0.006 * uThink + 0.008 * uConnect)", MATERIALS[style].voice ?? "uLevel * (0.05 + uListen * 0.042 * broad + uSpeak * (0.055 * broad + 0.035 * lobes))", MATERIALS[style].maxDisplacement)}
+vec3 surface(vec3 d) {
+  vec3 p = d * (1.0 + displacement(d)) * uBreath;
+  ${MATERIALS[style].transform ?? ""}
+  ${MATERIALS[style].entranceScale ? `p *= mix(${MATERIALS[style].entranceScale}, 1.0, clamp(uIntro, 0.0, 1.1));` : ""}
+  return p;
+}
+${VISUALS[style].geometry === "rings" ? CHROME_VERTEX : `void main() {
   vec3 d = normalize(aPos);
   vec3 t = normalize(cross(d, abs(d.y) < 0.95 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
   vec3 b = cross(d, t);
   vDisp = displacement(d);
-  vec3 p = d * (1.0 + vDisp) * uBreath;
-  // the normal of the displaced surface, from two nearby points on it
-  vNormal = normalize(cross(surface(normalize(d + t * 0.012)) - p, surface(normalize(d + b * 0.012)) - p));
+  vec3 p = surface(d);
+  // Symmetric samples own both normals and relief. Their radial Laplacian is
+  // smooth across mesh triangles and ignores uniform inflation and breathing.
+  const float stepSize = 0.008;
+  vec3 pt = surface(normalize(d + t * stepSize));
+  vec3 mt = surface(normalize(d - t * stepSize));
+  vec3 pb = surface(normalize(d + b * stepSize));
+  vec3 mb = surface(normalize(d - b * stepSize));
+  vNormal = normalize(cross(pt - mt, pb - mb));
+  float laplacian = (length(pt) + length(mt) + length(pb) + length(mb) - 4.0 * length(p))
+    / max(uBreath * stepSize * stepSize, 1e-6);
+  vCavity = smoothstep(0.25, 2.5, laplacian);
   vDir = d;
   vPos = p;
   float f = ${R_SCREEN} * sqrt(${CAMERA} * ${CAMERA} - 1.0);
   vec2 aspect = vec2(min(uRes.x, uRes.y)) / uRes;
   gl_Position = vec4(p.xy * f * aspect, -0.3 * p.z, ${CAMERA} - p.z);
-}`;
+}`}
+`;
+}
+
+export const MESH_VERTEX_SOURCE = meshVertexSource("jelly");
 
 // A filmic curve (Narkowicz's ACES fit): rich contrast and saturation, highlights that roll off instead of clipping.
 const FINISH = /* glsl */ `
@@ -324,10 +376,11 @@ in vec3 vDir;
 in vec3 vPos;
 in vec3 vNormal;
 in float vDisp;
+in float vCavity;
 out vec4 outColor;
 ${NOISE}
 ${CTX}
-${BODIES[style]}
+${MATERIALS[style].body}
 ${FINISH}
 float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 void main() {
@@ -352,19 +405,23 @@ void main() {
   c.vivid = uVivid;
   c.glow = uGlow;
   vec3 col = body(c);
-  // shared soft lighting: a wrapped key and a gentle terminator low on the right, so every style reads as a ball
-  float lam = 0.62 + 0.5 * max(dot(n, c.key) + 0.4, 0.0) / 1.4;
-  float term = mix(0.8, 1.0, smoothstep(-0.75, 0.35, dot(n.xy, vec2(-0.6, 0.8))));
-  col *= mix(1.0, lam * term, LIGHTING);
-  // soft cavities: the valleys of the deformation a touch deeper, the crests a touch brighter
-  col *= clamp(1.0 + 1.5 * vDisp, 0.84, 1.12);
+  // Directional light follows the displaced normal: folds turn away from the key,
+  // while a low ambient floor keeps the translucent materials readable.
+  float ndl = dot(n, c.key);
+  float diffuse = smoothstep(-0.18, 0.95, ndl);
+  float lighting = 0.32 + 0.8 * diffuse;
+  col *= mix(1.0, lighting, ${MATERIALS[style].lighting?.toFixed(2) ?? "0.55 + 0.45 * LIGHTING"});
+  // Concave radial folds receive smooth occlusion derived with the normals.
+  col *= 1.0 - ${(MATERIALS[style].cavity ?? 0.42).toFixed(2)} * clamp(vCavity, 0.0, 1.0);
   col = hueShift(vividness(col, uVivid), uHue);
   // muted: the ball rests, paler and dimmer
   float grey = dot(col, vec3(0.299, 0.587, 0.114));
   col = mix(col, mix(vec3(grey), col, 0.45) * 0.72, uMute);
   col = filmic(col * 1.05);
   col += (hash(gl_FragCoord.xy + fract(uTime) * 61.0) - 0.5) / 128.0;
-  outColor = vec4(col, 1.0);
+  float alpha = ${MATERIALS[style].edgeSoftness ? `smoothstep(0.0, ${MATERIALS[style].edgeSoftness}, c.ndv)` : "1.0"};
+  ${MATERIALS[style].entranceScale ? "alpha *= smoothstep(0.0, 0.3, uIntro);" : ""}
+  outColor = vec4(col * alpha, alpha);
 }`;
 }
 
@@ -380,14 +437,18 @@ ${UNIFORMS}
 out vec4 outColor;
 ${NOISE}
 ${CTX}
-${BODIES[style]}
+${MATERIALS[style].body}
 void main() {
   vec2 uv = (gl_FragCoord.xy - 0.5 * uRes) / min(uRes.x, uRes.y) * 2.0;
-  float R = ${R_SCREEN} * uBreath * (1.0 + 0.06 * uLevel * uMotion);
+  float R = ${R_SCREEN} * uBreath * (1.0 + 0.06 * uLevel * uMotion) ${MATERIALS[style].entranceScale ? `* mix(${MATERIALS[style].entranceScale}, 1.0, clamp(uIntro, 0.0, 1.1))` : ""};
   Ctx c;
   c.tint = -0.07 * uListen + 0.07 * uSpeak;
-  float window = smoothstep(1.0, 0.86, max(abs(uv.x), abs(uv.y)));
+  c.p = uv / max(R, 0.01);
+  c.t = uTime;
+  // Radial support fades to transparent before touching the canvas boundary.
+  float window = 1.0 - smoothstep(0.78, 1.0, length(uv));
   float glow = min((HALO + HALO_VOICE * uLevel) * uGlow * (1.0 - 0.5 * uMute), 0.9) * exp(-max(length(uv) - R, 0.0) * HALO_FALLOFF) * window;
+  ${MATERIALS[style].entranceScale ? "glow *= smoothstep(0.0, 0.3, uIntro);" : ""}
   vec3 col = hueShift(haloColor(c), uHue);
   outColor = vec4(col * glow, glow); // premultiplied, over whatever bb's background is
 }`;

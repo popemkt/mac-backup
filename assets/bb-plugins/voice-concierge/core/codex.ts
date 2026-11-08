@@ -147,9 +147,11 @@ export class CodexBackend implements VoiceBackend {
   }
 
   async stop(conversationId: string): Promise<void> {
-    const hostId = this.live.get(conversationId);
-    if (hostId === undefined) return;
+    let hostId = this.live.get(conversationId);
     this.live.delete(conversationId);
+    // Not known here (the server restarted during the call): the call runs where calls are started, so stop it there.
+    if (hostId === undefined) hostId = (await this.resolve().catch(() => null))?.machine.id;
+    if (hostId === undefined) return;
     await this.deps.host.stop(hostId, { threadId: conversationId });
   }
 }
