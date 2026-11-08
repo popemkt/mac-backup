@@ -17,10 +17,8 @@
 # started inside a hostile clone would take that clone's environment (e.g. a
 # forged KB_DATA trust ledger) and run its bunfig `preload` before kb's own
 # code. kb's launch contract is the Bun flags in the release's
-# `lib/kb/launch-flags`; the wrapper passes exactly those, before `cli.js`.
-# Releases older than that file get the same two flags literally.
-# GAP [[01M6W0GDWZJB8RJXMA6WDT425X]] drop the literal fallback once the
-# pinned release ships launch-flags.
+# `lib/kb/launch-flags`; the wrapper passes exactly those, before `cli.js`,
+# and kb's `cli.js` exits 78 when started with any other flags.
 let
   source = sources.kb;
 in
@@ -35,11 +33,7 @@ stdenvNoCC.mkDerivation {
     runHook preInstall
     mkdir -p "$out/lib" "$out/bin"
     cp -a lib/kb "$out/lib/kb"
-    if [ -f lib/kb/launch-flags ]; then
-      launchFlags=$(tr '\n' ' ' < lib/kb/launch-flags)
-    else
-      launchFlags="--no-env-file --config=/dev/null"
-    fi
+    launchFlags=$(tr '\n' ' ' < lib/kb/launch-flags)
     makeBinaryWrapper ${lib.getExe bun} "$out/bin/kb" \
       --set KB_PKG_ROOT "$out/lib/kb" \
       --add-flags "$launchFlags $out/lib/kb/cli.js"
