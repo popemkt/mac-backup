@@ -45,9 +45,13 @@ interface Entry {
 export class CallTargets {
   private readonly deps: CallTargetDeps;
   private readonly calls = new Map<string, Entry>();
+  /** Calls that closed before they were recorded (the close beat the start's answer), and when. */
+  private readonly closedEarly = new Map<string, number>();
+  private readonly clock: () => number;
 
   constructor(deps: CallTargetDeps) {
     this.deps = deps;
+    this.clock = deps.now ?? Date.now;
   }
 
   /** The thread a call should talk to: `threadId` when it is a live thread other than the concierge's, else the concierge's. */
@@ -61,13 +65,22 @@ export class CallTargets {
     return { threadId: id, title: CONCIERGE_TITLE, concierge: true };
   }
 
-  started(conversationId: string, target: CallTarget): void {
+  /**
+   * Record a call that started at `since` (before the backend was asked). A call that already closed after that is
+   * refused: it must not become routable, or look live to the page.
+   */
+  started(conversationId: string, target: CallTarget, since = -Infinity): void {
+    const closedAt = this.closedEarly.get(conversationId);
+    this.closedEarly.delete(conversationId);
+    if (closedAt !== undefined && closedAt >= since) throw new Error("The call closed while it was connecting");
     this.calls.set(conversationId, { target });
   }
 
   /** The call is over (hung up or closed): from now on its relay is refused. */
   ended(conversationId: string): void {
-    this.calls.delete(conversationId);
+    const now = this.clock();
+    if (!this.calls.delete(conversationId)) this.closedEarly.set(conversationId, now);
+    for (const [id, at] of this.closedEarly) if (now - at > 10 * 60_000) this.closedEarly.delete(id);
   }
 
   target(conversationId: string): CallTarget | null {
@@ -96,14 +109,17 @@ export class CallTargets {
    */
   async ask(text: string, conversationId: string | null): Promise<string> {
     if (conversationId === null) return this.deps.concierge.ask(text);
-    const t = this.target(conversationId);
-    if (t === null) throw new Error("That voice call is not live, or its thread is not on record.");
+    const entry = this.calls.get(conversationId);
+    if (entry === undefined) throw new Error("That voice call is not live, or its thread is not on record.");
+    const t = entry.target;
+    // Hanging up or moving the call while this request waits withdraws it: it is never sent after that.
+    const alive = () => this.calls.get(conversationId) === entry;
     if (t.threadId === null) throw new Error("This call has no thread to relay to.");
     const threads = this.deps.threads;
     const api = { status: async (id: string) => (await threads.info(id))?.status ?? null, send: threads.send, output: threads.output };
     const clock = { sleep: this.deps.sleep ?? ((ms: number) => new Promise<void>(r => setTimeout(r, ms))), now: this.deps.now ?? Date.now };
     return t.concierge
-      ? relay(api, t.threadId, `${VOICE_PREFIX}${text}`, { busy: "wait", timeoutMs: ASK_TIMEOUT_MS, ...clock })
-      : relay(api, t.threadId, voiceMessage(text), { busy: "queue", timeoutMs: ASK_TIMEOUT_MS, late: LATE_REPLY, ...clock });
+      ? relay(api, t.threadId, `${VOICE_PREFIX}${text}`, { busy: "wait", timeoutMs: ASK_TIMEOUT_MS, alive, ...clock })
+      : relay(api, t.threadId, voiceMessage(text), { busy: "queue", timeoutMs: ASK_TIMEOUT_MS, late: LATE_REPLY, alive, ...clock });
   }
 }

@@ -51,7 +51,9 @@ Every call talks to one bb thread, its *target* (`core/call-target.ts`):
   server restart drops them all, so a call that outlives the server reaches no thread. The relay looks the target up
   by the call's id (the backing Codex thread, which Codex passes with every tool call) and sends to that recorded
   thread only, the concierge's included (a new concierge conversation does not move a live call): an id not on
-  record is refused, and a recorded thread that is gone fails, never falling back to another thread.
+  record is refused, and a recorded thread that is gone fails, never falling back to another thread. A request still
+  waiting for a busy thread when the call hangs up or moves is withdrawn, never sent; a call that closes while it is
+  still connecting is never registered, and the page does not go live with it.
 
 Only the person starts a call (a click, tap or shortcut in a window), and the microphone is on only during a call.
 Agents cannot start one: the CLI and agent tools have no way to open a window's microphone.

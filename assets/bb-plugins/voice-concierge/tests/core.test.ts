@@ -625,3 +625,44 @@ test("voice prompt: relaying, it says calls are connected to one thread, which t
   assert.match(voicePrompt(ctx), /move the call/);
   assert.doesNotMatch(voicePrompt({ ...ctx, relay: false }), /connected to one bb thread/);
 });
+
+test("CallTargets: hanging up or moving a call withdraws a request still waiting to be sent", async () => {
+  let release!: () => void;
+  let busy = true;
+  const sent: [string, string][] = [];
+  const targets = new CallTargets({
+    threads: {
+      info: async () => ({ title: "Voice concierge", status: busy ? "active" : "idle" }),
+      send: async (id, text) => void sent.push([id, text]),
+      output: async () => "done",
+    },
+    concierge: { current: async () => "thr_a", ensure: async () => "thr_a", ask: async () => "" },
+    sleep: () => new Promise<void>(r => (release = r)),
+    now: () => 0,
+  });
+  targets.started("call_1", { threadId: "thr_a", title: CONCIERGE_TITLE, concierge: true });
+  const pending = targets.ask("do it (confirmed)", "call_1");
+  await new Promise(r => setTimeout(r, 0)); // the relay is now waiting for thr_a's turn
+  targets.ended("call_1");
+  busy = false;
+  release();
+  await assert.rejects(pending, /ended or moved/);
+  assert.deepEqual(sent, []);
+});
+
+test("CallTargets.started refuses a call that closed while it was starting, but not an older close of its id", () => {
+  let now = 100;
+  const targets = new CallTargets({
+    threads: { info: async () => null, send: async () => {}, output: async () => null },
+    concierge: { current: async () => null, ensure: async () => null, ask: async () => "" },
+    now: () => now,
+  });
+  const to = { threadId: "thr_a", title: "A", concierge: false };
+  targets.ended("call_1"); // closed at 100, before it was recorded
+  assert.throws(() => targets.started("call_1", to, 50), /closed while it was connecting/);
+  assert.equal(targets.target("call_1"), null);
+  targets.ended("call_2"); // an earlier call on a reused id closed at 100
+  now = 200;
+  targets.started("call_2", to, 150);
+  assert.equal(targets.target("call_2")?.threadId, "thr_a");
+});

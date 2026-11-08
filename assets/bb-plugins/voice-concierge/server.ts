@@ -321,13 +321,20 @@ export default async function plugin(bb: BbPluginApi) {
     start: async ({ sdp, threadId }) => {
       const s = await settings.get();
       const to = await targets.resolve(threadId ?? null, s.threadMode === "new" ? "new" : "reuse");
-      const session = await (await backend()).start({
+      const since = Date.now();
+      const b = await backend();
+      const session = await b.start({
         offer: { kind: "webrtc", sdp },
         voice: s.voice.trim() === "" ? null : s.voice.trim(),
         extra: s.instructions,
         relay: to.threadId !== null,
       });
-      targets.started(session.conversationId, to);
+      try {
+        targets.started(session.conversationId, to, since);
+      } catch (e) {
+        await b.stop(session.conversationId).catch(() => {});
+        throw e;
+      }
       record("system", `Call started with ${to.title}`);
       return { conversationId: session.conversationId, sdp: session.answer.sdp, target: to };
     },

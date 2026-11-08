@@ -98,6 +98,11 @@ export interface RelayOptions {
   timeoutMs: number;
   /** Spoken in place of a reply that is not ready in time; null throws instead. */
   late?: string | null;
+  /**
+   * Whether the request still stands (its call is live and still talks to this thread). Checked before sending and
+   * on every poll: once false, nothing more is sent and the relay stops with an error.
+   */
+  alive?: () => boolean;
   sleep: (ms: number) => Promise<void>;
   now: () => number;
 }
@@ -111,9 +116,14 @@ export const QUEUED_REPLY = "That thread is in the middle of a turn. I queued yo
  */
 export async function relay(threads: Pick<ConciergeThreadsApi, "status" | "send" | "output">, id: string, message: string, o: RelayOptions): Promise<string> {
   const deadline = o.now() + o.timeoutMs;
+  const standing = () => {
+    if (o.alive !== undefined && !o.alive()) throw new Error("The call ended or moved to another thread; nothing was sent");
+  };
   for (;;) {
+    standing();
     const s = await threads.status(id);
     if (s === null) throw new Error("That thread is gone (archived or deleted)");
+    standing();
     if (!BUSY.has(s)) break;
     if (o.busy === "queue") {
       await threads.send(id, message);
@@ -126,6 +136,7 @@ export async function relay(threads: Pick<ConciergeThreadsApi, "status" | "send"
   let started = false;
   const startBy = o.now() + 20_000;
   for (;;) {
+    if (o.alive !== undefined && !o.alive()) throw new Error("The call ended or moved to another thread");
     const s = await threads.status(id);
     if (s === null) throw new Error("That thread is gone (archived or deleted)");
     if (s === "error") throw new Error("The thread failed on that request");

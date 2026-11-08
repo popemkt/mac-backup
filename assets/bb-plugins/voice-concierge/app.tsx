@@ -43,6 +43,8 @@ class CallManager {
   private pc: RTCPeerConnection | null = null;
   /** Bumped by every start and stop; see start(). */
   private attempts = 0;
+  /** Calls that closed while this window was still connecting (their id not known here yet); checked when it is. */
+  private closedWhileConnecting = new Set<string>();
   private mic: MediaStream | null = null;
   private speaker: HTMLAudioElement | null = null;
   private rpc: Rpc | null = null;
@@ -68,6 +70,7 @@ class CallManager {
     const attempt = ++this.attempts;
     const stale = () => attempt !== this.attempts;
     this.rpc = rpc;
+    this.closedWhileConnecting.clear();
     this.set({ phase: "connecting", error: null, caption: null, activity: null, asked: threadId, target: null });
     let mic: MediaStream | null = null;
     let pc: RTCPeerConnection | null = null;
@@ -108,12 +111,15 @@ class CallManager {
         await rpc.call("stop", { conversationId }).catch(() => {});
         return;
       }
+      if (this.closedWhileConnecting.has(conversationId)) throw new Error("The call closed while it was connecting");
       await pc.setRemoteDescription({ type: "answer", sdp });
       if (stale()) {
         abandon();
         await rpc.call("stop", { conversationId }).catch(() => {});
         return;
       }
+      if (this.closedWhileConnecting.has(conversationId)) throw new Error("The call closed while it was connecting");
+      this.closedWhileConnecting.clear();
       this.set({ phase: "live", conversationId, muted: false, target });
     } catch (e) {
       if (stale()) return abandon(); // a newer call (or the hang-up) owns the state now
@@ -159,7 +165,9 @@ class CallManager {
     // to no call (a sign-in finishing); in a call, only its own.
     if (signal.conversationId !== null) {
       if (this.state.phase === "idle") return;
-      // While connecting, this call's id is not known yet: every call's events are another call's.
+      // While connecting, this call's id is not known yet: a close is remembered (it may be this call's), the rest
+      // belongs to other calls.
+      if (this.state.phase === "connecting" && event.kind === "closed") this.closedWhileConnecting.add(signal.conversationId);
       if (signal.conversationId !== this.state.conversationId) return;
     }
     switch (event.kind) {
