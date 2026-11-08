@@ -1,0 +1,8 @@
+{
+  "name": "verifiable-results",
+  "version": "1.0.0",
+  "description": "After every task, hand over the easiest-to-check end result first, then explain with a walkthrough, before/after page, tldraw board or kb canvas when needed",
+  "author": {
+    "name": "Hoang Nguyen Gia"
+  }
+}
