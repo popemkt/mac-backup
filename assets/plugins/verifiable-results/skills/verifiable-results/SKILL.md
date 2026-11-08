@@ -52,8 +52,8 @@ matters for a decision the person must make, or when they ask. Choose by shape:
 
 | Shape of the change | Technique | Tool |
 |---|---|---|
-| Something looked or behaved wrong, and now it doesn't | **Before/after page** | HTML from `templates/before-after.html`, saved to thread storage |
-| A flow the person will perform (setup, install, approval) | **Walkthrough**: numbered steps, one screenshot per step, the exact thing to click or type | The before/after template's `.item` cards, or a short Markdown doc with images |
+| Something looked or behaved wrong, and now it doesn't | **Before/after page** | A self-contained HTML page saved to thread storage |
+| A flow the person will perform (setup, install, approval) | **Walkthrough**: numbered steps, one screenshot per step, the exact thing to click or type | An HTML page or a short Markdown doc with images |
 | Several moving parts and where things live | **Map / board**: boxes, arrows, a legend | tldraw board (load `tldraw-conventions`; delegate to the `tldraw-offline` agent), or kb canvas (`kb_call` / the kb skill) |
 | Status across many items (what's done, waiting, blocked) | **Status board**: colored columns plus a legend | tldraw page, or a kb canvas |
 | Architecture or sequence | **Diagram** | `archify` skill, or a tldraw board |
@@ -62,18 +62,20 @@ matters for a decision the person must make, or when they ask. Choose by shape:
 
 ### Before/after page
 
-Copy `templates/before-after.html` into a fresh folder in thread storage, and
-copy every image next to it, referenced by relative path. Then:
+Write one self-contained HTML page in a fresh folder in thread storage. Put every
+image next to it and reference each by a relative path.
 
-- Groups (`h2.gt`) by state: **Live**, **Waiting for you** (with trial links),
-  **In progress** (one line each, no pictures).
-- Each change is one `.item`:
-  - a one-line `h3` saying what the person sees;
-  - `.who` for where in the product, plus PR refs;
-  - `.say` with a plain Before and After sentence;
-  - pictures in `.pair` (`.one`, `.three`, `.tall`) or `<pre>` for terminal output.
-- Pictures open full size on click. The page works in one column under 800px.
-- Afterwards, fetch the page and every image and check each returns 200.
+- **Group** the changes by state: **Live**, **Waiting for you** (with trial
+  links), and **In progress** (one line each, no pictures).
+- **Give each change one card** with:
+  - a one-line title saying what the person sees;
+  - where in the product it is, plus PR refs;
+  - a plain Before sentence and After sentence side by side;
+  - the before and after pictures side by side, or `<pre>` blocks for terminal output.
+- **Pictures** open full size on click. The page drops to one column on narrow
+  screens.
+- **Check** afterwards: fetch the page and every image, and confirm each
+  returns 200.
 
 ### Boards (tldraw / kb canvas)
 
@@ -100,8 +102,7 @@ This skill names tools the owner uses (bb thread storage, tldraw, kb, archify).
 When one is missing, degrade:
 
 - No bb: use local file paths.
-- No tldraw or kb: use a Markdown doc with images, or an HTML page from the
-  template.
+- No tldraw or kb: use a Markdown doc with images, or a plain HTML page.
 - No browser: use command output.
 
 The two layers and the "real, verified, clickable" rules never change.
