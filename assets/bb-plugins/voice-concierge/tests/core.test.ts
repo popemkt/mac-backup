@@ -491,11 +491,10 @@ test("SettingsSaver: string settings coalesce and serialize while local preview 
   assert.equal(saver.quiet(), true);
 });
 
-import { CallTargets, CONCIERGE_TITLE, LATE_REPLY, type CallTarget } from "../core/call-target.ts";
+import { CallTargets, CONCIERGE_TITLE, LATE_REPLY } from "../core/call-target.ts";
 import { QUEUED_REPLY, relay, voiceMessage } from "../core/concierge-thread.ts";
 
 function fakeTargets(opts: { threads: Record<string, { title: string | null; statuses: string[]; output?: string }>; concierge?: string | null }) {
-  const store = new Map<string, CallTarget>();
   const sent: [string, string][] = [];
   const conciergeAsked: string[] = [];
   let t = 0;
@@ -515,11 +514,10 @@ function fakeTargets(opts: { threads: Record<string, { title: string | null; sta
       ensure: async () => opts.concierge ?? null,
       ask: async text => (conciergeAsked.push(text), "From the concierge."),
     },
-    store: { get: async id => store.get(id) ?? null, set: async (id, v) => void store.set(id, v), delete: async id => void store.delete(id) },
     sleep: async ms => void (t += ms),
     now: () => t,
   });
-  return { targets, store, sent, conciergeAsked };
+  return { targets, sent, conciergeAsked };
 }
 
 test("CallTargets.resolve: a thread is its own target; none, or the concierge's own thread, is the concierge", async () => {
@@ -537,7 +535,7 @@ test("CallTargets.ask: a call's requests go to its own thread, with the spoken-r
     threads: { thr_work: { title: "Fix the build", statuses: ["idle", "idle", "active", "idle"], output: "The build is green." } },
     concierge: "thr_c",
   });
-  await targets.started("call_1", await targets.resolve("thr_work"));
+  targets.started("call_1", await targets.resolve("thr_work"));
   assert.equal(await targets.ask("is the build green?", "call_1"), "The build is green.");
   assert.deepEqual(sent, [["thr_work", voiceMessage("is the build green?")]]);
   assert.match(sent[0]![1], /^\[voice\] is the build green\?/);
@@ -548,21 +546,51 @@ test("CallTargets.ask: a call's requests go to its own thread, with the spoken-r
   assert.equal(await targets.ask("what needs me?", null), "From the concierge.");
   await assert.rejects(targets.ask("hi", "call_unknown"), /not live/);
   // Ended: its record is gone.
-  await targets.ended("call_1");
+  targets.ended("call_1");
   await assert.rejects(targets.ask("hi", "call_1"), /not live/);
 });
 
 test("CallTargets.retarget: a live call moves (pinned until then); a call with nothing to relay to cannot", async () => {
-  const { targets, store } = fakeTargets({ threads: { thr_a: { title: "A", statuses: ["idle"] }, thr_b: { title: "B", statuses: ["idle"] } }, concierge: "thr_c" });
-  await targets.started("call_1", await targets.resolve("thr_a"));
+  const { targets } = fakeTargets({ threads: { thr_a: { title: "A", statuses: ["idle"] }, thr_b: { title: "B", statuses: ["idle"] } }, concierge: "thr_c" });
+  targets.started("call_1", await targets.resolve("thr_a"));
   assert.equal((await targets.retarget("call_1", "thr_b")).title, "B");
-  assert.equal(store.get("call_1")?.threadId, "thr_b");
+  assert.equal(targets.target("call_1")?.threadId, "thr_b");
   assert.deepEqual(await targets.retarget("call_1", null), { threadId: "thr_c", title: CONCIERGE_TITLE, concierge: true });
   await assert.rejects(targets.retarget("call_x", "thr_a"), /not live/);
-  await targets.started("call_2", { threadId: null, title: CONCIERGE_TITLE, concierge: true });
+  targets.started("call_2", { threadId: null, title: CONCIERGE_TITLE, concierge: true });
   await assert.rejects(targets.retarget("call_2", "thr_a"), /cannot move/);
   await assert.rejects(targets.retarget("call_1", "thr_gone"), /archived or gone/);
-  assert.equal(store.get("call_1")?.threadId, "thr_c");
+  assert.equal(targets.target("call_1")?.threadId, "thr_c");
+});
+
+test("CallTargets: a concierge call stays with its own concierge thread, even after a new conversation starts", async () => {
+  const t = fakeTargets({ threads: { thr_c1: { title: "Voice concierge", statuses: ["idle", "idle", "active", "idle"], output: "From the first." } }, concierge: "thr_c1" });
+  t.targets.started("call_1", await t.targets.resolve(null));
+  // A new conversation elsewhere: thr_c2 is the concierge's now; the call is still pinned to thr_c1.
+  assert.equal(await t.targets.ask("still there?", "call_1"), "From the first.");
+  assert.deepEqual(t.sent, [["thr_c1", "[voice] still there?"]]);
+  assert.deepEqual(t.conciergeAsked, []);
+  // Its thread archived: an explicit failure, not the new concierge thread.
+  const gone = fakeTargets({ threads: {}, concierge: "thr_c2" });
+  gone.targets.started("call_2", { threadId: "thr_c1", title: CONCIERGE_TITLE, concierge: true });
+  await assert.rejects(gone.targets.ask("hi", "call_2"), /gone/);
+  assert.deepEqual(gone.conciergeAsked, []);
+});
+
+test("CallTargets.retarget never brings back a call that ended while the thread was looked up", async () => {
+  let release!: () => void;
+  const slow = new Promise<void>(r => (release = r));
+  const targets = new CallTargets({
+    threads: { info: async id => (id === "thr_b" ? (await slow, { title: "B", status: "idle" }) : { title: "A", status: "idle" }), send: async () => {}, output: async () => null },
+    concierge: { current: async () => null, ensure: async () => null, ask: async () => "" },
+  });
+  targets.started("call_1", { threadId: "thr_a", title: "A", concierge: false });
+  const moving = targets.retarget("call_1", "thr_b");
+  targets.ended("call_1");
+  release();
+  await assert.rejects(moving, /ended or moved/);
+  assert.equal(targets.target("call_1"), null);
+  await assert.rejects(targets.ask("hi", "call_1"), /not live/);
 });
 
 test("relay: a busy work thread gets the message queued and the call is told; a slow turn answers late", async () => {

@@ -41,6 +41,8 @@ class CallManager {
   private state: CallState = { phase: "idle", conversationId: null, muted: false, error: null, caption: null, activity: null, revision: 0, asked: null, target: null };
   private readonly listeners = new Set<() => void>();
   private pc: RTCPeerConnection | null = null;
+  /** Bumped by every start and stop; see start(). */
+  private attempts = 0;
   private mic: MediaStream | null = null;
   private speaker: HTMLAudioElement | null = null;
   private rpc: Rpc | null = null;
@@ -61,38 +63,60 @@ class CallManager {
    */
   async start(rpc: Rpc, threadId: string | null = null): Promise<void> {
     if (this.state.phase !== "idle") return;
+    // Each attempt has its own number; hanging up (or a newer attempt) makes it stale, and a stale attempt stops what
+    // it opened and touches nothing else, so a permission prompt answered after Cancel never starts a call.
+    const attempt = ++this.attempts;
+    const stale = () => attempt !== this.attempts;
     this.rpc = rpc;
     this.set({ phase: "connecting", error: null, caption: null, activity: null, asked: threadId, target: null });
+    let mic: MediaStream | null = null;
+    let pc: RTCPeerConnection | null = null;
+    const abandon = () => {
+      pc?.close();
+      for (const t of mic?.getTracks() ?? []) t.stop();
+    };
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error("This page cannot use the microphone (it needs https or localhost, and microphone permission)");
-      this.mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
-      const pc = new RTCPeerConnection();
+      mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      if (stale()) return abandon();
+      this.mic = mic;
+      pc = new RTCPeerConnection();
       this.pc = pc;
-      for (const track of this.mic.getAudioTracks()) pc.addTrack(track, this.mic);
-      this.meters.mic = this.meter(this.mic);
+      for (const track of mic.getAudioTracks()) pc.addTrack(track, mic);
+      this.meters.mic = this.meter(mic);
       // The realtime events channel Codex's call expects next to the audio.
       pc.createDataChannel("oai-events");
       this.speaker ??= Object.assign(document.createElement("audio"), { autoplay: true });
-      pc.ontrack = e => {
+      const peer = pc;
+      peer.ontrack = e => {
+        if (this.pc !== peer) return;
         const stream = e.streams[0] ?? new MediaStream([e.track]);
         if (this.speaker !== null) this.speaker.srcObject = stream;
         this.meters.remote?.close();
         this.meters.remote = this.meter(stream);
       };
-      pc.onconnectionstatechange = () => {
-        if (pc.connectionState === "failed") void this.stop("The voice connection failed");
+      peer.onconnectionstatechange = () => {
+        if (peer.connectionState === "failed" && this.pc === peer) void this.stop("The voice connection failed");
       };
       await pc.setLocalDescription(await pc.createOffer());
       await iceGathered(pc, 2_000);
+      if (stale()) return abandon();
       const { conversationId, sdp, target } = await rpc.call("start", { sdp: pc.localDescription?.sdp ?? "", threadId });
-      if (this.pc !== pc) {
+      if (stale()) {
         // hung up while connecting: the call exists on the server now, so end it there too
+        abandon();
         await rpc.call("stop", { conversationId }).catch(() => {});
         return;
       }
       await pc.setRemoteDescription({ type: "answer", sdp });
+      if (stale()) {
+        abandon();
+        await rpc.call("stop", { conversationId }).catch(() => {});
+        return;
+      }
       this.set({ phase: "live", conversationId, muted: false, target });
     } catch (e) {
+      if (stale()) return abandon(); // a newer call (or the hang-up) owns the state now
       this.teardown();
       this.set({ phase: "idle", error: message(e), asked: null, target: null });
     }
@@ -115,6 +139,7 @@ class CallManager {
   }
 
   async stop(error: string | null = null): Promise<void> {
+    this.attempts++; // any attempt still connecting is now stale
     const id = this.state.conversationId;
     this.set({ phase: "ending" });
     this.teardown();
@@ -134,7 +159,8 @@ class CallManager {
     // to no call (a sign-in finishing); in a call, only its own.
     if (signal.conversationId !== null) {
       if (this.state.phase === "idle") return;
-      if (this.state.conversationId !== null && signal.conversationId !== this.state.conversationId) return;
+      // While connecting, this call's id is not known yet: every call's events are another call's.
+      if (signal.conversationId !== this.state.conversationId) return;
     }
     switch (event.kind) {
       case "transcript":
@@ -152,6 +178,7 @@ class CallManager {
         return;
       case "closed":
         if (this.state.phase === "live" || this.state.phase === "connecting") {
+          this.attempts++;
           this.teardown();
           this.set({ phase: "idle", conversationId: null, caption: null, activity: null, revision: this.state.revision + 1, asked: null, target: null });
         }

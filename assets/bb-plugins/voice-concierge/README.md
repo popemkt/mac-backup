@@ -47,9 +47,11 @@ Every call talks to one bb thread, its *target* (`core/call-target.ts`):
   is with, and **Move here** brings it back to the concierge.
 - A busy thread is not interrupted: the request is queued behind its turn and the call says so. A reply that takes
   longer than the relay's limit (140 s) is announced as still working; the answer lands in the thread.
-- The server keeps each live call's target in plugin storage (`call/<id>`) and drops it when the call ends. The
-  relay looks the target up by the call's id (the backing Codex thread, which Codex passes with every tool call); an
-  id not on record is refused, never sent to the concierge instead.
+- The server keeps each live call's target in memory, from the call's start until hang-up or the call closing; a
+  server restart drops them all, so a call that outlives the server reaches no thread. The relay looks the target up
+  by the call's id (the backing Codex thread, which Codex passes with every tool call) and sends to that recorded
+  thread only, the concierge's included (a new concierge conversation does not move a live call): an id not on
+  record is refused, and a recorded thread that is gone fails, never falling back to another thread.
 
 Only the person starts a call (a click, tap or shortcut in a window), and the microphone is on only during a call.
 Agents cannot start one: the CLI and agent tools have no way to open a window's microphone.

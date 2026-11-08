@@ -18,8 +18,7 @@ import { appendLine, type TranscriptLine } from "./core/transcript.ts";
 
 const TRANSCRIPT_KEY = "transcript";
 const THREAD_KEY = "conciergeThread";
-/** Per live call (`call/<conversationId>`): the CallTarget it talks to, read by `bb voice-concierge ask --call`. */
-const callKey = (conversationId: string) => `call/${conversationId}`;
+
 
 const status = z.object({
   backend: z.string(),
@@ -280,11 +279,6 @@ export default async function plugin(bb: BbPluginApi) {
         return concierge.ask(text);
       },
     },
-    store: {
-      get: async id => (await bb.storage.kv.get<CallTarget>(callKey(id))) ?? null,
-      set: (id, t) => bb.storage.kv.set(callKey(id), t),
-      delete: id => bb.storage.kv.delete(callKey(id)),
-    },
   });
 
   // ---------------------------------------------------------------- the conversation's own record
@@ -301,7 +295,7 @@ export default async function plugin(bb: BbPluginApi) {
       if (event.kind === "error") record("system", `Error: ${event.message}`);
       if (event.kind === "closed") {
         record("system", `Call ended${event.reason === null ? "" : ` (${event.reason})`}`);
-        if (conversationId !== null) void targets.ended(conversationId).catch(() => {});
+        if (conversationId !== null) targets.ended(conversationId);
       }
       bb.realtime.publish(LIVE_CHANNEL, { conversationId, event } satisfies LiveSignal);
     });
@@ -333,7 +327,7 @@ export default async function plugin(bb: BbPluginApi) {
         extra: s.instructions,
         relay: to.threadId !== null,
       });
-      await targets.started(session.conversationId, to);
+      targets.started(session.conversationId, to);
       record("system", `Call started with ${to.title}`);
       return { conversationId: session.conversationId, sdp: session.answer.sdp, target: to };
     },
@@ -348,6 +342,8 @@ export default async function plugin(bb: BbPluginApi) {
       return { ok: true };
     },
     stop: async ({ conversationId }) => {
+      // Hanging up ends the call's routing at once, whether or not the backend still finds the session.
+      targets.ended(conversationId);
       await (await backend()).stop(conversationId);
       return { ok: true };
     },

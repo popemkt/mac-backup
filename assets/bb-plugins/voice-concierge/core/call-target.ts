@@ -1,8 +1,11 @@
 // Which bb thread a call talks to. A call started from a thread talks to that thread: its requests are relayed to it
 // and its agent's replies are spoken. Started anywhere else, it talks to the concierge's own thread. The call stays
-// pinned to its thread while the person moves around bb, until they move it (`retarget`). The server keeps one record
-// per live call; the call's relay (`bb voice-concierge ask --call <id>`) reads it on every request.
-import { ASK_TIMEOUT_MS, relay, type ThreadStatus, voiceMessage } from "./concierge-thread.ts";
+// pinned to the thread it recorded (even the concierge's: a new concierge conversation does not move a live call)
+// until the person moves it (`retarget`). The record lives in the server's memory only: a call is routable from
+// `started` until `ended` (hang-up or the call closing), and a server restart drops every record, so a call that
+// outlives the server can no longer reach any thread. The call's relay (`bb voice-concierge ask --call <id>`) reads
+// the record on every request.
+import { ASK_TIMEOUT_MS, relay, type ThreadStatus, VOICE_PREFIX, voiceMessage } from "./concierge-thread.ts";
 
 /** threadId is null only for the concierge when bb has no Personal project for its thread (the call cannot relay). */
 export interface CallTarget {
@@ -27,19 +30,21 @@ export interface CallTargetDeps {
     current(): Promise<string | null>;
     /** The concierge's thread, created if needed ("new": always a new one); null when bb has nowhere to put it. */
     ensure(mode: "reuse" | "new"): Promise<string | null>;
+    /** A request from outside any call (the CLI): the concierge's current thread. */
     ask(text: string): Promise<string>;
-  };
-  store: {
-    get(conversationId: string): Promise<CallTarget | null>;
-    set(conversationId: string, target: CallTarget): Promise<void>;
-    delete(conversationId: string): Promise<void>;
   };
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
 }
 
+/** One live call's record; replaced, never mutated, so a stale reference shows the record changed. */
+interface Entry {
+  readonly target: CallTarget;
+}
+
 export class CallTargets {
   private readonly deps: CallTargetDeps;
+  private readonly calls = new Map<string, Entry>();
 
   constructor(deps: CallTargetDeps) {
     this.deps = deps;
@@ -56,48 +61,49 @@ export class CallTargets {
     return { threadId: id, title: CONCIERGE_TITLE, concierge: true };
   }
 
-  started(conversationId: string, target: CallTarget): Promise<void> {
-    return this.deps.store.set(conversationId, target);
+  started(conversationId: string, target: CallTarget): void {
+    this.calls.set(conversationId, { target });
   }
 
-  ended(conversationId: string): Promise<void> {
-    return this.deps.store.delete(conversationId);
+  /** The call is over (hung up or closed): from now on its relay is refused. */
+  ended(conversationId: string): void {
+    this.calls.delete(conversationId);
+  }
+
+  target(conversationId: string): CallTarget | null {
+    return this.calls.get(conversationId)?.target ?? null;
   }
 
   /** Move a live call to another thread (null: the concierge's own). */
   async retarget(conversationId: string, threadId: string | null): Promise<CallTarget> {
-    const before = await this.deps.store.get(conversationId);
-    if (before === null) throw new Error("That voice call is not live");
+    const before = this.calls.get(conversationId);
+    if (before === undefined) throw new Error("That voice call is not live");
     // A call that started with nothing to relay to has a backing agent that works on its own: it cannot move.
-    if (before.threadId === null) throw new Error("This call has no thread to relay to, so it cannot move.");
+    if (before.target.threadId === null) throw new Error("This call has no thread to relay to, so it cannot move.");
     const to = await this.resolve(threadId);
     if (to.threadId === null) throw new Error("bb has no Personal project for the concierge's thread.");
-    await this.deps.store.set(conversationId, to);
+    // The call may have ended (or moved) while the thread was looked up: never bring a record back.
+    if (this.calls.get(conversationId) !== before) throw new Error("That voice call ended or moved meanwhile");
+    this.calls.set(conversationId, { target: to });
     return to;
   }
 
   /**
-   * A request relayed from a call (`conversationId`), or from the CLI without one: to the call's thread, or the
-   * concierge's. The concierge's thread is briefed and answers quickly, so a request waits for its current turn; a work
-   * thread may be mid-turn for many minutes, so a request is queued behind it and the call is told so.
+   * A request relayed from a call (`conversationId`), or from the CLI without one. A call's request goes to the thread
+   * the call recorded, never to another: an id not on record is refused, and a recorded thread that is gone fails.
+   * The concierge's thread is briefed and answers quickly, so a request waits for its current turn; a work thread may
+   * be mid-turn for many minutes, so a request is queued behind it and the call is told so.
    */
   async ask(text: string, conversationId: string | null): Promise<string> {
-    const t = conversationId === null ? null : await this.deps.store.get(conversationId);
-    // A call id that is not on record never falls back to the concierge: that could answer for the wrong thread.
-    if (conversationId !== null && t === null) throw new Error("That voice call is not live, or its thread is not on record.");
-    if (t === null || t.concierge || t.threadId === null) return this.deps.concierge.ask(text);
+    if (conversationId === null) return this.deps.concierge.ask(text);
+    const t = this.target(conversationId);
+    if (t === null) throw new Error("That voice call is not live, or its thread is not on record.");
+    if (t.threadId === null) throw new Error("This call has no thread to relay to.");
     const threads = this.deps.threads;
-    return relay(
-      { status: async id => (await threads.info(id))?.status ?? null, send: threads.send, output: threads.output },
-      t.threadId,
-      voiceMessage(text),
-      {
-        busy: "queue",
-        timeoutMs: ASK_TIMEOUT_MS,
-        late: LATE_REPLY,
-        sleep: this.deps.sleep ?? (ms => new Promise(r => setTimeout(r, ms))),
-        now: this.deps.now ?? Date.now,
-      },
-    );
+    const api = { status: async (id: string) => (await threads.info(id))?.status ?? null, send: threads.send, output: threads.output };
+    const clock = { sleep: this.deps.sleep ?? ((ms: number) => new Promise<void>(r => setTimeout(r, ms))), now: this.deps.now ?? Date.now };
+    return t.concierge
+      ? relay(api, t.threadId, `${VOICE_PREFIX}${text}`, { busy: "wait", timeoutMs: ASK_TIMEOUT_MS, ...clock })
+      : relay(api, t.threadId, voiceMessage(text), { busy: "queue", timeoutMs: ASK_TIMEOUT_MS, late: LATE_REPLY, ...clock });
   }
 }
