@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// canvas-link: which tldraw offline canvases each agent session (bb thread,
+// canvas-link: which tldraw office canvases each agent session (bb thread,
 // Claude Code, Codex, Orca, ...) created or edited. Appends one JSON line per
 // op to a local log, pushes unsent lines to a central host in the background,
 // and lists or opens what a session, a project or everyone linked. The rules
@@ -48,7 +48,7 @@ const HELP = `Usage: canvas-link <command>
                        tldraw on this machine knows that nobody linked;
                        --project/--all/--available include the central log
                        when it is reachable
-  open <key>           open a canvas on this machine in tldraw offline; a
+  open <key>           open a canvas on this machine in tldraw office; a
                        canvas on another machine prints "on <host>", exit 3
   flush                push unsent rows to the central log
 
@@ -331,9 +331,11 @@ function open(args) {
   }
   const path = currentPath(canvas, recent()) ?? resolveCanvas(key, { isPath: false, recent: recent() })?.path ?? null;
   if (path === null || !existsSync(path)) throw new Error(`canvas not found on this machine: ${path ?? key}`);
-  if (process.platform !== "darwin") throw new Error("opening needs tldraw offline on macOS");
-  // `open -a` avoids the confirmation dialog the tldraw-offline:// URL shows.
-  const r = spawnSync("open", ["-a", "tldraw offline", path], { encoding: "utf8" });
+  if (process.platform !== "darwin") throw new Error("opening needs tldraw office on macOS");
+  // `open -a` avoids the confirmation dialog the tldraw-offline:// URL shows. The app was
+  // renamed from "tldraw offline" to "tldraw office"; an install not yet updated has the old name.
+  let r = spawnSync("open", ["-a", "tldraw office", path], { encoding: "utf8" });
+  if (r.status !== 0) r = spawnSync("open", ["-a", "tldraw offline", path], { encoding: "utf8" });
   if (r.status !== 0) throw new Error(`open failed: ${(r.stderr || r.error?.message || "").trim()}`);
   console.log(`opened ${path}`);
   return 0;

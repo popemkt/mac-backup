@@ -1,6 +1,6 @@
 # bb-plugin-canvas-links
 
-The bb panel of canvas-links: the tldraw offline canvases a thread, its project, or anyone linked, as a
+The bb panel of canvas-links: the tldraw office canvases a thread, its project, or anyone linked, as a
 thread side-panel tab. See [PLUGIN_OVERVIEW.md](PLUGIN_OVERVIEW.md).
 
 The links themselves belong to the `canvas-link` CLI

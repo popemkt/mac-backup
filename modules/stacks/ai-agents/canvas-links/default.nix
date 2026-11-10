@@ -5,7 +5,7 @@
   ...
 }:
 
-# canvas-links: which tldraw offline canvases each agent session (bb thread,
+# canvas-links: which tldraw office canvases each agent session (bb thread,
 # Claude Code, Codex, Orca) created or edited. The `canvas-link` CLI (./cli)
 # is the one writer and reader: agents record links through it (the
 # tldraw-conventions skill tells them to), and the bb plugin

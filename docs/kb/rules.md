@@ -302,9 +302,9 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: tldraw canvases are tied to the machine that holds the file
 
 - **expected** — Canvases live on a tldraw offline-server on shared-server, placed with my.services, so any machine opens or joins them live; canvas-link open works across hosts.
-- **current** — tldraw offline v1.23.0 stable ships no offline-server (nightly-only, preview-licensed); canvas-link records each canvas's host and open answers 'on <host>' for other machines.
+- **current** — tldraw office v1.23.0 stable ships no offline-server (nightly-only, preview-licensed); canvas-link records each canvas's host and open answers 'on <host>' for other machines.
 - **impact** — A canvas linked from one Mac cannot be opened from another Mac or from shared-server threads.
-- **closes** — When tldraw offline ships offlineServer in a stable release: place it via my.services on shared-server and teach canvas-link open to join it.
+- **closes** — When tldraw office ships offlineServer in a stable release: place it via my.services on shared-server and teach canvas-link open to join it.
 - **node** — `01M5M0X6NAE1AMVDKCSG41E0NP`
 
 ### GAP: two scripts read Nix settings by scraping source with awk

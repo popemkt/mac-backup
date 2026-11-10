@@ -13,7 +13,7 @@ The tldraw canvases linked to your work, beside the conversation.
 - **Select** rows (click, or Enter / Space; Escape clears), then act on them:
   - **Link to this thread** records them against this thread (and so its project).
   - **Unlink** ends this thread's own links to them; other threads' links stay.
-  - **Open** opens each in tldraw offline on the machine that holds it.
+  - **Open** opens each in tldraw office on the machine that holds it.
 
 ## Where links come from
 
