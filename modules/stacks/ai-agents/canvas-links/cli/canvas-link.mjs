@@ -62,7 +62,9 @@ const STATE = join(process.env.XDG_STATE_HOME || join(HOME, ".local/state"), "ca
 const LOG = join(STATE, "links.jsonl");
 const CURSOR = join(STATE, "pushed");
 const LOCK = join(STATE, "flush.lock");
+// The app's data folder kept the name "tldraw" through its rename to tldraw office.
 const TLDRAW = join(HOME, "Library/Application Support/tldraw");
+const TLDRAW_BUNDLE_ID = "com.tldraw.desktop";
 const HOST = hostname().split(".")[0].toLowerCase();
 const CENTRAL = process.env.CANVAS_LINK_CENTRAL || null;
 // Each machine appends to its own file there, so two machines never interleave a line.
@@ -332,13 +334,19 @@ function open(args) {
   const path = currentPath(canvas, recent()) ?? resolveCanvas(key, { isPath: false, recent: recent() })?.path ?? null;
   if (path === null || !existsSync(path)) throw new Error(`canvas not found on this machine: ${path ?? key}`);
   if (process.platform !== "darwin") throw new Error("opening needs tldraw office on macOS");
-  // `open -a` avoids the confirmation dialog the tldraw-offline:// URL shows. The app was
-  // renamed from "tldraw offline" to "tldraw office"; an install not yet updated has the old name.
-  let r = spawnSync("open", ["-a", "tldraw office", path], { encoding: "utf8" });
-  if (r.status !== 0) r = spawnSync("open", ["-a", "tldraw offline", path], { encoding: "utf8" });
-  if (r.status !== 0) throw new Error(`open failed: ${(r.stderr || r.error?.message || "").trim()}`);
-  console.log(`opened ${path}`);
-  return 0;
+  // Opening the file with the app avoids the confirmation dialog the tldraw-offline:// URL shows.
+  // The bundle id survived the rename from "tldraw offline" to "tldraw office"; the names are
+  // fallbacks for a build with another id.
+  const failures = [];
+  for (const how of [["-b", TLDRAW_BUNDLE_ID], ["-a", "tldraw office"], ["-a", "tldraw offline"]]) {
+    const r = spawnSync("open", [...how, path], { encoding: "utf8" });
+    if (r.status === 0) {
+      console.log(`opened ${path}`);
+      return 0;
+    }
+    failures.push(`open ${how.join(" ")}: ${(r.stderr || r.error?.message || `exit ${r.status}`).trim()}`);
+  }
+  throw new Error(`open failed (is tldraw office installed?):\n  ${failures.join("\n  ")}`);
 }
 
 async function main(argv) {
