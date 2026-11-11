@@ -27,18 +27,18 @@
   };
   cli-proxy-api = {
     pname = "cli-proxy-api";
-    version = "8.0.61";
+    version = "8.0.67";
     src = fetchurl {
-      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.61/CLIProxyAPI_8.0.61_darwin_aarch64.tar.gz";
-      sha256 = "sha256-7XO04+mnHFJMVOy2TaMjWkjeXyM6q8zFjEMlmsaxOS8=";
+      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.67/CLIProxyAPI_8.0.67_darwin_aarch64.tar.gz";
+      sha256 = "sha256-6lvBTodPQisASa2lvMBVJjY0D6sPrHkdfdpq9P5w/M8=";
     };
   };
   cursor-cli = {
     pname = "cursor-cli";
-    version = "2026.11.05-86047df";
+    version = "2026.11.11-043ef28";
     src = fetchurl {
-      url = "https://downloads.cursor.com/lab/2026.11.05-86047df/darwin/arm64/agent-cli-package.tar.gz";
-      sha256 = "sha256-Z4R+R+Pr0ytkw/tObzbUdfGXG3bgM7DtbJ4Bo8G0QNc=";
+      url = "https://downloads.cursor.com/lab/2026.11.11-043ef28/darwin/arm64/agent-cli-package.tar.gz";
+      sha256 = "sha256-njiUT/KtrKsQK20djeX/n6ECLVLfw+3cwe1E6nTcytg=";
     };
   };
   genoffice = {
@@ -51,10 +51,10 @@
   };
   kb = {
     pname = "kb";
-    version = "0.3.1-nightly.20261111044351";
+    version = "0.3.1-nightly.20261111071815";
     src = fetchurl {
-      url = "https://github.com/popemkt/kb/releases/download/v0.3.1-nightly.20261111044351/kb-0.3.1-nightly.20261111044351.tar.gz";
-      sha256 = "sha256-C/QXPYBzto8HqHaJKY5+tGERqyziUHg3bGNuBrcBFS4=";
+      url = "https://github.com/popemkt/kb/releases/download/v0.3.1-nightly.20261111071815/kb-0.3.1-nightly.20261111071815.tar.gz";
+      sha256 = "sha256-IkZcoBhN2fssmNsPSD35SNZrQZT/iVwIRJzl37kjT9I=";
     };
   };
   logseq = {
@@ -75,10 +75,10 @@
   };
   vite-plus = {
     pname = "vite-plus";
-    version = "1.5.0";
+    version = "1.6.0";
     src = fetchurl {
-      url = "https://github.com/voidzero-dev/vite-plus/releases/download/v1.5.0/vp-aarch64-apple-darwin.tar.gz";
-      sha256 = "sha256-obcC0izi59/2ENYpPbxH9ysXOHysKa94XXUznudyBCY=";
+      url = "https://github.com/voidzero-dev/vite-plus/releases/download/v1.6.0/vp-aarch64-apple-darwin.tar.gz";
+      sha256 = "sha256-0IHE7CZbulhivqmtPrmpvswbRsiPRPELM09lFQj5qoY=";
     };
   };
 }
