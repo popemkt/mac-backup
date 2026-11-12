@@ -90,6 +90,11 @@ apply fails, Tailscale keeps the previous live policy; inspect it with
 
 ## Services And Direct Ports
 
+The work Mac publishes `svc:kb-work` at
+`https://kb-work.<tailnet-domain>`, targeting its local kb listener at
+`127.0.0.1:9000`. Policy auto-approves its existing `tag:orca-host` tag;
+the graph stays on popemkt-work, independently of the shared-server graphs.
+
 The personal host publishes three HTTPS Service identities. Their tagged host is
 automatically approved by policy, but creating each Service identity the first
 time remains a Tailscale control-plane operation.

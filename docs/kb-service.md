@@ -9,7 +9,18 @@ daily when main changed); `nvfetcher.toml` explains the ordering. kb deletes
 nightlies after 14 days, so a nightly pin left that long stops downloading;
 merge the updater's PR before then. Links into kb's docs name stable tags only,
 since a nightly tag disappears with its release.
-Both hosts enable the stack; only `popemkt-personal` enables `server.enable`.
+Both Macs enable the stack and its supervised browser UI.
+
+## Work instance
+
+`popemkt-work` serves its own home store at
+`~/Library/Application Support/kb/home`, separate from the personal and
+shared-server graphs. Its launchd agent listens on loopback port 9000;
+`vpn.services.kb-work` publishes it as `https://kb-work.taild98079.ts.net`.
+The public origin and proxy target derive from the service and kb listener
+declarations, and readiness depends on `tailscale-service-kb-work`.
+The store is work data: back it up through the work machine's backup policy,
+outside personal iCloud/Mackup synchronization.
 
 ## What a hosted UI serves
 

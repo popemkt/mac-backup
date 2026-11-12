@@ -26,15 +26,21 @@
     browsers.enable = true;
     kb = {
       enable = true;
-      server.enable = true;
+      server = {
+        enable = true;
+        publicOrigin = config.my.stacks.vpn.services.kb-work.publicOrigin;
+      };
     };
     office-docs.enable = true;
     t3-code.enable = true;
     vpn = {
       enable = true;
       tags = [ "tag:orca-host" ];
+      services.kb-work.target = config.my.stacks.kb.server.listenOrigin;
     };
   };
+
+  my.systemSetup.integrations.kb-ui.dependsOn = [ "tailscale-service-kb-work" ];
 
   # Work-only GUI apps; merged with the shared Homebrew module.
   homebrew.casks = [

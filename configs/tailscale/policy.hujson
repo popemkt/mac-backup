@@ -46,11 +46,11 @@
       "ip": ["tcp:443"],
     },
 
-    // Tailnet members can reach popemkt's and bytetum's kb graphs on the
-    // shared server.
+    // Tailnet members can reach the shared-server kb graphs and the
+    // separate work graph on popemkt-work.
     {
       "src": ["autogroup:member"],
-      "dst": ["svc:kb-popemkt", "svc:kb-bytetum"],
+      "dst": ["svc:kb-popemkt", "svc:kb-bytetum", "svc:kb-work"],
       "ip": ["tcp:443"],
     },
 
@@ -120,6 +120,7 @@
       "svc:t3-bytetum": ["tag:shared-server"],
       "svc:kb-popemkt": ["tag:shared-server"],
       "svc:kb-bytetum": ["tag:shared-server"],
+      "svc:kb-work": ["tag:orca-host"],
       "svc:marginalia-bytetum": ["tag:shared-server"],
       "svc:adhoc-popemkt": ["tag:shared-server"],
       "svc:bb-popemkt": ["tag:shared-server"],
