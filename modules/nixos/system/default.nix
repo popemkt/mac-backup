@@ -16,6 +16,20 @@
   ];
 
   config = {
+    systemd.services.nix-generation-prune = {
+      description = "Keep seven Nix system generations and collect unused store paths";
+      serviceConfig.Type = "oneshot";
+      script = import ../../common/system/nix-maintenance.nix {
+        nixBin = "${config.nix.package}/bin";
+      };
+    };
+    systemd.timers.nix-generation-prune = {
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnCalendar = "*-*-* 03:30:00";
+        Persistent = true;
+      };
+    };
     # Keep the OS host name in sync with the flake attribute, so
     # `nixos-rebuild --flake ~/.dotfiles` selects this host.
     networking.hostName = config.my.hostname;

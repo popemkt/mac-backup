@@ -101,6 +101,22 @@ in
   # Let Determinate Nix manage the nix installation
   nix.enable = false;
 
+  launchd.daemons.nix-generation-prune = {
+    script = import ../../common/system/nix-maintenance.nix {
+      nixBin = "/nix/var/nix/profiles/default/bin";
+    };
+    serviceConfig = {
+      StartCalendarInterval = [
+        {
+          Hour = 3;
+          Minute = 30;
+        }
+      ];
+      StandardOutPath = "/var/log/nix-generation-prune.log";
+      StandardErrorPath = "/var/log/nix-generation-prune.log";
+    };
+  };
+
   # Allow unfree packages (like vscode)
   nixpkgs.config.allowUnfree = true;
 

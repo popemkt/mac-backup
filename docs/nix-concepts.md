@@ -82,6 +82,16 @@ All packages live in `/nix/store/`:
 
 ## Generations
 
+Every host runs daily maintenance at 03:30, declared in
+`modules/common/system/nix-maintenance.nix`: retain seven system generations
+with `nix-env --profile /nix/var/nix/profiles/system --delete-generations +7`,
+then garbage-collect unreferenced store paths. Nix preserves the active
+generation and generations newer than it after a rollback, so that case may
+retain more than seven. User and Home Manager profiles are not pruned by
+this system-generation policy. Other GC roots remain protected.
+macOS uses launchd (`/var/log/nix-generation-prune.log`); NixOS uses the
+`nix-generation-prune` systemd timer (persistent across downtime).
+
 Each `rebuild` creates a generation (system snapshot):
 
 ```bash
