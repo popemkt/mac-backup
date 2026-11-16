@@ -1,8 +1,6 @@
 [:find ?id ?text
  :where
  [?n :f/sys.f.type ?tag]
- [?tag :node/text "research"]
- [?tag :f/sys.f.type ?tagType]
- [?tagType :node/id "sys.tag"]
+ [?tag :node/id "01M5P700HDGW323NJGPKJZQA4Y"]
  [?n :node/id ?id]
  [?n :node/text ?text]]
