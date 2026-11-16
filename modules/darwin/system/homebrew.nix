@@ -53,10 +53,6 @@ in
     brews = lib.unique (
       [
         # "awscli"
-        # Brew over Nix: `azure-cli.withExtensions` rebuilds from source (pulls
-        # swift). Brew's azure-cli ships a working Python+pip so dynamic
-        # `az extension add azure-devops` works without nix wrapping.
-        "azure-cli"
         # Google Workspace CLI for Gmail/Drive/Sheets/etc.
         # Keep this in Brew so `gws` is easy to restore on macOS.
         "googleworkspace-cli"
@@ -76,6 +72,11 @@ in
         "visual-studio-code"
         "entireio/tap/entire"
         "zed"
+        # Brew over Nix: `azure-cli.withExtensions` rebuilds from source (pulls
+        # swift). Brew's azure-cli bundles its own Python+pip so dynamic
+        # `az extension add azure-devops` works without nix wrapping.
+        # Homebrew moved azure-cli from a formula to a cask (late 2026).
+        "azure-cli"
         # Google Cloud CLI ships as a Homebrew cask, not a formula.
         # Required by `gws auth setup`.
         "gcloud-cli"
