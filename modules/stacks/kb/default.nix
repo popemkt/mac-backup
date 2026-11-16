@@ -46,7 +46,26 @@ in
             publicOrigin = lib.mkOption {
               type = lib.types.nullOr (lib.types.strMatching "https?://[^/?#@]+");
               default = null;
-              description = "Canonical HTTP(S) browser origin (no trailing slash), passed to the UI request guard.";
+              description = ''
+                kb's public address (no trailing slash): admitted by the UI
+                request guard, and the address links that leave the page name
+                (calendar backlinks, the OAuth redirect URI).
+              '';
+            };
+            aliasOrigins = lib.mkOption {
+              type = lib.types.attrsOf (lib.types.strMatching "https?://[^/?#@]+");
+              default = { };
+              example = {
+                local = "https://kb.localhost";
+              };
+              description = ''
+                Other browser origins a proxy serves the same UI at (no
+                trailing slash), each admitted by the request guard exactly as
+                the public origin is. Never kb's address: links keep
+                publicOrigin. Each name keys the alias's readiness check,
+                `kb-ui-<name>`, so a host can make it depend on whatever
+                serves that address.
+              '';
             };
           };
         }

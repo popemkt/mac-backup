@@ -207,6 +207,7 @@ Rules for agents:
 | Add a durable repo todo, note, rule or gap | a node in `.kb/nodes.jsonl` through `kb` (see [kb](#kb--repo-knowledge-base)) |
 | Run a native server app on a NixOS host (and expose it) | `my.services.<app>` in `hosts/<hostname>/default.nix` (schema `modules/options/services.nix`); exposed apps become `svc:<app>-<owner>`, which still need a grant and auto-approver in `configs/tailscale/policy.hujson` |
 | Expose a private app on the tailnet | `my.stacks.vpn.services` in `hosts/<hostname>/default.nix`, plus its grant and `autoApprovers.services` entry in `configs/tailscale/policy.hujson` (CI checks both); see `configs/specs/app-service-contract.md` |
+| Serve a loopback app at `https://<name>.localhost` (macOS) | `my.stacks.local-proxy.sites.<name>` in `hosts/<hostname>/default.nix`; see [docs/local-proxy.md](docs/local-proxy.md) |
 | Review local voice-tool choices | `docs/local-voice-tools.md` |
 
 Run `rtk rebuild` after a change that should affect the live system.

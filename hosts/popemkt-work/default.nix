@@ -29,7 +29,12 @@
       server = {
         enable = true;
         publicOrigin = config.my.stacks.vpn.services.kb-work.publicOrigin;
+        aliasOrigins.local = config.my.stacks.local-proxy.sites.kb-work.origin;
       };
+    };
+    local-proxy = {
+      enable = true;
+      sites.kb-work.target = config.my.stacks.kb.server.listenOrigin;
     };
     office-docs.enable = true;
     t3-code.enable = true;
@@ -40,7 +45,10 @@
     };
   };
 
-  my.systemSetup.integrations.kb-ui.dependsOn = [ "tailscale-service-kb-work" ];
+  my.systemSetup.integrations = {
+    kb-ui.dependsOn = [ "tailscale-service-kb-work" ];
+    kb-ui-local.dependsOn = [ "local-proxy-trust" ];
+  };
 
   # Work-only GUI apps; merged with the shared Homebrew module.
   homebrew.casks = [

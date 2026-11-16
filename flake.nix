@@ -329,6 +329,9 @@
         agent-plugins-check = import ./modules/darwin/home-manager/agent-plugins/tests.nix {
           inherit pkgs;
         };
+        # The local proxy's CA script and Caddy configuration, run on a high
+        # port in front of a test app.
+        local-proxy-check = import ./modules/stacks/local-proxy/tests.nix { inherit pkgs; };
         github-sources-check = githubSourcesCheck;
         system-setup-manifest-personal = systemSetupManifestCheck "popemkt-personal";
         system-setup-manifest-work = systemSetupManifestCheck "popemkt-work";
