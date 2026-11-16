@@ -3,12 +3,15 @@ from __future__ import annotations
 import json
 import os
 import re
+import ssl
 import subprocess
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
+
+import truststore
 
 from system_setup.models import (
     CheckResult,
@@ -30,10 +33,16 @@ class CheckFailed(RuntimeError):
     pass
 
 
+# HTTPS is verified against the operating system's trust store, as a browser
+# verifies it: a root the person enrolled there (the local proxy's CA) is
+# trusted, and a bundle Python ships is not consulted.
+_TLS = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+
+
 def _read_json_url(url: str, timeout_seconds: float, headers: dict[str, str] | None = None) -> Any:
     request = urllib.request.Request(url, headers={"Accept": "application/json", **(headers or {})})
     try:
-        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+        with urllib.request.urlopen(request, timeout=timeout_seconds, context=_TLS) as response:
             return json.load(response)
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as error:
         raise CheckFailed(str(error)) from error
@@ -78,8 +87,31 @@ def _check_http_json(check: HttpJsonCheck) -> str:
     return check.success_detail
 
 
+# One row of `netstat -anv -p tcp`: protocol, local address (`<addr>.<port>`),
+# state, and the owning `process:pid` (a process name may hold spaces). netstat
+# reads the kernel's socket table, so it names another account's listeners,
+# a root LaunchDaemon's included, where lsof as this user cannot.
+_NETSTAT_LISTENER = re.compile(
+    r"^tcp[46]*\s+\d+\s+\d+\s+(?P<local>\S+)\s+\S+\s+LISTEN\s+(?:\d+\s+){4}"
+    r"(?P<process>.+?):(?P<pid>\d+)\s+[0-9a-f]{5}\s"
+)
+
+
+def _listeners(netstat: str, port: int) -> dict[str, set[str]]:
+    """The addresses each pid listens on at `port`, `*` for the wildcard."""
+    owners: dict[str, set[str]] = {}
+    for line in netstat.splitlines():
+        match = _NETSTAT_LISTENER.match(line)
+        if match is None:
+            continue
+        address, _, local_port = match.group("local").rpartition(".")
+        if local_port == str(port):
+            owners.setdefault(match.group("pid"), set()).add(address)
+    return owners
+
+
 def _check_launchd_listener(check: LaunchdListenerCheck) -> str:
-    job = f"gui/{os.getuid()}/{check.label}"
+    job = f"gui/{os.getuid()}/{check.label}" if check.domain == "gui" else f"system/{check.label}"
     result = run_native([check.executable, "print", job], check=False, timeout_seconds=10)
     if result.returncode != 0:
         raise CheckFailed(f"launchd job {job} is not loaded; rebuild to install it")
@@ -95,25 +127,28 @@ def _check_launchd_listener(check: LaunchdListenerCheck) -> str:
     if actual_argv != check.expected_argv:
         raise CheckFailed(f"launchd job {job} does not run the declared command; rebuild")
     pid = pid_match.group(1)
-    listener = run_native(
-        [
-            check.lsof_executable,
-            "-nP",
-            "-a",
-            "-p",
-            pid,
-            "-iTCP:" + str(check.port),
-            "-sTCP:LISTEN",
-            "-t",
-        ],
-        check=False,
-        timeout_seconds=10,
+    netstat = run_native(
+        [check.netstat_executable, "-anv", "-p", "tcp"], check=False, timeout_seconds=10
     )
-    if listener.returncode != 0 or pid not in listener.stdout.split():
+    if netstat.returncode != 0:
+        detail = netstat.stderr.strip() or "netstat failed"
+        raise CheckFailed(f"cannot list TCP listeners: {detail}")
+    owners = _listeners(netstat.stdout, check.port)
+    bound = owners.get(pid)
+    if bound is None:
         raise CheckFailed(
             f"launchd job {job} (pid {pid}) is not listening on port {check.port}; check its logs"
         )
-    return f"launchd job {job} runs the declared command and owns port {check.port}"
+    if check.addresses and bound != set(check.addresses):
+        raise CheckFailed(
+            f"launchd job {job} listens on port {check.port} at {', '.join(sorted(bound))}, "
+            f"not exactly {', '.join(check.addresses)}"
+        )
+    others = sorted(owner for owner in owners if owner != pid)
+    if others:
+        raise CheckFailed(f"port {check.port} is also bound by pid {', '.join(others)}")
+    at = f" at {', '.join(check.addresses)}" if check.addresses else ""
+    return f"launchd job {job} runs the declared command and alone owns port {check.port}{at}"
 
 
 def _check_openai_models(check: OpenAIModelsCheck) -> str:

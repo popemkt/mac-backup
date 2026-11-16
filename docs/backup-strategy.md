@@ -301,6 +301,31 @@ Decision: **state, and a regular backup concern.** The rows are produced by
 use; shared-server's copy is the union of every Mac's, so a lost Mac log is
 recoverable from it, and its own backup is the server's.
 
+## Local Proxy CA
+
+The local proxy (`modules/stacks/local-proxy/`) serves loopback apps at
+`https://<site>.localhost` under a root CA the Mac makes for itself, in
+`/var/db/local-proxy` (root-owned):
+
+- `ca/private/root.key` (0600, in a 0700 directory): the CA's key.
+- `ca/root.crt` (0644): its public certificate, which the person enrolls in
+  their trust settings (`system-setup enroll local-proxy-trust`).
+- `caddy/`: Caddy's intermediate and per-site certificates, short-lived and
+  renewed by Caddy itself.
+
+Decision: **disposable state, never backed up and never committed.** The
+daemon marks the directory excluded from Time Machine (a sticky
+`tmutil addexclusion`) on every start, before it makes the CA, and
+`system-setup status` checks it (`local-proxy-backup-exclusion`). Any other
+backup tool that copies `/var/db` needs the same exclusion. A backup would be
+one more copy of a key that can vouch for this Mac's `localhost` names,
+while losing it costs one enrollment: the daemon makes a
+new CA (and drops Caddy's certificates under the old one) on its next start,
+and the readiness check reports the new root as untrusted until it is
+enrolled again. The CA's name constraint limits it to DNS names under
+`localhost` and excludes every IP address. A root nearing expiry (under a year left of ten) is replaced the
+same way.
+
 ## App Onboarding Checklist
 
 When adding a new app or agent, classify it using this checklist:

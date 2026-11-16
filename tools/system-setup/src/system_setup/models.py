@@ -51,12 +51,22 @@ class HttpJsonCheck(StrictModel):
 
 
 class LaunchdListenerCheck(StrictModel):
+    """A launchd job runs its declared command and is the one listener on its port.
+
+    `domain` is where the job is loaded: this user's GUI session (a user agent)
+    or the system (a LaunchDaemon). `addresses`, when given, are exactly the
+    local addresses it must listen on (`127.0.0.1`, `::1`, or `*` for the
+    wildcard); any other address, the wildcard included, fails the check.
+    """
+
     kind: Literal["launchd_listener"]
     label: str
+    domain: Literal["gui", "system"] = "gui"
     expected_argv: list[str] = Field(min_length=1)
     port: int = Field(ge=1, le=65535)
+    addresses: list[str] = Field(default_factory=list)
     executable: str = "/bin/launchctl"
-    lsof_executable: str = "/usr/sbin/lsof"
+    netstat_executable: str = "/usr/sbin/netstat"
 
 
 class OpenAIModelsCheck(StrictModel):

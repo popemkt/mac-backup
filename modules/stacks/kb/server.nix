@@ -25,7 +25,11 @@ in
       ++ lib.optionals (cfg.publicOrigin != null) [
         "--public-origin"
         cfg.publicOrigin
-      ];
+      ]
+      ++ lib.concatMap (origin: [
+        "--alias-origin"
+        origin
+      ]) (lib.attrValues cfg.aliasOrigins);
       WorkingDirectory = home;
       EnvironmentVariables = {
         HOME = home;

@@ -9,6 +9,7 @@ _:
     ./bb/darwin.nix
     ./browsers
     ./kb/darwin.nix
+    ./local-proxy
     ./office-docs.nix
     ./t3-code/darwin.nix
     ./vpn/darwin.nix
