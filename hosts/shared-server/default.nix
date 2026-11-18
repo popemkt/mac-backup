@@ -361,10 +361,8 @@ in
     daemonPort = 38887;
     kbEntry = "kb";
     # The work Mac's kb (popemkt-work's svc:kb-work), which names this bb's
-    # origin in its --embed-origin, so the panel frames it.
-    # GAP [[01M7PCSB0AQS9BZ1KWGV7J936R]]: the tailnet grants svc:kb-work only to members,
-    # so this server's agent tools cannot reach it; the panel, drawn by a
-    # member's browser, can.
+    # origin in its --embed-origin, so the panel frames it. The tailnet
+    # grants tag:shared-server → svc:kb-work, so the agent tools reach it too.
     kbStores = [ "kb-work https://kb-work.${config.my.stacks.vpn.tailnetDomain}" ];
   };
 
