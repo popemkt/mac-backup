@@ -292,6 +292,13 @@
             { home-manager = homeManagerBase; }
           ];
         };
+      executorContractCheck =
+        pkgs:
+        import ./modules/options/package-executors-check.nix {
+          inherit pkgs;
+          inherit (self) darwinConfigurations nixosConfigurations;
+        };
+
     in
     {
       overlays.default =
@@ -311,6 +318,7 @@
 
       checks.${system} = systemPackages // {
         inherit systemSetupCheck;
+        package-executors-contract = executorContractCheck pkgs;
         reconcile-scripts-check = reconcileScriptsCheck;
         audit-lib-check = auditLibCheck;
         # my.services' restart scripts, built as the NixOS module builds
@@ -326,7 +334,7 @@
         };
         # agent-plugins-sync and the agent-plugins activation, run against
         # fake claude, codex and omp.
-        agent-plugins-check = import ./modules/darwin/home-manager/agent-plugins/tests.nix {
+        agent-plugins-check = import ./modules/common/home-manager/agent-plugins/tests.nix {
           inherit pkgs;
         };
         # mcp-servers-sync, run against fake claude and codex and the
@@ -343,6 +351,8 @@
         darwin-personal = self.darwinConfigurations.popemkt-personal.system;
         darwin-work = self.darwinConfigurations.popemkt-work.system;
       };
+
+      checks.x86_64-linux.package-executors-contract = executorContractCheck (pkgsFor "x86_64-linux");
 
       # Per tooling system: the pre-commit gate runs `nix run .#github-sources`
       # on whichever host commits, so Linux needs it too, built from its own pkgs.

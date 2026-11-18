@@ -130,5 +130,9 @@ in
     };
   };
 
+  my.packageExecutors = lib.genAttrs [ "taps" "brews" "casks" ] (
+    channel: map (entry: entry.name) config.homebrew.${channel}
+  );
+
   environment.systemPackages = [ updateHomebrew ];
 }

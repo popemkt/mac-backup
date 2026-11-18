@@ -26,17 +26,9 @@ let
   '';
 in
 {
-  # Read-only view of what this executor will install, so drift audits can
-  # evaluate the resolved set instead of re-deriving it by scanning source.
-  options.my.resolvedBunGlobals = lib.mkOption {
-    type = lib.types.listOf lib.types.str;
-    readOnly = true;
-    internal = true;
-    default = bunGlobalPackages;
-    description = "Merged Bun globals this host installs.";
-  };
+  my.packageExecutors.bunGlobals = bunGlobalPackages;
 
-  config.home = {
+  home = {
     sessionVariables.BUN_INSTALL = bunInstall;
     packages = [ updateBunGlobals ];
 

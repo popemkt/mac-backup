@@ -54,6 +54,8 @@ let
   };
 in
 {
+  my.packageExecutors = { inherit mcpServers; };
+
   home = {
     packages = [ mcpServersSync ];
 

@@ -535,7 +535,7 @@ let
       >/dev/null 2>&1 || true
 
     # Plugin membership is a tracked channel (my.pkgs.{claude,codex}Plugins),
-    # installed by modules/darwin/home-manager/agent-plugins/ on every
+    # installed by modules/common/home-manager/agent-plugins/ on every
     # rebuild. Setup only writes the credentials those plugins read.
 
     printf 'Cognee agent integrations configured. Restart active agent sessions.\n'
@@ -582,35 +582,21 @@ lib.mkIf (aiCfg.enable && cfg.enable) {
         $DRY_RUN_CMD ${ensureState}
       '';
 
-      # GAP [[01M3E9TMG3C90N8VBEDXGHHK45]] one of three copied uv installers.
-      home.activation.installCogneeUvTool = lib.hm.dag.entryAfter [ "ensureCogneeState" ] ''
-        export SDKROOT="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)"
-        # Prefer Apple's toolchain over any Nix clang/ar on PATH — maturin/cc-rs
-        # need a matching ar next to /usr/bin/clang (litellm's rust bridge).
-        export PATH="$PATH:/usr/bin:/bin"
-        export CC=/usr/bin/clang
-        export CXX=/usr/bin/clang++
-        export AR=/usr/bin/ar
-        export RANLIB=/usr/bin/ranlib
-        export CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER=/usr/bin/clang
-
-        receipt="${home}/.local/share/uv/tools/cognee/uv-receipt.toml"
-        if ! ${pkgs.uv}/bin/uv tool list 2>/dev/null \
-            | ${pkgs.gnugrep}/bin/grep -qxF ${lib.escapeShellArg "cognee v${version}"} \
-          || [[ ! -x "${python}" ]] \
-          || [[ "$("${python}" -c 'import platform; print(platform.python_version())' 2>/dev/null || true)" != "${pkgs.python313.version}" ]] \
-          || [[ ! -f "$receipt" ]] \
-          || ! ${pkgs.gnugrep}/bin/grep -q '"ollama"' "$receipt" \
-          || ! ${pkgs.gnugrep}/bin/grep -q 'cognee-mcp' "$receipt" \
-          || ! ${pkgs.gnugrep}/bin/grep -qF ${lib.escapeShellArg "==${mcpVersion}"} "$receipt"
-        then
-          $DRY_RUN_CMD ${pkgs.uv}/bin/uv tool install \
-            --force \
-            --python ${pkgs.python313}/bin/python3 \
-            --with ${lib.escapeShellArg (builtins.elemAt uvTools 1)} \
-            ${lib.escapeShellArg (builtins.head uvTools)}
-        fi
-      '';
+      home.activation.installCogneeUvTool = lib.hm.dag.entryAfter [ "ensureCogneeState" ] (
+        import ../install-uv-tool.nix { inherit lib pkgs; } {
+          name = "cognee";
+          inherit version python;
+          spec = builtins.head uvTools;
+          withPackages = [ (builtins.elemAt uvTools 1) ];
+          extraCurrent = ''
+            receipt="${home}/.local/share/uv/tools/cognee/uv-receipt.toml"
+            [[ -f "$receipt" ]] \
+              && ${pkgs.gnugrep}/bin/grep -q '"ollama"' "$receipt" \
+              && ${pkgs.gnugrep}/bin/grep -q 'cognee-mcp' "$receipt" \
+              && ${pkgs.gnugrep}/bin/grep -qF ${lib.escapeShellArg "==${mcpVersion}"} "$receipt"
+          '';
+        }
+      );
     };
 
   launchd.user.envVariables = {

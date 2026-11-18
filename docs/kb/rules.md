@@ -166,15 +166,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M53WTHZ1YAW03WWCCFEV0QY1`
 
-### GAP: package executors share no contract check
-
-- **expected** — Every executor-installed channel in modules/options/channels.nix names the executor view that installs it, and one flake check proves, per host, that each channel's members reach that view. A new executor joins the check by registering its view.
-- **current** — Homebrew, npm, Bun and agent-plugins each read their channel their own way. The resolved views are ad hoc (homebrew.* for Homebrew, my.resolvedNpmGlobals and my.resolvedBunGlobals for npm and Bun, none for the Claude and Codex plugin channels), and only the drift audit, at runtime, compares them with the machine.
-- **impact** — An executor that drops or filters channel members still evaluates and builds; the loss shows only as drift on a live machine after rebuild.
-- **closes** — Replace the ad hoc resolved* options with one registry the executors fill per channel (npm-global.nix is part of this; it had uncommitted user edits when this was filed), then add an executor-contract flake check over channels.nix and point the drift audit at the same registry.
-- **rule** — One contract, every implementation
-- **node** — `01M3E9V4VV52HJPW181Y74AR0J`
-
 ### GAP: per-item removal on bb Claude Code and Codex threads needs forked providers
 
 - **expected** — A composed bb Claude Code or Codex thread loads only the skills, MCP servers, instruction files and subagents its manifest keeps.
@@ -264,15 +255,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A declared backup of the bb server's data dir on shared-server (restic), or manifests stored in kb.
 - **node** — `01M5QKD7TMB3HDV65V543HTD9M`
 
-### GAP: the npm executor special-cases @openai/codex and aborts activation on a failed install
-
-- **expected** — installNpmGlobals treats every member of my.pkgs.npmGlobals alike and warns and continues when an install fails, like installBunGlobals and agent-plugins.
-- **current** — Its loop carries an elif for @openai/codex that runs npm rebuild when the codex bin link is missing, and a failing npm install -g aborts the rest of Home Manager activation.
-- **impact** — The executor decides per-package behaviour, which Module Boundaries reserves for stacks, and one unreachable npm package blocks every later activation step.
-- **closes** — Generalise the relink to any declared package whose bin links are missing (or move it to the owning stack), and add || warn to the install. The marker could not be placed: npm-global.nix had uncommitted user edits.
-- **rule** — Module boundaries
-- **node** — `01M3E9V5JS5VS5ZRT14510BN4D`
-
 ### GAP: the stop indicator cannot tell a stop by the person from a stop by another agent
 
 - **expected** — The why-this-thread-stopped badge says 'stopped by you' or 'stopped by another agent' (naming the agent's thread)
@@ -289,15 +271,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — State the pin-tool contract once in docs/github-release-packages.md, move uv-sources to exit 20 for could not resolve, and add a uv-sources case to a shared stubbed check next to github-sources-check. Coordinate with the owner of scripts/github-sources.
 - **rule** — One contract, every implementation
 - **node** — `01M3E9VSQZTDHRV4C9YRWD1QV1`
-
-### GAP: three hand-copied uv tool installers, each reading a failed uv tool list as not installed
-
-- **expected** — One uv tool installer (a shared helper each owning module calls with its spec, extras and extra freshness checks) that captures uv tool list, checks its exit status, and warns and continues on failure, as AGENTS.md Writing an executor requires.
-- **current** — semantica.nix, cognee/server.nix and cognee/client.nix each repeat the same toolchain exports and uv tool install --force block, and each probes with uv tool list | grep -q, so a crashed uv reads as not installed and forces a reinstall. The copies already drifted once: the cognee checks matched hand-typed versions until 3d9e0bd0.
-- **impact** — A uv failure costs a heavy forced reinstall (torch/faiss for Cognee) on every rebuild, and a fix to one copy misses the other two.
-- **closes** — Extract the installer into one function under modules/stacks/ai-agents/ (or a uvTools executor if install ownership moves to the channel), move the three call sites onto it, and have it check uv's exit status.
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M3E9TMG3C90N8VBEDXGHHK45`
 
 ### GAP: tldraw canvases are tied to the machine that holds the file
 
@@ -392,6 +365,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — intent/gate.sh record runs the installed kb's check audit (a kb subcommand in the release) when .kb/, .githooks/ or a rule's home changes
 - **node** — `01M41YB3V2NC6NPXJYB9PH97D9`
 
+### GAP: package executors share no contract check
+
+- **expected** — Every executor-installed channel in modules/options/channels.nix names the executor view that installs it, and one flake check proves, per host, that each channel's members reach that view. A new executor joins the check by registering its view.
+- **current** — Homebrew, npm, Bun and agent-plugins each read their channel their own way. The resolved views are ad hoc (homebrew.* for Homebrew, my.resolvedNpmGlobals and my.resolvedBunGlobals for npm and Bun, none for the Claude and Codex plugin channels), and only the drift audit, at runtime, compares them with the machine.
+- **impact** — An executor that drops or filters channel members still evaluates and builds; the loss shows only as drift on a live machine after rebuild.
+- **closes** — Replace the ad hoc resolved* options with one registry the executors fill per channel (npm-global.nix is part of this; it had uncommitted user edits when this was filed), then add an executor-contract flake check over channels.nix and point the drift audit at the same registry.
+- **rule** — One contract, every implementation
+- **node** — `01M3E9V4VV52HJPW181Y74AR0J`
+
 ### GAP: popemkt's socket-served kb UI has no .kb/ui.json, so CLI/MCP ui.* calls see no tabs
 
 - **expected** — kb ui --socket on shared-server records its presence, so kb CLI and kb mcp ui.screen/navigate/select/capture reach the page's tabs
@@ -408,6 +390,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The owner decides to grant tag:shared-server → svc:kb-work (shared-server has two administrators, so the work store becomes readable from there), or bb's server moves to the Mac, or kb gains a per-caller credential that a grant can be paired with.
 - **node** — `01M7PCSB0AQS9BZ1KWGV7J936R`
 
+### GAP: the npm executor special-cases @openai/codex and aborts activation on a failed install
+
+- **expected** — installNpmGlobals treats every member of my.pkgs.npmGlobals alike and warns and continues when an install fails, like installBunGlobals and agent-plugins.
+- **current** — Its loop carries an elif for @openai/codex that runs npm rebuild when the codex bin link is missing, and a failing npm install -g aborts the rest of Home Manager activation.
+- **impact** — The executor decides per-package behaviour, which Module Boundaries reserves for stacks, and one unreachable npm package blocks every later activation step.
+- **closes** — Generalise the relink to any declared package whose bin links are missing (or move it to the owning stack), and add || warn to the install. The marker could not be placed: npm-global.nix had uncommitted user edits.
+- **rule** — Module boundaries
+- **node** — `01M3E9V5JS5VS5ZRT14510BN4D`
+
 ### GAP: The repo's Claude Code marketplace and agent skill links point into the person's checkout
 
 - **expected** — What an agent loads from this repo is the revision applied, as bb plugins are since they install from the Nix store (modules/common/home-manager/bb-plugins/); in-place reading is an explicit opt-in for development.
@@ -415,6 +406,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Agents run whatever the checkout holds (a feature branch, uncommitted edits, a stale tree), not the applied revision; on a host several people apply from it would repeat the bb-lively downgrade of 2026-10-26.
 - **closes** — Marketplace and skill links point at a store copy of assets/plugins (or a writable copy keyed by its hash, as bb plugins do), with a documented in-place mode for trying edits, like bb-plugins-sync --path.
 - **node** — `01M5W9JKV26YK4R234A0F60X21`
+
+### GAP: three hand-copied uv tool installers, each reading a failed uv tool list as not installed
+
+- **expected** — One uv tool installer (a shared helper each owning module calls with its spec, extras and extra freshness checks) that captures uv tool list, checks its exit status, and warns and continues on failure, as AGENTS.md Writing an executor requires.
+- **current** — semantica.nix, cognee/server.nix and cognee/client.nix each repeat the same toolchain exports and uv tool install --force block, and each probes with uv tool list | grep -q, so a crashed uv reads as not installed and forces a reinstall. The copies already drifted once: the cognee checks matched hand-typed versions until 3d9e0bd0.
+- **impact** — A uv failure costs a heavy forced reinstall (torch/faiss for Cognee) on every rebuild, and a fix to one copy misses the other two.
+- **closes** — Extract the installer into one function under modules/stacks/ai-agents/ (or a uvTools executor if install ownership moves to the channel), move the three call sites onto it, and have it check uv's exit status.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M3E9TMG3C90N8VBEDXGHHK45`
 
 ### GAP: two launch paths for the kb binary
 

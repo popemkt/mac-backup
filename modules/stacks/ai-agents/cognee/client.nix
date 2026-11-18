@@ -178,7 +178,7 @@ let
       >/dev/null 2>&1 || true
 
     # Plugin membership is a tracked channel (my.pkgs.{claude,codex}Plugins),
-    # installed by modules/darwin/home-manager/agent-plugins/ on every
+    # installed by modules/common/home-manager/agent-plugins/ on every
     # rebuild. Enrollment only writes the credentials those plugins read.
 
     printf 'Cognee client configured for %s. Restart active agent sessions.\n' \
@@ -332,32 +332,17 @@ lib.mkIf (aiCfg.enable && cfg.enable) {
         $DRY_RUN_CMD ${ensureState}
       '';
 
-      # GAP [[01M3E9TMG3C90N8VBEDXGHHK45]] one of three copied uv installers.
-      home.activation.installCogneeMcpUvTool = lib.hm.dag.entryAfter [ "ensureCogneeClientState" ] ''
-        export SDKROOT="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)"
-        # Prefer Apple's toolchain over any Nix clang/ar on PATH — maturin/cc-rs
-        # need a matching ar next to /usr/bin/clang (litellm's rust bridge).
-        export PATH="$PATH:/usr/bin:/bin"
-        export CC=/usr/bin/clang
-        export CXX=/usr/bin/clang++
-        export AR=/usr/bin/ar
-        export RANLIB=/usr/bin/ranlib
-        export CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER=/usr/bin/clang
-
-        receipt="${home}/.local/share/uv/tools/cognee-mcp/uv-receipt.toml"
-        if [[ ! -x "${mcpExecutable}" ]] \
-          || [[ ! -x "${mcpPython}" ]] \
-          || [[ "$("${mcpPython}" -c 'import platform; print(platform.python_version())' 2>/dev/null || true)" != "${pkgs.python313.version}" ]] \
-          || [[ ! -f "$receipt" ]] \
-          || ! ${pkgs.uv}/bin/uv tool list 2>/dev/null \
-            | ${pkgs.gnugrep}/bin/grep -qxF ${lib.escapeShellArg "cognee-mcp v${mcpVersion}"}
-        then
-          $DRY_RUN_CMD ${pkgs.uv}/bin/uv tool install \
-            --force \
-            --python ${pkgs.python313}/bin/python3 \
-            ${lib.escapeShellArg (builtins.head uvTools)}
-        fi
-      '';
+      home.activation.installCogneeMcpUvTool = lib.hm.dag.entryAfter [ "ensureCogneeClientState" ] (
+        import ../install-uv-tool.nix { inherit lib pkgs; } {
+          name = "cognee-mcp";
+          version = mcpVersion;
+          spec = builtins.head uvTools;
+          python = mcpPython;
+          extraCurrent = ''
+            [[ -x "${mcpExecutable}" && -f "${home}/.local/share/uv/tools/cognee-mcp/uv-receipt.toml" ]]
+          '';
+        }
+      );
     };
 
   launchd.user.envVariables = {

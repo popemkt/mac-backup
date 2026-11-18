@@ -195,7 +195,7 @@ Rules for agents:
 | Give a prebuilt NixOS binary a shared library | the owning stack's `my.pkgs.nixLdLibraries` (nixpkgs attribute names) |
 | Add a stack's package on one host only | `my.stacks.<stack>.extra.<channel>` in `hosts/<hostname>/default.nix` |
 | Add a Claude Code or Codex plugin | the owning stack's `my.pkgs.{claude,codex}{Marketplaces,Plugins}` lists |
-| Add a plugin or skill of this repo's own for every agent | its folder in `assets/plugins/<name>` (skills under `skills/`; a Claude Code plugin also listed in `assets/plugins/.claude-plugin/marketplace.json` and in the owning stack's `my.pkgs.claudePlugins` as `<name>@dotfiles`). The ai-agents stack declares the folder as the marketplace `dotfiles=./assets/plugins`; `modules/darwin/home-manager/agent-plugins/` installs it from the revision applied, never a checkout's (its `sync.sh` says how) |
+| Add a plugin or skill of this repo's own for every agent | its folder in `assets/plugins/<name>` (skills under `skills/`; a Claude Code plugin also listed in `assets/plugins/.claude-plugin/marketplace.json` and in the owning stack's `my.pkgs.claudePlugins` as `<name>@dotfiles`). The ai-agents stack declares the folder as the marketplace `dotfiles=./assets/plugins`; `modules/common/home-manager/agent-plugins/` installs it from the revision applied, never a checkout's (its `sync.sh` says how) |
 | Try a skill or Claude Code plugin from `assets/plugins` in a worktree, without a rebuild | `agent-plugins-sync --path <worktree>/assets/plugins`; agents read that folder in place (`/reload-plugins` in Claude Code) until the next `agent-plugins-sync` or `rebuild` |
 | Register an MCP server with every agent | the owning stack's `my.pkgs.mcpServers.<name> = { command; args; env; }` (command by store path; a host-only one through `my.stacks.<stack>.extra.mcpServers`); `modules/common/home-manager/mcp-servers/` registers it with Claude Code (user scope), Codex, Cursor, opencode, Gemini CLI and Oh My Pi on every rebuild, and `mcp-servers-sync --check` shows what a harness lacks |
 | Link a package's agent skills to every agent | the owning stack's `my.pkgs.agentSkills` entry `"<name>=<folder of skill folders>"` (e.g. `${pkgs.kb}/share/kb/skills`); `agent-plugins-sync` links each into `~/.agents/skills` and every agent's skills folder, skipping a folder that is not there |
@@ -230,6 +230,12 @@ The repo has two axes, and every module belongs to exactly one of them.
   channel from the owning stack, never editing an executor.
 
 ### Writing an executor
+
+Channels that have an executor name its platform and scope in
+`modules/options/channels.nix`. Publish the members that actually reach
+the installer at `my.packageExecutors.<channel>` in that scope. The
+`package-executors-contract` flake check verifies that every declared
+member reaches the executor on each supported host and account.
 
 Activation runs with a minimal environment. It inherits no interactive PATH,
 so an executor that shells out to a package manager must supply that tool's

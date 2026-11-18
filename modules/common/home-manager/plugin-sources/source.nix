@@ -2,7 +2,7 @@
 # installs, taken from the revision being applied, never from a person's
 # checkout, which may be behind or ahead of it. Used by both plugin
 # executors, bb plugins (../bb-plugins/) and the agents' own plugins and
-# skills (modules/darwin/home-manager/agent-plugins/), and by the flake check
+# skills (modules/common/home-manager/agent-plugins/), and by the flake check
 # that proves each copy is complete (./check.nix).
 #
 # A copy holds the plugin folder and every sibling folder its files reach by

@@ -47,15 +47,7 @@ let
   );
 in
 {
-  # Read-only view of what this executor will install, so drift audits can
-  # evaluate the resolved set instead of re-deriving it by scanning source.
-  options.my.resolvedNpmGlobals = lib.mkOption {
-    type = lib.types.listOf lib.types.str;
-    readOnly = true;
-    internal = true;
-    default = npmGlobalPackages;
-    description = "Merged npm globals this host installs.";
-  };
+  config.my.packageExecutors.npmGlobals = npmGlobalPackages;
 
   config.home = {
     # Keep npm -g installs out of /nix/store.
@@ -71,30 +63,53 @@ in
     # Routine rebuilds only restore missing declarations. `update-system`
     # invokes update-npm-globals when network-backed upgrades are intentional.
     activation.installNpmGlobals = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      export PATH="${pkgs.nodejs}/bin:${npmPrefix}/bin:$PATH"
-      export npm_config_prefix="${npmPrefix}"
-      mkdir -p "${npmPrefix}/bin" "${npmPrefix}/lib/node_modules"
-
-      for pkg in ${lib.concatStringsSep " " (map lib.escapeShellArg npmGlobalPackages)}; do
-        if ! ${pkgs.nodejs}/bin/npm ls -g --depth=0 "$pkg" >/dev/null 2>&1; then
-          echo "Installing missing npm global: $pkg"
-          $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g "$pkg@latest"
-        elif [ "$pkg" = "@openai/codex" ] \
-          && { [ ! -x "${npmPrefix}/bin/codex" ] \
-            || ! "${npmPrefix}/bin/codex" --version >/dev/null 2>&1; }; then
-          # Codex ships its native binary as an optional platform dependency
-          # (@openai/codex-darwin-arm64 and friends). `npm ls` still succeeds
-          # when that dependency is absent, and `npm rebuild` only relinks the
-          # bin shim, so neither check above notices. An install killed before
-          # npm reifies — it moves the old tree aside first — leaves exactly
-          # that state: a valid package.json, no runnable Codex. Only a full
-          # reinstall restores the platform package. Reinstall the version
-          # already there: a routine rebuild repairs, it never upgrades.
-          ver="$(${pkgs.nodejs}/bin/node -p "require('${npmPrefix}/lib/node_modules/@openai/codex/package.json').version" 2>/dev/null || echo latest)"
-          echo "Repairing Codex $ver: platform binary missing or not runnable"
-          $DRY_RUN_CMD ${pkgs.nodejs}/bin/npm install -g "$pkg@$ver"
+      (
+        export npm_config_prefix=${lib.escapeShellArg npmPrefix}
+        export PATH="${pkgs.nodejs}/bin:$npm_config_prefix/bin:$PATH"
+        npm=${pkgs.nodejs}/bin/npm
+        node=${pkgs.nodejs}/bin/node
+        if ! installed="$("$npm" ls -g --depth=0 --json)"; then
+          echo "warning: could not list npm globals; skipping activation installs" >&2
+          exit 0
         fi
-      done
+        if ! names="$(${lib.getExe pkgs.jq} -r '(.dependencies // {}) | keys[]' <<<"$installed")"; then
+          echo "warning: could not read npm globals; skipping activation installs" >&2
+          exit 0
+        fi
+
+        stack_health_check() {
+          case "$1" in
+            ${lib.concatStringsSep "\n" (
+              lib.mapAttrsToList (name: probe: ''
+                ${lib.escapeShellArg name}) ${probe} "$npm_config_prefix/bin" >/dev/null 2>&1 ;;
+              '') config.my.npmGlobalHealthChecks
+            )}
+            *) return 0 ;;
+          esac
+        }
+
+        for pkg in ${lib.concatStringsSep " " (map lib.escapeShellArg npmGlobalPackages)}; do
+          if ! ${pkgs.gnugrep}/bin/grep -qxF -- "$pkg" <<<"$names"; then
+            version=latest
+            echo "Installing missing npm global: $pkg"
+          elif version="$("$node" ${./npm-global-health.cjs} "$npm_config_prefix" "$pkg")"             && stack_health_check "$pkg"; then
+            continue
+          elif [ -n "$version" ]; then
+            echo "Repairing npm global: $pkg@$version"
+          else
+            echo "warning: could not determine installed version of $pkg; skipping repair" >&2
+            continue
+          fi
+          run "$npm" install -g "$pkg@$version"             || echo "warning: could not install npm global $pkg@$version" >&2
+        done
+      )
     '';
+  };
+
+  options.my.npmGlobalHealthChecks = lib.mkOption {
+    type = lib.types.attrsOf lib.types.path;
+    default = { };
+    internal = true;
+    description = "Optional executable health probes by npm package name. Each gets the npm global bin directory as its argument.";
   };
 }
