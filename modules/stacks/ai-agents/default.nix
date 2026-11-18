@@ -78,7 +78,7 @@ in
         default = { };
         description = "Cognee server and remote client roles.";
         type = types.submodule {
-          options = {
+          options = (import ./cognee/ports.nix lib) // {
             server = mkOption {
               default = { };
               description = "Stateful Cognee API, UI, databases, models, and gateway.";

@@ -54,46 +54,15 @@ resolve_root() {
     fi
   fi
 
-  MACKUP_NIX="$ROOT_DIR/modules/darwin/home-manager/mackup.nix"
+  MACKUP_NIX="$ROOT_DIR/modules/darwin/home-manager/mackup-settings.nix"
   GITIGNORE="$ROOT_DIR/.gitignore"
   BACKUP_DOC="$ROOT_DIR/docs/backup-strategy.md"
   NODES="$ROOT_DIR/.kb/nodes.jsonl"
 }
 
-# Home-relative media path declared by the Mackup `kb` app, e.g.
-# `.dotfiles/.kb/assets`. Empty when the declaration is missing.
-declared_media_path() {
-  [ -f "$MACKUP_NIX" ] || return 0
-  awk '
-    /applications\/kb\.cfg/ { block=1; next }
-    block && /^[[:space:]]*\x27\x27/ { block=0; next }
-    block && /\[configuration_files\]/ { files=1; next }
-    block && files && NF { print $1; exit }
-    { next }
-  ' "$MACKUP_NIX" 2>/dev/null || true
-}
-
-# GAP [[01M3E9VYK1NK02TN5MYSQXS7C7]] scrapes mackup.nix instead of evaluating.
-# Storage engine declared in the rendered .mackup.cfg (always `icloud` here).
-storage_engine() {
-  [ -f "$MACKUP_NIX" ] || return 0
-  awk '
-    /file\."\.mackup\.cfg"/ { block=1; next }
-    block && /^[[:space:]]*\x27\x27/ { block=0; next }
-    block && /engine[[:space:]]*=/ { print $3; exit }
-    { next }
-  ' "$MACKUP_NIX" 2>/dev/null || true
-}
-
-# True when the `kb` app is on the [applications_to_sync] allowlist.
-kb_in_sync_list() {
-  [ -f "$MACKUP_NIX" ] || return 1
-  awk '
-    /\[applications_to_sync\]/ { sync=1; next }
-    sync && /^[[:space:]]*kb[[:space:]]*$/ { found=1 }
-    sync && /^\[/ { sync=0 }
-    END { exit found ? 0 : 1 }
-  ' "$MACKUP_NIX" 2>/dev/null
+# Evaluate the same data that renders the Mackup configuration.
+mackup_settings() {
+  nix eval --json --file "$MACKUP_NIX"
 }
 
 # Media reference targets extracted from committed node text. Only the
@@ -126,20 +95,20 @@ check_node_refs() {
 }
 
 check() {
-  local rc=0 media_rel
-  media_rel="$(declared_media_path || true)"
-
-  if [ -z "$media_rel" ]; then
-    echo "FAIL: no kb media path is declared in $MACKUP_NIX"
-    rc=1
-  elif [ "$media_rel" != ".dotfiles/.kb/assets" ]; then
-    echo "FAIL: kb media path '$media_rel' does not match the repo invariant '.dotfiles/.kb/assets'"
-    rc=1
-  else
-    echo "ok: Mackup kb app declares $media_rel"
+  local rc=0 settings media_rel=".dotfiles/.kb/assets"
+  if ! settings="$(mackup_settings)"; then
+    echo "FAIL: cannot evaluate Mackup settings ($MACKUP_NIX)"
+    return 1
   fi
 
-  if kb_in_sync_list; then
+  if jq -e --arg path "$media_rel" '.kbFiles | index($path) != null' <<<"$settings" >/dev/null; then
+    echo "ok: Mackup kb app declares $media_rel"
+  else
+    echo "FAIL: Mackup kb app does not declare $media_rel ($MACKUP_NIX)"
+    rc=1
+  fi
+
+  if jq -e '.applications | index("kb") != null' <<<"$settings" >/dev/null; then
     echo "ok: kb is listed in [applications_to_sync] in $MACKUP_NIX"
   else
     echo "FAIL: kb is not listed in [applications_to_sync] in $MACKUP_NIX"
@@ -166,10 +135,10 @@ check() {
 }
 
 status() {
-  local media_rel local_dir storage_root storage_dir engine
-  media_rel="$(declared_media_path || true)"
-  if [ -z "$media_rel" ]; then
-    echo "WARN: no kb media path is declared in $MACKUP_NIX; run 'check'"
+  local media_rel=".dotfiles/.kb/assets" local_dir storage_root storage_dir engine settings
+  if ! settings="$(mackup_settings)" || ! jq -e --arg path "$media_rel" \
+    '(.kbFiles | index($path) != null) and (.applications | index("kb") != null)' <<<"$settings" >/dev/null; then
+    echo "WARN: Mackup does not cover kb media at $media_rel; run 'check'"
     return 0
   fi
 
@@ -179,7 +148,7 @@ status() {
     return 0
   fi
 
-  engine="$(storage_engine || true)"
+  engine="$(jq -r '.engine // empty' <<<"$settings")"
   if [ "$engine" != "icloud" ]; then
     echo "INFO: kb media backup uses storage engine '${engine:-unknown}'; status only supports icloud"
     return 0
@@ -255,27 +224,11 @@ self_test() {
   resolve_root
 
   write_fixture() {
-    cat > "$fixture/modules/darwin/home-manager/mackup.nix" <<'EOF'
-{ pkgs, ... }:
+    cat > "$MACKUP_NIX" <<'EOF'
 {
-  home = {
-    packages = [ pkgs.mackup ];
-    file.".mackup.cfg".text = ''
-      [storage]
-      engine = icloud
-
-      [applications_to_sync]
-      kb
-      macosx
-    '';
-    file.".config/mackup/applications/kb.cfg".text = ''
-      [application]
-      name = kb
-
-      [configuration_files]
-      .dotfiles/.kb/assets
-    '';
-  };
+  engine = "icloud";
+  applications = [ "macosx" "kb" ];
+  kbFiles = [ (".dotfiles" + "/.kb/assets") ];
 }
 EOF
     printf '.kb/assets\n' > "$fixture/.gitignore"
@@ -300,11 +253,11 @@ EOF
   expect_check pass "happy fixture passes check" check
 
   write_fixture
-  perl -pi -e 's/^[ \t]*kb$//' "$fixture/modules/darwin/home-manager/mackup.nix"
+  perl -pi -e 's/ "kb"//' "$MACKUP_NIX"
   expect_check fail "kb dropped from applications_to_sync is rejected" check
 
   write_fixture
-  perl -pi -e 's#\.dotfiles/\.kb/assets#.dotfiles/.kb/media#' "$fixture/modules/darwin/home-manager/mackup.nix"
+  perl -pi -e 's#/\.kb/assets#/.kb/media#' "$MACKUP_NIX"
   expect_check fail "declared media path moved is rejected" check
 
   write_fixture

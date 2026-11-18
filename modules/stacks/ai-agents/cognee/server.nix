@@ -14,9 +14,8 @@ let
   version = config.my.uvPins."cognee".version;
   mcpVersion = config.my.uvPins."cognee-mcp".version;
   apiPort = 8000;
-  mcpPort = 8001;
+  inherit (aiCfg.cognee) mcpPort gatewayPort;
   uiPort = 3000;
-  gatewayPort = 8088;
   ollamaPort = 11435;
 
   stateRoot = "${home}/.local/state/cognee";
@@ -71,7 +70,7 @@ let
     # gemini-3.5-flash-low (antigravity) is quota-exhausted; generation and the
     # /health/detailed LLM probe use gpt-5.6-luna (openai/codex) instead.
     LLM_MODEL=openai/gpt-5.6-luna
-    LLM_ENDPOINT=http://127.0.0.1:8317/v1
+    LLM_ENDPOINT=http://127.0.0.1:${toString aiCfg.cliProxyApi.port}/v1
     LLM_API_KEY=local
     STRUCTURED_OUTPUT_FRAMEWORK=instructor
     LLM_INSTRUCTOR_MODE=json_mode

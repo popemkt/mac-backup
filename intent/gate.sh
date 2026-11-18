@@ -111,7 +111,7 @@ record_admission() {
     echo "==> kb generated docs (staged snapshot)"
     (cd "$staged_tree" && kb docs check)
   fi
-  if grep -qE '^(\.kb/|\.gitignore$|docs/backup-strategy\.md$|modules/darwin/home-manager/mackup\.nix$|scripts/check-kb-assets-backup\.sh$)' <<<"$staged_paths"; then
+  if grep -qE '^(\.kb/|\.gitignore$|docs/backup-strategy\.md$|modules/darwin/home-manager/mackup(-settings)?\.nix$|scripts/check-kb-assets-backup\.sh$)' <<<"$staged_paths"; then
     echo "==> kb media backup ownership (staged snapshot)"
     KB_ASSETS_ROOT="$staged_tree" "$staged_tree/scripts/check-kb-assets-backup.sh" check
   fi

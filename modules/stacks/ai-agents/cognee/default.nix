@@ -13,7 +13,7 @@ in
   imports = [
     ./client.nix # thin remote bridge to a Cognee service on another host
     ./plugins.nix # Codex/Claude Code lifecycle plugins for both roles
-    ./server.nix # authenticated memory API + UI (loopback :8088)
+    ./server.nix # authenticated memory API + UI
   ];
 
   assertions = [

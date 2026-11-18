@@ -190,7 +190,7 @@ if [ -x /bin/bash ] && /bin/bash -c '[ "${BASH_VERSINFO[0]}" -lt 4 ]'; then
   [ "$status" -eq 2 ] || fail "old-bash: exit $status, want 2"
   echo "case old-bash: exit $status"
   expect old-bash stderr '^error: github-sources needs bash 4\.4 or newer, not 3\.'
-else
+elif [ "$(uname -s)" = Darwin ]; then
   fail "old-bash: no bash older than 4.4 at /bin/bash to run the refusal against"
 fi
 
