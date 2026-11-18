@@ -16,9 +16,13 @@
 #   the file, edited with jq, only where the harness's own folder exists.
 #
 # A server already registered as declared is left alone; one registered
-# differently is replaced. A name this sync registered before and no stack
-# declares any more ($state/managed) is removed, since its command is a store
-# path that garbage collection will take. A server a person registered under
+# differently is replaced. A name this sync registered in a harness before and
+# no stack declares any more is removed from it, since its command is a store
+# path that garbage collection will take. Each harness keeps its own record,
+# $state/managed-<harness>, which changes only when that harness was
+# reconciled: one skipped (CLI missing, listing failed, file not plain JSON)
+# keeps its record, and a name whose removal failed stays in it, so the next
+# run that reaches the harness removes it. A server a person registered under
 # another name is never touched.
 #
 # `mcp-servers-sync --check` changes nothing and prints one line per declared
@@ -49,17 +53,38 @@ declared="$("$jq" -c 'map_values({command, args: (.args // []), env: (.env // {}
   exit 0
 }
 names="$(printf '%s' "$declared" | "$jq" -r 'keys[]')"
-previous=""
-[ -f "$state/managed" ] && previous="$("$cu/cat" "$state/managed")"
-# Names this sync registered before that no stack declares now, as JSON.
-dropped="$(printf '%s\n' "$previous" | "$jq" -R -s -c --argjson d "$declared" \
-  'split("\n") | map(select(. as $n | $n != "" and ($d | has($n) | not)))')" || {
-  warn "cannot read $state/managed; removed no MCP server this sync registered before"
-  dropped='[]'
+
+# dropped_for <harness>: the names this sync registered with <harness> before
+# that no stack declares now, one per line. A record it cannot read takes back
+# nothing (and is rewritten only once the harness is reconciled).
+dropped_for() {
+  local record="$state/managed-$1"
+  [ -s "$record" ] || return 0
+  "$jq" -R -r --argjson d "$declared" '. as $n | select($n != "" and ($d | has($n) | not))' "$record" 2>/dev/null \
+    || warn "cannot read $record; took back no MCP server from it"
 }
 
-# Nothing declared and nothing to take back: no harness is asked anything.
-[ -z "$names" ] && [ "$dropped" = "[]" ] && exit 0
+# reconciled <harness> [<name>…]: <harness> now has every declared server
+# this sync manages there, plus the given names, whose removal failed.
+reconciled() {
+  local harness="$1"
+  shift
+  $check && return 0
+  if ! { { printf '%s\n' "$names"; printf '%s\n' "$@"; } | "$jq" -R -r 'select(. != "")' | "$cu/sort" -u >"$state/.managed-$harness" \
+    && "$cu/mv" -f "$state/.managed-$harness" "$state/managed-$harness"; }; then
+    warn "cannot record the MCP servers this sync manages in $harness ($state/managed-$harness)"
+  fi
+}
+
+# Nothing declared and nothing to take back anywhere: no harness is asked
+# anything.
+if [ -z "$names" ]; then
+  pending=false
+  for record in "$state"/managed-*; do
+    [ -s "$record" ] && pending=true
+  done
+  $pending || exit 0
+fi
 
 # --check's report: one line per server a harness lacks or has differently.
 missing() { printf '%s: %s\n' "$1" "$2"; }
@@ -98,15 +123,18 @@ claude_sync() {
     fi
   done
   if $check; then return 0; fi
-  for name in $(printf '%s' "$dropped" | "$jq" -r '.[]'); do
+  local kept=()
+  for name in $(dropped_for claude); do
     if printf '%s' "$registered" | "$jq" -e --arg n "$name" 'has($n)' >/dev/null; then
       if claude mcp remove --scope user "$name" >/dev/null 2>&1; then
         echo "Removed MCP server $name from Claude Code"
       else
         warn "claude mcp remove $name failed"
+        kept+=("$name")
       fi
     fi
   done
+  reconciled claude "${kept[@]}"
 }
 
 # ---- Codex ------------------------------------------------------------------
@@ -152,15 +180,18 @@ codex_sync() {
     fi
   done
   if $check; then return 0; fi
-  for name in $(printf '%s' "$dropped" | "$jq" -r '.[]'); do
+  local kept=()
+  for name in $(dropped_for codex); do
     if printf '%s' "$listing" | "$jq" -e --arg n "$name" 'any(.[]; .name == $n)' >/dev/null; then
       if codex mcp remove "$name" >/dev/null 2>&1; then
         echo "Removed MCP server $name from Codex"
       else
         warn "codex mcp remove $name failed"
+        kept+=("$name")
       fi
     fi
   done
+  reconciled codex "${kept[@]}"
 }
 
 # ---- Harnesses configured by one JSON file ------------------------------------
@@ -171,11 +202,13 @@ entry_jq='def entry($shape):
   elif $shape == "omp" then {type: "stdio"} + .
   else . end;'
 
-# file_sync <label> <harness folder> <file> <key> <shape>: in <file>, under
-# <key>, every declared server as <shape> has it, and no dropped one. Only
-# where <harness folder> exists, so a harness that is not installed gets no
-# file; a file that is there but is not plain JSON is left alone.
+# file_sync <harness> <label> <harness folder> <file> <key> <shape>: in
+# <file>, under <key>, every declared server as <shape> has it, and no dropped
+# one. Only where <harness folder> exists, so a harness that is not installed
+# gets no file; a file that is there but is not plain JSON is left alone.
 file_sync() {
+  local harness="$1"
+  shift
   local label="$1" dir="$2" file="$3" key="$4" shape="$5"
   [ -d "$dir" ] || return 0
   local current='{}'
@@ -193,7 +226,8 @@ file_sync() {
       | while IFS= read -r name; do missing "$label" "$name"; done
     return 0
   fi
-  local next
+  local next dropped
+  dropped="$(dropped_for "$harness" | "$jq" -R -s -c 'split("\n") | map(select(. != ""))')" || dropped='[]'
   next="$(printf '%s' "$current" | "$jq" --argjson d "$declared" --argjson drop "$dropped" \
     --arg k "$key" --arg s "$shape" \
     "$entry_jq"' .[$k] = (((.[$k] // {}) | with_entries(select(.key as $n | $drop | index($n) | not)))
@@ -201,7 +235,10 @@ file_sync() {
     warn "cannot work out $label's MCP servers; left $file alone"
     return 0
   }
-  [ "$(printf '%s' "$next" | "$jq" -c '.')" = "$current" ] && return 0
+  if [ "$(printf '%s' "$next" | "$jq" -c '.')" = "$current" ]; then
+    reconciled "$harness"
+    return 0
+  fi
   local tmp
   if ! "$cu/mkdir" -p "$("$cu/dirname" "$file")" || ! tmp="$("$cu/mktemp" "$file.tmp.XXXXXX")"; then
     warn "cannot write next to $file; $label keeps what it has"
@@ -211,6 +248,7 @@ file_sync() {
     && { [ ! -e "$file" ] || "$cu/chmod" --reference="$file" "$tmp"; } \
     && "$cu/mv" -f "$tmp" "$file"; then
     echo "Registered MCP servers with $label ($file)"
+    reconciled "$harness"
   else
     "$cu/rm" -f "$tmp"
     warn "cannot write $file; $label keeps what it has"
@@ -219,14 +257,8 @@ file_sync() {
 
 claude_sync
 codex_sync
-file_sync "Cursor" "$home/.cursor" "$home/.cursor/mcp.json" mcpServers plain
-file_sync "Gemini CLI" "$home/.gemini" "$home/.gemini/settings.json" mcpServers plain
-file_sync "Oh My Pi" "$home/.omp" "$home/.omp/agent/mcp.json" mcpServers omp
-file_sync "opencode" "$home/.config/opencode" "$home/.config/opencode/opencode.json" mcp opencode
-
-if ! $check; then
-  if ! { printf '%s\n' "$names" >"$state/managed.tmp" && "$cu/mv" -f "$state/managed.tmp" "$state/managed"; }; then
-    warn "cannot record the MCP servers this sync manages ($state/managed)"
-  fi
-fi
+file_sync cursor "Cursor" "$home/.cursor" "$home/.cursor/mcp.json" mcpServers plain
+file_sync gemini "Gemini CLI" "$home/.gemini" "$home/.gemini/settings.json" mcpServers plain
+file_sync omp "Oh My Pi" "$home/.omp" "$home/.omp/agent/mcp.json" mcpServers omp
+file_sync opencode "opencode" "$home/.config/opencode" "$home/.config/opencode/opencode.json" mcp opencode
 exit 0

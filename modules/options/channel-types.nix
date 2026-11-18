@@ -14,28 +14,32 @@ in
     default = [ ];
   };
 
-  # MCP servers by name. Contributions merge by name; two stacks declaring
-  # one name with different values is an evaluation error.
+  # MCP servers by name. Servers from several stacks merge by name, but each
+  # server is declared once, whole: a second declaration of a name is an
+  # evaluation error rather than a merge of two servers' args and env
+  # (../common/home-manager/mcp-servers/tests.nix checks it).
   mcpServers = {
     type = types.attrsOf (
-      types.submodule {
-        options = {
-          command = mkOption {
-            type = types.str;
-            description = "The server's program, by absolute path (a store path), started over stdio.";
+      types.unique { message = "An MCP server is declared once, whole: declare it in one module."; } (
+        types.submodule {
+          options = {
+            command = mkOption {
+              type = types.str;
+              description = "The server's program, by absolute path (a store path), started over stdio.";
+            };
+            args = mkOption {
+              type = types.listOf types.str;
+              default = [ ];
+              description = "Arguments the program is started with.";
+            };
+            env = mkOption {
+              type = types.attrsOf types.str;
+              default = { };
+              description = "Environment variables the program is started with.";
+            };
           };
-          args = mkOption {
-            type = types.listOf types.str;
-            default = [ ];
-            description = "Arguments the program is started with.";
-          };
-          env = mkOption {
-            type = types.attrsOf types.str;
-            default = { };
-            description = "Environment variables the program is started with.";
-          };
-        };
-      }
+        }
+      )
     );
     default = { };
   };

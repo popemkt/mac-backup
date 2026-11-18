@@ -23,7 +23,59 @@ let
       inherit pkgs;
     };
   syncOf = servers: lib.getExe (lib.head (module servers).home.packages);
+
+  # The channel's contract (modules/options/channel-types.nix): a server's
+  # defaults fill in, servers of different names merge, and a name declared
+  # twice is an error rather than a merge of two servers' args.
+  serversOf =
+    defs:
+    (lib.evalModules {
+      modules = [
+        {
+          options.s = lib.mkOption {
+            inherit ((import ../../../options/channel-types.nix lib).mcpServers) type;
+          };
+        }
+      ]
+      ++ map (d: { s = d; }) defs;
+    }).config.s;
+  contract =
+    assert
+      serversOf [
+        { x.command = "/a"; }
+        { y.command = "/b"; }
+      ] == {
+        x = {
+          command = "/a";
+          args = [ ];
+          env = { };
+        };
+        y = {
+          command = "/b";
+          args = [ ];
+          env = { };
+        };
+      };
+    assert
+      !(builtins.tryEval (
+        builtins.deepSeq (serversOf [
+          {
+            x = {
+              command = "/a";
+              args = [ "one" ];
+            };
+          }
+          {
+            x = {
+              command = "/a";
+              args = [ "two" ];
+            };
+          }
+        ]) true
+      )).success;
+    true;
 in
+assert contract;
 pkgs.runCommand "mcp-servers-check"
   {
     nativeBuildInputs = [

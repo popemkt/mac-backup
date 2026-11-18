@@ -20,6 +20,9 @@ echo "claude \$*" >>"\$FAKE/log"
 c="$H/.claude.json"
 [ -s "\$c" ] || echo '{}' >"\$c"
 case "\$1 \$2 \$3 \$4" in
+  "mcp remove --scope user") [ -e "\$FAKE/fail-claude-remove" ] && exit 1 ;;
+esac
+case "\$1 \$2 \$3 \$4" in
   "mcp add-json --scope user") $jq --arg n "\$5" --argjson s "\$6" '.mcpServers[\$n] = \$s' "\$c" >"\$c.n" && mv "\$c.n" "\$c" ;;
   "mcp remove --scope user") $jq --arg n "\$5" 'del(.mcpServers[\$n])' "\$c" >"\$c.n" && mv "\$c.n" "\$c" ;;
   *) echo "fake claude: unexpected \$*" >&2; exit 9 ;;
@@ -117,6 +120,22 @@ is "$($jq -c 'map(.name)' "$FAKE/codex.json")" '["kb-work"]' "Codex's servers af
 is "$($jq -c '.mcpServers | keys' "$H/.cursor/mcp.json")" '["kb-work","mine"]' "Cursor's servers after"
 is "$($jq -c '.mcpServers | keys' "$H/.gemini/settings.json")" '["kb-work"]' "Gemini CLI's servers"
 is "$($jq -c '.mcp | keys' "$H/.config/opencode/opencode.json")" '["kb-work"]' "opencode's servers after"
+
+# 4b. A server dropped while a harness could not be reconciled is removed
+# from it once it can be: Codex's listing fails, then recovers; Claude Code's
+# removal fails, then works.
+run "$H/bin/first"
+touch "$FAKE/fail-codex" "$FAKE/fail-claude-remove"
+run "$H/bin/second"
+grep -q "warning: claude mcp remove other failed" "$FAKE/out" || fail "no warning for the failed removal"
+is "$($jq -c '.mcpServers | keys' "$H/.cursor/mcp.json")" '["kb-work","mine"]' "Cursor, reconciled meanwhile"
+rm "$FAKE/fail-codex" "$FAKE/fail-claude-remove"
+run "$H/bin/second"
+is "$($jq -c 'map(.name) | sort' "$FAKE/codex.json")" '["kb-work"]' "Codex's servers after it recovered"
+is "$($jq -c '.mcpServers | keys' "$H/.claude.json")" '["kb-work","mine"]' "Claude Code's servers after the removal worked"
+run "$H/bin/second"
+not_called "remove"
+not_called "add"
 
 # 5. Failed listings are never read as "nothing registered"; a file that is
 # not plain JSON is left alone. Each warns, and the sync exits 0.
