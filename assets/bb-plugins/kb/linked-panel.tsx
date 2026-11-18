@@ -10,6 +10,7 @@ import type { LinksAnswer, linksContract } from "./links";
 import { LinkedItemsPanel, type LinkedSource, type Listed, type PanelUi } from "../linked-items/panel";
 import { ago, type Scope } from "../linked-items/rows";
 import { rowOf } from "./lib/links";
+import { useFrames } from "./frames";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
@@ -43,22 +44,24 @@ function listed(answer: LinksAnswer, threadId: string): Listed {
 export function LinkedPanel({ threadId }: PluginThreadPanelProps) {
   const rpc = useRpc<typeof linksContract>();
   const navigate = useBbNavigate();
+  // The store the thread's kb tab shows (frames.tsx): the canvases listed, linked and opened are that store's.
+  const kb = useFrames().storeOf(threadId)?.name;
   // Read at the time of an Open: the source stays the same object across renders, so the panel does not re-read.
   const nav = useRef(navigate);
   nav.current = navigate;
   const source = useMemo<LinkedSource>(
     () => ({
-      list: scope => rpc.call("links", { threadId, scope }).then(a => listed(a, threadId)),
-      available: () => rpc.call("available", { threadId }).then(a => listed(a, threadId)),
+      list: scope => rpc.call("links", { threadId, kb, scope }).then(a => listed(a, threadId)),
+      available: () => rpc.call("available", { threadId, kb }).then(a => listed(a, threadId)),
       run: async (action, rows) => {
-        if (action !== "open") return rpc.call(action, { threadId, ids: rows.map(r => r.key) });
-        const r = await rpc.call("openItem", { threadId, id: rows[0].key });
+        if (action !== "open") return rpc.call(action, { threadId, kb, ids: rows.map(r => r.key) });
+        const r = await rpc.call("openItem", { threadId, kb, id: rows[0].key });
         // The kb tab shows it now, or as soon as the tab opens and says its session.
         if (r.ok) nav.current.openThreadPanel(KB_PANEL);
         return r;
       },
     }),
-    [rpc, threadId],
+    [rpc, threadId, kb],
   );
   return (
     <LinkedItemsPanel

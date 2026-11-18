@@ -1,23 +1,40 @@
-// bb-plugin-kb — the backend. Tells the thread panel which kb page to frame, keeps the kb tab session each
-// thread's panel reports, and gives the thread's agent tools that call kb in that session: a call made there
-// acts in the tab the person sees beside the thread (kb DESIGN.md → Action registry → A call made in a tab
-// session), and with no panel open the same tools make calls in no session.
+// bb-plugin-kb — the backend. Keeps the named kb stores (lib/stores.ts), tells the thread panel which pages it
+// can frame, keeps the kb tab (session and store) each thread's panel reports, and gives the thread's agent
+// tools that call a store, in that tab when the tab shows it: a call made there acts in the tab the person sees
+// beside the thread (kb DESIGN.md → Action registry → A call made in a tab session), and a call with no panel
+// open, or to another store, is made in no session.
 import { request } from "node:http";
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
-import { manifestAnswer, originOf, receiptAnswer, ThreadSessions, type ToolAnswer } from "./lib/kb";
+import { manifestAnswer, receiptAnswer, ThreadSessions, type ToolAnswer } from "./lib/kb";
 import { viaOfThread } from "./lib/links";
+import {
+  chooseStore,
+  legacyLine,
+  parseConnections,
+  resolveStores,
+  storesLine,
+  type KbAddress,
+  type KbConnection,
+  type KbStores,
+} from "./lib/stores";
 import { registerLinks, type KbAccess } from "./links";
 
+/** A store as the panel needs it: its name and the page it frames (null: tools only). */
+const StoreView = z.object({ name: z.string(), page: z.string().nullable() });
+
 export const rpcContract = defineRpcContract({
-  /** What the panel frames, and whether a thread opens it by itself. */
+  /** The stores the panel can show, the one it shows unless told otherwise, and whether a thread opens it by itself. */
   config: {
     input: z.object({}),
-    output: z.object({ url: z.string().nullable(), autoOpen: z.boolean() }),
+    output: z.object({ stores: z.array(StoreView), defaultStore: z.string().nullable(), autoOpen: z.boolean() }),
   },
-  /** The kb tab session the thread's panel shows now, or (null) that it no longer shows kb. */
+  /** The kb tab the thread's panel shows now (its session, of which store), or (null) that it no longer shows kb. */
   reportSession: {
-    input: z.object({ threadId: z.string().min(1), session: z.string().min(1).nullable() }),
+    input: z.object({
+      threadId: z.string().min(1),
+      tab: z.object({ store: z.string().min(1), session: z.string().min(1).nullable() }).nullable(),
+    }),
     output: z.object({ ok: z.literal(true) }),
   },
 });
@@ -29,9 +46,6 @@ interface KbResponse {
   readonly status: number;
   readonly body: unknown;
 }
-
-/** Where kb is reached from this server: its owner-only socket, or its page's URL. */
-type KbAddress = { readonly socket: string } | { readonly url: string };
 
 function parseBody(text: string): unknown {
   try {
@@ -77,26 +91,61 @@ function callKb(at: KbAddress, method: "GET" | "POST", path: string, body?: unkn
 
 const INSTRUCTIONS = [
   "kb is the person's knowledge base (a graph of nodes, fields and tags, with outline, graph and canvas views).",
-  "It may be open in this thread's side panel; while it is, kb_call makes each call in that tab, so you act on",
-  "what the person sees: an input kb_manifest marks as filled 'in the tab' (node.update's id is the node they",
-  "focus, a canvas verb's canvasId is the canvas they have open) may be left out, and the answer says what it",
-  "was. ui.navigate and ui.select move that tab to show the person your work. With no panel open, calls are made",
-  "in no tab: pass every input. Start with kb_manifest to see the actions, and kb_screen to see what the tab shows.",
+  "Several kb stores may be configured, each by name; kb_manifest's first line lists them. Every tool takes an",
+  "optional kb (a store name): omitted, a call goes to the store the open panel shows, else the default store.",
+  "kb may be open in this thread's side panel; while it is, kb_call makes each call to that store in that tab, so",
+  "you act on what the person sees: an input kb_manifest marks as filled 'in the tab' (node.update's id is the",
+  "node they focus, a canvas verb's canvasId is the canvas they have open) may be left out, and the answer says",
+  "what it was. ui.navigate and ui.select move that tab to show the person your work. With no panel open, or for",
+  "another store, calls are made in no tab: pass every input. Start with kb_manifest to see the stores and",
+  "actions, and kb_screen to see what the tab shows.",
 ].join(" ");
+
+/** The tools' optional store parameter. */
+const KB_PARAM = z
+  .string()
+  .min(1)
+  .optional()
+  .describe("The kb store to call, by name (kb_manifest lists them); omitted: the store the kb tab shows, else the default");
 
 export default async function plugin(bb: BbPluginApi) {
   const settings = bb.settings.define({
+    connections: {
+      type: "string",
+      label: "kb stores",
+      description:
+        "One store per line: `<name> <page URL> [<socket path> | <API URL>]`, or `<name> <socket path>` for tools only. Adds to the stores bb's KB_CONNECTIONS declares, replacing one of the same name.",
+      experimental_multiline: true,
+      experimental_schema: {
+        "~standard": {
+          version: 1,
+          vendor: "bb-plugin-kb",
+          validate: (value: unknown) => {
+            const problems = typeof value === "string" ? parseConnections(value).problems : ["not text"];
+            return problems.length === 0
+              ? { value: value as string }
+              : { issues: problems.map(message => ({ message })) };
+          },
+        },
+      },
+      default: "",
+    },
+    defaultKb: {
+      type: "string",
+      label: "Default store",
+      description: "The store a tool call and a new panel use unless told otherwise. Empty: KB_DEFAULT, else the first store.",
+      default: "",
+    },
     url: {
       type: "string",
-      label: "kb page URL",
-      description: "The kb page the panel shows. Empty: the server's KB_URL.",
+      label: "kb page URL (legacy)",
+      description: "Replaced by kb stores: a value here moves there, as the store `default`, when the plugin loads.",
       default: "",
     },
     socket: {
       type: "string",
-      label: "kb socket",
-      description:
-        "kb ui's Unix socket on this server, which agent tools call kb through. Empty: the server's KB_SOCKET, else the page URL.",
+      label: "kb socket (legacy)",
+      description: "Replaced by kb stores: a value here moves there, with the page URL, when the plugin loads.",
       default: "",
     },
     autoOpen: {
@@ -107,42 +156,71 @@ export default async function plugin(bb: BbPluginApi) {
     },
   });
 
-  const sessions = new ThreadSessions();
-
-  async function pageUrl(): Promise<string | null> {
-    const { url } = await settings.get();
-    const chosen = url.trim() === "" ? (process.env.KB_URL ?? "") : url.trim();
-    return originOf(chosen) === null ? null : chosen;
+  // The single-store settings of earlier releases become one store, named `default`, so nothing configured breaks.
+  {
+    const { url, socket, connections } = await settings.get();
+    const line = legacyLine(url, socket, process.env);
+    if (line !== null) {
+      const known = parseConnections(connections).connections.some(c => c.name === line.split(" ")[0]);
+      try {
+        await settings.experimental_set({
+          ...(known ? {} : { connections: connections.trim() === "" ? line : `${connections.trimEnd()}\n${line}` }),
+          url: null,
+          socket: null,
+        });
+        bb.log.info(`moved the legacy url/socket settings into kb stores${known ? " (a store of that name was there already)" : ""}`);
+      } catch (err) {
+        bb.log.warn(`could not move the legacy url/socket settings: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
   }
 
-  async function address(): Promise<KbAddress | null> {
-    const { socket } = await settings.get();
-    const chosen = socket.trim() === "" ? (process.env.KB_SOCKET ?? "") : socket.trim();
-    if (chosen !== "") return { socket: chosen };
-    const url = await pageUrl();
-    return url === null ? null : { url };
+  const sessions = new ThreadSessions();
+
+  async function stores(): Promise<KbStores> {
+    const { connections, defaultKb } = await settings.get();
+    const resolved = resolveStores({ connections, defaultKb, env: process.env });
+    for (const problem of resolved.problems) bb.log.warn(problem);
+    return resolved;
+  }
+
+  /** The store a thread's call goes to, by its name, the thread's tab, or the default. */
+  async function storeFor(threadId: string | undefined, named: string | undefined) {
+    const shown = threadId === undefined ? undefined : sessions.live(threadId, Date.now())?.store;
+    return chooseStore(await stores(), named, shown);
   }
 
   /** Run one kb request for a tool, its failure an error answer rather than a thrown tool. */
-  async function ask(read: (at: KbAddress) => Promise<ToolAnswer>): Promise<ToolAnswer> {
-    const at = await address();
-    if (at === null) {
-      return { text: "kb is not configured: set the kb plugin's page URL or socket (bb plugin config kb).", isError: true };
-    }
+  async function ask(
+    threadId: string,
+    named: string | undefined,
+    read: (store: KbConnection, session: string | undefined) => Promise<ToolAnswer>,
+  ): Promise<ToolAnswer> {
+    const chosen = await storeFor(threadId, named);
+    if ("error" in chosen) return { text: chosen.error, isError: true };
+    const { connection } = chosen;
     try {
-      return await read(at);
+      return await read(connection, sessions.sessionIn(threadId, connection.name, Date.now()));
     } catch (err) {
-      return { text: `kb could not be reached: ${err instanceof Error ? err.message : String(err)}`, isError: true };
+      return {
+        text: `kb store ${connection.name} could not be reached: ${err instanceof Error ? err.message : String(err)}`,
+        isError: true,
+      };
     }
   }
 
   const asContent = ({ text, isError }: ToolAnswer) => ({ content: [{ type: "text" as const, text }], isError });
 
-  // Linked items (links.ts): what the thread's agent wrote in kb, read back from kb's log.
-  const kb: KbAccess = {
+  /** One store's API, by name, read from the configuration at each call. */
+  async function addressOf(name: string): Promise<KbAddress | null> {
+    return (await stores()).connections.find(c => c.name === name)?.api ?? null;
+  }
+
+  // Linked items (links.ts): what the thread's agent wrote in each store, read back from that store's log.
+  const access = (name: string): KbAccess => ({
     async call(id, input, options = {}) {
-      const at = await address();
-      if (at === null) return { ok: false, message: "kb is not configured" };
+      const at = await addressOf(name);
+      if (at === null) return { ok: false, message: `kb has no store named ${name}` };
       const res = await callKb(at, "POST", "/api/action", { id, input, ...options });
       const body = res.body as { status?: unknown; output?: unknown; message?: unknown };
       return body?.status === "succeeded"
@@ -150,20 +228,34 @@ export default async function plugin(bb: BbPluginApi) {
         : { ok: false, message: typeof body?.message === "string" ? body.message : `kb answered HTTP ${res.status}` };
     },
     async root() {
-      const at = await address();
+      const at = await addressOf(name);
       if (at === null) return null;
       const body = (await callKb(at, "GET", "/api/identity")).body as { root?: unknown };
       return typeof body?.root === "string" ? body.root : null;
     },
-    session: threadId => sessions.live(threadId, Date.now()),
-  };
-  const links = registerLinks(bb, kb);
+    session: threadId => sessions.sessionIn(threadId, name, Date.now()),
+  });
+  const links = registerLinks(bb, {
+    names: async () => (await stores()).connections.map(c => c.name),
+    storeOf: async (threadId, named) => {
+      const chosen = await storeFor(threadId, named);
+      return "error" in chosen ? null : chosen.connection.name;
+    },
+    access,
+  });
 
   bb.rpc.register(rpcContract, {
-    config: async () => ({ url: await pageUrl(), autoOpen: (await settings.get()).autoOpen }),
-    reportSession: async ({ threadId, session }) => {
-      sessions.report(threadId, session, Date.now());
-      links.onSession(threadId, session);
+    config: async () => {
+      const { connections, defaultName } = await stores();
+      return {
+        stores: connections.map(({ name, page }) => ({ name, page })),
+        defaultStore: defaultName,
+        autoOpen: (await settings.get()).autoOpen,
+      };
+    },
+    reportSession: async ({ threadId, tab }) => {
+      sessions.report(threadId, tab, Date.now());
+      links.onSession(threadId, tab);
       return { ok: true as const };
     },
   });
@@ -171,17 +263,17 @@ export default async function plugin(bb: BbPluginApi) {
   bb.agents.registerTool({
     name: "kb_call",
     description:
-      "Invoke one kb action by id with its input. Made in the kb tab beside this thread when one is open, so inputs kb_manifest marks as filled in the tab may be left out.",
+      "Invoke one kb action by id with its input, in a kb store (kb: its name; omitted, the store the kb tab shows, else the default). Made in the kb tab beside this thread when it shows that store, so inputs kb_manifest marks as filled in the tab may be left out.",
     instructions: INSTRUCTIONS,
     presentation: { label: { pending: "Calling kb", completed: "Called kb" } },
     parameters: z.object({
       id: z.string().min(1).describe("The action id, as kb_manifest lists it (node.update, ui.navigate, …)"),
       input: z.record(z.string(), z.unknown()).optional().describe("The action's input; {} when absent"),
+      kb: KB_PARAM,
     }),
-    async execute({ id, input }, { threadId }) {
-      const session = sessions.live(threadId, Date.now());
-      const answer = await ask(async at => {
-        const res = await callKb(at, "POST", "/api/action", {
+    async execute({ id, input, kb }, { threadId }) {
+      const answer = await ask(threadId, kb, async (store, session) => {
+        const res = await callKb(store.api, "POST", "/api/action", {
           id,
           input: input ?? {},
           ...(session === undefined ? {} : { session }),
@@ -196,13 +288,12 @@ export default async function plugin(bb: BbPluginApi) {
   bb.agents.registerTool({
     name: "kb_screen",
     description:
-      "What the person's kb tab beside this thread shows: its route, panes, focus, selection and canvas camera. Every open kb tab when no panel is open.",
+      "What the person's kb tab beside this thread shows: its route, panes, focus, selection and canvas camera. Every open kb tab of the store when the panel is closed or shows another store.",
     presentation: { label: { pending: "Looking at kb", completed: "Looked at kb" } },
-    parameters: z.object({}),
-    async execute(_args, { threadId }) {
-      const session = sessions.live(threadId, Date.now());
-      const answer = await ask(async at => {
-        const res = await callKb(at, "POST", "/api/action", {
+    parameters: z.object({ kb: KB_PARAM }),
+    async execute({ kb }, { threadId }) {
+      const answer = await ask(threadId, kb, async (store, session) => {
+        const res = await callKb(store.api, "POST", "/api/action", {
           id: "ui.screen",
           input: session === undefined ? {} : { session },
         });
@@ -215,15 +306,22 @@ export default async function plugin(bb: BbPluginApi) {
   bb.agents.registerTool({
     name: "kb_manifest",
     description:
-      "kb's actions: one line each (id, read or write, title, what the tab fills), or with id, that action whole with its input schema.",
+      "The configured kb stores (first line), then kb's actions: one line each (id, read or write, title, what the tab fills), or with id, that action whole with its input schema.",
     presentation: { label: { pending: "Listing kb actions", completed: "Listed kb actions" } },
-    parameters: z.object({ id: z.string().min(1).optional().describe("One action to show whole") }),
-    async execute({ id }) {
-      const answer = await ask(async at => {
-        const res = await callKb(at, "GET", "/api/manifest");
-        return manifestAnswer(res.body, id);
+    parameters: z.object({ id: z.string().min(1).optional().describe("One action to show whole"), kb: KB_PARAM }),
+    async execute({ id, kb }, { threadId }) {
+      const all = await stores();
+      const shown = sessions.live(threadId, Date.now())?.store;
+      const answer = await ask(threadId, kb, async store => {
+        const res = await callKb(store.api, "GET", "/api/manifest");
+        const listing = manifestAnswer(res.body, id);
+        return id !== undefined || listing.isError
+          ? listing
+          : { text: `${storesLine(all, shown)}\nactions of ${store.name}:\n${listing.text}`, isError: false };
       });
-      return asContent(answer);
+      return answer.isError && id === undefined && all.connections.length > 0
+        ? asContent({ text: `${storesLine(all, shown)}\n${answer.text}`, isError: true })
+        : asContent(answer);
     },
   });
 }

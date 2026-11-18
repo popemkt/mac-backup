@@ -30,7 +30,8 @@ function KbPanel({ threadId }: PluginThreadPanelProps) {
   const store = useFrames();
   const place = useRef<HTMLDivElement | null>(null);
   const config = store.config;
-  const url = config?.url ?? null;
+  const shown = store.storeOf(threadId);
+  const url = shown?.page ?? null;
   const session = store.sessionOf(threadId);
 
   useEffect(() => {
@@ -39,23 +40,54 @@ function KbPanel({ threadId }: PluginThreadPanelProps) {
   }, [threadId, url]);
 
   if (config === null) return <p className="p-4 text-sm text-muted-foreground">Loading kb…</p>;
-  if (url === null) {
+  if (shown === null) {
     return (
       <p className="p-4 text-sm text-muted-foreground">
-        No kb page is configured. Set the kb plugin's page URL in Settings → Installed plugins, or{" "}
-        <code>bb plugin config kb set url https://…</code>.
+        No kb store is configured. Add one to the kb plugin's stores in Settings → Installed plugins, or{" "}
+        <code>bb plugin config kb set connections '&lt;name&gt; https://…'</code>.
       </p>
+    );
+  }
+  const switcher =
+    config.stores.length > 1 ? (
+      <select
+        className="h-6 max-w-[40%] shrink-0 rounded border bg-background px-1 text-xs text-foreground"
+        aria-label="kb store"
+        title="The kb store this tab shows; the agent's calls default to it while it is shown"
+        value={shown.name}
+        onChange={event => frames.choose(threadId, event.target.value)}
+      >
+        {config.stores.map(s => (
+          <option key={s.name} value={s.name} disabled={s.page === null}>
+            {s.name}
+            {s.name === config.defaultStore ? " (default)" : ""}
+            {s.page === null ? " (no page)" : ""}
+          </option>
+        ))}
+      </select>
+    ) : null;
+  if (url === null) {
+    return (
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="flex h-8 shrink-0 items-center gap-2 border-b px-2 text-xs text-muted-foreground">{switcher}</div>
+        <p className="p-4 text-sm text-muted-foreground">
+          The kb store {shown.name} has no page to show: its agent tools work, but this tab cannot frame it.
+        </p>
+      </div>
     );
   }
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex h-8 shrink-0 items-center gap-2 border-b px-2 text-xs text-muted-foreground">
+        {switcher}
         <span
           className={session === null ? "size-2 rounded-full bg-muted-foreground/40" : "size-2 rounded-full bg-success"}
           aria-hidden
         />
         <span className="min-w-0 flex-1 truncate">
-          {session === null ? "kb has not said its tab yet: the agent's calls are made in no tab" : "The agent works in this tab"}
+          {session === null
+            ? `${shown.name} has not said its tab yet: the agent's calls go to ${shown.name}, in no tab`
+            : `The agent works in this tab (${shown.name})`}
         </span>
         <Button
           variant="ghost"
@@ -85,7 +117,7 @@ function HeaderButton({ threadId }: PluginThreadHeaderActionProps) {
   // With auto-open on, a thread opens kb beside it the first time this window shows it; closing the tab
   // keeps it closed until the window is reloaded.
   useEffect(() => {
-    if (config?.autoOpen !== true || config.url === null) return;
+    if (config?.autoOpen !== true || config.stores.every(s => s.page === null)) return;
     const key = `${pluginId}:opened:${threadId}`;
     try {
       if (sessionStorage.getItem(key) !== null) return;

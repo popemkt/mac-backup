@@ -8,13 +8,12 @@
 // thread's own kb CLI and kb MCP get it as KB_VIA, which this file contributes to every provider. A background
 // loop reads the log of those writes and records a link for each canvas one touched (lib/link-book.ts). `via`
 // is advisory: any caller may state any label, so a link it makes is shown as claimed, not proven.
-import { basename } from "node:path";
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { MIGRATIONS, linkBook, type Listing, type Where } from "./lib/link-book";
 import { KINDS, SCOPES, openCanvasOf, viaOfThread } from "./lib/links";
 
-/** What the links need of kb: one action, the root it serves, and the tab session a thread's panel shows. */
+/** What the links need of one kb store: one action, the root it serves, and the thread's tab session in it. */
 export interface KbAccess {
   call(
     id: string,
@@ -25,12 +24,21 @@ export interface KbAccess {
   session(threadId: string): string | undefined;
 }
 
+/** The kb stores, by name: which there are, which one a thread's panel works on, and each one's access. */
+export interface KbStoreAccess {
+  names(): Promise<readonly string[]>;
+  /** The store `named`, else the one the thread's kb tab shows, else the default; null when none is configured. */
+  storeOf(threadId: string, named: string | undefined): Promise<string | null>;
+  access(name: string): KbAccess;
+}
+
 export type LinksAnswer = Omit<Listing, "store"> & {
   /** Titles of the threads the rows link to, by id; absent for a thread bb cannot find. */
   titles: Record<string, string | null>;
 };
 
-const threadInput = z.object({ threadId: z.string().min(1) });
+/** The thread, and the store it means (omitted: the one its kb tab shows, else the default). */
+const threadInput = z.object({ threadId: z.string().min(1), kb: z.string().min(1).optional() });
 const outcome = z.object({ ok: z.boolean(), message: z.string() });
 type Outcome = z.infer<typeof outcome>;
 /** The selected kb items, by node id. */
@@ -58,7 +66,10 @@ const count = (n: number) => (n === 1 ? "1 canvas" : `${n} canvases`);
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
-export function registerLinks(bb: BbPluginApi, kb: KbAccess): { onSession(threadId: string, session: string | null): void } {
+export function registerLinks(
+  bb: BbPluginApi,
+  stores: KbStoreAccess,
+): { onSession(threadId: string, tab: { store: string; session: string | null } | null): void } {
   for (const provider of PROVIDERS) {
     try {
       bb.providers.experimental_contributeEnv(provider, ({ threadId }) => [
@@ -98,10 +109,15 @@ export function registerLinks(bb: BbPluginApi, kb: KbAccess): { onSession(thread
     return where;
   }
 
-  // GAP [[01M5QJFVQ61E19BAB2KXC0FA4M]]: only the kb behind KB_SOCKET is read; a Mac's own stores and repo .kb
-  // stores a thread writes are not.
-  let book: ReturnType<typeof linkBook> | null = null;
-  const links = () => (book ??= linkBook(db(), kb, whereIs));
+  // GAP [[01M5QJFVQ61E19BAB2KXC0FA4M]]: only the stores the plugin is configured with are read (lib/stores.ts);
+  // repo .kb stores a thread writes through its own kb CLI are not.
+  // One book per store: they share the database, whose rows are keyed by the root each store serves.
+  const books = new Map<string, ReturnType<typeof linkBook>>();
+  const bookOf = (name: string) => {
+    let book = books.get(name);
+    if (book === undefined) books.set(name, (book = linkBook(db(), stores.access(name), whereIs)));
+    return book;
+  };
 
   async function titles(ids: string[]): Promise<Record<string, string | null>> {
     const pairs = await Promise.all(
@@ -116,7 +132,7 @@ export function registerLinks(bb: BbPluginApi, kb: KbAccess): { onSession(thread
     return Object.fromEntries(pairs.filter(p => p !== null));
   }
 
-  async function openCanvas(threadId: string): Promise<string | null> {
+  async function openCanvas(kb: KbAccess, threadId: string): Promise<string | null> {
     const session = kb.session(threadId);
     if (session === undefined) return null;
     const screen = await kb.call("ui.screen", { session });
@@ -124,49 +140,73 @@ export function registerLinks(bb: BbPluginApi, kb: KbAccess): { onSession(thread
   }
 
   /** A listing as the panel reads it: the canvas the thread's kb tab shows marked open, and its threads' titles. */
-  async function answer({ store, items, error, incomplete }: Listing, threadId: string): Promise<LinksAnswer> {
+  async function answer(kb: KbAccess, { store, items, error, incomplete }: Listing, threadId: string): Promise<LinksAnswer> {
     if (store === null) return { items, error, incomplete, titles: {} };
-    const open = await openCanvas(threadId).catch(() => null);
+    const open = await openCanvas(kb, threadId).catch(() => null);
     for (const item of items) item.open = item.id === open;
     return { items, error, incomplete, titles: await titles([...new Set(items.flatMap(i => i.threads.map(t => t.id)))]) };
   }
 
-  async function link(threadId: string, ids: string[]): Promise<Outcome> {
-    const store = await kb.root();
+  async function link(name: string, threadId: string, ids: string[]): Promise<Outcome> {
+    const store = await stores.access(name).root();
     if (store === null) return { ok: false, message: "kb did not say which root it serves." };
-    const names = await links().canvases();
+    const links = bookOf(name);
+    const names = await links.canvases();
     if (names === null) return { ok: false, message: "kb did not list its canvases." };
     const missing = ids.filter(id => !names.has(id));
     if (missing.length > 0) return { ok: false, message: `kb has no canvas ${missing.join(", ")}` };
-    for (const id of ids) await links().link(store, "canvas", id, names.get(id) || id, threadId, "linked", Date.now());
+    for (const id of ids) await links.link(store, "canvas", id, names.get(id) || id, threadId, "linked", Date.now());
     return { ok: true, message: ids.length === 1 ? `Linked ${names.get(ids[0]) || ids[0]}` : `Linked ${count(ids.length)}` };
   }
 
-  async function unlink(threadId: string, ids: string[]): Promise<Outcome> {
-    const store = await kb.root();
+  async function unlink(name: string, threadId: string, ids: string[]): Promise<Outcome> {
+    const store = await stores.access(name).root();
     if (store === null) return { ok: false, message: "kb did not say which root it serves." };
-    const ended = ids.filter(id => links().unlink(store, id, threadId)).length;
+    const ended = ids.filter(id => bookOf(name).unlink(store, id, threadId)).length;
     return ended === 0 ? { ok: false, message: "This thread links none of them." } : { ok: true, message: `Unlinked ${count(ended)}` };
   }
 
-  /** Routes waiting for a thread's kb tab to say its session. */
-  const pending = new Map<string, string>();
-  async function show(route: string, session: string): Promise<{ ok: boolean; message: string }> {
-    const r = await kb.call("ui.navigate", { route }, { session });
+  /** Routes waiting for a thread's kb tab to say its session in a store. */
+  const pending = new Map<string, { route: string; store: string }>();
+  async function show(name: string, route: string, session: string): Promise<{ ok: boolean; message: string }> {
+    const r = await stores.access(name).call("ui.navigate", { route }, { session });
     return r.ok ? { ok: true, message: "Shown in the kb tab" } : { ok: false, message: r.message };
   }
 
+  /** The store a panel call means, or an outcome saying none is configured. */
+  const NO_STORE = "kb is not configured, or has no such store.";
+  const EMPTY: LinksAnswer = { items: [], error: NO_STORE, incomplete: null, titles: {} };
+  const label = (name: string) => () => name;
+
   bb.rpc.register(linksContract, {
-    links: async ({ threadId, scope }) => answer(await links().list(threadId, scope, basename), threadId),
-    available: async ({ threadId }) => answer(await links().available(threadId, basename), threadId),
-    link: ({ threadId, ids }) => link(threadId, ids).catch(err => ({ ok: false, message: message(err) })),
-    unlink: ({ threadId, ids }) => unlink(threadId, ids).catch(err => ({ ok: false, message: message(err) })),
-    openItem: async ({ threadId, id }) => {
+    links: async ({ threadId, kb, scope }) => {
+      const name = await stores.storeOf(threadId, kb);
+      if (name === null) return EMPTY;
+      return answer(stores.access(name), await bookOf(name).list(threadId, scope, label(name)), threadId);
+    },
+    available: async ({ threadId, kb }) => {
+      const name = await stores.storeOf(threadId, kb);
+      if (name === null) return EMPTY;
+      return answer(stores.access(name), await bookOf(name).available(threadId, label(name)), threadId);
+    },
+    link: async ({ threadId, kb, ids }) => {
+      const name = await stores.storeOf(threadId, kb);
+      if (name === null) return { ok: false, message: NO_STORE };
+      return link(name, threadId, ids).catch(err => ({ ok: false, message: message(err) }));
+    },
+    unlink: async ({ threadId, kb, ids }) => {
+      const name = await stores.storeOf(threadId, kb);
+      if (name === null) return { ok: false, message: NO_STORE };
+      return unlink(name, threadId, ids).catch(err => ({ ok: false, message: message(err) }));
+    },
+    openItem: async ({ threadId, kb, id }) => {
       try {
+        const name = await stores.storeOf(threadId, kb);
+        if (name === null) return { ok: false, message: NO_STORE };
         const route = KINDS.canvas.route(id);
-        const session = kb.session(threadId);
-        if (session !== undefined) return await show(route, session);
-        pending.set(threadId, route);
+        const session = stores.access(name).session(threadId);
+        if (session !== undefined) return await show(name, route, session);
+        pending.set(threadId, { route, store: name });
         return { ok: true, message: "Opening in the kb tab" };
       } catch (err) {
         return { ok: false, message: message(err) };
@@ -177,9 +217,12 @@ export function registerLinks(bb: BbPluginApi, kb: KbAccess): { onSession(thread
   bb.background.service("kb-links", {
     async start(signal) {
       while (!signal.aborted) {
-        await links()
-          .sync()
-          .catch(err => bb.log.debug(`links: ${message(err)}`));
+        const names = await stores.names().catch(() => [] as readonly string[]);
+        for (const name of names) {
+          await bookOf(name)
+            .sync()
+            .catch(err => bb.log.debug(`links (${name}): ${message(err)}`));
+        }
         await new Promise<void>(resolve => {
           const timer = setTimeout(resolve, POLL_MS);
           signal.addEventListener("abort", () => (clearTimeout(timer), resolve()), { once: true });
@@ -190,14 +233,15 @@ export function registerLinks(bb: BbPluginApi, kb: KbAccess): { onSession(thread
   bb.onDispose(() => {
     places.clear();
     pending.clear();
+    books.clear();
   });
 
   return {
-    onSession(threadId, session) {
-      const route = pending.get(threadId);
-      if (session === null || route === undefined) return;
+    onSession(threadId, tab) {
+      const wanted = pending.get(threadId);
+      if (tab === null || tab.session === null || wanted === undefined || wanted.store !== tab.store) return;
       pending.delete(threadId);
-      void show(route, session).catch(() => undefined);
+      void show(tab.store, wanted.route, tab.session).catch(() => undefined);
     },
   };
 }

@@ -52,6 +52,17 @@ in
                 (calendar backlinks, the OAuth redirect URI).
               '';
             };
+            embedOrigins = lib.mkOption {
+              type = lib.types.listOf (lib.types.strMatching "https?://[^/?#@]+");
+              default = [ ];
+              example = [ "https://bb-popemkt.example-tailnet.ts.net" ];
+              description = ''
+                Pages allowed to frame the UI (`kb ui --embed-origin`, kb
+                DESIGN.md → Surfaces → Embedding the page), such as a bb
+                server whose kb plugin (assets/bb-plugins/kb) shows this
+                store beside a thread. Empty: no page may frame it.
+              '';
+            };
             aliasOrigins = lib.mkOption {
               type = lib.types.attrsOf (lib.types.strMatching "https?://[^/?#@]+");
               default = { };

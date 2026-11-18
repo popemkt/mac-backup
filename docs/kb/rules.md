@@ -110,7 +110,7 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: kb canvas links see only the kb the plugin serves (shared-server's home store)
 
 - **expected** — Every kb store a bb thread writes is read for links: the home store, a Mac's own home store, a repo's .kb, each named by its root (kb Locations), read on the machine that holds it.
-- **current** — The plugin reads graph.changes of the one kb behind KB_SOCKET. kb_call writes and the kb CLI/MCP of shared-server threads in a non-repo cwd land there and are linked; a Mac thread's kb CLI/MCP writes to that Mac's stores, and any thread's writes to a repo .kb, carry KB_VIA but are never read. A plugin that falls more than ~1024 transactions behind (tail compaction) skips the gap.
+- **current** — The plugin reads graph.changes of every kb store it is configured with (KB_CONNECTIONS in bb's environment plus its kb stores setting; lib/stores.ts) that its server reaches: shared-server's home store over the socket, and any store named by an http(s) API address. kb_call writes and the kb CLI/MCP of shared-server threads in a non-repo cwd land in a configured store and are linked; any thread's writes to a repo .kb, and a Mac thread's kb CLI/MCP writes to a Mac store the bb server cannot reach (kb-work, until its grant), carry KB_VIA but are never read. A plugin that falls more than ~1024 transactions behind (tail compaction) skips the gap.
 - **impact** — A canvas a Mac agent makes with the kb CLI does not appear in the kb canvases panel; the owner sees it only by opening that Mac's kb.
 - **closes** — A trigger from docs/research/2026-10-25-kb-topology.md fires: then a host entry runs kb graph.changes against each store a thread's machine holds, links are keyed by (root, id), and open goes through location.open.
 - **node** — `01M5QJFVQ61E19BAB2KXC0FA4M`
@@ -247,6 +247,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A disk loss on shared-server loses every axioms concept and every person's marks, and losing only the signing keys orphans every browser's and the server's identity.
 - **closes** — The off-machine backup that closes gap 01M5QJFWFYAKE90KSRNPN4EX78 (Litestream or a restic timer) extended to the axioms state directory, copied while app-axioms-db is stopped or from a SpacetimeDB snapshot.
 - **node** — `01M692TZSTZ7HPR8V4SS77546Q`
+
+### GAP: shared-server's bb cannot call kb-work: the tailnet grants svc:kb-work only to members
+
+- **expected** — The kb plugin's agent tools on shared-server's bb (kb_call, kb_screen, kb_manifest with kb: kb-work) and its links loop reach the work Mac's kb-work, as its panel does.
+- **current** — configs/tailscale/policy.hujson grants svc:kb-work tcp:443 to autogroup:member only. bb's server is tag:shared-server, so its calls to https://kb-work.<tailnet> fail; the panel frames kb-work because a member's browser draws it (kb-work names bb-popemkt in --embed-origin).
+- **impact** — Agents in bb can see the kb-work store listed but every call to it errors with 'could not be reached'; kb-work canvases are never linked to threads.
+- **closes** — The owner decides to grant tag:shared-server → svc:kb-work (shared-server has two administrators, so the work store becomes readable from there), or bb's server moves to the Mac, or kb gains a per-caller credential that a grant can be paired with.
+- **node** — `01M7PCSB0AQS9BZ1KWGV7J936R`
 
 ### GAP: shared-server's kb home store and bb plugin data have no backup
 

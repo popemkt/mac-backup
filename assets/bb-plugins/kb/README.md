@@ -23,7 +23,33 @@ DESIGN.md → Action registry → A call made in a tab session, and → Surfaces
    90 s lapses, so with no panel open the same tools make calls in no session: every input must be passed.
 
 The tools reach kb as a local program: through kb ui's owner-only Unix socket when one is set, else through
-the page URL. Nothing but the session crosses the frame.
+an API URL, else the page URL. Nothing but the session crosses the frame.
+
+## Stores
+
+The plugin knows any number of kb stores, each by name (`lib/stores.ts`):
+
+- **Where they come from.** bb's environment declares some: `KB_CONNECTIONS`, one store per line (or
+  `;`-separated). With no `KB_CONNECTIONS`, `KB_URL` and `KB_SOCKET` are one store named `default`, as before.
+  The **kb stores** setting (`connections`) adds stores, or replaces one of the same name. A line is
+  `<name> <page URL> [<socket path> | <API URL>]`, or `<name> <socket path>` for a store the tools reach but
+  the panel cannot frame; `#` starts a comment. The legacy `url` and `socket` settings move into the setting
+  as a store named `default` the first time this release loads.
+- **The default.** The **Default store** setting (`defaultKb`), else `KB_DEFAULT`, else the first store.
+- **The panel.** Each thread's kb tab shows the default store until the person picks another in its switcher
+  (shown when there is more than one store; kept per thread for the window's life). The tab reports the store it
+  shows from the moment it is picked, and its session once the frame showing that store says one: while a
+  picked store still loads (or fails to), the agent's calls go to it in no session, never to the store shown
+  before. A session belongs to one frame, and every change of what a thread's panel shows (another store, page or
+  default, a reload) makes a new frame with an id never used before, so neither a late message from an old frame
+  nor a return to a store shown before pairs an old session with what the panel shows.
+- **The agent.** Every tool takes an optional `kb`, a store name. Omitted, a call goes to the store the
+  thread's open kb tab shows, else the default: so "this node" always means the tab's store. A call is made in
+  the tab's session only when it goes to the store the tab shows; a call to another store is made in no
+  session. An unknown name is an error listing the configured names. `kb_manifest` lists the stores on its
+  first line (which is the default, which the tab shows), so no separate tool is needed.
+- **Linked items.** The links loop reads the log of every configured store it reaches; the kb canvases panel
+  lists, links and opens in the store the thread's kb tab shows.
 
 ## Linked items
 
@@ -50,9 +76,10 @@ says the links may be incomplete.
 
 | File | Role |
 |---|---|
-| `lib/kb.ts` | Pure: the thread → session registry with its lapse, the frame message, tool answer text. Tested. |
-| `server.ts` | Settings, the `config` and `reportSession` RPC, the kb transport, `kb_call`, `kb_screen`, `kb_manifest`. |
-| `lib/frames.ts` | Pure: which threads keep a kb frame, and which goes past the limit. Tested. |
+| `lib/kb.ts` | Pure: the thread → tab (session, store) registry with its lapse, the frame message, tool answer text. Tested. |
+| `lib/stores.ts` | Pure: store lines, where stores come from, the default, which store a call goes to, the legacy settings. Tested. |
+| `server.ts` | Settings and their migration, the `config` and `reportSession` RPC, the kb transport, `kb_call`, `kb_screen`, `kb_manifest`. |
+| `lib/frames.ts` | Pure: which threads keep a kb frame, and which goes past the limit; each thread's store and the session of the frame showing it. Tested. |
 | `frames.tsx` | The window's kb frames (an app overlay): config, preconnect, positioning and clipping, the shown frames' session reports. |
 | `app.tsx` | The `kb` thread panel tab (the place its thread's frame is drawn) and the header button that opens it. |
 | `lib/links.ts` | Pure: the `via` a thread's writes carry, reading `graph.changes`, which changes link what, an item as a row. Tested. |
@@ -65,12 +92,22 @@ says the links may be incomplete.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `url` | the server's `KB_URL` | The kb page the panel frames. |
-| `socket` | the server's `KB_SOCKET` | kb ui's Unix socket the tools call through; else the page URL. |
+| `connections` | empty | More kb stores, one per line (see [Stores](#stores)); a name bb's `KB_CONNECTIONS` has is replaced. |
+| `defaultKb` | `KB_DEFAULT`, else the first store | The store a tool call or a new panel uses unless told otherwise. |
+| `url`, `socket` | empty | Legacy: moved into `connections` as the store `default` when the plugin loads. |
 | `autoOpen` | `true` | Open the panel beside each thread the first time a window shows it. |
 
-On shared-server, `hosts/shared-server/default.nix` sets `KB_URL` and `KB_SOCKET` in bb's environment and
-names bb's origin in kb's `--embed-origin`, so the plugin needs no configuration there.
+```sh
+bb plugin config kb set connections $'kb-mac https://kb-mac.example.ts.net\nscratch /run/kb-scratch/kb.sock'
+bb plugin config kb set defaultKb kb-mac
+```
+
+On shared-server, `hosts/shared-server/default.nix` (`bbHome`) sets `KB_CONNECTIONS` in each person's bb
+environment: their own store (`kb-<person>`, page and owner-only socket) as `KB_DEFAULT`, and for popemkt the
+work Mac's `kb-work`, whose kb ui names bb's origin in `--embed-origin` (`my.stacks.kb.server.embedOrigins` in
+`hosts/popemkt-work`). kb-popemkt names bb's origin the same way, so the plugin needs no configuration there.
+The tailnet does not yet let bb's server call `kb-work` (gap `01M7PCSB0AQS9BZ1KWGV7J936R`): its panel frames,
+its tools answer "could not be reached".
 
 ## Develop
 
