@@ -68,13 +68,26 @@ in
         export PATH="${pkgs.nodejs}/bin:$npm_config_prefix/bin:$PATH"
         npm=${pkgs.nodejs}/bin/npm
         node=${pkgs.nodejs}/bin/node
-        if ! installed="$("$npm" ls -g --depth=0 --json)"; then
-          echo "warning: could not list npm globals; skipping activation installs" >&2
-          exit 0
-        fi
-        if ! names="$(${lib.getExe pkgs.jq} -r '(.dependencies // {}) | keys[]' <<<"$installed")"; then
+        listing_status=0
+        installed="$("$npm" ls -g --depth=0 --json)" || listing_status=$?
+        # npm uses exit 1 for ELSPROBLEMS even when it returns a usable
+        # dependency map. Missing entries in that map still need installation.
+        if ! names="$(
+          ${lib.getExe pkgs.jq} -ers --argjson status "$listing_status" '
+            if length != 1 or (.[0] | type != "object") then error("expected one npm listing")
+            else .[0] end
+            | if $status == 0 and .dependencies == null then {}
+              elif ($status == 0 or $status == 1) and (.dependencies | type == "object") then .dependencies
+              else error("npm did not return a dependency map") end
+            | to_entries | map(select(.value.missing != true) | .key) | join("\n")
+          ' <<<"$installed"
+        )"; then
           echo "warning: could not read npm globals; skipping activation installs" >&2
           exit 0
+        fi
+        if [ "$listing_status" -eq 1 ]; then
+          echo "warning: npm reported problems in the global tree; continuing activation installs" >&2
+          ${lib.getExe pkgs.jq} -r '.problems[]?' <<<"$installed" >&2
         fi
 
         stack_health_check() {
@@ -92,7 +105,8 @@ in
           if ! ${pkgs.gnugrep}/bin/grep -qxF -- "$pkg" <<<"$names"; then
             version=latest
             echo "Installing missing npm global: $pkg"
-          elif version="$("$node" ${./npm-global-health.cjs} "$npm_config_prefix" "$pkg")"             && stack_health_check "$pkg"; then
+          elif version="$("$node" ${./npm-global-health.cjs} "$npm_config_prefix" "$pkg")" \
+            && stack_health_check "$pkg"; then
             continue
           elif [ -n "$version" ]; then
             echo "Repairing npm global: $pkg@$version"
@@ -100,7 +114,8 @@ in
             echo "warning: could not determine installed version of $pkg; skipping repair" >&2
             continue
           fi
-          run "$npm" install -g "$pkg@$version"             || echo "warning: could not install npm global $pkg@$version" >&2
+          run "$npm" install -g "$pkg@$version" \
+            || echo "warning: could not install npm global $pkg@$version" >&2
         done
       )
     '';

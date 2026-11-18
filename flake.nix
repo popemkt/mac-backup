@@ -321,6 +321,9 @@
       checks.${system} = systemPackages // {
         inherit systemSetupCheck;
         package-executors-contract = executorContractCheck pkgs;
+        npm-global-activation-check = import ./modules/common/home-manager/npm-global-test.nix {
+          inherit pkgs;
+        };
         reconcile-scripts-check = reconcileScriptsCheck;
         audit-lib-check = auditLibCheck;
         # my.services' restart scripts, built as the NixOS module builds
@@ -355,6 +358,12 @@
       };
 
       checks.x86_64-linux.package-executors-contract = executorContractCheck (pkgsFor "x86_64-linux");
+
+      checks.x86_64-linux.npm-global-activation-check =
+        import ./modules/common/home-manager/npm-global-test.nix
+          {
+            pkgs = pkgsFor "x86_64-linux";
+          };
 
       checks.x86_64-linux.pin-tools-check = pinToolsCheck (pkgsFor "x86_64-linux");
 
