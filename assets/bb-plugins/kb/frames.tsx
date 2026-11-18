@@ -78,7 +78,7 @@ class FrameStore {
     return this.#tabs.storeOf(threadId);
   }
 
-  /** The frame `threadId`'s panel shows (its generation, store and page): each is its own iframe. */
+  /** The id of the frame `threadId`'s panel shows: a new one for each store, page or reload, each its own iframe. */
   frameOf(threadId: string): string | null {
     return this.#tabs.frameOf(threadId);
   }
@@ -396,7 +396,7 @@ export function KbFrameHost() {
   return (
     <div data-kb-frames="" className="contents">
       {store.kept.made.map(threadId => {
-        // A frame per thread and frame identity (generation, store, page): a new store or page is a new frame.
+        // A frame per thread and frame id: a new store, page or reload is a new iframe.
         const frame = store.frameOf(threadId);
         const url = store.storeOf(threadId)?.page ?? null;
         const origin = url === null ? null : originOf(url);

@@ -96,3 +96,49 @@ describe("each thread's store and session in the window", () => {
     assert.equal(tabs.tab("t"), null);
   });
 });
+
+describe("a store shown again is a new frame", () => {
+  const A = { name: "a", page: "https://a.example" };
+  const B = { name: "b", page: "https://b.example" };
+
+  test("A, then B that never loads, then A again: no session until the new A frame says one", () => {
+    const tabs = new ThreadTabs();
+    tabs.configure({ stores: [A, B], defaultStore: "a" });
+    const firstA = tabs.frameOf("t")!;
+    tabs.setSession("t", firstA, "old-a");
+    tabs.choose("t", "b");
+    const frameB = tabs.frameOf("t")!;
+    tabs.choose("t", "a");
+    const secondA = tabs.frameOf("t")!;
+    assert.notEqual(secondA, firstA);
+    assert.deepEqual(tabs.tab("t"), { store: "a", session: null });
+    assert.equal(tabs.setSession("t", firstA, "old-a"), false);
+    assert.equal(tabs.setSession("t", frameB, "late-b"), false);
+    assert.deepEqual(tabs.tab("t"), { store: "a", session: null });
+    assert.equal(tabs.setSession("t", secondA, "new-a"), true);
+    assert.deepEqual(tabs.tab("t"), { store: "a", session: "new-a" });
+  });
+
+  test("a config change away and back is two new frames, the old ones rejected", () => {
+    const tabs = new ThreadTabs();
+    tabs.configure({ stores: [A, B], defaultStore: "a" });
+    const firstA = tabs.frameOf("t")!;
+    tabs.setSession("t", firstA, "old-a");
+    tabs.configure({ stores: [A, B], defaultStore: "b" });
+    const frameB = tabs.frameOf("t")!;
+    tabs.configure({ stores: [A, B], defaultStore: "a" });
+    assert.deepEqual(tabs.tab("t"), { store: "a", session: null });
+    assert.equal(tabs.setSession("t", firstA, "old-a"), false);
+    assert.equal(tabs.setSession("t", frameB, "late-b"), false);
+    assert.equal(tabs.setSession("t", tabs.frameOf("t")!, "new-a"), true);
+  });
+
+  test("an unchanged frame keeps its session (a thread hidden and shown again keeps its iframe)", () => {
+    const tabs = new ThreadTabs();
+    tabs.configure({ stores: [A, B], defaultStore: "a" });
+    tabs.setSession("t", tabs.frameOf("t")!, "sess");
+    tabs.configure({ stores: [A, B], defaultStore: "a" });
+    assert.equal(tabs.choose("t", "a"), false);
+    assert.deepEqual(tabs.tab("t"), { store: "a", session: "sess" });
+  });
+});

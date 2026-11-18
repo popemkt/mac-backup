@@ -62,16 +62,19 @@ export type PanelTab = { readonly store: string; readonly session: string | null
 /**
  * Each thread's kb tab in this window: the store its panel shows, and the session the frame showing that store
  * said. The store is the person's choice and holds from the moment they make it, frame loaded or not, so an
- * agent's call that names no store goes to the store the panel says. A session belongs to one frame (its store,
- * page and generation, `frameOf`): a session from any other frame, an older one or one for another store or
- * page, is never paired with what the panel shows now.
+ * agent's call that names no store goes to the store the panel says. A session belongs to one frame: every time
+ * what a thread's panel shows changes (another store, another page, a reload) it gets a new frame with an id never
+ * used before, and the session goes, so neither a late message from an old frame nor a return to a store shown
+ * before pairs an old session with what is shown now.
  */
 export class ThreadTabs {
   #config: StoresConfig = { stores: [], defaultStore: null };
+  /** Frame ids, unique in this window: one is never given twice. */
+  #nextFrame = 0;
   /** The store each thread's panel chose; a thread absent here shows the default store. */
   readonly #chosen = new Map<string, string>();
-  /** Bumped to load a thread's frame again from scratch. */
-  readonly #generations = new Map<string, number>();
+  /** Each thread's current frame: what it shows (store and page) and its id. */
+  readonly #frames = new Map<string, { readonly shows: string; readonly id: string }>();
   /** The session each thread's frame said, with the frame that said it. */
   readonly #sessions = new Map<string, { readonly session: string; readonly frame: string }>();
 
@@ -79,9 +82,10 @@ export class ThreadTabs {
     return this.#config;
   }
 
-  /** The stores changed: each thread shows what its choice, or the default, now names. */
+  /** The stores changed: each thread shows what its choice, or the default, now names, in a new frame if that changed. */
   configure(config: StoresConfig): void {
     this.#config = config;
+    for (const threadId of [...this.#frames.keys()]) this.frameOf(threadId);
   }
 
   /** The store `threadId`'s panel shows: the one it chose while that is configured, else the default. */
@@ -91,30 +95,42 @@ export class ThreadTabs {
     return stores.find(s => s.name === chosen) ?? stores.find(s => s.name === defaultStore) ?? stores[0] ?? null;
   }
 
-  generationOf(threadId: string): number {
-    return this.#generations.get(threadId) ?? 0;
+  #newFrame(threadId: string, shows: string): string {
+    this.#nextFrame += 1;
+    const id = `${this.#nextFrame} ${shows}`;
+    this.#frames.set(threadId, { shows, id });
+    this.#sessions.delete(threadId);
+    return id;
   }
 
   /**
-   * The frame `threadId`'s panel shows now: its generation, store and page. A frame is made for each, so a new
-   * store, a new page or a reload is a new frame; null while the panel has no store.
+   * The id of the frame `threadId`'s panel shows now; null while the panel has no store. What it shows changing
+   * (store or page) makes a new frame, with a new id and no session.
    */
   frameOf(threadId: string): string | null {
     const store = this.storeOf(threadId);
-    return store === null ? null : `${this.generationOf(threadId)} ${store.name} ${store.page ?? ""}`;
+    if (store === null) {
+      this.#frames.delete(threadId);
+      this.#sessions.delete(threadId);
+      return null;
+    }
+    const shows = `${store.name} ${store.page ?? ""}`;
+    const frame = this.#frames.get(threadId);
+    return frame !== undefined && frame.shows === shows ? frame.id : this.#newFrame(threadId, shows);
   }
 
-  /** The panel shows store `name` now. False when it already did. */
+  /** The panel shows store `name` now, in a new frame. False when it already did. */
   choose(threadId: string, name: string): boolean {
     if (this.storeOf(threadId)?.name === name) return false;
     this.#chosen.set(threadId, name);
+    this.frameOf(threadId);
     return true;
   }
 
   /** Load `threadId`'s frame again from scratch: a new frame, with no session until it says one. */
   reload(threadId: string): void {
-    this.#generations.set(threadId, this.generationOf(threadId) + 1);
-    this.#sessions.delete(threadId);
+    const store = this.storeOf(threadId);
+    if (store !== null) this.#newFrame(threadId, `${store.name} ${store.page ?? ""}`);
   }
 
   /** Frame `frame` of `threadId` said its session. Kept only while that frame is the one shown. */
@@ -126,8 +142,9 @@ export class ThreadTabs {
 
   /** The session of the frame `threadId`'s panel shows now, once that frame said it. */
   sessionOf(threadId: string): string | null {
+    const frame = this.frameOf(threadId);
     const held = this.#sessions.get(threadId);
-    return held !== undefined && held.frame === this.frameOf(threadId) ? held.session : null;
+    return held !== undefined && held.frame === frame ? held.session : null;
   }
 
   /** `threadId`'s tab for its agent: the store shown, and its session when known. */
@@ -138,7 +155,7 @@ export class ThreadTabs {
 
   forget(threadId: string): void {
     this.#chosen.delete(threadId);
-    this.#generations.delete(threadId);
+    this.#frames.delete(threadId);
     this.#sessions.delete(threadId);
   }
 }

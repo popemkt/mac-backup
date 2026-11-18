@@ -40,8 +40,9 @@ The plugin knows any number of kb stores, each by name (`lib/stores.ts`):
   (shown when there is more than one store; kept per thread for the window's life). The tab reports the store it
   shows from the moment it is picked, and its session once the frame showing that store says one: while a
   picked store still loads (or fails to), the agent's calls go to it in no session, never to the store shown
-  before. A session belongs to one frame (its store, page and generation), so neither a late message from the
-  old frame nor a change of the default or a page pairs an old session with what the panel shows.
+  before. A session belongs to one frame, and every change of what a thread's panel shows (another store, page or
+  default, a reload) makes a new frame with an id never used before, so neither a late message from an old frame
+  nor a return to a store shown before pairs an old session with what the panel shows.
 - **The agent.** Every tool takes an optional `kb`, a store name. Omitted, a call goes to the store the
   thread's open kb tab shows, else the default: so "this node" always means the tab's store. A call is made in
   the tab's session only when it goes to the store the tab shows; a call to another store is made in no
