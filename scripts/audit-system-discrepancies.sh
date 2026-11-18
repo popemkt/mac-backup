@@ -256,25 +256,20 @@ uv_is_editable() {
   [ -f "$receipt" ] && grep -q 'editable' "$receipt"
 }
 
-# homebrew.{brews,casks,taps} normalize to submodules, so project to the name.
-brew_names() {
-  eval_host_list "map (x: if builtins.isAttrs x then x.name else x) xs.homebrew.$1"
-}
-
 # Declarations are independent evaluations. Capture no more than eight at once;
 # load their results below in the original declaration order.
 declared_brews_probe=${#AUDIT_PROBE_PIDS[@]}
-audit_probe_start brew_names brews
+audit_probe_start eval_host_list 'xs.my.packageExecutors.brews'
 declared_casks_probe=${#AUDIT_PROBE_PIDS[@]}
-audit_probe_start brew_names casks
+audit_probe_start eval_host_list 'xs.my.packageExecutors.casks'
 declared_taps_probe=${#AUDIT_PROBE_PIDS[@]}
-audit_probe_start brew_names taps
+audit_probe_start eval_host_list 'xs.my.packageExecutors.taps'
 declared_npm_probe=${#AUDIT_PROBE_PIDS[@]}
-audit_probe_start eval_hm_list 'my.resolvedNpmGlobals'
+audit_probe_start eval_hm_list 'my.packageExecutors.npmGlobals'
 audit_probe_wait_all
 
 declared_bun_probe=${#AUDIT_PROBE_PIDS[@]}
-audit_probe_start eval_hm_list 'my.resolvedBunGlobals'
+audit_probe_start eval_hm_list 'my.packageExecutors.bunGlobals'
 declared_nix_packages_probe=${#AUDIT_PROBE_PIDS[@]}
 audit_probe_start eval_host_list 'map (p: p.pname or (builtins.parseDrvName p.name).name)
     (builtins.filter builtins.isAttrs

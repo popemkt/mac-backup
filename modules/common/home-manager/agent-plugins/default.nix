@@ -27,7 +27,7 @@ let
   codexHome = "${home}/.codex";
 
   repoRoot = ../../../..;
-  source = import ../../../common/home-manager/plugin-sources/source.nix {
+  source = import ../plugin-sources/source.nix {
     inherit lib;
     kind = "dotfiles-agent";
   };
@@ -59,28 +59,44 @@ let
           copy = null;
         };
 
-  # A repo folder's marketplace is its stable link.
+  # Keep the declaration alongside its resolved install argument so the
+  # contract can see which sources reach the executor.
   resolve =
-    entry:
-    let
-      folder = repoFolder entry;
-    in
-    if folder == null then
-      [ entry ]
-    else
-      lib.optional (folder.copy != null) "${folder.name}=${state}/${folder.name}";
+    entries:
+    lib.concatMap (
+      entry:
+      let
+        folder = repoFolder entry;
+      in
+      if folder == null then
+        [
+          {
+            inherit entry folder;
+            arg = entry;
+          }
+        ]
+      else
+        lib.optional (folder.copy != null) {
+          inherit entry folder;
+          arg = "${folder.name}=${state}/${folder.name}";
+        }
+    ) (lib.unique entries);
 
-  declared = lib.unique (osConfig.my.pkgs.claudeMarketplaces ++ osConfig.my.pkgs.codexMarketplaces);
-  folders = lib.filter (f: f != null && f.copy != null) (map repoFolder declared);
+  claudeSources = resolve osConfig.my.pkgs.claudeMarketplaces;
+  codexSources = resolve osConfig.my.pkgs.codexMarketplaces;
+  folders = lib.unique (
+    lib.filter (folder: folder != null) (
+      map (sourceEntry: sourceEntry.folder) (claudeSources ++ codexSources)
+    )
+  );
+  agentSkills = lib.unique osConfig.my.pkgs.agentSkills;
 
   agentPluginsSync = pkgs.writeShellApplication {
     name = "agent-plugins-sync";
     text = ''
       home=${lib.escapeShellArg home}
       folders=(${lib.concatMapStringsSep " " (f: lib.escapeShellArg "${f.name}=${f.copy}") folders})
-      skillsets=(${
-        lib.concatMapStringsSep " " lib.escapeShellArg (lib.unique osConfig.my.pkgs.agentSkills)
-      })
+      skillsets=(${lib.concatMapStringsSep " " lib.escapeShellArg agentSkills})
       state=${lib.escapeShellArg state}
       legacy=${lib.escapeShellArg "${home}/.dotfiles/assets/plugins"}
       cu=${pkgs.coreutils}/bin
@@ -88,13 +104,14 @@ let
       jq=${lib.getExe pkgs.jq}
 
     ''
-    + builtins.readFile ../../../common/home-manager/plugin-sources/sync-lib.sh
+    + builtins.readFile ../plugin-sources/sync-lib.sh
     + builtins.readFile ./sync.sh;
   };
 
-  inherit (osConfig.my.pkgs) claudePlugins codexPlugins;
-  claudeMarketplaces = lib.concatMap resolve osConfig.my.pkgs.claudeMarketplaces;
-  codexMarketplaces = lib.concatMap resolve osConfig.my.pkgs.codexMarketplaces;
+  claudePlugins = lib.unique osConfig.my.pkgs.claudePlugins;
+  codexPlugins = lib.unique osConfig.my.pkgs.codexPlugins;
+  claudeMarketplaces = map (entry: entry.arg) claudeSources;
+  codexMarketplaces = map (entry: entry.arg) codexSources;
 
   quoted = xs: lib.concatStringsSep " " (map lib.escapeShellArg (lib.unique xs));
 
@@ -196,17 +213,21 @@ let
       done
     }
 
-    if command -v claude >/dev/null 2>&1; then
-      claude_plugins
-    else
-      echo "warning: claude is unavailable; skipped its tracked plugins" >&2
-    fi
+    ${lib.optionalString (claudeMarketplaces != [ ] || claudePlugins != [ ]) ''
+      if command -v claude >/dev/null 2>&1; then
+        claude_plugins
+      else
+        echo "warning: claude is unavailable; skipped its tracked plugins" >&2
+      fi
+    ''}
 
-    if command -v codex >/dev/null 2>&1; then
-      codex_plugins
-    else
-      echo "warning: codex is unavailable; skipped its tracked plugins" >&2
-    fi
+    ${lib.optionalString (codexMarketplaces != [ ] || codexPlugins != [ ]) ''
+      if command -v codex >/dev/null 2>&1; then
+        codex_plugins
+      else
+        echo "warning: codex is unavailable; skipped its tracked plugins" >&2
+      fi
+    ''}
   '';
 
   updateAgentPlugins = pkgs.writeShellScriptBin "update-agent-plugins" ''
@@ -232,6 +253,12 @@ let
   '';
 in
 {
+  my.packageExecutors = {
+    inherit agentSkills claudePlugins codexPlugins;
+    claudeMarketplaces = map (sourceEntry: sourceEntry.entry) claudeSources;
+    codexMarketplaces = map (sourceEntry: sourceEntry.entry) codexSources;
+  };
+
   home = {
     packages = [
       agentPluginsSync

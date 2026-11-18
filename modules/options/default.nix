@@ -8,6 +8,10 @@ _:
     ./my.nix
     ./people.nix
     ./pkgs.nix
+    (import ./package-executors.nix [
+      "darwinSystem"
+      "nixosSystem"
+    ])
     ./services.nix
     ./uv-pins.nix
   ];

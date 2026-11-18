@@ -36,27 +36,14 @@ lib.mkIf config.my.stacks.ai-agents.enable {
       # dependency environment isolated, while Nix owns the Python version.
       # Heavy wheels (torch, faiss-cpu, opencv) are prebuilt for macOS arm64,
       # but native builds still need the Apple toolchain and SDKROOT.
-      # GAP [[01M3E9TMG3C90N8VBEDXGHHK45]] one of three copied uv installers.
-      home.activation.installSemanticaUvTool = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        export SDKROOT="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)"
-        export PATH="$PATH:/usr/bin:/bin"
-        export CC=/usr/bin/clang
-        export CXX=/usr/bin/clang++
-        export AR=/usr/bin/ar
-        export RANLIB=/usr/bin/ranlib
-        export CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER=/usr/bin/clang
-
-        if ! ${pkgs.uv}/bin/uv tool list 2>/dev/null \
-            | ${pkgs.gnugrep}/bin/grep -q "^semantica v${semanticaVersion}$" \
-          || [[ ! -x "${semanticaPython}" ]] \
-          || [[ "$("${semanticaPython}" -c 'import platform; print(platform.python_version())' 2>/dev/null || true)" != "${pkgs.python313.version}" ]]
-        then
-          $DRY_RUN_CMD ${pkgs.uv}/bin/uv tool install \
-            --force \
-            --python ${pkgs.python313}/bin/python3 \
-            --with ${lib.escapeShellArg numbaFloor} \
-            ${lib.escapeShellArg (builtins.head uvTools)}
-        fi
-      '';
+      home.activation.installSemanticaUvTool = lib.hm.dag.entryAfter [ "writeBoundary" ] (
+        import ./install-uv-tool.nix { inherit lib pkgs; } {
+          name = "semantica";
+          version = semanticaVersion;
+          spec = builtins.head uvTools;
+          python = semanticaPython;
+          withPackages = [ numbaFloor ];
+        }
+      );
     };
 }

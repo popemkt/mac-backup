@@ -42,9 +42,10 @@
     # Prebuilt binaries (npm, curl installers, language toolchains) expect a
     # conventional dynamic loader; nix-ld provides one, with the libraries
     # stacks contribute to the my.pkgs.nixLdLibraries channel.
+    my.packageExecutors.nixLdLibraries = lib.unique config.my.pkgs.nixLdLibraries;
     programs.nix-ld = {
       enable = true;
-      libraries = map (name: pkgs.${name}) (lib.unique config.my.pkgs.nixLdLibraries);
+      libraries = map (name: pkgs.${name}) config.my.packageExecutors.nixLdLibraries;
     };
 
     # Vulkan loaders bundled with prebuilt binaries (Chromium's among them)

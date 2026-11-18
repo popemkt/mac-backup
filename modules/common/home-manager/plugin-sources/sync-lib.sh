@@ -1,6 +1,6 @@
 # Shared by the plugin executors' sync scripts, bb-plugins-sync
 # (../bb-plugins/sync.sh) and agent-plugins-sync
-# (modules/darwin/home-manager/agent-plugins/sync.sh), which put it before
+# (modules/common/home-manager/agent-plugins/sync.sh), which put it before
 # their own text; they define cu (coreutils' bin) and flock by absolute path.
 # Both run inside Home Manager activation, which must never abort over a
 # plugin, so neither helper exits: each warns and returns non-zero.

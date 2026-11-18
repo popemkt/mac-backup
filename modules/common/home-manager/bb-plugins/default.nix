@@ -62,7 +62,12 @@ let
       dir = repoRoot + "/${rel}";
     in
     if builtins.pathExists (dir + "/package.json") then
-      [ "${baseNameOf rel}=${source dir}" ]
+      [
+        {
+          inherit rel;
+          arg = "${baseNameOf rel}=${source dir}";
+        }
+      ]
     else
       lib.warn "my.pkgs.bbPlugins: no bb plugin (package.json) at ${rel}; it is not installed" [ ]
   ) (lib.unique osConfig.my.pkgs.bbPlugins);
@@ -71,7 +76,7 @@ let
     name = "bb-plugins-sync";
     text = ''
       home=${lib.escapeShellArg home}
-      plugins=(${lib.concatMapStringsSep " " lib.escapeShellArg entries})
+      plugins=(${lib.concatMapStringsSep " " (entry: lib.escapeShellArg entry.arg) entries})
       cu=${pkgs.coreutils}/bin
       find=${pkgs.findutils}/bin/find
       flock=${pkgs.flock}/bin/flock
@@ -86,10 +91,15 @@ let
     + builtins.readFile ./sync.sh;
   };
 in
-lib.mkIf (osConfig.my.pkgs.bbPlugins != [ ]) {
-  home.packages = [ bbPluginsSync ];
+{
+  config = lib.mkMerge [
+    { my.packageExecutors.bbPlugins = map (entry: entry.rel) entries; }
+    (lib.mkIf (entries != [ ]) {
+      home.packages = [ bbPluginsSync ];
 
-  home.activation.installBbPlugins = lib.hm.dag.entryAfter [ "installNpmGlobals" ] ''
-    ${lib.getExe bbPluginsSync}
-  '';
+      home.activation.installBbPlugins = lib.hm.dag.entryAfter [ "installNpmGlobals" ] ''
+        ${lib.getExe bbPluginsSync}
+      '';
+    })
+  ];
 }

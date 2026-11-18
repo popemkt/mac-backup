@@ -1,4 +1,9 @@
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 # AI coding agent toolchain: agent CLIs, desktop apps, orchestrators, the
 # tools agents call (officecli is also tagged in office-docs), plus the
@@ -105,6 +110,16 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    # A successful npm listing does not guarantee that Codex's optional native
+    # platform package survived an interrupted install.
+    home-manager.sharedModules = [
+      {
+        my.npmGlobalHealthChecks."@openai/codex" = pkgs.writeShellScript "codex-npm-health" ''
+          exec "$1/codex" --version
+        '';
+      }
+    ];
+
     my.pkgs = {
       taps = optionals cfg.archon [ "coleam00/archon" ] ++ [
         "stablyai/orca"
