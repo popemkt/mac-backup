@@ -248,14 +248,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The off-machine backup that closes gap 01M5QJFWFYAKE90KSRNPN4EX78 (Litestream or a restic timer) extended to the axioms state directory, copied while app-axioms-db is stopped or from a SpacetimeDB snapshot.
 - **node** — `01M692TZSTZ7HPR8V4SS77546Q`
 
-### GAP: shared-server's bb cannot call kb-work: the tailnet grants svc:kb-work only to members
-
-- **expected** — The kb plugin's agent tools on shared-server's bb (kb_call, kb_screen, kb_manifest with kb: kb-work) and its links loop reach the work Mac's kb-work, as its panel does.
-- **current** — configs/tailscale/policy.hujson grants svc:kb-work tcp:443 to autogroup:member only. bb's server is tag:shared-server, so its calls to https://kb-work.<tailnet> fail; the panel frames kb-work because a member's browser draws it (kb-work names bb-popemkt in --embed-origin).
-- **impact** — Agents in bb can see the kb-work store listed but every call to it errors with 'could not be reached'; kb-work canvases are never linked to threads.
-- **closes** — The owner decides to grant tag:shared-server → svc:kb-work (shared-server has two administrators, so the work store becomes readable from there), or bb's server moves to the Mac, or kb gains a per-caller credential that a grant can be paired with.
-- **node** — `01M7PCSB0AQS9BZ1KWGV7J936R`
-
 ### GAP: shared-server's kb home store and bb plugin data have no backup
 
 - **expected** — shared-server's kb home store (~/.local/share/kb/home/.kb) and bb's data dir (bb.db, plugins/*/data.db, which now holds kb canvas links) are backed up off the machine on a schedule, restore rehearsed.
@@ -399,6 +391,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Agents on shared-server (kb CLI or kb mcp --root ~/.local/share/kb/home) cannot see or drive popemkt's open kb page
 - **closes** — A kb release that writes presence for socket servers, pinned here (nix run .#github-sources -- update kb)
 - **node** — `01M5HXHNERZR77Z0HX0SZCQZPP`
+
+### GAP: shared-server's bb cannot call kb-work: the tailnet grants svc:kb-work only to members
+
+- **expected** — The kb plugin's agent tools on shared-server's bb (kb_call, kb_screen, kb_manifest with kb: kb-work) and its links loop reach the work Mac's kb-work, as its panel does.
+- **current** — configs/tailscale/policy.hujson grants svc:kb-work tcp:443 to autogroup:member only. bb's server is tag:shared-server, so its calls to https://kb-work.<tailnet> fail; the panel frames kb-work because a member's browser draws it (kb-work names bb-popemkt in --embed-origin).
+- **impact** — Agents in bb can see the kb-work store listed but every call to it errors with 'could not be reached'; kb-work canvases are never linked to threads.
+- **closes** — The owner decides to grant tag:shared-server → svc:kb-work (shared-server has two administrators, so the work store becomes readable from there), or bb's server moves to the Mac, or kb gains a per-caller credential that a grant can be paired with.
+- **node** — `01M7PCSB0AQS9BZ1KWGV7J936R`
 
 ### GAP: The repo's Claude Code marketplace and agent skill links point into the person's checkout
 
