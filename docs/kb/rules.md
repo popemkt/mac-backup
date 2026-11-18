@@ -99,6 +99,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — one live run in bb desktop: open a Browser tab, alt+f, pick a label
 - **node** — `01M5PPQ98GKQZARPMF01TYZ1RV`
 
+### GAP: cognee's client and blender-mcp still register their MCP servers outside my.pkgs.mcpServers
+
+- **expected** — Every MCP server a stack provides is one my.pkgs.mcpServers entry, registered by modules/common/home-manager/mcp-servers/ with every harness: cognee's client (an HTTP server) and blender-mcp included.
+- **current** — The channel and executor exist (stdio servers: command, args, env). cognee's client and server write Cursor's, Oh My Pi's and Hermes' configs with jq themselves (an HTTP url, which the channel's type cannot hold yet); blender-mcp is on PATH and each person runs claude mcp add by hand.
+- **impact** — cognee reaches Cursor, Oh My Pi and Hermes but not Claude Code, Codex, opencode or Gemini CLI through MCP (Claude Code and Codex use its plugin); blender-mcp is missing from agents until someone registers it.
+- **closes** — The mcpServers type gains an HTTP form (url), the executor writes it per harness, cognee's client moves onto it, and the blender stack declares blender-mcp.
+- **node** — `01M7PDPCNY920WSWPJGWD61TF7`
+
 ### GAP: context composer v1 has not run in a live bb
 
 - **expected** — The composer page, spawn with a composed context, the trajectory advisor and contributed env are seen working in a real bb thread.
@@ -157,14 +165,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A NixOS drift audit that reads nixosConfigurations and the NixOS channels, and system-setup checks gaining NixOS runtime dependencies (Tailscale and so on) so system-setup status runs there; both invoked from the Linux branch of scripts/rebuild in place of the notice.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M53WTHZ1YAW03WWCCFEV0QY1`
-
-### GAP: no channel registers MCP servers with agent harnesses
-
-- **expected** — A stack declares an MCP server once (a my.pkgs channel), and an executor registers it with every agent harness on the host it targets (Claude Code user scope, Codex, opencode, Cursor, omp), the way bbPlugins and claudePlugins are installed.
-- **current** — Each stack registers its own servers ad hoc (cognee's client writes Cursor and omp configs with jq), or not at all: blender-mcp is on PATH and each person runs claude mcp add themselves.
-- **impact** — An MCP server a stack provides is missing from agents until someone registers it by hand, and registrations drift between harnesses and hosts.
-- **closes** — An mcpServers channel in modules/options/channels.nix with an executor per harness, cognee's client and blender moved onto it.
-- **node** — `01M684KYXJ51NYTKYRRN6QPA55`
 
 ### GAP: package executors share no contract check
 
@@ -375,6 +375,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Enable branch protection for main with the documented Nix and KB checks required and verify the policy.
 - **rule** — Admission gate
 - **node** — `01M1PJXGKQ0HAYEWY2V0QPWVX1`
+
+### GAP: no channel registers MCP servers with agent harnesses
+
+- **expected** — A stack declares an MCP server once (a my.pkgs channel), and an executor registers it with every agent harness on the host it targets (Claude Code user scope, Codex, opencode, Cursor, omp), the way bbPlugins and claudePlugins are installed.
+- **current** — Each stack registers its own servers ad hoc (cognee's client writes Cursor and omp configs with jq), or not at all: blender-mcp is on PATH and each person runs claude mcp add themselves.
+- **impact** — An MCP server a stack provides is missing from agents until someone registers it by hand, and registrations drift between harnesses and hosts.
+- **closes** — An mcpServers channel in modules/options/channels.nix with an executor per harness, cognee's client and blender moved onto it.
+- **node** — `01M684KYXJ51NYTKYRRN6QPA55`
 
 ### GAP: nothing audits this store's checks and rules
 

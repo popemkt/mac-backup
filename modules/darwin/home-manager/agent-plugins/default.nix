@@ -8,7 +8,8 @@
 
 # Executor: agent plugin channels merged from the intent layer
 # (modules/stacks/*). Stacks declare membership through
-# my.pkgs.{claude,codex}{Marketplaces,Plugins}; this module only installs.
+# my.pkgs.{claude,codex}{Marketplaces,Plugins} and my.pkgs.agentSkills
+# (folders of skills, such as a package's); this module only installs.
 #
 # Marketplace entries are "name=source", because the agents' own marketplace
 # listings report the resolved name rather than the source they came from, and
@@ -77,6 +78,9 @@ let
     text = ''
       home=${lib.escapeShellArg home}
       folders=(${lib.concatMapStringsSep " " (f: lib.escapeShellArg "${f.name}=${f.copy}") folders})
+      skillsets=(${
+        lib.concatMapStringsSep " " lib.escapeShellArg (lib.unique osConfig.my.pkgs.agentSkills)
+      })
       state=${lib.escapeShellArg state}
       legacy=${lib.escapeShellArg "${home}/.dotfiles/assets/plugins"}
       cu=${pkgs.coreutils}/bin

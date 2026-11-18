@@ -2,6 +2,9 @@
 # target per entry, and mk-stack.nix derives each stack's `extra.*` from the
 # same entries, so a channel is named once.
 #
+# `type` names the value a channel holds (./channel-types.nix); absent, a
+# list of strings.
+#
 # `installedBy` says who installs a channel's members:
 # - "executor": a cross-cutting executor reads the merged list and installs
 #   it (homebrew.nix, npm-global.nix, bun-global.nix, agent-plugins/,
@@ -48,6 +51,22 @@
   };
   codexPlugins = {
     description = "Codex plugins (plugin@marketplace) contributed by stacks.";
+    installedBy = "executor";
+  };
+  # Registered by modules/common/home-manager/mcp-servers/ with every agent
+  # harness on the host that has one: Claude Code (user scope), Codex,
+  # Cursor, opencode, Gemini CLI and Oh My Pi.
+  mcpServers = {
+    description = "MCP servers (by name: command, args, env) contributed by stacks, registered with every agent harness on the host.";
+    installedBy = "executor";
+    type = "mcpServers";
+  };
+  # "<name>=<folder>": a folder whose subfolders are skills (each with a
+  # SKILL.md), such as one a package ships; linked into every agent's skills
+  # by agent-plugins-sync (modules/darwin/home-manager/agent-plugins/). A
+  # folder that is not there is skipped, so a package may ship it later.
+  agentSkills = {
+    description = "Folders of agent skills (name=<folder of skill folders>, often in a package) contributed by stacks, linked into every agent's skills.";
     installedBy = "executor";
   };
   bbPlugins = {

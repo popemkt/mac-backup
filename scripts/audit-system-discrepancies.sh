@@ -535,6 +535,22 @@ audit_agent_plugins "Claude Code" claudePlugins claude plugin list
 CODEX_HOME="${CODEX_HOME:-$HOME/.codex}" \
   audit_agent_plugins "Codex" codexPlugins codex plugin list
 
+# MCP servers: mcp-servers-sync --check (modules/common/home-manager/
+# mcp-servers) prints one "<harness>: <name>" line per declared server a
+# harness lacks or has differently; the executor is the only reader of the
+# declarations, so the audit asks it rather than evaluating them again.
+print_section "MCP Servers Tracked But Missing"
+if ! command -v mcp-servers-sync >/dev/null 2>&1; then
+  printf '  mcp-servers-sync not found (rebuild installs it)\n'
+elif mcp_missing_raw="$(mcp-servers-sync --check 2>/dev/null)"; then
+  mcp_missing=()
+  [ -n "$mcp_missing_raw" ] && mapfile -t mcp_missing <<<"$mcp_missing_raw"
+  print_list "${mcp_missing[@]}"
+  check_count "${#mcp_missing[@]}" "MCP server registration(s) tracked but missing"
+else
+  record_warn "mcp-servers-sync --check failed"
+fi
+
 managed_external_paths=()
 if read_probe_into managed_external_paths "$managed_external_paths_probe" "external-data path scan"; then
   print_section "Managed External Data"

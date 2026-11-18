@@ -26,6 +26,11 @@
     browsers.enable = true;
     kb = {
       enable = true;
+      # kb-work's store as the MCP server `kb-work` in every agent here.
+      mcp = {
+        enable = true;
+        name = "kb-work";
+      };
       server = {
         enable = true;
         publicOrigin = config.my.stacks.vpn.services.kb-work.publicOrigin;
