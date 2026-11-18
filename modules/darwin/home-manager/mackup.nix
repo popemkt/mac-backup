@@ -1,25 +1,18 @@
-{ pkgs, ... }:
+{ lib, pkgs, ... }:
 
+let
+  settings = import ./mackup-settings.nix;
+in
 {
   home = {
     packages = [ pkgs.mackup ];
 
     file.".mackup.cfg".text = ''
       [storage]
-      engine = icloud
+      engine = ${settings.engine}
 
       [applications_to_sync]
-      karabiner-elements
-      warp
-      zed
-      vscode
-      telegram_macos
-      claude-code
-      kb
-      snapzy
-      t3-code
-      tinycast
-      macosx
+      ${lib.concatStringsSep "\n" settings.applications}
     '';
 
     # Snapzy has no upstream Mackup definition. Sync only portable preferences
@@ -48,8 +41,7 @@
       name = kb
 
       [configuration_files]
-      .dotfiles/.kb/assets
-      .dotfiles/.kb/trust.json
+      ${lib.concatStringsSep "\n" settings.kbFiles}
     '';
 
     # T3 Code: agent harness control surface (pingdotgg/t3code). Sync only

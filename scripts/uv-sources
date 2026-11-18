@@ -10,23 +10,7 @@
 # version deliberately — Cognee's stores are coupled to its release, so a major
 # bump there wants a human decision.
 #
-# Pin-tool contract. This header is its one statement; github-sources follows
-# it and the drift audit's report_pin_check reads it.
-#
-# - Exit 10: `check` found newer releases for pins it may move.
-# - Exit 0: nothing for the caller to do. Exit 0 alone does not mean current.
-#   These all exit 0 without meaning current:
-#   - `check` or `update` when every newer release belongs to a held
-#     (track="manual") pin; the held lines are printed and nothing is
-#     rewritten;
-#   - `update` after it rewrote pins;
-#   - --best-effort when the tool could not run; it warns instead.
-# - A stdout line containing "pins are current" is printed exactly when
-#   every pin is at its newest release. That line, not exit 0, is what
-#   "current" means to a caller.
-# - Any other exit code: the tool could not run. uv-sources uses 1.
-#   GAP [[01M3E9VSQZTDHRV4C9YRWD1QV1]] github-sources uses 20 there, and no
-#   shared test holds the two tools to this contract.
+# Exit status and best-effort semantics: docs/github-release-packages.md.
 
 set -euo pipefail
 
@@ -66,7 +50,7 @@ while [ $# -gt 0 ]; do
       ;;
     *)
       usage >&2
-      exit 1
+      exit 2
       ;;
   esac
   shift
@@ -74,7 +58,7 @@ done
 
 [ -n "$command" ] || {
   usage >&2
-  exit 1
+  exit 2
 }
 
 if [ ! -f "$PINS" ]; then
@@ -83,7 +67,7 @@ if [ ! -f "$PINS" ]; then
     exit 0
   fi
   printf 'error: %s is missing\n' "$PINS" >&2
-  exit 1
+  exit 2
 fi
 
 set +e
@@ -128,14 +112,15 @@ for name, current, newest in held:
 for name, why in failed:
     print(f"warning: {name}: {why}", file=sys.stderr)
 
+if failed and (mode == "update" or not bumped):
+    sys.exit(20)
+
 if mode == "update" and bumped:
     with open(path, "w") as fh:
         json.dump(pins, fh, indent=2, sort_keys=True)
         fh.write("\n")
     print("Rewrote uv pins. Review with: git diff -- _sources/uv-pins.json")
 
-if failed:
-    sys.exit(1)
 if not bumped and not held:
     print("uv tool pins are current.")
     sys.exit(0)
@@ -145,7 +130,7 @@ PY
 status=$?
 set -e
 
-if [ "$status" -eq 1 ] && [ "$best_effort" = true ]; then
+if [ "$status" -eq 20 ] && [ "$best_effort" = true ]; then
   printf 'warning: uv pin check could not complete\n' >&2
   exit 0
 fi

@@ -8,7 +8,6 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-EXTERNAL_DATA_CONFIG="$ROOT_DIR/modules/darwin/system/external-workspace.nix"
 # Agent plugin channels are read from the evaluated host configuration, so the
 # flake attribute for this machine has to resolve.
 AUDIT_HOST="${AUDIT_HOST:-$(hostname -s)}"
@@ -38,22 +37,6 @@ eval_channel() {
 # Same, for a Home Manager option on the configured user.
 eval_hm_list() {
   eval_host_list "xs.home-manager.users.\${xs.my.username}.$1"
-}
-
-# GAP [[01M3E9VYK1NK02TN5MYSQXS7C7]] scrapes Nix source instead of evaluating.
-parse_external_paths() {
-  awk '
-    /^[[:space:]]*managedPaths[[:space:]]*=/ { in_block=1; next }
-    in_block && /\]/ { exit }
-    in_block {
-      line=$0
-      sub(/#.*/, "", line)
-      while (match(line, /"[^"]+"/)) {
-        print substr(line, RSTART + 1, RLENGTH - 2)
-        line = substr(line, RSTART + RLENGTH)
-      }
-    }
-  ' "$EXTERNAL_DATA_CONFIG"
 }
 
 print_section() {
@@ -275,7 +258,9 @@ audit_probe_start eval_host_list 'map (p: p.pname or (builtins.parseDrvName p.na
     (builtins.filter builtins.isAttrs
       xs.home-manager.users.${xs.my.username}.home.packages)'
 managed_external_paths_probe=${#AUDIT_PROBE_PIDS[@]}
-audit_probe_start parse_external_paths
+audit_probe_start eval_host_list 'xs.my.externalWorkspace.managedPaths'
+external_root_probe=${#AUDIT_PROBE_PIDS[@]}
+audit_probe_start eval_host_list '[ xs.my.externalWorkspace.externalDataRoot ]'
 audit_probe_wait_all
 
 if ! {
@@ -547,13 +532,14 @@ else
 fi
 
 managed_external_paths=()
-if read_probe_into managed_external_paths "$managed_external_paths_probe" "external-data path scan"; then
+if read_probe_into managed_external_paths "$managed_external_paths_probe" "external-data paths" \
+  && read_probe_into external_root "$external_root_probe" "external-data root"; then
   print_section "Managed External Data"
-  printf '  Root: /Volumes/Data/workspace/symlinks/User\n'
+  printf '  Root: %s\n' "${external_root[0]}"
   printf '  Paths tracked: %s\n' "${#managed_external_paths[@]}"
   for rel in "${managed_external_paths[@]}"; do
     src="$HOME/$rel"
-    dst="/Volumes/Data/workspace/symlinks/User/$rel"
+    dst="${external_root[0]}/$rel"
     if [ -L "$src" ]; then
       printf '  - linked: %s -> %s\n' "$src" "$(readlink "$src")"
     elif [ -e "$src" ]; then

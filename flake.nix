@@ -131,25 +131,27 @@
           '';
         };
 
-      # Offline fixture test of the app, run as CI runs it (env -i, empty
-      # HOME, no TMPDIR, PATH=/usr/bin:/bin).
-      githubSourcesCheck =
+      pinToolsCheck =
+        pkgs:
         let
           app = mkGithubSources pkgs (
             pkgs.writeShellScriptBin "nvfetcher" (builtins.readFile ./scripts/tests/nvfetcher-stub.sh)
           );
         in
-        pkgs.runCommand "github-sources-check"
+        pkgs.runCommand "pin-tools-check"
           {
             nativeBuildInputs = with pkgs; [
               bash
               coreutils
+              diffutils
+              git
               gnugrep
+              jq
             ];
           }
           ''
-            bash ${./scripts/tests/github-sources-check.sh} \
-              ${app}/bin/github-sources ${./scripts/github-sources}
+            bash ${./scripts/tests/pin-tools-check.sh}               ${app}/bin/github-sources ${./scripts/uv-sources}               ${pkgs.python3}/bin ${./scripts/tests/pypi-stub}
+            bash ${./scripts/tests/github-sources-check.sh}               ${app}/bin/github-sources ${./scripts/github-sources}
             touch "$out"
           '';
 
@@ -345,7 +347,7 @@
         # The local proxy's CA script and Caddy configuration, run on a high
         # port in front of a test app.
         local-proxy-check = import ./modules/stacks/local-proxy/tests.nix { inherit pkgs; };
-        github-sources-check = githubSourcesCheck;
+        pin-tools-check = pinToolsCheck pkgs;
         system-setup-manifest-personal = systemSetupManifestCheck "popemkt-personal";
         system-setup-manifest-work = systemSetupManifestCheck "popemkt-work";
         darwin-personal = self.darwinConfigurations.popemkt-personal.system;
@@ -353,6 +355,8 @@
       };
 
       checks.x86_64-linux.package-executors-contract = executorContractCheck (pkgsFor "x86_64-linux");
+
+      checks.x86_64-linux.pin-tools-check = pinToolsCheck (pkgsFor "x86_64-linux");
 
       # Per tooling system: the pre-commit gate runs `nix run .#github-sources`
       # on whichever host commits, so Linux needs it too, built from its own pkgs.

@@ -58,7 +58,7 @@ in
           ];
           check = {
             kind = "openai_models";
-            url = "http://127.0.0.1:8317/v1/models";
+            url = "http://127.0.0.1:${toString aiCfg.cliProxyApi.port}/v1/models";
             expected_models = [
               "deepseek-v4-flash"
               "deepseek-v4-pro"
@@ -95,7 +95,7 @@ in
           ];
           check = {
             kind = "openai_models";
-            url = "http://127.0.0.1:8317/v1/models";
+            url = "http://127.0.0.1:${toString aiCfg.cliProxyApi.port}/v1/models";
             expected_models = [
               "opencodego/qwen3.8-max"
               "qwen3.8-max"
@@ -132,7 +132,7 @@ in
           ];
           check = {
             kind = "openai_models";
-            url = "http://127.0.0.1:8317/v1/models";
+            url = "http://127.0.0.1:${toString aiCfg.cliProxyApi.port}/v1/models";
             expected_models = [ "gpt-5.6-sol" ];
           };
           enrollment = {
@@ -202,7 +202,7 @@ in
             ];
             check = {
               kind = "openai_models";
-              url = "http://127.0.0.1:8317/v1/models";
+              url = "http://127.0.0.1:${toString aiCfg.cliProxyApi.port}/v1/models";
               expected_models = [ "gemini-3.5-flash-low" ];
             };
             enrollment = {
@@ -242,7 +242,7 @@ in
             ];
             check = {
               kind = "http_json";
-              url = "http://127.0.0.1:8088/health/detailed";
+              url = "http://127.0.0.1:${toString aiCfg.cognee.gatewayPort}/health/detailed";
               expected = {
                 status = "healthy";
                 "components.relational_db.status" = "healthy";

@@ -222,15 +222,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — After rebuild, manually run brew uninstall bun and confirm the drift audit is clean.
 - **node** — `01M3FAE5T61DZS8T7WRW3RTZ93`
 
-### GAP: service ports are restated outside the module that owns them
-
-- **expected** — Each service port has one owner, exposed as a read-only option (or passthru) of its component, and every other reader derives from it.
-- **current** — CLIProxyAPI 8317 is owned by the read-only option my.stacks.ai-agents.cliProxyApi.port, which cli-proxy-api.nix and cli-proxy-clients read; it is still retyped in ai-agents/system-setup.nix (four probes), cognee/server.nix LLM_ENDPOINT and modules/darwin/home-manager/default.nix. The Cognee gateway 8088 is retyped in system-setup.nix and hosts/popemkt-personal (vpn service target). The Cognee MCP port 8001 is a separate binding in server.nix and client.nix.
-- **impact** — Changing a port in its module silently breaks the health probes or the tailnet route.
-- **closes** — Derive the remaining CLIProxyAPI sites from cliProxyApi.port, and give cognee read-only port options the same way.
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M3E9VX8SQJKV3K2Q1JEKT309`
-
 ### GAP: shared-server's axioms SpacetimeDB state has no backup
 
 - **expected** — axioms' SpacetimeDB state on shared-server (~popemkt/.local/share/axioms/spacetime: the database, its token signing keys, the CLI identity that owns the database) and the server's client identity (~/.spacetimedb_client_credentials/axioms-server) are backed up off the machine on a schedule, restore rehearsed.
@@ -263,15 +254,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — bb recording the stop's initiator (person, or the calling thread) on system/thread/interrupted or the stop route, then actorOf in assets/bb-plugins/restart-resume/core/stops.ts reading it
 - **node** — `01M5P8BKXY41S86WZ468GS0109`
 
-### GAP: the two pin tools use different could-not-run exit codes and no shared test holds them to one contract
-
-- **expected** — github-sources and uv-sources implement one stated contract for check (0 current, 10 newer upstream, one code for could not resolve) and update, stated once, with a shared offline test that runs both against stubbed resolvers.
-- **current** — uv-sources exits 1 when it cannot resolve, where github-sources exits 20; both use 0 for current and 10 for newer upstream releases. Only github-sources has an offline test (github-sources-check). The drift audit consumes both through report_pin_check, which treats any other code as skipped.
-- **impact** — A caller that tells unresolvable apart from broken (as github-sources callers can with 20) gets a different answer from uv-sources, and nothing notices when the two diverge further.
-- **closes** — State the pin-tool contract once in docs/github-release-packages.md, move uv-sources to exit 20 for could not resolve, and add a uv-sources case to a shared stubbed check next to github-sources-check. Coordinate with the owner of scripts/github-sources.
-- **rule** — One contract, every implementation
-- **node** — `01M3E9VSQZTDHRV4C9YRWD1QV1`
-
 ### GAP: tldraw canvases are tied to the machine that holds the file
 
 - **expected** — Canvases live on a tldraw offline-server on shared-server, placed with my.services, so any machine opens or joins them live; canvas-link open works across hosts.
@@ -279,15 +261,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A canvas linked from one Mac cannot be opened from another Mac or from shared-server threads.
 - **closes** — When tldraw office ships offlineServer in a stable release: place it via my.services on shared-server and teach canvas-link open to join it.
 - **node** — `01M5M0X6NAE1AMVDKCSG41E0NP`
-
-### GAP: two scripts read Nix settings by scraping source with awk
-
-- **expected** — Scripts read declared state one way: evaluating the host configuration, as the drift audit already does for every package channel.
-- **current** — audit-system-discrepancies.sh parse_external_paths awk-scrapes managedPaths from external-workspace.nix and hard-codes its root /Volumes/Data/workspace/symlinks/User; check-kb-assets-backup.sh awk-scrapes mackup.nix for the storage engine and allowlist.
-- **impact** — Reformatting either Nix file, or computing the list, silently changes what the scripts see, and the audit's root literal can drift from externalDataRoot.
-- **closes** — Expose managedPaths and externalDataRoot (and the mackup settings) as read-only options and read them with eval_host_list; keep check-kb-assets-backup.sh's pre-commit speed in mind before moving it to nix eval.
-- **rule** — Abstraction before addition (Rule 1)
-- **node** — `01M3E9VYK1NK02TN5MYSQXS7C7`
 
 
 ## Closed
@@ -382,6 +355,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A kb release that writes presence for socket servers, pinned here (nix run .#github-sources -- update kb)
 - **node** — `01M5HXHNERZR77Z0HX0SZCQZPP`
 
+### GAP: service ports are restated outside the module that owns them
+
+- **expected** — Each service port has one owner, exposed as a read-only option (or passthru) of its component, and every other reader derives from it.
+- **current** — CLIProxyAPI 8317 is owned by the read-only option my.stacks.ai-agents.cliProxyApi.port, which cli-proxy-api.nix and cli-proxy-clients read; it is still retyped in ai-agents/system-setup.nix (four probes), cognee/server.nix LLM_ENDPOINT and modules/darwin/home-manager/default.nix. The Cognee gateway 8088 is retyped in system-setup.nix and hosts/popemkt-personal (vpn service target). The Cognee MCP port 8001 is a separate binding in server.nix and client.nix.
+- **impact** — Changing a port in its module silently breaks the health probes or the tailnet route.
+- **closes** — Derive the remaining CLIProxyAPI sites from cliProxyApi.port, and give cognee read-only port options the same way.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M3E9VX8SQJKV3K2Q1JEKT309`
+
 ### GAP: shared-server's bb cannot call kb-work: the tailnet grants svc:kb-work only to members
 
 - **expected** — The kb plugin's agent tools on shared-server's bb (kb_call, kb_screen, kb_manifest with kb: kb-work) and its links loop reach the work Mac's kb-work, as its panel does.
@@ -407,6 +389,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Marketplace and skill links point at a store copy of assets/plugins (or a writable copy keyed by its hash, as bb plugins do), with a documented in-place mode for trying edits, like bb-plugins-sync --path.
 - **node** — `01M5W9JKV26YK4R234A0F60X21`
 
+### GAP: the two pin tools use different could-not-run exit codes and no shared test holds them to one contract
+
+- **expected** — github-sources and uv-sources implement one stated contract for check (0 current, 10 newer upstream, one code for could not resolve) and update, stated once, with a shared offline test that runs both against stubbed resolvers.
+- **current** — uv-sources exits 1 when it cannot resolve, where github-sources exits 20; both use 0 for current and 10 for newer upstream releases. Only github-sources has an offline test (github-sources-check). The drift audit consumes both through report_pin_check, which treats any other code as skipped.
+- **impact** — A caller that tells unresolvable apart from broken (as github-sources callers can with 20) gets a different answer from uv-sources, and nothing notices when the two diverge further.
+- **closes** — State the pin-tool contract once in docs/github-release-packages.md, move uv-sources to exit 20 for could not resolve, and add a uv-sources case to a shared stubbed check next to github-sources-check. Coordinate with the owner of scripts/github-sources.
+- **rule** — One contract, every implementation
+- **node** — `01M3E9VSQZTDHRV4C9YRWD1QV1`
+
 ### GAP: three hand-copied uv tool installers, each reading a failed uv tool list as not installed
 
 - **expected** — One uv tool installer (a shared helper each owning module calls with its spec, extras and extra freshness checks) that captures uv tool list, checks its exit status, and warns and continues on failure, as AGENTS.md Writing an executor requires.
@@ -424,3 +415,12 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Decide shim versus store binary (the shim is the dev-loop affordance; the package is the artifact), then point .mcp.json at the winner and delete the loser.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M1M08VKDXG6AFZHQPW5M2GRF`
+
+### GAP: two scripts read Nix settings by scraping source with awk
+
+- **expected** — Scripts read declared state one way: evaluating the host configuration, as the drift audit already does for every package channel.
+- **current** — audit-system-discrepancies.sh parse_external_paths awk-scrapes managedPaths from external-workspace.nix and hard-codes its root /Volumes/Data/workspace/symlinks/User; check-kb-assets-backup.sh awk-scrapes mackup.nix for the storage engine and allowlist.
+- **impact** — Reformatting either Nix file, or computing the list, silently changes what the scripts see, and the audit's root literal can drift from externalDataRoot.
+- **closes** — Expose managedPaths and externalDataRoot (and the mackup settings) as read-only options and read them with eval_host_list; keep check-kb-assets-backup.sh's pre-commit speed in mind before moving it to nix eval.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M3E9VYK1NK02TN5MYSQXS7C7`

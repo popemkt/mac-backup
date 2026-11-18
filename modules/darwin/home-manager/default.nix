@@ -1,5 +1,6 @@
 {
   config,
+  osConfig,
   lib,
   pkgs,
   ...
@@ -84,7 +85,7 @@
       CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY=3 \
       ENABLE_TOOL_SEARCH=false \
         command claude \
-          --settings '{"env":{"ANTHROPIC_BASE_URL":"http://127.0.0.1:8317","ANTHROPIC_AUTH_TOKEN":"freecc"}}' \
+          --settings '{"env":{"ANTHROPIC_BASE_URL":"http://127.0.0.1:${toString osConfig.my.stacks.ai-agents.cliProxyApi.port}","ANTHROPIC_AUTH_TOKEN":"freecc"}}' \
           --model "gpt-5.6-sol" --effort high "$@"
     }
 

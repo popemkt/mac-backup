@@ -23,11 +23,23 @@ Never edit files under `_sources/` manually.
 The commands answer two different questions, and each question has exactly one
 command.
 
-**Freshness — is there a newer upstream release?** `check` resolves every
-source with nvfetcher from the real `nvfetcher.toml` into a temporary
-directory — the same resolution `update` performs, so the two cannot disagree
-— and exits 10 when a resolved version differs from its pin. A source nvfetcher
-cannot resolve exits 20 (a warning with `--best-effort`). Because nvfetcher
+### Pin-tool contract
+
+`github-sources` and `uv-sources` both expose `check` and `update`.
+`check` leaves the pins untouched. Exit 10 reports a resolved update for a
+movable pin, even if another source could not be resolved. If there is no
+resolved update and a source is unavailable, exit 20 reports that the check
+could not complete. With `check --best-effort`, that case warns and exits 0.
+
+`update` applies resolved versions to movable pins and exits 0 on success.
+An upstream resolution failure exits 20. Usage and setup errors exit 2.
+A held pin may be reported without requiring an update. The `pins are current`
+message is the freshness verdict when there are no known pending updates or
+unavailable pins. A GitHub check can also report newer versions excluded by
+source filters or an unprobed filter.
+
+**GitHub freshness.** `check` resolves every GitHub source, including held
+pins, through the same nvfetcher configuration as `update`. Because nvfetcher
 prefetches what it resolves, the first `check` after an upstream release
 downloads that artifact once; nvfetcher records the prefetch in its shared
 database (`~/.local/share/nvfetcher`), so later runs and `update` reuse it.
@@ -59,7 +71,8 @@ nix run .#github-sources -- verify
 The exit statuses above (and 2 for usage or setup errors) each come with a
 message; any other exit is a failure nothing reported, and the script says so
 and prints the tail of the nvfetcher logs it left. The flake check
-`github-sources-check` runs the flake app itself, with nvfetcher replaced by a
+`pin-tools-check` runs the same contract cases for GitHub and uv without
+network access. Its GitHub-specific suite runs the flake app itself, with nvfetcher replaced by a
 fixture stub, the way CI runs it: `env -i`, an empty `HOME`, no `TMPDIR`, and
 `PATH=/usr/bin:/bin`. It covers how `check` turns resolutions into a verdict
 and how `verify` answers, so an environment difference that only CI has fails

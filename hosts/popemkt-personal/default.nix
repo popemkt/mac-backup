@@ -35,7 +35,7 @@
       services.kb.target = config.my.stacks.kb.server.listenOrigin;
       # Keep a separate endpoint available for temporary HTTP apps.
       services.adhoc.target = "http://127.0.0.1:9001";
-      services.cognee.target = "http://127.0.0.1:8088";
+      services.cognee.target = "http://127.0.0.1:${toString config.my.stacks.ai-agents.cognee.gatewayPort}";
     };
   };
 

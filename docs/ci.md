@@ -50,7 +50,7 @@ there has a known answer already:
 |---|---|
 | kb generated docs (`kb docs check`) | `.kb/**`, `docs/kb/**` |
 | `kb check audit`, `kb check gaps` | every commit: their inputs are every file the store names and every GAP marker, which only kb can list |
-| `.kb/assets` backup ownership | `.kb/**`, `.gitignore`, `docs/backup-strategy.md`, `modules/darwin/home-manager/mackup.nix`, `scripts/check-kb-assets-backup.sh` |
+| `.kb/assets` backup ownership | `.kb/**`, `.gitignore`, `docs/backup-strategy.md`, `modules/darwin/home-manager/mackup*.nix`, `scripts/check-kb-assets-backup.sh` |
 | Tailscale policy covers every declared Service | any `*.nix`, `flake.lock`, `configs/tailscale/policy.hujson`, `scripts/check-tailscale-policy.sh` |
 | Nix lane — `nixfmt`, `statix`, `deadnix`, `nix flake check`, release-source consistency | any `*.nix`, plus `nvfetcher.toml`, `_sources/**`, `pkgs/**` for the sources |
 

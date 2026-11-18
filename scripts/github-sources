@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Pin-tool contract: docs/github-release-packages.md.
 
 # bash 3.2 (macOS /bin/bash) treats an empty "${array[@]}" under set -u as an
 # unbound variable and exits silently; refuse it out loud instead.
