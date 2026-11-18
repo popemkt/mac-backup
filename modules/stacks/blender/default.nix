@@ -17,8 +17,8 @@
 #
 # `blender-mcp` is on every account's PATH; registering it with an agent
 # harness is the person's: `claude mcp add --scope user blender -- blender-mcp`.
-# GAP [[01M684KYXJ51NYTKYRRN6QPA55]] no channel registers MCP servers with
-# agent harnesses.
+# GAP [[01M7PDPCNY920WSWPJGWD61TF7]] blender-mcp is not yet declared in
+# my.pkgs.mcpServers, which would register it with every harness.
 let
   mkStack = import ../mk-stack.nix lib;
   pin = config.my.uvPins."dcc-mcp-blender".version;

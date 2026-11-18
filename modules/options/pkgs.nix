@@ -2,8 +2,8 @@
 
 # Channel merge targets for the intent layer. Stacks (modules/stacks/*)
 # contribute software into these lists; executors (homebrew.nix,
-# npm-global.nix, bun-global.nix, agent-plugins/, bb-plugins/) read the
-# merged lists and install — they never decide membership. A package may appear in
+# npm-global.nix, bun-global.nix, agent-plugins/, bb-plugins/,
+# mcp-servers/) read the merged lists and install — they never decide membership. A package may appear in
 # several stacks (tag-style); executors dedupe with lib.unique.
 #
 # The channels themselves are data in ./channels.nix. The per-stack toggles
@@ -16,8 +16,7 @@
   options.my.pkgs = lib.mapAttrs (
     _: channel:
     lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [ ];
+      inherit ((import ./channel-types.nix lib).${channel.type or "strings"}) type default;
       inherit (channel) description;
     }
   ) (import ./channels.nix);

@@ -9,6 +9,12 @@
 let
   inherit (pkgs) lib;
   home = "/agent-plugins-test-home";
+  # A package's skills folder (my.pkgs.agentSkills): one skill, and a folder
+  # that is no skill.
+  pkgSkills = pkgs.runCommand "pkg-skills" { } ''
+    mkdir -p "$out/pkg-skill" "$out/not-a-skill"
+    echo pkg >"$out/pkg-skill/SKILL.md"
+  '';
   module = import ./default.nix {
     config = {
       home.homeDirectory = home;
@@ -25,6 +31,10 @@ let
       ];
       codexMarketplaces = [ "upstream=owner/upstream@main" ];
       codexPlugins = [ "tool@upstream" ];
+      agentSkills = [
+        "pkg=${pkgSkills}"
+        "later=/nonexistent/share/skills"
+      ];
     };
     lib = lib // {
       hm.dag.entryAfter = after: data: { inherit after data; };
@@ -46,6 +56,7 @@ pkgs.runCommand "agent-plugins-check"
     jq = lib.getExe pkgs.jq;
     shell = pkgs.runtimeShell;
     repoPlugins = ../../../../assets/plugins;
+    inherit pkgSkills;
   }
   ''
     ${pkgs.bash}/bin/bash ${./tests.sh}

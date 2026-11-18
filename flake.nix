@@ -329,6 +329,11 @@
         agent-plugins-check = import ./modules/darwin/home-manager/agent-plugins/tests.nix {
           inherit pkgs;
         };
+        # mcp-servers-sync, run against fake claude and codex and the
+        # harnesses configured by a JSON file.
+        mcp-servers-check = import ./modules/common/home-manager/mcp-servers/tests.nix {
+          inherit pkgs;
+        };
         # The local proxy's CA script and Caddy configuration, run on a high
         # port in front of a test app.
         local-proxy-check = import ./modules/stacks/local-proxy/tests.nix { inherit pkgs; };

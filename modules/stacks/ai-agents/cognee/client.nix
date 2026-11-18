@@ -127,6 +127,8 @@ let
       "${pluginStateRoot}/api_key.json"
     trap - EXIT
 
+    # GAP [[01M7PDPCNY920WSWPJGWD61TF7]] an HTTP MCP server, which
+    # my.pkgs.mcpServers cannot hold yet, so written here by hand.
     cursor_config="${home}/.cursor/mcp.json"
     ${pkgs.coreutils}/bin/install -d -m 0700 \
       "$(${pkgs.coreutils}/bin/dirname "$cursor_config")"

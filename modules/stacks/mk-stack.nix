@@ -10,18 +10,16 @@ lib:
 let
   inherit (lib) mkOption mkEnableOption types;
 
-  strList = mkOption {
-    type = types.listOf types.str;
-    default = [ ];
-  };
+  channelTypes = import ../options/channel-types.nix lib;
 
-  # One list per channel an executor installs (../options/channels.nix).
-  # ./default.nix folds every enabled stack's lists into my.pkgs, so a stack
-  # never wires its own extras.
+  # One option per channel an executor installs (../options/channels.nix),
+  # of that channel's type. ./default.nix folds every enabled stack's into
+  # my.pkgs, so a stack never wires its own extras.
   extraChannels = types.submodule {
-    options = lib.mapAttrs (_: _: strList) (
-      lib.filterAttrs (_: channel: channel.installedBy == "executor") (import ../options/channels.nix)
-    );
+    options =
+      lib.mapAttrs
+        (_: channel: mkOption { inherit (channelTypes.${channel.type or "strings"}) type default; })
+        (lib.filterAttrs (_: channel: channel.installedBy == "executor") (import ../options/channels.nix));
   };
 in
 {

@@ -15,6 +15,30 @@ in
 {
   options.my.stacks.kb = mkStack {
     description = "Knowledge graph CLI and browser UI";
+    componentOptions.mcp = lib.mkOption {
+      default = { };
+      description = ''
+        `kb mcp` on the server's store (`server.root`), registered with every
+        agent harness on the host (my.pkgs.mcpServers), so agents reach that
+        store out of the box. kb serialises writers on the store, so the MCP
+        server and the UI share it safely.
+      '';
+      type = lib.types.submodule {
+        options = {
+          enable = lib.mkEnableOption "registering kb's MCP server on the server's store with every agent";
+          name = lib.mkOption {
+            type = lib.types.strMatching "[A-Za-z0-9_-]+";
+            default = "kb-home";
+            example = "kb-work";
+            description = ''
+              The MCP server's name in every harness. Not `kb`: a repository's
+              own .mcp.json names its committed store `kb`, which would shadow
+              this one there.
+            '';
+          };
+        };
+      };
+    };
     componentOptions.server = lib.mkOption {
       default = { };
       description = "A supervised browser UI serving one graph.";
@@ -85,6 +109,21 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    # kb's agent skill, from the pinned package (share/kb/skills), linked into
+    # every agent's skills; skipped until a kb release ships that folder.
+    my.pkgs.agentSkills = [ "kb=${pkgs.kb}/share/kb/skills" ];
+
+    my.pkgs.mcpServers = lib.mkIf cfg.mcp.enable {
+      ${cfg.mcp.name} = {
+        command = lib.getExe pkgs.kb;
+        args = [
+          "--root"
+          cfg.server.root
+          "mcp"
+        ];
+      };
+    };
+
     my.everyone = {
       home.packages = [ pkgs.kb ];
 

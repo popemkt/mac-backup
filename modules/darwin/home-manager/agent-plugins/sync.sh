@@ -2,6 +2,7 @@
 # marketplace a stack declares as "<name>=./<folder>", today
 # dotfiles=./assets/plugins) as the revision applied has them. ./default.nix
 # prepends: home, folders (an array of <name>=<store copy of the folder>),
+# skillsets (an array of <name>=<folder of skill folders>, my.pkgs.agentSkills),
 # state (this sync's state directory), legacy (where the checkout-based
 # script it replaced linked from), cu (coreutils' bin), flock and jq by
 # absolute path, since activation inherits no PATH worth trusting, and warn
@@ -11,8 +12,11 @@
 # $state/<name>: Claude Code's marketplace <name> is registered there (it
 # reads a folder marketplace's plugins in place, so the path must not move
 # with every revision), each plugin's skills are linked through it into
-# ~/.agents/skills and from there into Claude Code's, Codex's and Cursor's
-# skill folders, and Oh My Pi links its plugins through it. Renaming one new
+# ~/.agents/skills and from there into Claude Code's, Codex's, Cursor's,
+# opencode's and Gemini CLI's skill folders, and Oh My Pi links its plugins
+# through it. A skillset (a package's skills) gets a stable link of its own,
+# $state/skills-<name>, and its skills go the same way; one whose folder is
+# not there (a package that does not ship it yet) is skipped. Renaming one new
 # link over it switches all of them at once. A store copy needs no writable
 # copy, unlike bb's: these agents only read the folder.
 #
@@ -65,7 +69,8 @@ link() {
 }
 
 shared="$home/.agents/skills"
-agents=("$home/.claude/skills" "$home/.codex/skills" "$home/.cursor/skills-cursor")
+agents=("$home/.claude/skills" "$home/.codex/skills" "$home/.cursor/skills-cursor"
+  "$home/.config/opencode/skills" "$home/.gemini/skills")
 if ! "$cu/mkdir" -p "$shared" "${agents[@]}"; then
   warn "cannot create the agents' skill folders; skipped this repo's plugins"
   exit 0
@@ -121,6 +126,33 @@ for entry in "${folders[@]}"; do
         || warn "omp plugin link $plugin failed"
     done
   fi
+done
+
+# Each skillset: its stable link, and each of its skills (a folder with a
+# SKILL.md) linked as a plugin's are.
+for entry in "${skillsets[@]}"; do
+  name="skills-${entry%%=*}"
+  target="${entry#*=}"
+  [ -d "$target" ] || continue
+  names+=("$name")
+  stable="$state/$name"
+  previous="$("$cu/readlink" "$stable" 2>/dev/null || true)"
+  if [ "$previous" != "$target" ]; then
+    if ! { "$cu/ln" -sfn "$target" "$state/.$name.new" && "$cu/mv" -Tf "$state/.$name.new" "$stable"; }; then
+      warn "cannot point $stable at $target; agents keep ${previous:-nothing}"
+      continue
+    fi
+    echo "Agent skills of ${entry%%=*}: $target"
+  fi
+  for skill in "$target"/*/; do
+    [ -f "$skill/SKILL.md" ] || continue
+    skill="${skill%/}"
+    skill="${skill##*/}"
+    link "$shared/$skill" "$stable/$skill"
+    for dir in "${agents[@]}"; do
+      link "$dir/$skill" "$shared/$skill"
+    done
+  done
 done
 
 # A stable link no stack declares any more goes, so its skills' links
