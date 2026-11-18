@@ -89,11 +89,11 @@
         "pinned": false,
         "src": {
             "name": null,
-            "sha256": "sha256-qFw9Iribn1eD9gLWU/gnuWxWJzigUpjBwML/Cy+zHsw=",
+            "sha256": "sha256-W1GfNDsMECuaevd7Dcn7990cHK7YcY/RZW7RkW99/sA=",
             "type": "url",
-            "url": "https://github.com/popemkt/kb/releases/download/v0.3.1-nightly.20261117080535/kb-0.3.1-nightly.20261117080535.tar.gz"
+            "url": "https://github.com/popemkt/kb/releases/download/v0.3.1-nightly.20261118045122/kb-0.3.1-nightly.20261118045122.tar.gz"
         },
-        "version": "0.3.1-nightly.20261117080535"
+        "version": "0.3.1-nightly.20261118045122"
     },
     "logseq": {
         "cargoLock": null,
