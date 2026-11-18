@@ -37,8 +37,11 @@ The plugin knows any number of kb stores, each by name (`lib/stores.ts`):
   as a store named `default` the first time this release loads.
 - **The default.** The **Default store** setting (`defaultKb`), else `KB_DEFAULT`, else the first store.
 - **The panel.** Each thread's kb tab shows the default store until the person picks another in its switcher
-  (shown when there is more than one store; kept per thread for the window's life). The tab reports its
-  session together with the store it shows.
+  (shown when there is more than one store; kept per thread for the window's life). The tab reports the store it
+  shows from the moment it is picked, and its session once the frame showing that store says one: while a
+  picked store still loads (or fails to), the agent's calls go to it in no session, never to the store shown
+  before. A session belongs to one frame (its store, page and generation), so neither a late message from the
+  old frame nor a change of the default or a page pairs an old session with what the panel shows.
 - **The agent.** Every tool takes an optional `kb`, a store name. Omitted, a call goes to the store the
   thread's open kb tab shows, else the default: so "this node" always means the tab's store. A call is made in
   the tab's session only when it goes to the store the tab shows; a call to another store is made in no
@@ -75,7 +78,7 @@ says the links may be incomplete.
 | `lib/kb.ts` | Pure: the thread → tab (session, store) registry with its lapse, the frame message, tool answer text. Tested. |
 | `lib/stores.ts` | Pure: store lines, where stores come from, the default, which store a call goes to, the legacy settings. Tested. |
 | `server.ts` | Settings and their migration, the `config` and `reportSession` RPC, the kb transport, `kb_call`, `kb_screen`, `kb_manifest`. |
-| `lib/frames.ts` | Pure: which threads keep a kb frame, and which goes past the limit. Tested. |
+| `lib/frames.ts` | Pure: which threads keep a kb frame, and which goes past the limit; each thread's store and the session of the frame showing it. Tested. |
 | `frames.tsx` | The window's kb frames (an app overlay): config, preconnect, positioning and clipping, the shown frames' session reports. |
 | `app.tsx` | The `kb` thread panel tab (the place its thread's frame is drawn) and the header button that opens it. |
 | `lib/links.ts` | Pure: the `via` a thread's writes carry, reading `graph.changes`, which changes link what, an item as a row. Tested. |

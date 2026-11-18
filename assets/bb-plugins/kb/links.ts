@@ -69,7 +69,7 @@ const message = (err: unknown) => (err instanceof Error ? err.message : String(e
 export function registerLinks(
   bb: BbPluginApi,
   stores: KbStoreAccess,
-): { onSession(threadId: string, tab: { session: string; store: string } | null): void } {
+): { onSession(threadId: string, tab: { store: string; session: string | null } | null): void } {
   for (const provider of PROVIDERS) {
     try {
       bb.providers.experimental_contributeEnv(provider, ({ threadId }) => [
@@ -239,7 +239,7 @@ export function registerLinks(
   return {
     onSession(threadId, tab) {
       const wanted = pending.get(threadId);
-      if (tab === null || wanted === undefined || wanted.store !== tab.store) return;
+      if (tab === null || tab.session === null || wanted === undefined || wanted.store !== tab.store) return;
       pending.delete(threadId);
       void show(tab.store, wanted.route, tab.session).catch(() => undefined);
     },

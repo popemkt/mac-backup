@@ -33,7 +33,7 @@ export const rpcContract = defineRpcContract({
   reportSession: {
     input: z.object({
       threadId: z.string().min(1),
-      tab: z.object({ session: z.string().min(1), store: z.string().min(1) }).nullable(),
+      tab: z.object({ store: z.string().min(1), session: z.string().min(1).nullable() }).nullable(),
     }),
     output: z.object({ ok: z.literal(true) }),
   },

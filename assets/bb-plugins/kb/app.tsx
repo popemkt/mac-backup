@@ -85,7 +85,9 @@ function KbPanel({ threadId }: PluginThreadPanelProps) {
           aria-hidden
         />
         <span className="min-w-0 flex-1 truncate">
-          {session === null ? "kb has not said its tab yet: the agent's calls are made in no tab" : "The agent works in this tab"}
+          {session === null
+            ? `${shown.name} has not said its tab yet: the agent's calls go to ${shown.name}, in no tab`
+            : `The agent works in this tab (${shown.name})`}
         </span>
         <Button
           variant="ghost"

@@ -11,6 +11,7 @@ import {
   sessionOfMessage,
   ThreadSessions,
 } from "../lib/kb.ts";
+import { chooseStore, resolveStores } from "../lib/stores.ts";
 
 describe("each thread's kb tab", () => {
   const a1 = { session: "tab.1", store: "kb-work" };
@@ -29,6 +30,23 @@ describe("each thread's kb tab", () => {
     sessions.report("thr_a", a1, 0);
     sessions.report("thr_a", null, 1);
     assert.equal(sessions.live("thr_a", 1), undefined);
+  });
+
+  test("names its store before it has a session, and the store holds until the panel closes", () => {
+    const sessions = new ThreadSessions();
+    // Switched from a to b; b's frame has not said its session yet (slow, or failed to load).
+    sessions.report("thr_a", { store: "kb-popemkt", session: null }, 0);
+    assert.deepEqual(sessions.live("thr_a", 1), { store: "kb-popemkt", session: null });
+    assert.equal(sessions.sessionIn("thr_a", "kb-popemkt", 1), undefined);
+    const stores = resolveStores({ connections: "kb-work /a.sock\nkb-popemkt /b.sock", defaultKb: "kb-work", env: {} });
+    const pick = (shown: string | undefined) => {
+      const r = chooseStore(stores, undefined, shown);
+      return "error" in r ? r.error : r.connection.name;
+    };
+    assert.equal(pick(sessions.live("thr_a", 1)?.store), "kb-popemkt");
+    // The panel closes: the default again.
+    sessions.report("thr_a", null, 2);
+    assert.equal(pick(sessions.live("thr_a", 2)?.store), "kb-work");
   });
 
   test("is the session only for the store the tab shows", () => {
