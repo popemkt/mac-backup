@@ -30,6 +30,10 @@
         enable = true;
         publicOrigin = config.my.stacks.vpn.services.kb-work.publicOrigin;
         aliasOrigins.local = config.my.stacks.local-proxy.sites.kb-work.origin;
+        # popemkt's bb (svc:bb-popemkt on shared-server) frames this store
+        # beside a thread, as its kb store `kb-work` (hosts/shared-server,
+        # bbHome).
+        embedOrigins = [ "https://bb-popemkt.${config.my.stacks.vpn.tailnetDomain}" ];
       };
     };
     local-proxy = {

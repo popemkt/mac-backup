@@ -56,13 +56,16 @@ let
   # A person's bb server and host daemon as the my.services app `bb`,
   # published as svc:bb-<person>, beside their kb (kbEntry, the my.services
   # entry of their kbHome); why it has this shape is beside the entries
-  # below. Each person's pair needs loopback ports of its own.
+  # below. Each person's pair needs loopback ports of its own. kbStores are
+  # the kb plugin's stores beyond the person's own (lines of
+  # assets/bb-plugins/kb's KB_CONNECTIONS: `<name> <page URL> [<socket>]`).
   bbHome =
     person:
     {
       serverPort,
       daemonPort,
       kbEntry,
+      kbStores ? [ ],
     }:
     let
       origin = config.my.stacks.vpn.services."bb-${person}".publicOrigin;
@@ -109,12 +112,21 @@ let
         # Server URL overrides it when set): the same Service, since bb itself
         # listens only on loopback.
         BB_EXTERNAL_URL = origin;
-        # The kb plugin's defaults (assets/bb-plugins/kb, read by its server
-        # side): the kb page its thread panel frames, and kb's owner-only
-        # socket, which its agent tools call as the person, who owns both
-        # servers.
-        KB_URL = config.my.stacks.vpn.services."kb-${person}".publicOrigin;
-        KB_SOCKET = config.my.services.${kbEntry}.socket;
+        # The kb plugin's stores (assets/bb-plugins/kb, read by its server
+        # side), each a name, the kb page its thread panel frames, and where
+        # its agent tools call kb. The person's own store comes first and is
+        # the default: its owner-only socket, which the tools call as the
+        # person, who owns both servers. The person adds more in the
+        # plugin's settings.
+        KB_CONNECTIONS = lib.concatStringsSep "\n" (
+          [
+            "kb-${person} ${config.my.stacks.vpn.services."kb-${person}".publicOrigin} ${
+              config.my.services.${kbEntry}.socket
+            }"
+          ]
+          ++ kbStores
+        );
+        KB_DEFAULT = "kb-${person}";
       };
     };
   # bytetum's bb ports (my.services.bb-bytetum below); popemkt's are bb's
@@ -348,6 +360,12 @@ in
     serverPort = 38886;
     daemonPort = 38887;
     kbEntry = "kb";
+    # The work Mac's kb (popemkt-work's svc:kb-work), which names this bb's
+    # origin in its --embed-origin, so the panel frames it.
+    # GAP [[01M7PCSB0AQS9BZ1KWGV7J936R]]: the tailnet grants svc:kb-work only to members,
+    # so this server's agent tools cannot reach it; the panel, drawn by a
+    # member's browser, can.
+    kbStores = [ "kb-work https://kb-work.${config.my.stacks.vpn.tailnetDomain}" ];
   };
 
   # bytetum's bb, as svc:bb-bytetum: the same two units (app-bb-bytetum and

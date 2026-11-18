@@ -1,4 +1,4 @@
-// The plugin's pure parts: which kb tab session each thread's panel is showing, what a framed kb page
+// The plugin's pure parts: which kb tab (session and store) each thread's panel is showing, what a framed kb page
 // says, and how kb's answers are shown to an agent. No bb and no network here, so tests run on plain data.
 import { z } from "zod";
 
@@ -15,25 +15,37 @@ export const SESSION_HEARTBEAT_MS = 30_000;
 /** The most text one tool answer carries back to the agent. */
 export const MAX_TOOL_TEXT = 40_000;
 
-/** Each thread's kb tab session, as its panel last reported it. */
-export class ThreadSessions {
-  readonly #byThread = new Map<string, { readonly session: string; readonly at: number }>();
+/** A thread's kb tab: the tab session, and the store (by name) the tab shows. */
+export interface ThreadTab {
+  readonly session: string;
+  readonly store: string;
+}
 
-  /** The thread's panel shows tab `session` now, or (null) no longer shows kb. */
-  report(threadId: string, session: string | null, now: number): void {
-    if (session === null) this.#byThread.delete(threadId);
-    else this.#byThread.set(threadId, { session, at: now });
+/** Each thread's kb tab, as its panel last reported it. */
+export class ThreadSessions {
+  readonly #byThread = new Map<string, ThreadTab & { readonly at: number }>();
+
+  /** The thread's panel shows tab `session` of store `store` now, or (null) no longer shows kb. */
+  report(threadId: string, tab: ThreadTab | null, now: number): void {
+    if (tab === null) this.#byThread.delete(threadId);
+    else this.#byThread.set(threadId, { session: tab.session, store: tab.store, at: now });
   }
 
-  /** The session the thread's agent works in: its panel's, while the panel keeps reporting it. */
-  live(threadId: string, now: number): string | undefined {
+  /** The tab the thread's agent works in: its panel's, while the panel keeps reporting it. */
+  live(threadId: string, now: number): ThreadTab | undefined {
     const held = this.#byThread.get(threadId);
     if (held === undefined) return undefined;
     if (now - held.at > SESSION_TTL_MS) {
       this.#byThread.delete(threadId);
       return undefined;
     }
-    return held.session;
+    return { session: held.session, store: held.store };
+  }
+
+  /** The thread's tab session if the tab shows store `store`; calls to any other store are made in no tab. */
+  sessionIn(threadId: string, store: string, now: number): string | undefined {
+    const tab = this.live(threadId, now);
+    return tab?.store === store ? tab.session : undefined;
   }
 }
 

@@ -1,4 +1,4 @@
-// The plugin's pure parts: the thread → kb tab session registry, what a framed kb page posts, and how kb's
+// The plugin's pure parts: the thread → kb tab (session, store) registry, what a framed kb page posts, and how kb's
 // answers read to an agent.
 import { strict as assert } from "node:assert";
 import { describe, test } from "node:test";
@@ -12,22 +12,30 @@ import {
   ThreadSessions,
 } from "../lib/kb.ts";
 
-describe("each thread's kb tab session", () => {
+describe("each thread's kb tab", () => {
+  const a1 = { session: "tab.1", store: "kb-work" };
   test("is the panel's while it keeps reporting it, and lapses when it stops", () => {
     const sessions = new ThreadSessions();
-    sessions.report("thr_a", "tab.1", 0);
-    assert.equal(sessions.live("thr_a", SESSION_TTL_MS), "tab.1");
+    sessions.report("thr_a", a1, 0);
+    assert.deepEqual(sessions.live("thr_a", SESSION_TTL_MS), a1);
     assert.equal(sessions.live("thr_b", 0), undefined);
-    sessions.report("thr_a", "tab.2", SESSION_TTL_MS);
-    assert.equal(sessions.live("thr_a", SESSION_TTL_MS * 2), "tab.2");
+    sessions.report("thr_a", { session: "tab.2", store: "kb-work" }, SESSION_TTL_MS);
+    assert.equal(sessions.live("thr_a", SESSION_TTL_MS * 2)?.session, "tab.2");
     assert.equal(sessions.live("thr_a", SESSION_TTL_MS * 2 + 1), undefined);
   });
 
   test("goes when the panel says it no longer shows kb", () => {
     const sessions = new ThreadSessions();
-    sessions.report("thr_a", "tab.1", 0);
+    sessions.report("thr_a", a1, 0);
     sessions.report("thr_a", null, 1);
     assert.equal(sessions.live("thr_a", 1), undefined);
+  });
+
+  test("is the session only for the store the tab shows", () => {
+    const sessions = new ThreadSessions();
+    sessions.report("thr_a", a1, 0);
+    assert.equal(sessions.sessionIn("thr_a", "kb-work", 1), "tab.1");
+    assert.equal(sessions.sessionIn("thr_a", "kb-popemkt", 1), undefined);
   });
 });
 

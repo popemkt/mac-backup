@@ -5,14 +5,23 @@ description: Work in the person's kb (their knowledge base of nodes, fields and 
 
 # kb
 
-Three tools reach the person's kb server.
+Three tools reach the person's kb stores. Each takes an optional `kb`: the store's name.
 
-- `kb_manifest` lists the actions, one line each: id, `read` or `write`, title, and `(in the tab: …)` for
-  inputs the kb tab can fill. `kb_manifest {id}` shows one action whole, with its input schema.
+- `kb_manifest` first lists the configured stores (`kb stores …: kb-popemkt (default, in the tab), kb-work`),
+  then the actions, one line each: id, `read` or `write`, title, and `(in the tab: …)` for inputs the kb tab
+  can fill. `kb_manifest {id}` shows one action whole, with its input schema.
 - `kb_call {id, input}` invokes one. The answer is the action's output as JSON, then
   `filled from the person's tab: …` when the tab filled an input.
 - `kb_screen` shows what the kb tab beside this thread shows (every open kb tab when there is none).
 
+## Which store
+
+- Leave `kb` out to use the store the kb tab beside this thread shows, or the default store when no tab is
+  open. That is usually right: "this node" is in the tab's store.
+- Pass `kb: "<name>"` when the person names another store ("in my work kb"), or when what you need lives
+  there. A call to a store other than the tab's is made in no tab: pass every input.
+- An unknown name fails with the list of configured names. Say which store you wrote to when it is not the
+  default.
 ## With the kb tab open (hands-on)
 
 The panel beside the thread is a kb tab, and every call is made in it while the person shows this thread. When
@@ -40,5 +49,5 @@ Calls are made in no tab: pass every input, and nothing on the person's screen c
 - Answers are cut at 40,000 characters; narrow the call (a smaller `depth`, a more specific query) when cut.
 - Canvases you create or edit link themselves to this thread (the person's **kb canvases** tab lists them):
   every `kb_call` write, and your own `kb` CLI or kb MCP writes, carry this thread's label (`KB_VIA`). Nothing
-  to record by hand. Writes to a kb other than the person's (a repository's `.kb`, a Mac's own) are not
-  listed there.
+  to record by hand. Writes to a kb the plugin is not configured with (a repository's `.kb`) are not listed
+  there.

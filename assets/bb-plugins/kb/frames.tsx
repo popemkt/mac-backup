@@ -17,6 +17,10 @@
 // - app/dist/assets/index-*.js renders app overlays once, keyed `<pluginId>/<id>/<generation>`, in a
 //   `data-bb-plugin-app-overlays` element of class `contents` (no box, no stacking context of its own).
 //
+// Each thread's frame shows the kb store its panel chose (the default store until the person picks another in
+// the panel), so the tab it reports names that store too: the agent's calls to it are made in the tab, calls to
+// any other store in no tab.
+//
 // Each frame is its own kb tab with its own session (kb DESIGN.md → Surfaces → Embedding the page). Only a
 // shown frame is its thread's tab for the agent: a thread whose frame is hidden has no tab, so its agent acts
 // tabless (skills/kb/SKILL.md), as it would with the panel closed, rather than steering a tab nobody sees.
@@ -24,9 +28,10 @@ import { useEffect, useLayoutEffect, useRef, useSyncExternalStore, type CSSPrope
 import { useRpc } from "@get-bb/plugin-sdk/app";
 import type { rpcContract } from "./server";
 import { KeptFrames } from "./lib/frames";
-import { originOf, SESSION_HEARTBEAT_MS, sessionOfMessage } from "./lib/kb";
+import { originOf, SESSION_HEARTBEAT_MS, sessionOfMessage, type ThreadTab } from "./lib/kb";
 
-type Config = { readonly url: string | null; readonly autoOpen: boolean };
+export type StoreView = { readonly name: string; readonly page: string | null };
+type Config = { readonly stores: readonly StoreView[]; readonly defaultStore: string | null; readonly autoOpen: boolean };
 
 /**
  * Above the thread view the frame covers, below everything bb draws over a thread view. Read from bb-app
@@ -48,6 +53,8 @@ class FrameStore {
   readonly #elements = new Map<string, HTMLIFrameElement>();
   /** The session each frame's kb tab said, shown or hidden. */
   readonly #sessions = new Map<string, string>();
+  /** The store each thread's panel chose; a thread absent here shows the default store. */
+  readonly #chosen = new Map<string, string>();
   /** Bumped to reload a thread's frame from scratch: the frame's React key carries it. */
   readonly #generations = new Map<string, number>();
   readonly #listeners = new Set<() => void>();
@@ -68,6 +75,25 @@ class FrameStore {
   configure(config: Config): void {
     this.config = config;
     this.#changed();
+  }
+
+  /** The store `threadId`'s frame shows: the one its panel chose while it is configured, else the default. */
+  storeOf(threadId: string): StoreView | null {
+    const stores = this.config?.stores ?? [];
+    const chosen = this.#chosen.get(threadId);
+    return (
+      stores.find(s => s.name === chosen) ??
+      stores.find(s => s.name === this.config?.defaultStore) ??
+      stores[0] ??
+      null
+    );
+  }
+
+  /** Show store `name` in `threadId`'s kb tab: a new frame, and a new session once it says it. */
+  choose(threadId: string, name: string): void {
+    if (this.storeOf(threadId)?.name === name) return;
+    this.#chosen.set(threadId, name);
+    this.reload(threadId);
   }
 
   /** `threadId`'s panel gives its frame `place` to draw over, until the returned release is called. */
@@ -117,11 +143,12 @@ class FrameStore {
     this.#changed();
   }
 
-  /** Each thread's tab for its agent: the session of every thread whose frame is shown now. */
-  tabs(): ReadonlyMap<string, string> {
-    const tabs = new Map<string, string>();
+  /** Each thread's tab for its agent: the session and store of every thread whose frame is shown now. */
+  tabs(): ReadonlyMap<string, ThreadTab> {
+    const tabs = new Map<string, ThreadTab>();
     for (const [threadId, session] of this.#sessions) {
-      if (this.#places.has(threadId)) tabs.set(threadId, session);
+      const store = this.storeOf(threadId);
+      if (this.#places.has(threadId) && store !== null) tabs.set(threadId, { session, store: store.name });
     }
     return tabs;
   }
@@ -140,6 +167,7 @@ class FrameStore {
   #forget(threadId: string): void {
     this.#generations.delete(threadId);
     this.#sessions.delete(threadId);
+    this.#chosen.delete(threadId);
   }
 }
 
@@ -298,43 +326,46 @@ function KbFrame({ threadId, url, origin }: { threadId: string; url: string; ori
 export function KbFrameHost() {
   const rpc = useRpc<typeof rpcContract>();
   const store = useFrames();
-  const url = store.config?.url ?? null;
-  const origin = url === null ? null : originOf(url);
+  const origins = [
+    ...new Set((store.config?.stores ?? []).flatMap(s => (s.page === null ? [] : [originOf(s.page)])).filter(o => o !== null)),
+  ];
   const anyPlaced = store.anyPlaced;
 
   useEffect(() => {
     let current = true;
     rpc.call("config", {}).then(
       next => current && frames.configure(next),
-      () => current && frames.configure({ url: null, autoOpen: false }),
+      () => current && frames.configure({ stores: [], defaultStore: null, autoOpen: false }),
     );
     return () => {
       current = false;
     };
   }, [rpc]);
 
+  const originsKey = origins.join(" ");
   useEffect(() => {
-    if (origin !== null) preconnect(origin);
-  }, [origin]);
+    for (const origin of originsKey.split(" ")) if (origin !== "") preconnect(origin);
+  }, [originsKey]);
 
   // The one place a thread's tab is reported: whenever the frames change, each thread whose tab is new or
   // changed is reported with it and each that lost its tab with null; every beat repeats the tabs, so the
   // backend lets them lapse once this window is gone without saying so. Changes made together (one thread's
   // panel going and the next one's coming) are reported once they settle.
   useEffect(() => {
-    const reported = new Map<string, string>();
-    const report = (threadId: string, session: string | null) =>
-      void rpc.call("reportSession", { threadId, session }).catch(() => undefined);
+    const reported = new Map<string, ThreadTab>();
+    const report = (threadId: string, tab: ThreadTab | null) =>
+      void rpc.call("reportSession", { threadId, tab }).catch(() => undefined);
     let live = true;
     let queued = false;
     const sync = () => {
       queued = false;
       if (!live) return;
       const tabs = frames.tabs();
-      for (const [threadId, session] of tabs) {
-        if (reported.get(threadId) === session) continue;
-        reported.set(threadId, session);
-        report(threadId, session);
+      for (const [threadId, tab] of tabs) {
+        const before = reported.get(threadId);
+        if (before?.session === tab.session && before.store === tab.store) continue;
+        reported.set(threadId, tab);
+        report(threadId, tab);
       }
       for (const threadId of [...reported.keys()]) {
         if (tabs.has(threadId)) continue;
@@ -349,7 +380,7 @@ export function KbFrameHost() {
     });
     sync();
     const timer = setInterval(() => {
-      for (const [threadId, session] of reported) report(threadId, session);
+      for (const [threadId, tab] of reported) report(threadId, tab);
     }, SESSION_HEARTBEAT_MS);
     return () => {
       live = false;
@@ -375,12 +406,16 @@ export function KbFrameHost() {
     return () => cancelAnimationFrame(handle);
   }, [anyPlaced]);
 
-  if (url === null || origin === null) return null;
   return (
     <div data-kb-frames="" className="contents">
-      {store.kept.made.map(threadId => (
-        <KbFrame key={`${threadId}#${store.generationOf(threadId)}`} threadId={threadId} url={url} origin={origin} />
-      ))}
+      {store.kept.made.map(threadId => {
+        const url = store.storeOf(threadId)?.page ?? null;
+        const origin = url === null ? null : originOf(url);
+        if (url === null || origin === null) return null;
+        return (
+          <KbFrame key={`${threadId}#${store.generationOf(threadId)}`} threadId={threadId} url={url} origin={origin} />
+        );
+      })}
     </div>
   );
 }

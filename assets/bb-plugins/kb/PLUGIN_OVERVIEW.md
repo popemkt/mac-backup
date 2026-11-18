@@ -14,6 +14,8 @@ Keep your kb open beside the conversation, and let the agent work in it.
   - `kb_manifest` lists kb's actions, and what each can take from the tab.
 - With no kb tab open, the same tools still work, with every input given: the agent gets the work done
   without depending on your screen.
+- Several stores, each by name: the panel switches between them, and an agent passes `kb: <name>` to work in
+  another store than the one the tab shows.
 - A **kb canvases** tab: the kb canvases this thread, its project, or any thread wrote (through `kb_call`, or
   the thread's own kb CLI or kb MCP) or linked. Search every kb canvas, linked or not; select rows, then
   **Link to this thread**, **Unlink** (this thread's own links), or **Open** one in the kb tab. A green dot
@@ -21,8 +23,14 @@ Keep your kb open beside the conversation, and let the agent work in it.
   panel.
 - **Open with each thread** (on by default) opens the tab beside every thread you open; closing the tab keeps it closed until the window reloads.
 
+## Several kb stores
+
+The plugin reaches any number of kb stores, each by name (`kb-popemkt`, `kb-work`, …), one of them the
+default. The panel has a store switcher when there is more than one; the agent tools take an optional `kb`
+(a store name), and `kb_manifest` lists the stores on its first line.
+
 ## Requirements
 
-A kb server whose page allows bb to frame it: `kb ui --embed-origin <bb's origin>`. Set the page URL (and,
-on the same machine, kb ui's socket) in the plugin's settings unless the server provides `KB_URL` and
-`KB_SOCKET`.
+A kb server whose page allows bb to frame it: `kb ui --embed-origin <bb's origin>`. Name each store, its page
+URL (and, on the same machine, kb ui's socket) in the plugin's **kb stores** setting, unless bb's server
+declares them in `KB_CONNECTIONS`.

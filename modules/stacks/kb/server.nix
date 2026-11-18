@@ -29,7 +29,11 @@ in
       ++ lib.concatMap (origin: [
         "--alias-origin"
         origin
-      ]) (lib.attrValues cfg.aliasOrigins);
+      ]) (lib.attrValues cfg.aliasOrigins)
+      ++ lib.concatMap (origin: [
+        "--embed-origin"
+        origin
+      ]) cfg.embedOrigins;
       WorkingDirectory = home;
       EnvironmentVariables = {
         HOME = home;

@@ -51,9 +51,10 @@ in
       # agent-artifacts; `bb composer`.
       "assets/bb-plugins/context-composer"
       # The person's kb beside a thread, and agent tools (kb_call,
-      # kb_screen, kb_manifest) that act in that kb tab. Its page URL and
-      # socket come from the bb server's KB_URL and KB_SOCKET, set where
-      # a host places both.
+      # kb_screen, kb_manifest) that act in that kb tab, each on a named kb
+      # store. Its stores come from the bb server's KB_CONNECTIONS and
+      # KB_DEFAULT, set where a host places bb (hosts/shared-server,
+      # bbHome), plus the plugin's own kb stores setting.
       "assets/bb-plugins/kb"
       # Threads a host daemon restart or lost connection interrupted get a
       # short continuation message, at most 3 in a row per thread.
