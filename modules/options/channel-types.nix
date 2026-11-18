@@ -21,24 +21,33 @@ in
   mcpServers = {
     type = types.attrsOf (
       types.unique { message = "An MCP server is declared once, whole: declare it in one module."; } (
-        types.submodule {
-          options = {
-            command = mkOption {
-              type = types.str;
-              description = "The server's program, by absolute path (a store path), started over stdio.";
+        types.either
+          (types.addCheck (types.submodule {
+            options = {
+              command = mkOption {
+                type = types.str;
+                description = "The server's program, by absolute path (a store path), started over stdio.";
+              };
+              args = mkOption {
+                type = types.listOf types.str;
+                default = [ ];
+                description = "Arguments the program is started with.";
+              };
+              env = mkOption {
+                type = types.attrsOf types.str;
+                default = { };
+                description = "Environment variables the program is started with.";
+              };
             };
-            args = mkOption {
-              type = types.listOf types.str;
-              default = [ ];
-              description = "Arguments the program is started with.";
-            };
-            env = mkOption {
-              type = types.attrsOf types.str;
-              default = { };
-              description = "Environment variables the program is started with.";
-            };
-          };
-        }
+          }) (value: value ? command && !(value ? url)))
+          (
+            types.addCheck (types.submodule {
+              options.url = mkOption {
+                type = types.strMatching "https?://[^[:space:]]+";
+                description = "The server's Streamable HTTP endpoint.";
+              };
+            }) (value: value ? url && !(value ? command))
+          )
       )
     );
     default = { };

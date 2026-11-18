@@ -5,7 +5,7 @@ set -euo pipefail
 H="$PWD/home"
 export FAKE="$PWD/fake"
 mkdir -p "$H/bin" "$H/.local/bin" "$FAKE" "$H/.cursor" "$H/.omp/agent" "$H/.config/opencode"
-for s in first second; do
+for s in first second http; do
   sed "s#$placeholderHome#$H#g" "${!s}" >"$H/bin/$s"
 done
 chmod +x "$H/bin/"*
@@ -39,6 +39,12 @@ case "\$1 \$2" in
   "mcp remove") $jq --arg n "\$3" 'map(select(.name != \$n))' "\$c" >"\$c.n" && mv "\$c.n" "\$c" ;;
   "mcp add")
     n="\$3"; shift 3; env='{}'
+    if [ "\$1" = --url ]; then
+      $jq --arg n "\$n" --arg url "\$2" \
+        'map(select(.name != \$n)) + [{name: \$n, enabled: true, transport: {type: "streamable_http", url: \$url}}]' \
+        "\$c" >"\$c.n" && mv "\$c.n" "\$c"
+      exit \$?
+    fi
     while [ "\$1" = --env ]; do env="\$(echo "\$env" | $jq --arg kv "\$2" '. + {(\$kv | split("=")[0]): (\$kv | split("=")[1:] | join("="))}')"; shift 2; done
     [ "\$1" = -- ] && shift
     cmd="\$1"; shift
@@ -136,6 +142,34 @@ is "$($jq -c '.mcpServers | keys' "$H/.claude.json")" '["kb-work","mine"]' "Clau
 run "$H/bin/second"
 not_called "remove"
 not_called "add"
+
+# Exercise the HTTP form in each harness, then drop it through the same path.
+export HERMES_HOME="$H/hermes-profile"
+mkdir "$HERMES_HOME"
+printf '# Preserve my comment\nmodel: my-model\n' >"$HERMES_HOME/config.yaml"
+run "$H/bin/http"
+endpoint=http://127.0.0.1:8001/mcp
+called "codex mcp add endpoint --url $endpoint"
+is "$($jq -c '.mcpServers.endpoint' "$H/.claude.json")" \
+  "{\"type\":\"http\",\"url\":\"$endpoint\"}" "Claude HTTP entry"
+is "$($jq -r '.mcpServers.endpoint.url' "$H/.cursor/mcp.json")" "$endpoint" "Cursor HTTP entry"
+is "$($jq -r '.mcpServers.endpoint.httpUrl' "$H/.gemini/settings.json")" "$endpoint" "Gemini HTTP entry"
+is "$($jq -c '.mcpServers.endpoint' "$H/.omp/agent/mcp.json")" \
+  "{\"type\":\"http\",\"url\":\"$endpoint\"}" "Oh My Pi HTTP entry"
+is "$($jq -c '.mcp.endpoint' "$H/.config/opencode/opencode.json")" \
+  "{\"type\":\"remote\",\"url\":\"$endpoint\",\"enabled\":true}" "opencode HTTP entry"
+is "$($yq '.mcp_servers.endpoint.url' "$HERMES_HOME/config.yaml")" "$endpoint" "Hermes HTTP entry"
+grep -q '^# Preserve my comment$' "$HERMES_HOME/config.yaml" || fail "Hermes comment lost"
+before=$(stat -c %Y.%i "$HERMES_HOME/config.yaml")
+run "$H/bin/http"
+not_called "add"
+not_called "remove"
+is "$(stat -c %Y.%i "$HERMES_HOME/config.yaml")" "$before" "unchanged Hermes config"
+run "$H/bin/http" --check
+is "$(cat "$FAKE/out")" "" "HTTP --check with nothing missing"
+run "$H/bin/second"
+is "$($yq '.mcp_servers.endpoint' "$HERMES_HOME/config.yaml")" null "Hermes removed HTTP entry"
+is "$($yq '.model' "$HERMES_HOME/config.yaml")" my-model "Hermes own setting"
 
 # 5. Failed listings are never read as "nothing registered"; a file that is
 # not plain JSON is left alone. Each warns, and the sync exits 0.

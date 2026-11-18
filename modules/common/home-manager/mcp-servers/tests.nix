@@ -43,18 +43,14 @@ let
     assert
       serversOf [
         { x.command = "/a"; }
-        { y.command = "/b"; }
+        { y.url = "http://127.0.0.1:8001/mcp"; }
       ] == {
         x = {
           command = "/a";
           args = [ ];
           env = { };
         };
-        y = {
-          command = "/b";
-          args = [ ];
-          env = { };
-        };
+        y.url = "http://127.0.0.1:8001/mcp";
       };
     assert
       !(builtins.tryEval (
@@ -69,6 +65,17 @@ let
             x = {
               command = "/a";
               args = [ "two" ];
+            };
+          }
+        ]) true
+      )).success;
+    assert
+      !(builtins.tryEval (
+        builtins.deepSeq (serversOf [
+          {
+            x = {
+              command = "/a";
+              url = "http://localhost/mcp";
             };
           }
         ]) true
@@ -109,7 +116,9 @@ pkgs.runCommand "mcp-servers-check"
         ];
       };
     };
+    http = syncOf { endpoint.url = "http://127.0.0.1:8001/mcp"; };
     jq = lib.getExe pkgs.jq;
+    yq = lib.getExe pkgs.yq-go;
     shell = pkgs.runtimeShell;
   }
   ''

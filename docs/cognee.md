@@ -65,17 +65,17 @@ Cognee authentication, and is reachable remotely only through the authorized
 Tailscale Service.
 
 Open the external origin and sign in to verify the browser UI. Then provision
-one private agent key and configure every supported local agent with:
+one private agent key and configure the lifecycle plugins with:
 
 ```bash
 cognee-agent-setup
 ```
 
 The command is idempotent. It validates or creates the key, starts the shared
-MCP gateway, merge-adds Cognee without removing other MCP servers, enables the
-Codex hooks feature, and installs Cognee's Codex and Claude Code lifecycle
-plugins. It also pins both plugins to the self-hosted origin in their local
-plugin config, preventing a GUI agent process with stale environment variables
+MCP gateway, enables Codex hooks, and pins the lifecycle plugin configs to
+the self-hosted origin. Home Manager installs the plugins and registers
+the MCP endpoint through `my.pkgs.mcpServers`. Pinning the plugin config
+prevents a GUI agent process with stale environment variables
 from falling back to Cognee's separate `localhost:8011` development server.
 Restart active agent sessions afterward.
 
@@ -110,9 +110,9 @@ cognee-client-status
 ```
 
 Enrollment registers or signs into a Cognee account, creates an API key named
-`agent-popemkt-work`, stores only that key, and configures all five agents.
-Passwords are not retained. Restart active Codex, Claude Code, Cursor, OMP, and
-Hermes sessions after enrollment.
+`agent-popemkt-work`, stores only that key, and configures the lifecycle
+plugins. Home Manager registers the loopback endpoint with supported
+harnesses. Restart active agent sessions after enrollment.
 
 Use a distinct Cognee account for the work Mac if work knowledge must be
 authorization-isolated from personal agents. A distinct dataset name alone
@@ -194,15 +194,9 @@ http://127.0.0.1:8001/mcp
 ```
 
 It holds the Cognee API key server-side and connects to the authenticated
-external Cognee origin. Cursor, OMP, and Hermes configs therefore contain only
-the loopback URL, not a secret or another Cognee database. Their generated
-config locations are:
-
-```text
-~/.cursor/mcp.json
-~/.omp/agent/mcp.json
-$HERMES_HOME/config.yaml
-```
+external Cognee origin. The shared MCP executor gives each harness the
+loopback URL. Run `mcp-servers-sync --check` to inspect registration and
+`mcp-servers-sync` to register with a harness installed since the last rebuild.
 
 The live Integrations page currently emits `COGNEE_BASE_URL` in MCP snippets,
 but `cognee-mcp` reads `COGNEE_SERVICE_URL` (observed in 0.5.4). It also

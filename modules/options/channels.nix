@@ -46,9 +46,9 @@
   };
   # Registered by modules/common/home-manager/mcp-servers/ with every agent
   # harness on the host that has one: Claude Code (user scope), Codex,
-  # Cursor, opencode, Gemini CLI and Oh My Pi.
+  # Cursor, opencode, Gemini CLI, Oh My Pi and Hermes.
   mcpServers = {
-    description = "MCP servers (by name: command, args, env) contributed by stacks, registered with every agent harness on the host.";
+    description = "MCP servers (by name: command, args, env or HTTP url) contributed by stacks, registered with every agent harness on the host.";
     executor = "home";
     type = "mcpServers";
   };

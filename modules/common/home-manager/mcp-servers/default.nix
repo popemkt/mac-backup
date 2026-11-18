@@ -7,7 +7,7 @@
 }:
 
 # Executor: MCP servers merged from the intent layer (modules/stacks/*)
-# through my.pkgs.mcpServers ({name = {command; args; env;};},
+# through my.pkgs.mcpServers (stdio or Streamable HTTP,
 # modules/options/channel-types.nix). Stacks decide which servers a host
 # has; this module only registers them, with every agent harness this
 # account has (./sync.sh says which, and how each is written).
@@ -19,6 +19,7 @@
 let
   home = config.home.homeDirectory;
   inherit (osConfig.my.pkgs) mcpServers;
+  hermesHome = osConfig.launchd.user.envVariables.HERMES_HOME or "${home}/.hermes";
 
   # The sync splits names on whitespace and the harnesses key servers by
   # name, so a name is one word.
@@ -42,6 +43,9 @@ let
       cu=${pkgs.coreutils}/bin
       flock=${pkgs.flock}/bin/flock
       jq=${lib.getExe pkgs.jq}
+      yq=${lib.getExe pkgs.yq-go}
+      hermesHome=${lib.escapeShellArg hermesHome}
+      hermesHome="''${HERMES_HOME:-$hermesHome}"
       # claude and codex are Homebrew's, npm's or their own installers', so
       # they come from PATH; codex is `#!/usr/bin/env node`, and activation
       # inherits no interactive PATH.

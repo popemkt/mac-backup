@@ -367,6 +367,10 @@
 
       checks.x86_64-linux.pin-tools-check = pinToolsCheck (pkgsFor "x86_64-linux");
 
+      checks.x86_64-linux.mcp-servers-check = import ./modules/common/home-manager/mcp-servers/tests.nix {
+        pkgs = pkgsFor "x86_64-linux";
+      };
+
       # Per tooling system: the pre-commit gate runs `nix run .#github-sources`
       # on whichever host commits, so Linux needs it too, built from its own pkgs.
       apps = nixpkgs.lib.genAttrs toolingSystems (
