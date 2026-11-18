@@ -33,6 +33,9 @@ stdenvNoCC.mkDerivation {
     runHook preInstall
     mkdir -p "$out/lib" "$out/bin"
     cp -a lib/kb "$out/lib/kb"
+    # The release's share/ (share/kb/skills: the agent skill that
+    # my.pkgs.agentSkills links into every agent).
+    cp -a share "$out/share"
     launchFlags=$(tr '\n' ' ' < lib/kb/launch-flags)
     makeBinaryWrapper ${lib.getExe bun} "$out/bin/kb" \
       --set KB_PKG_ROOT "$out/lib/kb" \
@@ -44,6 +47,7 @@ stdenvNoCC.mkDerivation {
   installCheckPhase = ''
     runHook preInstallCheck
     "$out/bin/kb" --version
+    test -f "$out/share/kb/skills/kb/SKILL.md"
     # The launch flags must stop a working directory's .env and bunfig.toml.
     probe=$(mktemp -d)
     printf 'KB_DATA=/forged\n' > "$probe/.env"
