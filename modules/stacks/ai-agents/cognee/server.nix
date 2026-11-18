@@ -35,8 +35,6 @@ let
   mcpExecutable = "${home}/.local/share/uv/tools/cognee/bin/cognee-mcp";
   publicUrl = "https://cognee.${config.my.stacks.vpn.tailnetDomain}";
   mcpUrl = "http://127.0.0.1:${toString mcpPort}/mcp";
-  hermesHome = config.launchd.user.envVariables.HERMES_HOME or "${home}/.hermes";
-  hermesConfig = "${hermesHome}/config.yaml";
 
   # Declarative uv tool installs owned by the Cognee service boundary.
   #
@@ -487,48 +485,6 @@ let
       "${pluginStateRoot}/api_key.json"
     trap - EXIT
 
-    cursor_config="${home}/.cursor/mcp.json"
-    ${pkgs.coreutils}/bin/install -d -m 0700 "$(${pkgs.coreutils}/bin/dirname "$cursor_config")"
-    cursor_tmp="$(${pkgs.coreutils}/bin/mktemp "$cursor_config.tmp.XXXXXX")"
-    trap '${pkgs.coreutils}/bin/rm -f "$cursor_tmp"' EXIT
-    if [[ -s "$cursor_config" ]]; then
-      ${pkgs.jq}/bin/jq --arg url "$mcp_url" \
-        '.mcpServers = (.mcpServers // {}) | .mcpServers.cognee = {url: $url}' \
-        "$cursor_config" > "$cursor_tmp"
-    else
-      ${pkgs.jq}/bin/jq -n --arg url "$mcp_url" \
-        '{mcpServers: {cognee: {url: $url}}}' > "$cursor_tmp"
-    fi
-    ${pkgs.coreutils}/bin/chmod 0600 "$cursor_tmp"
-    ${pkgs.coreutils}/bin/mv "$cursor_tmp" "$cursor_config"
-    trap - EXIT
-
-    omp_config="${home}/.omp/agent/mcp.json"
-    ${pkgs.coreutils}/bin/install -d -m 0700 "$(${pkgs.coreutils}/bin/dirname "$omp_config")"
-    omp_tmp="$(${pkgs.coreutils}/bin/mktemp "$omp_config.tmp.XXXXXX")"
-    trap '${pkgs.coreutils}/bin/rm -f "$omp_tmp"' EXIT
-    if [[ -s "$omp_config" ]]; then
-      ${pkgs.jq}/bin/jq --arg url "$mcp_url" \
-        '.mcpServers = (.mcpServers // {}) | .mcpServers.cognee = {type: "http", url: $url}' \
-        "$omp_config" > "$omp_tmp"
-    else
-      ${pkgs.jq}/bin/jq -n --arg url "$mcp_url" \
-        '{mcpServers: {cognee: {type: "http", url: $url}}}' > "$omp_tmp"
-    fi
-    ${pkgs.coreutils}/bin/chmod 0600 "$omp_tmp"
-    ${pkgs.coreutils}/bin/mv "$omp_tmp" "$omp_config"
-    trap - EXIT
-
-    ${pkgs.coreutils}/bin/install -d -m 0700 \
-      "$(${pkgs.coreutils}/bin/dirname "${hermesConfig}")"
-    if [[ ! -e "${hermesConfig}" ]]; then
-      ${pkgs.coreutils}/bin/install -m 0600 /dev/null "${hermesConfig}"
-    fi
-    COGNEE_MCP_URL="$mcp_url" ${pkgs.yq-go}/bin/yq -i \
-      '.mcp_servers.cognee = {"url": strenv(COGNEE_MCP_URL)}' \
-      "${hermesConfig}"
-    ${pkgs.coreutils}/bin/chmod 0600 "${hermesConfig}"
-
     /bin/launchctl kickstart -k \
       "gui/$(${pkgs.coreutils}/bin/id -u)/org.nixos.cognee-mcp" \
       >/dev/null 2>&1 || true
@@ -545,7 +501,10 @@ in
 lib.mkIf (aiCfg.enable && cfg.enable) {
   # Pins are contributed for drift and update checks; the install stays
   # below because it needs this role's build environment.
-  my.pkgs = { inherit uvTools; };
+  my.pkgs = {
+    inherit uvTools;
+    mcpServers.cognee.url = mcpUrl;
+  };
 
   assertions = [
     {

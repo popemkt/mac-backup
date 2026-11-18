@@ -99,14 +99,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — one live run in bb desktop: open a Browser tab, alt+f, pick a label
 - **node** — `01M5PPQ98GKQZARPMF01TYZ1RV`
 
-### GAP: cognee's client and blender-mcp still register their MCP servers outside my.pkgs.mcpServers
-
-- **expected** — Every MCP server a stack provides is one my.pkgs.mcpServers entry, registered by modules/common/home-manager/mcp-servers/ with every harness: cognee's client (an HTTP server) and blender-mcp included.
-- **current** — The channel and executor exist (stdio servers: command, args, env). cognee's client and server write Cursor's, Oh My Pi's and Hermes' configs with jq themselves (an HTTP url, which the channel's type cannot hold yet); blender-mcp is on PATH and each person runs claude mcp add by hand.
-- **impact** — cognee reaches Cursor, Oh My Pi and Hermes but not Claude Code, Codex, opencode or Gemini CLI through MCP (Claude Code and Codex use its plugin); blender-mcp is missing from agents until someone registers it.
-- **closes** — The mcpServers type gains an HTTP form (url), the executor writes it per harness, cognee's client moves onto it, and the blender stack declares blender-mcp.
-- **node** — `01M7PDPCNY920WSWPJGWD61TF7`
-
 ### GAP: context composer v1 has not run in a live bb
 
 - **expected** — The composer page, spawn with a composed context, the trajectory advisor and contributed env are seen working in a real bb thread.
@@ -288,6 +280,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — keyboard-only navigation stops at the browser tab boundary
 - **closes** — assets/bb-plugins/bbim/adapter/bb.ts gains a browser-tab injector that runs the core's collect/activate in the page, and the GAP comment there goes
 - **node** — `01M5KBVSMZ39HBDVBG4CA5TEH0`
+
+### GAP: cognee's client and blender-mcp still register their MCP servers outside my.pkgs.mcpServers
+
+- **expected** — Every MCP server a stack provides is one my.pkgs.mcpServers entry, registered by modules/common/home-manager/mcp-servers/ with every harness: cognee's client (an HTTP server) and blender-mcp included.
+- **current** — The channel and executor exist (stdio servers: command, args, env). cognee's client and server write Cursor's, Oh My Pi's and Hermes' configs with jq themselves (an HTTP url, which the channel's type cannot hold yet); blender-mcp is on PATH and each person runs claude mcp add by hand.
+- **impact** — cognee reaches Cursor, Oh My Pi and Hermes but not Claude Code, Codex, opencode or Gemini CLI through MCP (Claude Code and Codex use its plugin); blender-mcp is missing from agents until someone registers it.
+- **closes** — The mcpServers type gains an HTTP form (url), the executor writes it per harness, cognee's client moves onto it, and the blender stack declares blender-mcp.
+- **node** — `01M7PDPCNY920WSWPJGWD61TF7`
 
 ### GAP: Home Manager activation runs scripts/sync-agent-plugins.sh from the person's checkout
 

@@ -14,11 +14,6 @@
 # (Blender). Its pin is a uv pin (_sources/uv-pins.json); uv installs it on
 # first use into a venv over Blender's own Python, one per pin, under
 # ~/.local/state/blender-mcp.
-#
-# `blender-mcp` is on every account's PATH; registering it with an agent
-# harness is the person's: `claude mcp add --scope user blender -- blender-mcp`.
-# GAP [[01M7PDPCNY920WSWPJGWD61TF7]] blender-mcp is not yet declared in
-# my.pkgs.mcpServers, which would register it with every harness.
 let
   mkStack = import ../mk-stack.nix lib;
   pin = config.my.uvPins."dcc-mcp-blender".version;
@@ -48,6 +43,9 @@ in
 
     # The pin, readable by the uv update and drift checks; blender-mcp
     # installs it itself, per person, on first use.
-    my.pkgs.uvTools = [ spec ];
+    my.pkgs = {
+      uvTools = [ spec ];
+      mcpServers.blender.command = lib.getExe blenderMcp;
+    };
   };
 }
