@@ -27,18 +27,18 @@
   };
   cli-proxy-api = {
     pname = "cli-proxy-api";
-    version = "8.0.76";
+    version = "8.0.78";
     src = fetchurl {
-      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.76/CLIProxyAPI_8.0.76_darwin_aarch64.tar.gz";
-      sha256 = "sha256-aazwt2imLrE7oZxPv6j+ziDnzcqov6ofc9Rf8sJ1TOc=";
+      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.78/CLIProxyAPI_8.0.78_darwin_aarch64.tar.gz";
+      sha256 = "sha256-MtO/sj32+IYV2bywrKtl24QhgrrNWD1zsvXigGUaJs8=";
     };
   };
   cursor-cli = {
     pname = "cursor-cli";
-    version = "2026.11.13-eacade1";
+    version = "2026.11.19-f005e9d";
     src = fetchurl {
-      url = "https://downloads.cursor.com/lab/2026.11.13-eacade1/darwin/arm64/agent-cli-package.tar.gz";
-      sha256 = "sha256-CHIgzPHhJNzfJ1NgFCKJIEKkWixXfvDqJbilsOR7tpE=";
+      url = "https://downloads.cursor.com/lab/2026.11.19-f005e9d/darwin/arm64/agent-cli-package.tar.gz";
+      sha256 = "sha256-FrszxZczcltGbTH5iEkN4zJ0fwkQ0tZLOTw2PlEObH0=";
     };
   };
   genoffice = {
