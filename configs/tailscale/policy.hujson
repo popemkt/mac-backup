@@ -54,6 +54,17 @@
       "ip": ["tcp:443"],
     },
 
+    // popemkt's own devices (the phone's kb app) reach popemkt's kb capture-only
+    // listener: pairing with a code issued on the host, then delivery with
+    // the device's bearer token. Nobody else's devices.
+    // GAP [[01M7WTAJYW03B2N9ZS36ZJHZ8G]]: the wildcard grant below still
+    // admits every member until the tightening pass removes it.
+    {
+      "src": ["hoangng71299@gmail.com"],
+      "dst": ["svc:kb-capture-popemkt"],
+      "ip": ["tcp:443"],
+    },
+
     // popemkt's bb on the shared server calls the work graph for its agent
     // tools (the kb plugin's kb-work store). The owner accepted that the
     // shared server's administrators can reach kb-work through this grant.
@@ -129,6 +140,7 @@
       "svc:t3-bytetum": ["tag:shared-server"],
       "svc:kb-popemkt": ["tag:shared-server"],
       "svc:kb-bytetum": ["tag:shared-server"],
+      "svc:kb-capture-popemkt": ["tag:shared-server"],
       "svc:kb-work": ["tag:orca-host"],
       "svc:marginalia-bytetum": ["tag:shared-server"],
       "svc:adhoc-popemkt": ["tag:shared-server"],

@@ -124,6 +124,7 @@ endpoint for popemkt's temporary HTTP apps, like the personal host's.
 | `svc:t3-bytetum` | `https://t3-bytetum.<tailnet-domain>` | `127.0.0.1:3774` | bytetum's T3 Code server |
 | `svc:kb-popemkt` | `https://kb-popemkt.<tailnet-domain>` | `unix:/run/kb-popemkt/kb.sock` | popemkt's kb home store (`my.services.kb`; a socket only popemkt and root can reach) |
 | `svc:kb-bytetum` | `https://kb-bytetum.<tailnet-domain>` | `unix:/run/kb-bytetum/kb.sock` | bytetum's kb home store (`my.services.kb-bytetum`, `app = "kb"`; a socket only bytetum and root can reach) |
+| `svc:kb-capture-popemkt` | `https://kb-capture-popemkt.<tailnet-domain>` | `unix:/run/kb-capture-popemkt/kb.sock` | popemkt's kb capture-only listener for popemkt's phone (`my.stacks.kb.stores.kb.capture`; granted to popemkt's own devices only, [kb-service.md](kb-service.md#pair-a-phone)) |
 | `svc:marginalia-bytetum` | `https://marginalia-bytetum.<tailnet-domain>` | `unix:/run/marginalia-bytetum/marginalia.sock` | bytetum's Marginalia reading library (`my.services.marginalia-bytetum`, `app = "marginalia"`; bytetum's Tailscale login or the bearer token, [marginalia-service.md](marginalia-service.md)) |
 | `svc:adhoc-popemkt` | `https://adhoc-popemkt.<tailnet-domain>` | `127.0.0.1:9001` | popemkt's temporary HTTP apps |
 | `svc:bb-popemkt` | `https://bb-popemkt.<tailnet-domain>` | `127.0.0.1:38886` | popemkt's bb server (`my.services.bb`; its API is unauthenticated) |

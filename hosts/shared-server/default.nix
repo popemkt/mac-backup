@@ -9,31 +9,6 @@
 # their own T3 Code server, published on the tailnet. Why it has this shape:
 # docs/shared-nixos-server-plan.md#decision.
 let
-  # A person's kb home store served as the my.services app `kb`, published as
-  # svc:kb-<person> on an owner-only socket; why it has this shape is beside
-  # the entries below. extraArgs follow the shared `kb ui` arguments.
-  kbHome =
-    person: extraArgs:
-    let
-      socket = "/run/kb-${person}/kb.sock";
-    in
-    {
-      app = "kb";
-      owner = person;
-      inherit socket;
-      package = pkgs.kb;
-      args = [
-        "--root"
-        "${config.users.users.${person}.home}/.local/share/kb/home"
-        "ui"
-        "--socket"
-        socket
-        "--no-open"
-        "--public-origin"
-        config.my.stacks.vpn.services."kb-${person}".publicOrigin
-      ]
-      ++ extraArgs;
-    };
   # The `kb ui` arguments that let a person's bb frame their kb page.
   bbFramesKb =
     person:
@@ -55,10 +30,10 @@ let
     ];
   # A person's bb server and host daemon as the my.services app `bb`,
   # published as svc:bb-<person>, beside their kb (kbEntry, the my.services
-  # entry of their kbHome); why it has this shape is beside the entries
-  # below. Each person's pair needs loopback ports of its own. kbStores are
-  # the kb plugin's stores beyond the person's own (lines of
-  # assets/bb-plugins/kb's KB_CONNECTIONS: `<name> <page URL> [<socket>]`).
+  # entry of their store in my.stacks.kb.stores); why it has this shape is
+  # beside the entries below. Each person's pair needs loopback ports of its
+  # own. kbStores are the kb plugin's stores beyond the person's own (lines
+  # of assets/bb-plugins/kb's KB_CONNECTIONS: `<name> <page URL> [<socket>]`).
   bbHome =
     person:
     {
@@ -288,17 +263,31 @@ in
   # device_select layer reads it; `!` hides every other device.
   environment.sessionVariables.MESA_VK_DEVICE_SELECT = "1002:1681!";
 
-  # Each person's personal kb in the browser, as svc:kb-<person> (kbHome
-  # above): their kb home store (kb DESIGN.md → Locations), a root outside
-  # any repository that kb ui creates on first start. Not the dotfiles' .kb,
-  # which changes only through commits: a live UI there dirtied the checkout
-  # with every edit and every kb upgrade's seed nodes, and rebuild refuses a
-  # dirty tree. The UI's request guard needs the browser origin, which is
-  # that Service's. A request with that Origin acts as the person, so the UI
-  # listens on a Unix socket only they and root (tailscaled) can reach, not
-  # on a loopback port every account can.
-  my.services.kb = kbHome "popemkt" (bbFramesKb "popemkt");
-  my.services.kb-bytetum = kbHome "bytetum" (bbFramesKb "bytetum");
+  # Each person's personal kb in the browser, as svc:kb-<person>
+  # (modules/stacks/kb/nixos.nix): their kb home store (kb DESIGN.md →
+  # Locations), a root outside any repository that kb ui creates on first
+  # start. Not the dotfiles' .kb, which changes only through commits: a live
+  # UI there dirtied the checkout with every edit and every kb upgrade's seed
+  # nodes, and rebuild refuses a dirty tree. The UI's request guard needs the
+  # browser origin, which is that Service's. A request with that Origin acts
+  # as the person, so the UI listens on a Unix socket only they and root
+  # (tailscaled) can reach, not on a loopback port every account can.
+  # popemkt's store also takes captures from their phone (kb's Android app)
+  # through a capture-only listener, svc:kb-capture-popemkt, which the
+  # tailnet policy grants only to popemkt's own devices; `kb-pair` prints the URL
+  # and a pairing code (docs/kb-service.md → Pair a phone). bytetum's is off
+  # until they ask for it.
+  my.stacks.kb.stores = {
+    kb = {
+      owner = "popemkt";
+      uiArgs = bbFramesKb "popemkt";
+      capture.enable = true;
+    };
+    kb-bytetum = {
+      owner = "bytetum";
+      uiArgs = bbFramesKb "bytetum";
+    };
+  };
 
   # bytetum's Marginalia reading library (github.com/bytetum/marginalia;
   # pkgs/marginalia, pinned by hand), as svc:marginalia-bytetum. It listens on

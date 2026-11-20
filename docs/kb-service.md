@@ -55,14 +55,68 @@ result. Stop a server opened this way with `kill` on the pid its
 
 ## shared-server
 
-`hosts/shared-server/default.nix` places each person's home store with
-`kbHome <person>`: popemkt's as the `my.services.kb` app, published as
-`svc:kb-popemkt`, and bytetum's as `my.services.kb-bytetum` (`app = "kb"`),
-published as `svc:kb-bytetum`. Each listens on the owner-only socket
+`hosts/shared-server/default.nix` places each person's home store in
+`my.stacks.kb.stores` (`modules/stacks/kb/nixos.nix`), keyed by the
+my.services entry each store's UI becomes: popemkt's as the `my.services.kb`
+app, published as `svc:kb-popemkt`, and bytetum's as `my.services.kb-bytetum`
+(`app = "kb"`), published as `svc:kb-bytetum`. Each listens on the owner-only socket
 `/run/kb-<person>/kb.sock` rather than a port, because a request carrying
 the UI's Origin acts as that person. The app's `package` is
 `pkgs.kb`, run by store path, so a rebuild that moves the kb pin restarts it
 (`configs/specs/app-service-contract.md`).
+
+<!-- GAP [[01M7WTAJYW03B2N9ZS36ZJHZ8G]]: kb capture Services ride the tailnet wildcard grant. -->
+A store with `capture.enable` also runs a capture-only listener for phones:
+`kb ui --capture-only` on the same root, as the owner, as the my.services
+entry `<name>-capture` (`app = "kb-capture"`: popemkt's unit is
+`app-kb-capture`), on the owner-only socket
+`/run/kb-capture-<person>/kb.sock`, published as `svc:kb-capture-<person>`.
+It admits only capture version discovery, pairing with a one-use code, and
+delivery with the bearer token pairing returns (kb's DESIGN.md → Raw
+capture, in the pinned release; no stable tag has it yet); every other
+request is refused. The tailnet policy's grant for each listener names only
+its owner's own devices (`configs/tailscale/policy.hujson`); until the
+tightening pass removes the policy's wildcard grant
+([tailscale.md](tailscale.md)), any tailnet member can still connect, and the
+pairing code and the device's token are what admit a phone. On
+shared-server only popemkt's store has it on; bytetum's stays off until they
+ask for it (`capture.enable` on `kb-bytetum`, plus the grant and
+auto-approver for `svc:kb-capture-bytetum`).
+
+### Pair a phone
+
+kb's Android app (popemkt/kb `apps/android`, README → Pair a store) sends
+shares to one of these listeners. On shared-server, signed in as the store's
+owner, run:
+
+```sh
+kb-pair            # your own store; or name one: kb-pair kb-popemkt
+```
+
+It prints the URL and a code, 32 hex characters, valid once for ten
+minutes:
+
+```text
+Store: kb-popemkt
+URL:   https://kb-capture-popemkt.taild98079.ts.net
+Code:  097e63ebc5362d9cd4ab74652cc7cb35
+Valid once, until 2026-11-20T15:47:47.473Z.
+```
+
+In the app, under **Stores**, enter that URL and code and tap **Pair**. The
+phone must be on the tailnet as the store's owner. `kb-pair` runs kb's
+`capture.pairCode` as you, and refuses a store that is not yours: a code pairs
+a device with someone's store, so only its owner issues one.
+
+<!-- GAP [[01M7WTAJDSKJ5H5Q9ES56XG55P]]: shared-server admins can issue kb pairing codes for each other's stores. -->
+That refusal is not a boundary between shared-server's administrators. Both
+are in `wheel` with passwordless sudo, so either can run `capture.pairCode` as
+the other by hand (`sudo -u <owner> kb --root <store> …`) and pair a device
+with the other's store; the host's sudo policy is deliberately left as it is.
+
+Revoke a phone on the host with
+`kb --root <store> action-invoke '{"id":"capture.revoke","input":{"deviceId":"<id>"}}'`
+as the owner.
 
 ## Personal instance
 
