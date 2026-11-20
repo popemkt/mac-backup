@@ -6,6 +6,14 @@
   dockerTools,
 }:
 {
+  antigravity-cli = {
+    pname = "antigravity-cli";
+    version = "1.5.13-5999302598852608";
+    src = fetchurl {
+      url = "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.13-5999302598852608/linux-x64/cli_linux_x64.tar.gz";
+      sha256 = "sha256-f6nMbfDQlWJpPWN8QGqGwbD1KrM2RxSx/S15zGBg1LI=";
+    };
+  };
   axioms = {
     pname = "axioms";
     version = "v0.1.0";

@@ -78,3 +78,11 @@ pinned = true
 src.github_tag = "popemkt/axioms"
 src.include_regex = '^v[0-9]+\.[0-9]+\.[0-9]+$'
 fetch.github = "popemkt/axioms"
+
+# Google Antigravity CLI (`agy`) for Linux (pkgs/antigravity-cli). Macs keep
+# the Homebrew cask (`antigravity-cli`). The official installer script queries
+# this manifest, whose URL embeds `<version>-<build>`.
+[antigravity-cli]
+src.webpage = "https://antigravity-cli-auto-updater-974169037036.us-central1.run.app/manifests/linux_amd64.json"
+src.regex = 'storage\.googleapis\.com/antigravity-public/antigravity-cli/([^/]+)/linux-x64/cli_linux_x64\.tar\.gz'
+fetch.url = "https://storage.googleapis.com/antigravity-public/antigravity-cli/$ver/linux-x64/cli_linux_x64.tar.gz"

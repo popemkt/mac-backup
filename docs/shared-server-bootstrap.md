@@ -117,7 +117,7 @@ or a password. The agent cannot do these, so do them in order on a new machine.
 | Desktop | The installer's desktop, kept in `hosts/shared-server/default.nix`: Plasma 6 on SDDM, PipeWire sound, CUPS printing, Firefox |
 | Laptop as server | `services.logind.settings.Login.HandleLidSwitch*` = `ignore`, so closing the lid never suspends |
 | Binaries | `programs.nix-ld.enable = true`, plus `programs.nix-ld.libraries` if a binary reports a missing library |
-| Agents | Per user, from npm into `~/.local`: `t3`, `@anthropic-ai/claude-code`, `@openai/codex` |
+| Agents | Per user: from npm into `~/.local` (`t3`, `@anthropic-ai/claude-code`, `@openai/codex`, `opencode-ai`), plus Antigravity CLI (`agy`) via `my.stacks.ai-agents` (`pkgs/antigravity-cli`) |
 | T3 Code | One `t3 serve` per person, a system service (`t3-code-popemkt`, `t3-code-bytetum`) running as that user, bound to `127.0.0.1:3773` and `:3774` |
 | Tailscale | `services.tailscale.enable`. The host advertises `svc:t3-popemkt` and `svc:t3-bytetum`; both people may reach both |
 | Tooling | Flakes, `git`, `gh`, vim as root's editor, Neovim for users |
@@ -192,8 +192,9 @@ These are control-plane or secret state and never belong in the repo.
    `t3-bytetum` (no `svc:` prefix; policy uses the prefixed form), then rerun the policy workflow so its auto-approver sees
    them. The full sequence is
    [First Tailnet Or Replacement Host](tailscale.md#first-tailnet-or-replacement-host).
-3. Each person, in their own account: sign in to Claude Code (`claude`) and
-   Codex (`codex`), then pair their devices with their T3 Code server.
+3. Each person, in their own account: sign in to Claude Code (`claude`),
+   Codex (`codex`), and Antigravity CLI (`agy`, or `agy acp --login` over SSH
+   for a login URL), then pair their devices with their T3 Code server.
    Pairing runs on the server as the server's person, `t3 pair --label
    <device>` (bytetum's: `sudo -u bytetum -i t3 pair --label <device>`); the
    token lasts five minutes and is a credential, so the person runs it, not
