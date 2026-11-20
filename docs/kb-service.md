@@ -55,10 +55,11 @@ result. Stop a server opened this way with `kill` on the pid its
 
 ## shared-server
 
-`hosts/shared-server/default.nix` places each person's home store with
-`kbHome <person>`: popemkt's as the `my.services.kb` app, published as
-`svc:kb-popemkt`, and bytetum's as `my.services.kb-bytetum` (`app = "kb"`),
-published as `svc:kb-bytetum`. Each listens on the owner-only socket
+`hosts/shared-server/default.nix` places each person's home store in
+`my.stacks.kb.stores` (`modules/stacks/kb/nixos.nix`), keyed by the
+my.services entry each store's UI becomes: popemkt's as the `my.services.kb`
+app, published as `svc:kb-popemkt`, and bytetum's as `my.services.kb-bytetum`
+(`app = "kb"`), published as `svc:kb-bytetum`. Each listens on the owner-only socket
 `/run/kb-<person>/kb.sock` rather than a port, because a request carrying
 the UI's Origin acts as that person. The app's `package` is
 `pkgs.kb`, run by store path, so a rebuild that moves the kb pin restarts it
