@@ -214,6 +214,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — After rebuild, manually run brew uninstall bun and confirm the drift audit is clean.
 - **node** — `01M3FAE5T61DZS8T7WRW3RTZ93`
 
+### GAP: shared-server hard-resets on AMD data fabric sync floods
+
+- **expected** — shared-server stays up between deliberate reboots; a hardware fault leaves a trace (rasdaemon/MCE record) that says which part failed
+- **current** — About 20 instant resets since 2026-10-28 (several on some days, e.g. three on 2026-11-14), all on kernel 7.2.8. The boot journal logs 'x86/amd: Previous system reset reason [0x08000800]: an uncorrected error caused a data fabric sync flood event' (two boots on 2026-11-09 logged 0x00080800). The journal stops mid-operation with no panic, OOM or lockup; it is back in ~45s. On AC with full battery, CPU 67C under load, so power and heat look unlikely. No rasdaemon, pstore empty.
+- **impact** — Every agent thread, bb, t3 and service on the host dies at once, for every person on it, every 1-3 days.
+- **closes** — Find the failing part: BIOS update and EXPO/XMP off, overnight memtest86+, then amdgpu.runpm=0 / pcie_aspm=off in hosts/shared-server if memory passes; add rasdaemon there to record corrected errors. Closed when a week passes with no sync-flood reset reason in the boot log.
+- **node** — `01M7QP3HRFPZYTCCWY94R7EV6Y`
+
 ### GAP: shared-server's axioms SpacetimeDB state has no backup
 
 - **expected** — axioms' SpacetimeDB state on shared-server (~popemkt/.local/share/axioms/spacetime: the database, its token signing keys, the CLI identity that owns the database) and the server's client identity (~/.spacetimedb_client_credentials/axioms-server) are backed up off the machine on a schedule, restore rehearsed.
