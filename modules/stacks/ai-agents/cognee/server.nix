@@ -563,8 +563,8 @@ lib.mkIf (aiCfg.enable && cfg.enable) {
   };
 
   launchd.user.agents = {
+    cognee-api.command = "${apiLauncher}";
     cognee-api.serviceConfig = {
-      ProgramArguments = [ "${apiLauncher}" ];
       RunAtLoad = true;
       KeepAlive = true;
       ThrottleInterval = 30;
@@ -579,8 +579,8 @@ lib.mkIf (aiCfg.enable && cfg.enable) {
       HardResourceLimits.NumberOfFiles = 65536;
     };
 
+    cognee-ui.command = "${uiLauncher}";
     cognee-ui.serviceConfig = {
-      ProgramArguments = [ "${uiLauncher}" ];
       RunAtLoad = true;
       KeepAlive = true;
       ThrottleInterval = 30;
@@ -590,8 +590,8 @@ lib.mkIf (aiCfg.enable && cfg.enable) {
       EnvironmentVariables.HOME = home;
     };
 
+    cognee-mcp.command = "${mcpLauncher}";
     cognee-mcp.serviceConfig = {
-      ProgramArguments = [ "${mcpLauncher}" ];
       RunAtLoad = true;
       KeepAlive = true;
       ThrottleInterval = 30;
@@ -601,8 +601,8 @@ lib.mkIf (aiCfg.enable && cfg.enable) {
       EnvironmentVariables.HOME = home;
     };
 
+    cognee-gateway.command = "${gatewayLauncher}";
     cognee-gateway.serviceConfig = {
-      ProgramArguments = [ "${gatewayLauncher}" ];
       RunAtLoad = true;
       KeepAlive = true;
       ThrottleInterval = 30;
@@ -612,8 +612,8 @@ lib.mkIf (aiCfg.enable && cfg.enable) {
       EnvironmentVariables.HOME = home;
     };
 
+    cognee-ollama.command = "${ollamaLauncher}";
     cognee-ollama.serviceConfig = {
-      ProgramArguments = [ "${ollamaLauncher}" ];
       RunAtLoad = true;
       KeepAlive = true;
       ThrottleInterval = 30;
@@ -623,8 +623,8 @@ lib.mkIf (aiCfg.enable && cfg.enable) {
       EnvironmentVariables.HOME = home;
     };
 
+    cognee-embedding-model.command = "${embeddingModelLauncher}";
     cognee-embedding-model.serviceConfig = {
-      ProgramArguments = [ "${embeddingModelLauncher}" ];
       RunAtLoad = true;
       KeepAlive.SuccessfulExit = false;
       ThrottleInterval = 30;

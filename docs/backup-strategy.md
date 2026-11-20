@@ -310,8 +310,9 @@ The local proxy (`modules/stacks/local-proxy/`) serves loopback apps at
 - `ca/private/root.key` (0600, in a 0700 directory): the CA's key.
 - `ca/root.crt` (0644): its public certificate, which the person enrolls in
   their trust settings (`system-setup enroll local-proxy-trust`).
-- `caddy/`: Caddy's intermediate and per-site certificates, short-lived and
-  renewed by Caddy itself.
+- `caddy/`: Caddy's intermediate and per-site certificates, made and
+  renewed by Caddy itself under that root
+  ([lifetimes](local-proxy.md#certificates)).
 
 Decision: **disposable state, never backed up and never committed.** The
 daemon marks the directory excluded from Time Machine (a sticky

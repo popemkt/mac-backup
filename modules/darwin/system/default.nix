@@ -18,6 +18,7 @@ in
     ./identity.nix
     ./homebrew.nix
     ./input-sources.nix
+    ./launchd.nix
     ./services.nix
     ./system-setup
   ];

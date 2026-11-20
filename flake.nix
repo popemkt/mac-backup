@@ -371,6 +371,12 @@
         pkgs = pkgsFor "x86_64-linux";
       };
 
+      # The same local-proxy check on Linux, minus macOS's own verifier, so
+      # the CA script and Caddy configuration can be exercised off a Mac.
+      checks.x86_64-linux.local-proxy-check = import ./modules/stacks/local-proxy/tests.nix {
+        pkgs = pkgsFor "x86_64-linux";
+      };
+
       # Per tooling system: the pre-commit gate runs `nix run .#github-sources`
       # on whichever host commits, so Linux needs it too, built from its own pkgs.
       apps = nixpkgs.lib.genAttrs toolingSystems (

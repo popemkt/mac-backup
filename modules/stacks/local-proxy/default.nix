@@ -34,20 +34,21 @@ let
   inherit (import ./package.nix { inherit pkgs; }) ca caddyfile;
 
   # The CA state is disposable and holds a key, so Time Machine skips it: a
-  # sticky exclusion on the directory, made before the CA is.
+  # sticky exclusion on the directory, made before the CA is. ./ca.sh then
+  # converges the CA state and runs Caddy with the intermediate lifetime it
+  # derives from the root.
   daemon = pkgs.writeShellApplication {
     name = "local-proxy";
     text = ''
       install -d -m 0755 ${stateDir}
       /usr/bin/tmutil addexclusion ${stateDir} ||
         echo "local-proxy: could not exclude ${stateDir} from Time Machine" >&2
-      ${lib.getExe ca} ${
+      exec ${lib.getExe ca} ${
         lib.escapeShellArgs [
           stateDir
           caName
         ]
-      }
-      exec ${lib.getExe pkgs.caddy} run --adapter caddyfile --config ${
+      } ${lib.getExe pkgs.caddy} run --adapter caddyfile --config ${
         caddyfile {
           inherit (cfg) sites;
           inherit stateDir caName;
@@ -118,8 +119,11 @@ in
       }
     ];
 
+    # `command`, not ProgramArguments: nix-darwin starts it behind
+    # /bin/wait4path /nix/store, so at boot it waits for the Nix volume
+    # (modules/darwin/system/launchd.nix).
+    launchd.daemons.local-proxy.command = lib.getExe daemon;
     launchd.daemons.local-proxy.serviceConfig = {
-      ProgramArguments = [ (lib.getExe daemon) ];
       EnvironmentVariables = {
         HOME = stateDir;
         XDG_CONFIG_HOME = "${stateDir}/config";

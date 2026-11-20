@@ -238,6 +238,15 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A declared backup of the bb server's data dir on shared-server (restic), or manifests stored in kb.
 - **node** — `01M5QKD7TMB3HDV65V543HTD9M`
 
+### GAP: the local proxy converges its CA only when its daemon starts
+
+- **expected** — The local proxy's root is replaced once it has under a year left, and the intermediate and site certificates follow it, whether or not the daemon restarts in that year.
+- **current** — modules/stacks/local-proxy/ca.sh, which replaces the root and retires an intermediate that ends before it, runs only when the LaunchDaemon starts (boot, or a rebuild that changes it). A Caddy that runs for over a year without a restart keeps the old root until it expires. If its own maintenance renews the intermediate in that time, it uses the lifetime derived at the last start, so the new intermediate can outlive the root.
+- **impact** — Only a Mac that neither reboots nor rebuilds the proxy for about a year is affected: every *.localhost site fails when the root expires, until the daemon restarts. A reboot or rebuild before then is enough.
+- **closes** — A periodic launchd trigger (e.g. a daily StartCalendarInterval job) that runs ca.sh's checks and kickstarts the daemon when the root would be replaced, or a Caddy-side root rollover.
+- **rule** — Abstraction before addition (Rule 1)
+- **node** — `01M7WSREFP2F1354V6J5A0YDZK`
+
 ### GAP: the stop indicator cannot tell a stop by the person from a stop by another agent
 
 - **expected** — The why-this-thread-stopped badge says 'stopped by you' or 'stopped by another agent' (naming the agent's thread)

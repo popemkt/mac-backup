@@ -6,8 +6,12 @@
 # promises: a root-only CA, constrained to localhost DNS names and no IP
 # address (checked by openssl and macOS's verifier), made once and replaced
 # when broken or under-constrained; loopback-only HTTPS with no admin endpoint and no
-# HTTP listener; Host and Origin passed through untouched; WebSocket upgrade
-# and unbuffered SSE; and no certificate for an undeclared name.
+# HTTP listener; site certificates that last 825 days under an intermediate
+# that lasts as long as the root, an older short intermediate retired with
+# its sites, and a sound one kept; Host and Origin passed through untouched;
+# WebSocket upgrade and unbuffered SSE; and no certificate for an undeclared
+# name. It runs on Linux too, where openssl alone verifies (no macOS
+# verifier).
 let
   # Caddy reads `{$STATE}` from the environment, so the build directory
   # ./tests.sh makes is the state directory.

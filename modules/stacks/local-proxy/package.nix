@@ -3,7 +3,7 @@
 # The proxy's two built pieces, shared by the daemon (./default.nix) and its
 # test (./tests.nix), so the test runs exactly what the daemon runs:
 #
-# - `ca`: ./ca.sh with the openssl it needs.
+# - `ca`: ./ca.sh with the openssl and GNU date it needs.
 # - `caddyfile args`: ./caddyfile.nix rendered and parsed by Caddy at build
 #   time, so a configuration Caddy cannot read fails the build, not the boot.
 let
@@ -12,7 +12,10 @@ in
 {
   ca = pkgs.writeShellApplication {
     name = "local-proxy-ca";
-    runtimeInputs = [ pkgs.openssl ];
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.openssl
+    ];
     text = builtins.readFile ./ca.sh;
   };
 

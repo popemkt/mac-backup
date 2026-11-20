@@ -15,6 +15,15 @@ fail() {
   exit 1
 }
 mode() { stat -c %a "$1" 2>/dev/null || stat -f %Lp "$1"; }
+# A certificate's notBefore and notAfter, in seconds since the epoch.
+begins() { date -d "$(openssl x509 -in "$1" -noout -startdate | cut -d= -f2)" +%s; }
+ends() { date -d "$(openssl x509 -in "$1" -noout -enddate | cut -d= -f2)" +%s; }
+fingerprint() { openssl x509 -in "$1" -noout -fingerprint -sha256; }
+day=$((24 * 3600))
+# macOS's own verifier exists only on macOS; elsewhere (the Linux check)
+# openssl alone decides.
+darwin=false
+[ "$(uname -s)" != Darwin ] || darwin=true
 
 echo "== the CA is made once, its key root-only, constrained to localhost names and no IP"
 local-proxy-ca "$STATE" "$CA_NAME"
@@ -44,14 +53,88 @@ caddy adapt --config "$CADDYFILE" --adapter caddyfile >adapted.json 2>/dev/null
   "internal"
 ]' ] || fail "a site is not signed by the internal CA"
 
+echo "== site certificates last 825 days; Caddy renews the intermediate only with 5% left"
+[ "$(jq -c '[.apps.tls.automation.policies[].issuers[].lifetime] | unique' adapted.json)" = \
+  "[$((825 * day))000000000]" ] ||
+  fail "site certificate lifetimes: $(jq -c '[.apps.tls.automation.policies[].issuers[].lifetime]' adapted.json)"
+[ "$(jq '.apps.pki.certificate_authorities.local.renewal_window_ratio' adapted.json)" = 0.05 ] ||
+  fail "the intermediate renews at $(jq '.apps.pki.certificate_authorities.local.renewal_window_ratio' adapted.json)"
+
 python3 "$BACKEND" "$BACKEND_PORT" &
-pids+=($!)
-caddy run --config "$CADDYFILE" --adapter caddyfile >caddy.log 2>&1 &
-pids+=($!)
-for _ in $(seq 1 100); do
-  curl -sf -o /dev/null --cacert "$STATE/ca/root.crt" "$ORIGIN/echo" && break
-  sleep 0.2
-done
+backend_pid=$!
+trap 'kill "${pids[@]}" "$backend_pid" 2>/dev/null || true' EXIT
+
+# Runs the proxy (a command line) until it serves the site, or fails.
+start() {
+  "$@" >>caddy.log 2>&1 &
+  pids=($!)
+  for _ in $(seq 1 100); do
+    curl -sf -o /dev/null --cacert "$STATE/ca/root.crt" "$ORIGIN/echo" && return
+    sleep 0.2
+  done
+  cat caddy.log >&2
+  fail "the proxy did not serve $ORIGIN"
+}
+stop() {
+  kill "${pids[@]}"
+  wait "${pids[@]}" 2>/dev/null || true
+  pids=()
+}
+# The chain the proxy serves: served-0.pem is the site's certificate,
+# served-1.pem its intermediate.
+served() {
+  rm -f served-*.pem
+  openssl s_client -connect "127.0.0.1:$PORT" -servername app.localhost -showcerts </dev/null 2>/dev/null |
+    awk '/-----BEGIN CERTIFICATE-----/ { f = "served-" n++ ".pem" } f { print > f } /-----END CERTIFICATE-----/ { f = "" }' ||
+    true
+  [ -s served-0.pem ] && [ -s served-1.pem ] || fail "the proxy served no certificate chain"
+}
+caddy=(caddy run --config "$CADDYFILE" --adapter caddyfile)
+authority=$STATE/caddy/pki/authorities/local
+
+echo "== a site certificate cannot outlive its intermediate"
+# Caddy run alone with a 7-day intermediate: the state this stack left
+# before its lifetimes grew (12-hour sites under a 7-day intermediate).
+LOCAL_PROXY_INTERMEDIATE_LIFETIME=7d start "${caddy[@]}"
+served
+[ $(($(ends "$authority/intermediate.crt") - $(begins "$authority/intermediate.crt"))) = $((7 * day)) ] ||
+  fail "the old-style intermediate does not last 7 days"
+[ "$(ends served-0.pem)" -le "$(ends "$authority/intermediate.crt")" ] ||
+  fail "a site certificate outlives its intermediate"
+short=$(fingerprint "$authority/intermediate.crt")
+stop
+
+echo "== an intermediate that ends before the root is retired, with the site certificates it signed"
+start local-proxy-ca "$STATE" "$CA_NAME" "${caddy[@]}"
+grep -q "retiring the intermediate" caddy.log || fail "the short intermediate was not retired"
+[ "$short" != "$(fingerprint "$authority/intermediate.crt")" ] || fail "the short intermediate was kept"
+served
+[ "$(fingerprint served-1.pem)" = "$(fingerprint "$authority/intermediate.crt")" ] ||
+  fail "the site is served under another intermediate"
+
+echo "== the intermediate lasts as long as the root, less a day; the site certificate 825 days"
+gap=$(($(ends "$STATE/ca/root.crt") - $(ends "$authority/intermediate.crt")))
+[ "$gap" -ge $((day - 300)) ] && [ "$gap" -le $((day + 300)) ] ||
+  fail "the intermediate ends ${gap}s before the root, not a day"
+[ $(($(ends served-0.pem) - $(begins served-0.pem))) = $((825 * day)) ] ||
+  fail "the site certificate lasts $(($(ends served-0.pem) - $(begins served-0.pem)))s, not 825 days"
+openssl verify -CAfile "$STATE/ca/root.crt" -untrusted served-1.pem served-0.pem >/dev/null ||
+  fail "openssl does not accept the served chain"
+# The ssl policy applies macOS's cap on a TLS server certificate's
+# lifetime (825 days), which holds under a private root too.
+if $darwin && ! /usr/bin/security verify-cert -c served-0.pem -c served-1.pem \
+  -r "$STATE/ca/root.crt" -p ssl -s app.localhost -L -n >/dev/null; then
+  fail "macOS does not accept the served chain"
+fi
+
+echo "== a restart keeps a sound intermediate and the site certificate"
+site=$(fingerprint served-0.pem)
+long=$(fingerprint "$authority/intermediate.crt")
+stop
+start local-proxy-ca "$STATE" "$CA_NAME" "${caddy[@]}"
+served
+[ "$long" = "$(fingerprint "$authority/intermediate.crt")" ] || fail "a sound intermediate was replaced"
+[ "$site" = "$(fingerprint served-0.pem)" ] || fail "a sound site certificate was replaced"
 
 get() { curl -sS --fail --cacert "$STATE/ca/root.crt" "$@"; }
 
@@ -86,7 +169,6 @@ if curl -s -o /dev/null --cacert "$STATE/ca/root.crt" \
 fi
 
 echo "== the CA cannot vouch for a DNS name outside localhost, nor for any IP address"
-authority=$STATE/caddy/pki/authorities/local
 for san in DNS:app.localhost DNS:example.com DNS:localhost.example.com \
   IP:127.0.0.1 IP:93.184.216.34 IP:::1 IP:2606:2800:220:1::1; do
   leaf=forged-$(tr ':.' '__' <<<"$san")
@@ -104,7 +186,9 @@ for san in DNS:app.localhost DNS:example.com DNS:localhost.example.com \
   fi
   # macOS's own verifier, with the root as the anchor, must agree: a
   # constraint openssl enforces and macOS ignores would not hold in a browser.
-  if /usr/bin/security verify-cert -c "$leaf.crt" -c "$authority/intermediate.crt" \
+  if ! $darwin; then
+    native=$verdict
+  elif /usr/bin/security verify-cert -c "$leaf.crt" -c "$authority/intermediate.crt" \
     -r "$STATE/ca/root.crt" -p basic -L -n >/dev/null 2>&1; then
     native=valid
   else
@@ -119,14 +203,13 @@ for san in DNS:app.localhost DNS:example.com DNS:localhost.example.com \
 done
 
 echo "== a broken CA is replaced, and Caddy's certificates under it are dropped"
-kill "${pids[@]}"
-wait 2>/dev/null || true
-pids=()
+stop
 openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out "$STATE/ca/private/root.key"
 local-proxy-ca "$STATE" "$CA_NAME" >/dev/null
 [ "$first" != "$(openssl x509 -in "$STATE/ca/root.crt" -noout -fingerprint -sha256)" ] ||
   fail "a mismatched key kept the old certificate"
 [ ! -e "$STATE/caddy/pki" ] || fail "the old intermediate was kept"
+[ ! -e "$STATE/caddy/certificates/local" ] || fail "the old site certificates were kept"
 [ "$(mode "$STATE/ca/private/root.key")" = 600 ] || fail "the new key is not root-only"
 
 echo "== a root without the IP exclusions is replaced"

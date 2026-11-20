@@ -203,12 +203,12 @@ lib.mkIf config.my.stacks.ai-agents.enable {
   # globally so clients opt in explicitly and continue working when this
   # service is unavailable.
   launchd.user.agents.cli-proxy-api = {
+    command = lib.escapeShellArgs [
+      "${pkgs.cli-proxy-api}/bin/cli-proxy-api"
+      "-config"
+      configPath
+    ];
     serviceConfig = {
-      ProgramArguments = [
-        "${pkgs.cli-proxy-api}/bin/cli-proxy-api"
-        "-config"
-        configPath
-      ];
       RunAtLoad = true;
       KeepAlive.SuccessfulExit = false;
       ThrottleInterval = 30;

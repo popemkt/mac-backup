@@ -12,8 +12,8 @@ let
 in
 {
   config = lib.mkIf (stack.enable && cfg.enable) {
-    launchd.user.agents.kb-ui.serviceConfig = {
-      ProgramArguments = [
+    launchd.user.agents.kb-ui.command = lib.escapeShellArgs (
+      [
         "${pkgs.kb}/bin/kb"
         "--root"
         cfg.root
@@ -33,7 +33,9 @@ in
       ++ lib.concatMap (origin: [
         "--embed-origin"
         origin
-      ]) cfg.embedOrigins;
+      ]) cfg.embedOrigins
+    );
+    launchd.user.agents.kb-ui.serviceConfig = {
       WorkingDirectory = home;
       EnvironmentVariables = {
         HOME = home;
