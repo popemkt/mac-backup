@@ -14,7 +14,7 @@ keep their own update mechanisms.
 | `_sources/generated.json` | Machine-readable current source state |
 | `pkgs/<name>/default.nix` | Turns a generated source into a Nix package |
 | `pkgs/default.nix` | Exposes local packages to the flake overlay |
-| `scripts/github-sources` | Freshness checks, consistency verification, and intentional updates |
+| `scripts/github-sources` | Freshness, consistency, provenance, and intentional updates |
 
 Never edit files under `_sources/` manually.
 
@@ -68,15 +68,30 @@ warning only when a pinned artifact's host cannot be reached at all.
 nix run .#github-sources -- verify
 ```
 
+**Provenance.** Run `provenance` after `verify`. For each pin with
+`passthru.provenanceRepo`, `passthru.provenanceSignerWorkflow`, and
+`passthru.provenanceSourceRef` in `nvfetcher.toml`, the command downloads the
+pinned artifact, checks its SHA-256 digest, and asks GitHub CLI to verify its
+signed build attestation against that policy. The flake app includes GitHub
+CLI. Sign in with `gh auth login` locally or supply `GH_TOKEN` in CI.
+
+```bash
+nix run .#github-sources -- provenance
+```
+
+A hash mismatch or missing or nonmatching attestation exits 11.
+Unavailable verification, including offline downloads or GitHub API
+failures, exits 20. Use `provenance --best-effort` to warn and continue for
+unavailable verification. CI and `update-system` require the strict check.
+
 The exit statuses above (and 2 for usage or setup errors) each come with a
 message; any other exit is a failure nothing reported, and the script says so
 and prints the tail of the nvfetcher logs it left. The flake check
 `pin-tools-check` runs the same contract cases for GitHub and uv without
-network access. Its GitHub-specific suite runs the flake app itself, with nvfetcher replaced by a
-fixture stub, the way CI runs it: `env -i`, an empty `HOME`, no `TMPDIR`, and
-`PATH=/usr/bin:/bin`. It covers how `check` turns resolutions into a verdict
-and how `verify` answers, so an environment difference that only CI has fails
-`nix flake check` too.
+network access. Its GitHub-specific suite runs the flake app with fixture
+stubs for nvfetcher and GitHub CLI under `env -i`, an empty `HOME`, no
+`TMPDIR`, and `PATH=/usr/bin:/bin`. It covers freshness, consistency, and
+provenance verdicts.
 
 Update every source, or one named source:
 
@@ -96,8 +111,8 @@ so unstaged working-tree content cannot make a partial commit pass. A commit
 that changes `nvfetcher.toml`, `_sources/`, or `pkgs/` runs
 `verify --best-effort` against that staged snapshot, and verify's exit status
 alone decides: any failure blocks the commit, and only `--best-effort`'s
-unreachable-host case warns and passes. The hook never runs
-`check`: freshness does not decide whether a commit lands.
+unreachable-host case warns and passes. Freshness runs on its own schedule,
+and provenance runs in CI and during update preparation.
 
 The hook never updates or stages files. Updates are explicit so their diffs can
 be reviewed.
@@ -155,8 +170,8 @@ store paths, so repeated rebuilds do not reinstall unchanged direct packages.
 A cold Nix store may still need network access to download a pinned artifact.
 
 The `update-system` wrapper prepares a reviewable repository change: it
-refreshes flake inputs and direct-release pins, verifies the generated sources,
-and evaluates the flake without mutating the live system. Inspect or revert the
+refreshes flake inputs and direct-release pins, verifies consistency and
+provenance, and evaluates the flake without mutating the live system. Inspect or revert the
 result before proceeding.
 
 `apply-system-update` activates the prepared pins, then upgrades the declared

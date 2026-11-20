@@ -2,7 +2,7 @@
 # Fixture test for the github-sources app: how check's freshness run and hold
 # probe combine into a verdict, and how verify answers. The app under test is
 # the flake's own wrapper built with scripts/tests/nvfetcher-stub.sh in place
-# of nvfetcher, so the test is offline and deterministic.
+# of nvfetcher and a gh stub, so the test is offline and deterministic.
 #
 # Every case runs the app the way CI does: `env -i`, an empty HOME, no
 # TMPDIR, and PATH=/usr/bin:/bin, so nothing from the caller's environment
@@ -133,6 +133,72 @@ expect verify-failed stderr '^error: nvfetcher could not regenerate release sour
 fixture verify-failed-best-effort 5.3.7
 run verify-failed-best-effort 0 -- verify --best-effort
 expect verify-failed-best-effort stderr '^warning: could not fetch pinned release artifacts while offline; continuing$'
+
+# --- provenance -------------------------------------------------------------
+
+provenance_fixture() {
+  local root="$work/$1"
+  local hash="${2:-sha256-D8fIw1ffosxhFs3xFytXNJCKMWRNaoBxUgI91j1/FRo=}"
+  fixture "$1" 5.3.7
+  printf 'fixture artifact\n' >"$root/artifact"
+  jq --arg url "file://$root/artifact" --arg hash "$hash" '
+    .held.src += {url: $url, sha256: $hash} |
+    .held.passthru = {
+      provenanceRepo: "example/held",
+      provenanceSignerWorkflow: "example/held/.github/workflows/publish.yml",
+      provenanceSourceRef: "refs/heads/main"
+    }' "$root/regenerated/generated.json" >"$root/_sources/generated.json"
+}
+
+fixture provenance-undeclared 5.3.7
+run provenance-undeclared 0 -- provenance
+expect provenance-undeclared stdout '^No pinned artifacts declare release provenance\.$'
+
+provenance_fixture provenance-pass
+run provenance-pass 0 STUB_ATTESTATION=pass -- provenance
+expect provenance-pass stdout '^held: verified release provenance'
+if ! diff -u - "$work/provenance-pass/record/gh-args" <<EOF
+attestation
+verify
+$(sed -n '3p' "$work/provenance-pass/record/gh-args")
+--hostname
+github.com
+--repo
+example/held
+--signer-workflow
+example/held/.github/workflows/publish.yml
+--source-ref
+refs/heads/main
+--deny-self-hosted-runners
+EOF
+then
+  fail "provenance-pass: unexpected gh arguments"
+fi
+
+provenance_fixture provenance-wrong-hash 'sha256-other'
+run provenance-wrong-hash 11 STUB_ATTESTATION=pass -- provenance --best-effort
+expect provenance-wrong-hash stderr 'downloaded artifact does not match the pinned hash'
+if [ -e "$work/provenance-wrong-hash/record/gh-args" ]; then
+  fail "provenance-wrong-hash: gh ran before the artifact hash matched"
+fi
+
+for verdict in mismatch missing; do
+  provenance_fixture "provenance-$verdict"
+  run "provenance-$verdict" 11 STUB_ATTESTATION="$verdict" -- provenance --best-effort
+  expect "provenance-$verdict" stderr 'no attestation matches the declared provenance'
+done
+
+provenance_fixture provenance-offline
+run provenance-offline 20 STUB_ATTESTATION=offline -- provenance
+run provenance-offline 0 STUB_ATTESTATION=offline -- provenance --best-effort
+expect provenance-offline stderr 'release provenance verification unavailable'
+
+provenance_fixture verify-with-provenance
+cp "$work/verify-with-provenance/"{_sources,regenerated}/generated.json
+run verify-with-provenance 0 STUB_GENERATED="$work/verify-with-provenance/regenerated" -- verify --best-effort
+if [ -e "$work/verify-with-provenance/record/gh-args" ]; then
+  fail "verify-with-provenance: verify called gh"
+fi
 
 # --- no silent exits --------------------------------------------------------
 

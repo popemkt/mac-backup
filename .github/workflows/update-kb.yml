@@ -11,6 +11,7 @@ on:
     - cron: "41 * * * *"
 
 permissions:
+  attestations: read
   contents: write
   pull-requests: write
 
@@ -46,8 +47,11 @@ jobs:
 
       - name: Verify and build kb
         if: steps.changed.outputs.kb == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           nix run .#github-sources -- verify
+          nix run .#github-sources -- provenance
           nix build .#nixosConfigurations.shared-server.pkgs.kb --print-build-logs
 
       - name: Open update pull request

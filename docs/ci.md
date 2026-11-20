@@ -13,7 +13,8 @@ independent jobs that run in parallel because they share nothing:
 
 - **`nix`** — `shellcheck`, `actionlint`, `nixfmt --check`, `statix`, `deadnix`,
   `nix flake check` (eval, then build), release-source consistency
-  (`github-sources verify`), and the Tailscale policy check
+  and provenance ([release-pin checks](github-release-packages.md#commands)),
+  and the Tailscale policy check
   (`scripts/check-tailscale-policy.sh check`: every Service a host declares
   has a grant naming it and a Service auto-approver for one of its host's
   `my.stacks.vpn.tags`). Runs inside `nix develop`, so the tool versions
