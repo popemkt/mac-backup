@@ -54,17 +54,12 @@
       "ip": ["tcp:443"],
     },
 
-    // Each person's own devices (their phone's kb app) reach their kb's
-    // capture-only listener: pairing with a code issued on the host, then
-    // delivery with the device's bearer token. Nobody else's devices.
+    // popemkt's own devices (the phone's kb app) reach popemkt's kb capture-only
+    // listener: pairing with a code issued on the host, then delivery with
+    // the device's bearer token. Nobody else's devices.
     {
       "src": ["hoangng71299@gmail.com"],
       "dst": ["svc:kb-capture-popemkt"],
-      "ip": ["tcp:443"],
-    },
-    {
-      "src": ["bytetum@github"],
-      "dst": ["svc:kb-capture-bytetum"],
       "ip": ["tcp:443"],
     },
 
@@ -144,7 +139,6 @@
       "svc:kb-popemkt": ["tag:shared-server"],
       "svc:kb-bytetum": ["tag:shared-server"],
       "svc:kb-capture-popemkt": ["tag:shared-server"],
-      "svc:kb-capture-bytetum": ["tag:shared-server"],
       "svc:kb-work": ["tag:orca-host"],
       "svc:marginalia-bytetum": ["tag:shared-server"],
       "svc:adhoc-popemkt": ["tag:shared-server"],

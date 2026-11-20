@@ -67,8 +67,8 @@ the UI's Origin acts as that person. The app's `package` is
 
 A store with `capture.enable` also runs a capture-only listener for phones:
 `kb ui --capture-only` on the same root, as the owner, as the my.services
-entry `<name>-capture` (`app = "kb-capture"`: units `app-kb-capture` and
-`app-kb-bytetum-capture`), on the owner-only socket
+entry `<name>-capture` (`app = "kb-capture"`: popemkt's unit is
+`app-kb-capture`), on the owner-only socket
 `/run/kb-capture-<person>/kb.sock`, published as `svc:kb-capture-<person>`.
 It admits only capture version discovery, pairing with a one-use code, and
 delivery with the bearer token pairing returns (kb's DESIGN.md → Raw
@@ -77,8 +77,10 @@ request is refused. The tailnet policy's grant for each listener names only
 its owner's own devices (`configs/tailscale/policy.hujson`); until the
 tightening pass removes the policy's wildcard grant
 ([tailscale.md](tailscale.md)), any tailnet member can still connect, and the
-pairing code and the device's token are what admit a phone. Both
-shared-server stores have it on.
+pairing code and the device's token are what admit a phone. On
+shared-server only popemkt's store has it on; bytetum's stays off until they
+ask for it (`capture.enable` on `kb-bytetum`, plus the grant and
+auto-approver for `svc:kb-capture-bytetum`).
 
 ### Pair a phone
 
