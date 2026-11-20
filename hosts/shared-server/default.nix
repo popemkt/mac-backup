@@ -271,6 +271,14 @@ in
   # device_select layer reads it; `!` hides every other device.
   environment.sessionVariables.MESA_VK_DEVICE_SELECT = "1002:1681!";
 
+  my.stacks.ntfy = {
+    enable = true;
+    servers.ntfy = {
+      owner = "popemkt";
+      expose = false; # Hold tailnet exposure until the owner decides on policy.
+    };
+  };
+
   # Each person's personal kb in the browser, as svc:kb-<person>
   # (modules/stacks/kb/nixos.nix): their kb home store (kb DESIGN.md →
   # Locations), a root outside any repository that kb ui creates on first

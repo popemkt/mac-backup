@@ -362,6 +362,10 @@
         darwin-work = self.darwinConfigurations.popemkt-work.system;
       };
 
+      checks.x86_64-linux.app-containers = import ./modules/nixos/system/app-containers/tests.nix {
+        pkgs = (pkgsFor "x86_64-linux").extend self.overlays.default;
+      };
+
       checks.x86_64-linux.package-executors-contract = executorContractCheck (pkgsFor "x86_64-linux");
 
       checks.x86_64-linux.npm-global-activation-check =

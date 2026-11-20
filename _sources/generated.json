@@ -129,6 +129,26 @@
         },
         "version": "2.0.2"
     },
+    "ntfy-image": {
+        "cargoLock": null,
+        "date": null,
+        "extract": null,
+        "name": "ntfy-image",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "arch": "amd64",
+            "finalImageName": null,
+            "finalImageTag": null,
+            "imageDigest": "sha256:038da2be5e668fee6d36a62884eea48975e1b71c29a56964e5298c1b9165a573",
+            "imageName": "binwiederhier/ntfy",
+            "imageTag": "v2.38.1",
+            "os": "linux",
+            "sha256": "sha256-IMGWXl/VdddEAHYm150yTSIIC9t1liP95UZwX5vUDX0=",
+            "tlsVerify": null
+        },
+        "version": "v2.38.1"
+    },
     "spacetimedb": {
         "cargoLock": null,
         "date": null,

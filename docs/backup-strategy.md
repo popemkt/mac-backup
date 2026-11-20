@@ -380,3 +380,13 @@ Short version:
 - backups preserve what we accumulated
 
 Both are necessary for a machine that can be rebuilt cleanly and restored realistically.
+
+## NixOS container state
+
+Back up each container app's `my.services.<entry>.dataDir` (normally
+`/srv/<entry>`) with owner and permissions. Stop the app for a filesystem copy
+so any database and its journal are consistent. Use encrypted backups for
+state that contains credentials or messages. On restore, place the files back
+under the declared directory before starting the service. The image and
+read-only app configuration come from the pinned repository revision.
+See [Container apps](app-containers.md) for moving the deployment.

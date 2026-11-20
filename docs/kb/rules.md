@@ -107,6 +107,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Install the plugin on a bb server, compose and spawn on thr_5kgr5arqw3's project, and record the result in the research doc.
 - **node** — `01M5QKD89DMW3BR5RS6SYZD3RJ`
 
+### GAP: deliver kb attention notifications through UnifiedPush
+
+- **expected** — The kb host publishes capture failures and needs-attention events to ntfy, and the Android Capacitor shell registers as a UnifiedPush connector.
+- **current** — The ntfy endpoint exists independently of kb.
+- **impact** — The phone does not receive kb events.
+- **closes** — Implement host publishing and the Android connector in popemkt/kb.
+- **node** — `01M7WXKQ80V0WNJP35KTK6YS1Y`
+
 ### GAP: kb canvas links see only the kb the plugin serves (shared-server's home store)
 
 - **expected** — Every kb store a bb thread writes is read for links: the home store, a Mac's own home store, a repo's .kb, each named by its root (kb Locations), read on the machine that holds it.

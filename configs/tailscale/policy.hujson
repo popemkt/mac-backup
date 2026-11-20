@@ -11,6 +11,13 @@
   },
 
   "grants": [
+    // Reserved for ntfy when the owner enables its tailnet exposure.
+    {
+      "src": ["hoangng71299@gmail.com"],
+      "dst": ["svc:ntfy-popemkt"],
+      "ip": ["tcp:443"],
+    },
+
     // Orca Mobile connects directly to Orca hosts over MagicDNS.
     {
       "src": ["autogroup:member"],
@@ -141,6 +148,7 @@
       "svc:kb-popemkt": ["tag:shared-server"],
       "svc:kb-bytetum": ["tag:shared-server"],
       "svc:kb-capture-popemkt": ["tag:shared-server"],
+      "svc:ntfy-popemkt": ["tag:shared-server"],
       "svc:kb-work": ["tag:orca-host"],
       "svc:marginalia-bytetum": ["tag:shared-server"],
       "svc:adhoc-popemkt": ["tag:shared-server"],

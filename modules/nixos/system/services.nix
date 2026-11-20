@@ -13,7 +13,14 @@
 # directory as its RuntimeDirectory: created (owner-only) when it starts and
 # removed when it stops, so a crash leaves nothing that blocks the restart.
 # The app's unit Wants its companions and they start After it; neither ever
-# stops or restarts the other.
+# stops or restarts the other. An app's `dataDir` is created owner-only.
+#
+# A native app's unit runs its program. A container (`image`) app's unit runs
+# its container in the owner's rootless Podman instead
+# (./app-containers/container.nix), and everything else here (restarts, idle
+# checks, companions, exposure) is the same for it. Its portable form, a
+# compose file and the read-only files it mounts, is in
+# /etc/app-containers/<app>/.
 #
 # Upgrades restart apps. A `package` app's unit names its program by store
 # path, so a switch to a new package restarts it. An `updatedBy` app is
@@ -110,6 +117,13 @@ let
     systemctl = config.systemd.package;
   };
 
+  containerApps = lib.filterAttrs (_: app: app.image != null) cfg;
+  containerOf = lib.mapAttrs (import ./app-containers/container.nix {
+    inherit lib pkgs;
+    podman = config.virtualisation.podman.package;
+    systemctl = config.systemd.package;
+  }) containerApps;
+
   # Every unit an app runs: its own, then one per companion. `key` names the
   # unit's restart state and definition; the app's own is the app's name.
   unitsOf = lib.mapAttrs (
@@ -121,17 +135,23 @@ let
         companion = null;
         description = "${name}, run as ${app.owner} on ${listensOn app}";
         inherit (app) idleCheck;
-        environment =
+        # A container's environment is its container's (container.nix).
+        environment = lib.optionalAttrs (app.image == null) (
           lib.optionalAttrs (app.port != null) {
             HOST = "127.0.0.1";
             PORT = toString app.port;
           }
-          // app.environment;
+          // app.environment
+        );
         run =
           if app.package != null then
             "exec ${lib.escapeShellArgs ([ (lib.getExe app.package) ] ++ app.args)}"
+          else if app.image != null then
+            containerOf.${name}.run
           else
             app.command;
+        declared = if app.image != null then containerOf.${name}.declared else null;
+        container = app.image != null;
       }
     ]
     ++ lib.mapAttrsToList (companion: c: {
@@ -142,6 +162,8 @@ let
       inherit (c) idleCheck;
       inherit (c) environment;
       run = c.command;
+      declared = null;
+      container = false;
     }) app.companions
   ) cfg;
   # Apps whose restarts wait for idle: an idleCheck on any of their units.
@@ -250,7 +272,8 @@ let
     // lib.optionalAttrs (u.companion == null && app.socket != null) {
       RuntimeDirectory = runtimeDirectory app.socket;
       RuntimeDirectoryMode = "0700";
-    };
+    }
+    // lib.optionalAttrs u.container containerOf.${name}.serviceConfig;
   };
   # What the unit was declared to run, as one hash: a switch that changes it
   # leaves a restart pending. Only the declaration, not the generated unit,
@@ -271,7 +294,9 @@ let
               workingDirectory
               updatedBy
               ;
-            inherit (u) run environment;
+            inherit (u) environment;
+            # A container's declaration, not its start script's store path.
+            run = if u.declared != null then u.declared else u.run;
             package = if app.package == null then null else lib.getExe app.package;
           }
           // lib.optionalAttrs (u.companion == null) { companions = lib.attrNames app.companions; }
@@ -320,8 +345,42 @@ in
             message = "my.services.${name}: set exactly one of port and socket.";
           }
           {
-            assertion = (app.package == null) != (app.updatedBy == null);
-            message = "my.services.${name}: set exactly one of package (a Nix package) and updatedBy (the installer that upgrades it), so an upgrade restarts it.";
+            assertion =
+              lib.count (x: x != null) [
+                app.package
+                app.image
+                app.updatedBy
+              ] == 1;
+            message = "my.services.${name}: set exactly one of package (a Nix package), image (a pinned container image) and updatedBy (the installer that upgrades it), so an upgrade restarts it.";
+          }
+          {
+            assertion = app.image == null || (app.command == null && app.workingDirectory == null);
+            message = "my.services.${name}: an image app runs its image with args; drop command and workingDirectory.";
+          }
+          {
+            assertion =
+              app.image == null
+              || (
+                app.image ? imageName
+                && app.image ? imageTag
+                && builtins.match "sha256:[0-9a-f]{64}" (app.image.imageDigest or "") != null
+              );
+            message = "my.services.${name}.image must be an image archive that names itself (imageName, imageTag) and its pinned digest (imageDigest), e.g. dockerTools.pullImage from nvfetcher.toml.";
+          }
+          {
+            assertion =
+              app.image != null
+              || (
+                app.container.port == null
+                && app.container.files == { }
+                && !app.container.outbound
+                && app.container.dataPath == "/data"
+              );
+            message = "my.services.${name}: container.* applies to image apps only.";
+          }
+          {
+            assertion = app.dataDir == null || builtins.match "/[^ ]+" app.dataDir != null;
+            message = "my.services.${name}.dataDir must be an absolute path without spaces.";
           }
           {
             assertion = app.package == null || app.command == null;
@@ -389,16 +448,18 @@ in
                     serviceConfig =
                       unit.serviceConfig
                       // {
-                        ExecStartPost = "-${scripts.recordStart} ${
-                          lib.escapeShellArgs (
-                            [
-                              u.key
-                              (definitionHash app u)
-                              (if u.idleCheck != null then "gated" else "free")
-                            ]
-                            ++ lib.optionals (u.companion == null) (lib.attrNames app.companions)
-                          )
-                        }";
+                        ExecStartPost = (unit.serviceConfig.ExecStartPost or [ ]) ++ [
+                          "-${scripts.recordStart} ${
+                            lib.escapeShellArgs (
+                              [
+                                u.key
+                                (definitionHash app u)
+                                (if u.idleCheck != null then "gated" else "free")
+                              ]
+                              ++ lib.optionals (u.companion == null) (lib.attrNames app.companions)
+                            )
+                          }"
+                        ];
                       }
                       // lib.optionalAttrs (u.companion != null) {
                         ExecCondition = "${scripts.companionCondition} ${name} ${u.companion}";
@@ -458,18 +519,30 @@ in
       }
     ) idleApps;
 
-    environment.etc = lib.listToAttrs (
-      lib.concatLists (
-        lib.mapAttrsToList (
-          name: app:
-          map (
-            u: lib.nameValuePair "app-restart/${u.key}.definition" { text = definitionHash app u; }
-          ) unitsOf.${name}
-        ) idleApps
+    environment.etc =
+      lib.listToAttrs (
+        lib.concatLists (
+          lib.mapAttrsToList (
+            name: app:
+            map (
+              u: lib.nameValuePair "app-restart/${u.key}.definition" { text = definitionHash app u; }
+            ) unitsOf.${name}
+          ) idleApps
+        )
       )
-    );
+      // lib.mapAttrs' (
+        name: _: lib.nameValuePair "app-containers/${name}" { source = containerOf.${name}.bundle; }
+      ) containerApps;
+
+    # Container apps run in their owner's rootless Podman, which needs the
+    # owner's user manager (and /run/user/<uid>) without a login.
+    virtualisation.podman.enable = lib.mkIf (containerApps != { }) true;
+    users.users = lib.mapAttrs' (_: app: lib.nameValuePair app.owner { linger = true; }) containerApps;
     systemd.tmpfiles.rules =
-      lib.optionals (idleApps != { }) (
+      lib.mapAttrsToList (
+        _: app: "d ${app.dataDir} 0700 ${app.owner} ${config.users.users.${app.owner}.group} -"
+      ) (lib.filterAttrs (_: app: app.dataDir != null) cfg)
+      ++ lib.optionals (idleApps != { }) (
         [ "d ${restartStateDirectory} 0755 root root -" ]
         ++ lib.concatLists (
           lib.mapAttrsToList (
