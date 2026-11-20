@@ -57,6 +57,7 @@ usage() {
 Usage:
   github-sources check [--best-effort]
   github-sources verify [--best-effort]
+  github-sources provenance [--best-effort]
   github-sources update [source-name]
 
 Commands:
@@ -65,6 +66,9 @@ Commands:
   verify  Consistency: do the committed _sources match nvfetcher.toml
           regenerated at their pinned versions? Exit 11 on a mismatch, 20
           when nvfetcher fails (a warning with --best-effort when offline).
+  provenance  Verify declared GitHub attestations for the pinned bytes.
+          Exit 11 on a mismatch, 20 when verification is unavailable
+          (a warning with --best-effort).
   update  Regenerate versions and hashes with nvfetcher. Optionally update
           exactly one source from nvfetcher.toml.
 
@@ -374,6 +378,130 @@ verify_sources() {
   echo "Generated release sources match nvfetcher.toml at their pinned versions."
 }
 
+verify_artifact_provenance() {
+  local name="$1" url="$2" hash="$3" repo="$4" signer="$5" ref="$6" subject="$7"
+  local artifact="$WORK_DIR/provenance/artifact" digest="$WORK_DIR/provenance/digest"
+  local actual_hash digest_hex status
+  local log_file="$WORK_DIR/provenance/gh.log"
+  local verified="$WORK_DIR/provenance/verified.json"
+
+  if ! curl --disable --fail --silent --show-error --location \
+    --connect-timeout 10 --max-time 300 --output "$artifact" -- "$url"; then
+    echo "Could not download the pinned artifact." >&2
+    return 20
+  fi
+
+  if ! openssl dgst -sha256 -binary "$artifact" >"$digest" ||
+    ! actual_hash="$(base64 -w 0 <"$digest")" ||
+    ! digest_hex="$(od -An -tx1 -v "$digest" | tr -d ' \n')"; then
+    echo "error: $name: could not calculate the artifact digest" >&2
+    return 2
+  fi
+  if [ "sha256-$actual_hash" != "$hash" ]; then
+    echo "error: $name: downloaded artifact does not match the pinned hash" >&2
+    return 11
+  fi
+
+  if timeout 120 gh attestation verify "$artifact" --hostname github.com \
+    --repo "$repo" --cert-identity "$signer" --source-ref "$ref" \
+    --deny-self-hosted-runners --format json >"$verified" 2>"$log_file"; then
+    if ! jq -e --arg name "$subject" --arg digest "$digest_hex" '
+      any(.[].verificationResult.statement.subject[]?;
+        .name == $name and .digest.sha256 == $digest)
+    ' "$verified" >/dev/null; then
+      echo "error: $name: no verified attestation subject matches $subject and its pinned digest" >&2
+      return 11
+    fi
+    echo "$name: verified release provenance ($signer)"
+    return 0
+  else
+    status=$?
+  fi
+
+  cat "$log_file" >&2
+  case "$status" in
+    4) return 20 ;; # gh requires authentication
+    124)
+      echo "GitHub attestation verification timed out." >&2
+      return 20
+      ;;
+  esac
+  # gh uses exit 1 for both rejection and service errors. Best effort
+  # waives only recognized availability failures.
+  case "$(<"$log_file")" in
+    *"no valid Sigstore verifiers could be initialized"* | *"verifier is not available"* | \
+    *"dial tcp "* | *"i/o timeout"* | *"context deadline exceeded"* | \
+    *"HTTP 401"* | *"HTTP 403"* | *"HTTP 429"* | *"HTTP 5"[0-9][0-9]*)
+      return 20
+      ;;
+  esac
+  echo "error: $name: no attestation matches the declared provenance" >&2
+  return 11
+}
+
+verify_provenance() {
+  local best_effort=false
+  if [ "${1:-}" = "--best-effort" ]; then
+    best_effort=true
+    shift
+  fi
+  if [ "$#" -ne 0 ]; then
+    usage >&2
+    return 2
+  fi
+
+  require_command jq
+  require_command remarshal
+  local config pins
+  config="$(config_json)" || return 2
+  if ! pins="$(jq -r --argjson config "$config" '
+    to_entries[] | .key as $name | .value |
+    select(.passthru | (. // {}) | keys | any(startswith("provenance"))) |
+    ($config[$name].fetch.url // "" | split("/") | last) as $filename |
+    .version as $version |
+    if ($filename | contains("$ver") | not) then
+      error($name + ": provenance requires a versioned fetch.url filename")
+    else . end |
+    if ($version | type == "string" and test("^[^[:space:]]+$"))
+    then . else error($name + ": invalid provenance pin version") end |
+    [$name, .src.url, .src.sha256, .passthru.provenanceRepo,
+     .passthru.provenanceSignerIdentity, .passthru.provenanceSourceRef,
+     ($filename | split("$ver") | join($version))] |
+    if all(.[]; type == "string" and test("^[^[:space:]]+$"))
+    then @tsv else error($name + ": incomplete provenance declaration or artifact pin") end
+  ' "$GENERATED_JSON")"; then
+    echo "error: could not read the committed provenance declarations" >&2
+    return 2
+  fi
+  if [ -z "$pins" ]; then
+    echo "No pinned artifacts declare release provenance."
+    return 0
+  fi
+
+  require_command curl
+  require_command gh
+  require_command openssl
+  mkdir -p "$WORK_DIR/provenance"
+
+  local name url hash repo signer ref subject unavailable=false
+  while IFS=$'\t' read -r name url hash repo signer ref subject; do
+    local result=0
+    verify_artifact_provenance "$name" "$url" "$hash" "$repo" "$signer" "$ref" "$subject" || result=$?
+    case "$result" in
+      0) ;;
+      20)
+        echo "warning: $name: release provenance verification unavailable" >&2
+        unavailable=true
+        ;;
+      *) return "$result" ;;
+    esac
+  done <<<"$pins"
+
+  if [ "$unavailable" = true ] && [ "$best_effort" = false ]; then
+    return 20
+  fi
+}
+
 update_sources() {
   if [ "$#" -gt 1 ]; then
     usage >&2
@@ -421,6 +549,9 @@ case "$command" in
     ;;
   verify)
     verify_sources "$@"
+    ;;
+  provenance)
+    verify_provenance "$@"
     ;;
   update)
     update_sources "$@"

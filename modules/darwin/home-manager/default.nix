@@ -112,6 +112,7 @@
         unset github_token nix_config
         nix run .#github-sources -- update
         nix run .#github-sources -- verify
+        nix run .#github-sources -- provenance
         ./scripts/uv-sources update
         nix flake check --no-build
 

@@ -64,6 +64,9 @@
       url = "https://github.com/popemkt/kb/releases/download/v0.3.1-nightly.20261118190910/kb-0.3.1-nightly.20261118190910.tar.gz";
       sha256 = "sha256-6CkWtYVWaqGscinYrP51vDOLKJFeg9BfROsGPng0K6Q=";
     };
+    provenanceRepo = "popemkt/kb";
+    provenanceSourceRef = "refs/heads/main";
+    provenanceSignerIdentity = "https://github.com/popemkt/kb/.github/workflows/publish.yml@refs/heads/main";
   };
   logseq = {
     pname = "logseq";

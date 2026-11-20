@@ -100,7 +100,11 @@
         "date": null,
         "extract": null,
         "name": "kb",
-        "passthru": null,
+        "passthru": {
+            "provenanceRepo": "popemkt/kb",
+            "provenanceSignerIdentity": "https://github.com/popemkt/kb/.github/workflows/publish.yml@refs/heads/main",
+            "provenanceSourceRef": "refs/heads/main"
+        },
         "pinned": false,
         "src": {
             "name": null,

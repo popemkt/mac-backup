@@ -110,21 +110,23 @@
             touch "$out"
           '';
 
-      # The github-sources app around a given nvfetcher: the real one for the
-      # flake app, a fixture stub for its test, so both run the same wrapper.
+      # The app and its fixture tests share the same wrapper; the tests
+      # supply stubs for nvfetcher and gh.
       # The script runs under the app's own bash, never whatever `env bash`
       # finds: on a minimal PATH that is macOS's /bin/bash 3.2.
       mkGithubSources =
-        pkgs: nvfetcher:
+        pkgs: nvfetcher: gh:
         pkgs.writeShellApplication {
           name = "github-sources";
           runtimeInputs = with pkgs; [
             coreutils
             curl
             diffutils
+            gh
             git
             jq
             nvfetcher
+            openssl
             remarshal
           ];
           text = ''
@@ -135,9 +137,11 @@
       pinToolsCheck =
         pkgs:
         let
-          app = mkGithubSources pkgs (
-            pkgs.writeShellScriptBin "nvfetcher" (builtins.readFile ./scripts/tests/nvfetcher-stub.sh)
+          nvfetcherStub = pkgs.writeShellScriptBin "nvfetcher" (
+            builtins.readFile ./scripts/tests/nvfetcher-stub.sh
           );
+          ghStub = pkgs.writeShellScriptBin "gh" (builtins.readFile ./scripts/tests/gh-attestation-stub.sh);
+          app = mkGithubSources pkgs nvfetcherStub ghStub;
         in
         pkgs.runCommand "pin-tools-check"
           {
@@ -388,7 +392,7 @@
         {
           github-sources = {
             type = "app";
-            program = "${mkGithubSources pkgs pkgs.nvfetcher}/bin/github-sources";
+            program = "${mkGithubSources pkgs pkgs.nvfetcher pkgs.gh}/bin/github-sources";
           };
         }
       );

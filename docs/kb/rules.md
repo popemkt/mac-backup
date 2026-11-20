@@ -190,14 +190,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Install pi and link the extension on the Mac, spawn a pi thread from a composition, read its report via a bb.host entry.
 - **node** — `01M5QKD8SDR9TX6Y5G2DM220HP`
 
-### GAP: release pins are checked by hash only, never by provenance
-
-- **expected** — github-sources verify also proves where each pinned artifact was built, for every source whose upstream publishes provenance (kb: gh attestation verify --repo popemkt/kb, signer release.yml at the pinned tag), declared beside the source in nvfetcher.toml
-- **current** — verify proves the hash matches what nvfetcher generates from the release URL; kb's v0.2.2 attestation was checked by hand when it was pinned (gh attestation verify exits 0, workflow .github/workflows/release.yml at refs/tags/v0.2.2)
-- **impact** — A release asset replaced upstream before it is pinned would be pinned on its own hash; nothing ties the pin to kb's release workflow
-- **closes** — A per-source provenance declaration in nvfetcher.toml (passthru, so nvfetcher carries it into generated.json), and verify running gh attestation verify on each declared artifact, with gh and an auth token in the flake app and the CI step
-- **node** — `01M56X1F1XG657D70A8804PEQY`
-
 ### GAP: restart-resume is not yet verified against a live daemon restart
 
 - **expected** — After a host daemon restart, each thread interrupted with host-daemon-restarted gets one continuation message from the restart-resume bb plugin, resumes its provider session, and stops after 3 in a row
@@ -387,6 +379,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — Agents on shared-server (kb CLI or kb mcp --root ~/.local/share/kb/home) cannot see or drive popemkt's open kb page
 - **closes** — A kb release that writes presence for socket servers, pinned here (nix run .#github-sources -- update kb)
 - **node** — `01M5HXHNERZR77Z0HX0SZCQZPP`
+
+### GAP: release pins are checked by hash only, never by provenance
+
+- **expected** — After the generated sources match, verify signed build provenance for every pin that declares it in nvfetcher.toml. Both kb release channels use the reusable publish.yml signer and refs/heads/main.
+- **current** — verify proves the hash matches what nvfetcher generates from the release URL; kb's v0.2.2 attestation was checked by hand when it was pinned (gh attestation verify exits 0, workflow .github/workflows/release.yml at refs/tags/v0.2.2)
+- **impact** — A release asset replaced upstream before it is pinned would be pinned on its own hash; nothing ties the pin to kb's release workflow
+- **closes** — github-sources provenance checks the pinned SHA-256 and GitHub attestation. CI and update-system run it after verify. The commit hook uses consistency verification only.
+- **node** — `01M56X1F1XG657D70A8804PEQY`
 
 ### GAP: service ports are restated outside the module that owns them
 

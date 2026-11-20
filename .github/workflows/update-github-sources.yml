@@ -6,6 +6,7 @@ on:
     - cron: "17 3 */2 * *"
 
 permissions:
+  attestations: read
   contents: write
   pull-requests: write
 
@@ -32,6 +33,11 @@ jobs:
 
       - name: Verify generated release sources
         run: nix run .#github-sources -- verify
+
+      - name: Verify release provenance
+        run: nix run .#github-sources -- provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: Validate formatting and evaluation
         run: |
