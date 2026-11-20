@@ -272,14 +272,20 @@ in
   # browser origin, which is that Service's. A request with that Origin acts
   # as the person, so the UI listens on a Unix socket only they and root
   # (tailscaled) can reach, not on a loopback port every account can.
+  # Each store also takes captures from its owner's phone (kb's Android app)
+  # through a capture-only listener, svc:kb-capture-<person>, which the
+  # tailnet policy grants only to that person's own devices; `kb-pair`
+  # prints the URL and a pairing code (docs/kb-service.md → Pair a phone).
   my.stacks.kb.stores = {
     kb = {
       owner = "popemkt";
       uiArgs = bbFramesKb "popemkt";
+      capture.enable = true;
     };
     kb-bytetum = {
       owner = "bytetum";
       uiArgs = bbFramesKb "bytetum";
+      capture.enable = true;
     };
   };
 

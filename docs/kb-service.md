@@ -65,6 +65,48 @@ the UI's Origin acts as that person. The app's `package` is
 `pkgs.kb`, run by store path, so a rebuild that moves the kb pin restarts it
 (`configs/specs/app-service-contract.md`).
 
+A store with `capture.enable` also runs a capture-only listener for phones:
+`kb ui --capture-only` on the same root, as the owner, as the my.services
+entry `<name>-capture` (`app = "kb-capture"`: units `app-kb-capture` and
+`app-kb-bytetum-capture`), on the owner-only socket
+`/run/kb-capture-<person>/kb.sock`, published as `svc:kb-capture-<person>`.
+It admits only capture version discovery, pairing with a one-use code, and
+delivery with the bearer token pairing returns (kb's DESIGN.md → Raw
+capture, in the pinned release; no stable tag has it yet); every other
+request is refused. The tailnet policy's grant for each listener names only
+its owner's own devices (`configs/tailscale/policy.hujson`); until the
+tightening pass removes the policy's wildcard grant
+([tailscale.md](tailscale.md)), any tailnet member can still connect, and the
+pairing code and the device's token are what admit a phone. Both
+shared-server stores have it on.
+
+### Pair a phone
+
+kb's Android app (popemkt/kb `apps/android`, README → Pair a store) sends
+shares to one of these listeners. On shared-server, signed in as the store's
+owner, run:
+
+```sh
+kb-pair            # your own store; or name one: kb-pair kb-popemkt
+```
+
+It prints the URL and a code, 32 hex characters, valid once for ten
+minutes:
+
+```text
+Store: kb-popemkt
+URL:   https://kb-capture-popemkt.taild98079.ts.net
+Code:  097e63ebc5362d9cd4ab74652cc7cb35
+Valid once, until 2026-11-20T15:47:47.473Z.
+```
+
+In the app, under **Stores**, enter that URL and code and tap **Pair**. The
+phone must be on the tailnet as the store's owner. `kb-pair` runs kb's
+`capture.pairCode` as the store's owner, through sudo when someone else asks
+for it. Revoke a phone on the host with
+`kb --root <store> action-invoke '{"id":"capture.revoke","input":{"deviceId":"<id>"}}'`
+as the owner.
+
 ## Personal instance
 
 <!-- GAP [[01M56SQJF52DWN2T00D510BRQ3]]: kb links name the pinned release by hand. -->

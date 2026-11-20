@@ -6,41 +6,80 @@
 }:
 
 # NixOS side of the kb stack. The CLI comes from the shared ./default.nix.
-# The stores a host serves are `stores`, each a my.services app run as its
-# owner: the single-person `server` component is macOS-only.
+# The stores a host serves are `stores` (the single-person `server`
+# component is macOS-only): each is a my.services app run as its owner, and,
+# with `capture`, a second one that takes captures from phones, which
+# `kb-pair` pairs.
 let
-  inherit (lib) mkOption types;
+  inherit (lib) mkOption mkEnableOption types;
   cfg = config.my.stacks.kb;
   inherit (config.users) users;
   publicOrigin = service: config.my.stacks.vpn.services.${service}.publicOrigin;
 
-  # A store's apps, keyed by my.services entry. The UI is `app = "kb"`, so it
-  # is published as svc:kb-<owner>; it listens on an owner-only socket,
-  # because a request carrying the UI's Origin acts as the owner.
+  # A store's apps, keyed by my.services entry, each published as
+  # svc:<app>-<owner> from an owner-only socket. The UI is `app = "kb"`: a
+  # request carrying its Origin acts as the owner. The capture listener,
+  # `app = "kb-capture"` on the entry `<name>-capture`, is `kb ui
+  # --capture-only` on the same root: it admits only capture version
+  # discovery, pairing with a code from `kb-pair`, and delivery with the
+  # bearer token pairing returns (kb DESIGN.md → Raw capture).
   storeApps =
     name: store:
     let
-      socket = "/run/kb-${store.owner}/kb.sock";
+      app =
+        kind: args:
+        let
+          socket = "/run/${kind}-${store.owner}/kb.sock";
+        in
+        {
+          app = kind;
+          inherit (store) owner;
+          inherit socket;
+          package = pkgs.kb;
+          args = [
+            "--root"
+            store.root
+            "ui"
+          ]
+          ++ args
+          ++ [
+            "--socket"
+            socket
+            "--no-open"
+            "--public-origin"
+            (publicOrigin "${kind}-${store.owner}")
+          ];
+        };
+      ui = app "kb" [ ];
     in
     {
-      ${name} = {
-        app = "kb";
-        inherit (store) owner;
-        inherit socket;
-        package = pkgs.kb;
-        args = [
-          "--root"
-          store.root
-          "ui"
-          "--socket"
-          socket
-          "--no-open"
-          "--public-origin"
-          (publicOrigin "kb-${store.owner}")
-        ]
-        ++ store.uiArgs;
+      ${name} = ui // {
+        args = ui.args ++ store.uiArgs;
       };
+    }
+    // lib.optionalAttrs store.capture.enable {
+      "${name}-capture" = app "kb-capture" [ "--capture-only" ];
     };
+
+  # What kb-pair knows of each store with a capture listener, by the name of
+  # the store's UI Service (kb-<owner>).
+  captureStores = lib.mapAttrs' (
+    _: store:
+    lib.nameValuePair "kb-${store.owner}" {
+      inherit (store) owner root;
+      url = publicOrigin "kb-capture-${store.owner}";
+    }
+  ) (lib.filterAttrs (_: store: store.capture.enable) cfg.stores);
+  kbPair = pkgs.writeShellApplication {
+    name = "kb-pair";
+    runtimeInputs = [ pkgs.jq ];
+    text = builtins.readFile ./kb-pair.sh;
+    runtimeEnv = {
+      KB = lib.getExe pkgs.kb;
+      SUDO = "${config.security.wrapperDir}/sudo";
+      STORES = pkgs.writeText "kb-pair-stores.json" (builtins.toJSON captureStores);
+    };
+  };
 in
 {
   # The served stores' part of the stack's schema, declared with its only
@@ -82,6 +121,13 @@ in
                     .kb, which changes through commits, not a live UI.
                   '';
                 };
+                capture.enable = mkEnableOption ''
+                  a capture-only listener beside the UI, for phones (kb's
+                  Android app): `kb ui --capture-only` on the same root, as
+                  the owner, published as svc:kb-capture-<owner>. Pair a phone
+                  with `kb-pair`; the Service still needs its grant and
+                  auto-approver in configs/tailscale/policy.hujson
+                '';
                 uiArgs = mkOption {
                   type = types.listOf types.str;
                   default = [ ];
@@ -116,6 +162,7 @@ in
     ];
 
     my.services = lib.mkIf cfg.enable (lib.concatMapAttrs storeApps cfg.stores);
+    environment.systemPackages = lib.mkIf (cfg.enable && captureStores != { }) [ kbPair ];
 
     # kb's render tests drive Playwright's prebuilt Chromium, through nix-ld.
     my.pkgs.nixLdLibraries = lib.mkIf cfg.enable (import ../prebuilt-chromium-libraries.nix);

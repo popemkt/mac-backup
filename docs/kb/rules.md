@@ -118,8 +118,8 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 ### GAP: kb.server has no NixOS side
 
 - **expected** — kb.server runs on NixOS as a supervised service for a named person, rendered from the same service declaration the macOS launchd agent comes from.
-- **current** — modules/stacks/kb/nixos.nix asserts kb.server.enable is false; only the macOS side (server.nix, a launchd user agent for the primary user) implements the UI service. The CLI is shared and installs for every person.
-- **impact** — The shared server cannot host a kb browser UI; enabling it fails evaluation instead of silently doing nothing.
+- **current** — modules/stacks/kb/nixos.nix asserts kb.server.enable is false; only the macOS side (server.nix, a launchd user agent for the primary user) implements kb.server. NixOS serves stores through its own schema, my.stacks.kb.stores (owner, root, uiArgs, capture), rendered as my.services apps, so the two platforms declare a served store differently. The CLI is shared and installs for every person.
+- **impact** — A served store is declared twice over: kb.server on macOS (one store, the primary user) and my.stacks.kb.stores on NixOS (one per person, with the capture listener and kb-pair). A change to how kb is served lands in both, and only NixOS can serve a phone.
 - **closes** — A shared service abstraction (my.services) with launchd and systemd renderers, kb.server gaining a user option, and both sides rendered from it; t3-code moves onto the same abstraction.
 - **rule** — Abstraction before addition (Rule 1)
 - **node** — `01M52TVK8YAZDN3R8V0CB99GSW`
