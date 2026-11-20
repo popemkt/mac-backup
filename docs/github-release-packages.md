@@ -5,6 +5,15 @@ can be discovered from GitHub releases or an upstream webpage such as Cursor's
 install page. This is separate from flake inputs, Homebrew, npm, and uv, which
 keep their own update mechanisms.
 
+## Container sources
+
+OCI archives use the same nvfetcher update flow. A `fetch.docker` source
+records a registry manifest digest, platform, and Nix archive hash in
+`_sources/`. The upstream release tag drives discovery. The digest selects
+what runs. To advance ntfy, use
+`nix run .#github-sources -- update ntfy-image`, review the generated digest,
+and run the [container VM check](app-containers.md#verification).
+
 ## Layout
 
 | Path | Responsibility |

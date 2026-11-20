@@ -1,8 +1,7 @@
 // Tailnet policy source of truth.
 //
-// The final wildcard grant preserves the tailnet's existing unrestricted
-// behavior. The explicit service grants document the durable contracts we
-// rely on and let us remove the wildcard safely in a later tightening pass.
+// The final grant preserves broad access to devices. Each Service has its
+// own grant.
 {
   "tagOwners": {
     "tag:home-server": ["autogroup:admin"],
@@ -57,11 +56,16 @@
     // popemkt's own devices (the phone's kb app) reach popemkt's kb capture-only
     // listener: pairing with a code issued on the host, then delivery with
     // the device's bearer token. Nobody else's devices.
-    // GAP [[01M7WTAJYW03B2N9ZS36ZJHZ8G]]: the wildcard grant below still
-    // admits every member until the tightening pass removes it.
     {
       "src": ["hoangng71299@gmail.com"],
       "dst": ["svc:kb-capture-popemkt"],
+      "ip": ["tcp:443"],
+    },
+
+    // popemkt's phones and other user-owned devices reach the ntfy server.
+    {
+      "src": ["hoangng71299@gmail.com"],
+      "dst": ["svc:ntfy-popemkt"],
       "ip": ["tcp:443"],
     },
 
@@ -121,11 +125,11 @@
       "ip": ["tcp:22"],
     },
 
-    // Preserve the pre-existing default policy until every remaining flow is
-    // inventoried and covered by a narrower grant.
+    // Preserve direct access to user-owned, shared and declared tagged devices.
+    // Service destinations and subnet routes need their own grants.
     {
       "src": ["*"],
-      "dst": ["*"],
+      "dst": ["autogroup:member", "autogroup:shared", "tag:home-server", "tag:orca-host", "tag:shared-server"],
       "ip": ["*"],
     },
   ],
@@ -141,6 +145,7 @@
       "svc:kb-popemkt": ["tag:shared-server"],
       "svc:kb-bytetum": ["tag:shared-server"],
       "svc:kb-capture-popemkt": ["tag:shared-server"],
+      "svc:ntfy-popemkt": ["tag:shared-server"],
       "svc:kb-work": ["tag:orca-host"],
       "svc:marginalia-bytetum": ["tag:shared-server"],
       "svc:adhoc-popemkt": ["tag:shared-server"],
@@ -174,6 +179,17 @@
       "src": ["bytetum@github"],
       "dst": ["tag:shared-server"],
       "users": ["bytetum"],
+    },
+  ],
+
+  "tests": [
+    {
+      "src": "hoangng71299@gmail.com",
+      "accept": ["svc:ntfy-popemkt:443"],
+    },
+    {
+      "src": "bytetum@github",
+      "deny": ["svc:ntfy-popemkt:443", "svc:kb-capture-popemkt:443"],
     },
   ],
 

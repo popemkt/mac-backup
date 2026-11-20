@@ -68,6 +68,15 @@ Keep these concerns in this repository:
 - encrypted deployment secrets
 - Tailscale Service exposure
 
+## NixOS Placement
+
+Use a native `my.services` app for our own code and tooling whose deployment
+depends on the Nix host. Place third-party servers as digest-pinned OCI
+containers so their image, configuration, and data can move to another host.
+Both use the same owner, local endpoint, systemd lifecycle, and Tailscale
+Service. See [Container apps](../../docs/app-containers.md) for the runtime and
+portable deployment bundle.
+
 ## Tailscale Exposure
 
 Declare an HTTP app listening locally on port 3000 like this:
@@ -80,8 +89,8 @@ my.stacks.vpn.services.my-api = {
 };
 ```
 
-On a NixOS host, an app this repo runs natively is placed with `my.services`
-instead, which generates both the systemd unit and the Service:
+For an app managed by this repo on NixOS, `my.services` generates both the
+systemd unit and the Service:
 
 ```nix
 my.services.my-api = {
@@ -93,10 +102,12 @@ my.services.my-api = {
 ```
 
 Every app says what upgrades it, so that an upgrade restarts it, and the
-module refuses an app that says neither:
+module requires exactly one of these:
 
 - **`package`**: a Nix package. The unit runs its main program by store path,
   so a switch to a new version changes the unit and restarts the app.
+- **`image`**: an OCI archive pinned by digest. A switch that changes the
+  digest restarts the container.
 - **`updatedBy`**: a tool a non-Nix installer owns, with `command` the shell
   command that runs it from the owner's PATH, e.g.
   `updatedBy.npmGlobal = "bb-app"`. After
@@ -133,8 +144,8 @@ authentication remains the application boundary.
 
 After declaring a service, add its grant and its `autoApprovers.services`
 entry for the host's tag to `configs/tailscale/policy.hujson` (the gate and CI
-fail until both exist), and create its matching Service resource in the
-Tailscale admin console. A rebuild then owns the host-side endpoint configuration.
+fail until both exist), and let the [Tailscale Services workflow](../../docs/tailscale.md#first-tailnet-or-replacement-host)
+create its identity. A rebuild applies the host-side endpoint configuration.
 
 ## State And Secrets
 

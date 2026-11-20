@@ -26,8 +26,6 @@
 # Its image is an archive in the store, loaded on every start (layers it
 # already has are skipped) and run by the reference it loads as, never
 # pulled: a start needs no registry, and the digest it runs is the pin.
-# Images this app ran before, of the same repository, are removed once the
-# new one runs.
 let
   inherit (lib) escapeShellArg escapeShellArgs;
 in
@@ -84,37 +82,31 @@ let
     export PATH=/run/wrappers/bin:${
       lib.makeBinPath [
         pkgs.coreutils
-        pkgs.gnugrep
         pkgs.gnused
+        pkgs.util-linux
       ]
     }:$PATH
     export XDG_RUNTIME_DIR="/run/user/$(id -u)"
     podman=${podman}/bin/podman
     case "$1" in
       start)
-        loaded="$("$podman" load --quiet --input ${app.image})"
+        # Serialize archive loading and reference resolution per owner.
+        exec 9>"$XDG_RUNTIME_DIR/app-container-load.lock"
+        flock 9
+        loaded="$("$podman" load --quiet --input ${app.image} 9>&-)"
         # "Loaded image: <ref>" (or "Loaded image(s): <ref>,<ref>").
         ref="$(sed -n 's/^Loaded image[^:]*: *//p' <<<"$loaded" | head -n 1 | cut -d, -f1)"
         [ -n "$ref" ] || {
           echo "${container}: podman load named no image: $loaded" >&2
           exit 1
         }
-        exec "$podman" run ${escapeShellArgs runArgs} "$ref" ${escapeShellArgs app.args}
+        # Keep the lock in this shell only. conmon outlives the start command.
+        "$podman" run ${escapeShellArgs runArgs} "$ref" ${escapeShellArgs app.args} 9>&-
         ;;
       stop) exec "$podman" stop --ignore --time 20 ${container} ;;
       remove) exec "$podman" rm --force --ignore ${container} ;;
-      prune)
-        # Older images of this repository, which only earlier runs used;
-        # one still in use stays.
-        running="$("$podman" inspect --format '{{.ImageName}}' ${container})"
-        repo="''${running%:*}"
-        "$podman" images --format '{{.Repository}}:{{.Tag}}' \
-          | grep -F -x -v -e "$running" | grep -F -e "$repo:" \
-          | while read -r old; do "$podman" rmi "$old" >/dev/null 2>&1 || true; done
-        "$podman" image prune --force >/dev/null
-        ;;
       *)
-        echo "usage: $0 start|stop|remove|prune" >&2
+        echo "usage: $0 start|stop|remove" >&2
         exit 2
         ;;
     esac
@@ -127,11 +119,7 @@ let
 
   # The portable form: docker compose (or podman compose) runs the same image,
   # by digest when the pin has one, with the same files, state and address.
-  imageRef =
-    if app.image ? imageDigest then
-      "${app.image.imageName}@${app.image.imageDigest}"
-    else
-      "${app.image.imageName}:${app.image.imageTag}";
+  imageRef = "${app.image.imageName}@${app.image.imageDigest}";
   compose = {
     name = container;
     services.${app.app} = {
@@ -176,7 +164,6 @@ in
     NotifyAccess = "all";
     Delegate = true;
     ExecStartPre = [ "+${userManager}" ];
-    ExecStartPost = [ "-${ctl} prune" ];
     ExecStop = "${ctl} stop";
     ExecStopPost = "${ctl} remove";
     # Loading a large image the first time.

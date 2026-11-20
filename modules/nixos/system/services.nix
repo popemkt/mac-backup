@@ -359,7 +359,12 @@ in
           }
           {
             assertion =
-              app.image == null || (app.image ? imageName && app.image ? imageTag && app.image ? imageDigest);
+              app.image == null
+              || (
+                app.image ? imageName
+                && app.image ? imageTag
+                && builtins.match "sha256:[0-9a-f]{64}" (app.image.imageDigest or "") != null
+              );
             message = "my.services.${name}.image must be an image archive that names itself (imageName, imageTag) and its pinned digest (imageDigest), e.g. dockerTools.pullImage from nvfetcher.toml.";
           }
           {

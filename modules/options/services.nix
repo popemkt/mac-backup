@@ -171,7 +171,7 @@ in
                 For a third-party server: the OCI image archive the app runs
                 as a container, one carrying `imageName` and `imageTag`
                 (dockerTools.pullImage, pinned by digest through
-                nvfetcher.toml, or dockerTools.buildImage). The unit loads it
+                nvfetcher.toml). The unit loads it
                 into its owner's rootless Podman and runs it with `args` as
                 its command, `environment` as its environment, `dataDir`
                 mounted at `container.dataPath`, and no other access to the

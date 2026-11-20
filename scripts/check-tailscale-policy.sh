@@ -9,8 +9,7 @@
 # The Service only works once configs/tailscale/policy.hujson also has
 #
 #   - a grant whose `dst` names it, so members may reach it (the wildcard
-#     grant does not count: it is kept only until the tightening pass in
-#     docs/tailscale.md removes it), and
+#     destination does not count), and
 #   - an `autoApprovers.services` entry listing one of its host's tags, so the
 #     host's advertisement is approved without the admin console.
 #
