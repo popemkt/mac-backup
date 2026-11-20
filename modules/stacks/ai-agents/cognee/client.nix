@@ -305,8 +305,8 @@ lib.mkIf (aiCfg.enable && cfg.enable) {
     COGNEE_PLUGIN_DATASET = dataset;
   };
 
+  launchd.user.agents.cognee-mcp-client.command = "${mcpLauncher}";
   launchd.user.agents.cognee-mcp-client.serviceConfig = {
-    ProgramArguments = [ "${mcpLauncher}" ];
     RunAtLoad = true;
     KeepAlive = true;
     ThrottleInterval = 30;

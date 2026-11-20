@@ -48,6 +48,29 @@ sites once the CA is enrolled. Firefox uses its own store. It reads roots
 you added to macOS when `security.enterprise_roots.enabled` is on (the
 default on macOS); otherwise import `root.crt` in its certificate settings.
 
+## Certificates
+
+| Certificate | Lifetime | Renewed |
+|---|---|---|
+| root (`ca/root.crt`) | 10 years | by the daemon at start, once under a year is left (a new root needs enrolling again) |
+| intermediate | as long as the root, less a day | with the root; Caddy's own renewal waits until 5% of its lifetime is left, past the point where the root is replaced |
+| each site's | 825 days | by Caddy, with a third of its lifetime left |
+
+They are long so that a certificate a browser has cached or resumed does not
+go stale (`ERR_CERT_DATE_INVALID` while the server's chain is valid). Why
+each value is what it is, and why the intermediate's is worked out from the
+root on every start instead of being fixed, is in the header of
+`modules/stacks/local-proxy/caddyfile.nix`.
+
+**Rollover.** Caddy keeps a stored intermediate until its own renewal window,
+whatever lifetime is configured. So on every start `ca.sh` retires an
+intermediate that ends over a week before the root, together with the site
+certificates it signed. Caddy then makes a new intermediate and new site
+certificates. State an earlier version of this stack left (a 7-day
+intermediate, 12-hour site certificates) goes this way on the first start;
+later starts keep what is there. A new root takes everything under the old one with it the same way.
+Neither step touches the root, so the enrolled trust stays valid.
+
 ## Readiness
 
 `system-setup status` runs these checks:
@@ -66,10 +89,19 @@ default on macOS); otherwise import `root.crt` in its certificate settings.
   CA. If you enrolled an older CA, open Keychain Access, find the
   "Local Proxy CA (<host>)" entries under Certificates, delete the stale
   one, and enroll again.
+- **Browser says `ERR_CERT_DATE_INVALID`.** Check what the proxy serves:
+  `openssl s_client -connect 127.0.0.1:443 -servername <site>.localhost </dev/null | openssl x509 -noout -dates`.
+  If those dates are current, the browser is holding an older certificate.
+  Fully quit and reopen it (`edge://net-internals/#sockets` → Flush
+  socket pools also works in Edge and Chrome).
 - **Connection refused, or `local-proxy-process` fails.** Run
   `sudo launchctl print system/org.nixos.local-proxy` and read
   `/var/log/local-proxy.log`. If another process holds port 443, the check
-  names its pid.
+  names its pid. The daemon starts behind `/bin/wait4path /nix/store`, so
+  at boot it waits for the Nix volume. A `last exit code = 78: EX_CONFIG`
+  with an empty log is what a job without that wait does: launchd ran it
+  before the volume was mounted. `sudo launchctl kickstart -k
+  system/org.nixos.local-proxy` starts it again.
 - **A 403 from the app.** The app's guard does not admit the site's origin.
   Declare the origin in that app's config (for kb, `kb.server.aliasOrigins`).
 - **A 502.** The app is not listening at the site's `target`.
@@ -95,11 +127,18 @@ routines setup page warns you before you start.
 
 `nix build .#checks.aarch64-darwin.local-proxy-check` runs the real CA
 script and Caddy configuration on a high port in front of a test app. CI
-runs it on its macOS runner as part of `nix flake check`. It asserts:
+runs it on its macOS runner as part of `nix flake check`.
+`.#checks.x86_64-linux.local-proxy-check` runs the same steps on Linux,
+where openssl alone verifies. It asserts:
 
 - the CA is root-only, constrained to `localhost`, made once, and replaced
   when broken;
 - Caddy listens on loopback only, with no admin endpoint and no HTTP listener;
+- a site's certificate lasts 825 days (macOS's verifier accepts it under the
+  ssl policy) and never outlives its intermediate, which lasts as long as the
+  root, less a day;
+- an intermediate made under a shorter lifetime (the old 7 days) is retired
+  with its site certificates, and a sound one survives a restart;
 - `Host` and `Origin` reach the app unchanged;
 - WebSocket upgrades and server-sent events pass through, and events are not
   buffered;
