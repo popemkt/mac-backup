@@ -25,6 +25,10 @@ let
   };
 in
 {
+  antigravity-cli = pkgs.callPackage ./antigravity-cli {
+    inherit sources;
+  };
+
   chat2db = pkgs.callPackage ./chat2db {
     inherit sources;
   };

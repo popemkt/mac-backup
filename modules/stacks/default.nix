@@ -15,6 +15,7 @@
 # platform.
 {
   imports = [
+    ./ai-agents
     ./bb
     ./kb
     ./t3-code

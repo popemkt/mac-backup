@@ -60,6 +60,7 @@
           config.allowUnfreePredicate =
             pkg:
             builtins.elem (nixpkgs.lib.getName pkg) [
+              "antigravity-cli"
               "chat2db"
               "cursor-cli"
             ];
