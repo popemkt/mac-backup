@@ -273,7 +273,10 @@ in
 
   my.stacks.ntfy = {
     enable = true;
-    servers.ntfy.owner = "popemkt";
+    servers.ntfy = {
+      owner = "popemkt";
+      expose = false; # Hold tailnet exposure until the owner decides on policy.
+    };
   };
 
   # Each person's personal kb in the browser, as svc:kb-<person>

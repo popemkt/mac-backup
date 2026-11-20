@@ -20,6 +20,12 @@ its container network disabled by default. Both can use
 `svc:<app>-<owner>` for tailnet HTTPS. See [Tailscale](tailscale.md) for Service
 registration and policy.
 
+The build checks image-declared `VOLUME` paths before it produces the unit
+or the portable bundle. A volume needs an explicit persistent mount at that
+exact path (`container.dataPath`). Podman uses the explicit mounts and ignores
+image volume defaults. Images with several declared persistent volumes need a
+placement mechanism that can map each one before they can run here.
+
 ## Move to Docker Compose
 
 1. Copy `/etc/app-containers/<entry>/` with symlinks dereferenced to a writable

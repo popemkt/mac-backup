@@ -11,10 +11,11 @@ let
     inherit pkgs;
     image = pkgs.ntfy-image;
   };
-  servers = lib.mapAttrs (name: { owner }: {
-    inherit owner;
+  servers = lib.mapAttrs (name: { owner, expose }: {
+    inherit owner expose;
     socket = "/run/${name}/ntfy.sock";
-    baseUrl = config.my.stacks.vpn.services."ntfy-${owner}".publicOrigin;
+    baseUrl =
+      if expose then config.my.stacks.vpn.services."ntfy-${owner}".publicOrigin else "http://localhost";
   }) cfg.servers;
   setup = pkgs.writeShellApplication {
     name = "ntfy-setup";
@@ -30,15 +31,18 @@ let
 in
 {
   options.my.stacks.ntfy = (import ../mk-stack.nix lib) {
-    description = "ntfy UnifiedPush servers";
+    description = "ntfy notification servers";
     componentOptions.servers = mkOption {
       default = { };
       description = "One ntfy server per owner, keyed by its my.services entry.";
       type = types.attrsOf (
         types.submodule {
-          options.owner = mkOption {
-            type = types.str;
-            description = "Account that runs this ntfy server.";
+          options = {
+            owner = mkOption {
+              type = types.str;
+              description = "Account that runs this ntfy server.";
+            };
+            expose = lib.mkEnableOption "tailnet exposure for this ntfy server";
           };
         }
       );

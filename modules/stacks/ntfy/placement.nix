@@ -4,6 +4,7 @@
   baseUrl,
   socket ? null,
   port ? null,
+  expose ? false,
 }:
 let
   state = "/var/lib/ntfy";
@@ -16,7 +17,6 @@ let
       attachment-cache-dir = "${state}/attachments";
       auth-file = "${state}/user.db";
       auth-default-access = "deny-all";
-      auth-access = [ "*:up*:write-only" ];
     }
     // pkgs.lib.optionalAttrs (socket != null) { listen-unix = socket; }
   );
@@ -28,6 +28,7 @@ in
     image
     socket
     port
+    expose
     ;
   args = [ "serve" ];
   container = {

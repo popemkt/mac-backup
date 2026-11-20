@@ -33,4 +33,9 @@ if [[ ! -s "$dir/token" ]]; then
   printf '%s\n' "$token" >"$temp"
   mv "$temp" "$dir/token"
 fi
-printf 'Server: %s\nHost token: %s/token\nSee docs/ntfy.md for subscription and publishing steps.\n' "$url" "$dir"
+if [[ "$url" == "http://localhost" ]]; then
+  printf 'Local socket: %s\n' "$socket"
+else
+  printf 'Server: %s\n' "$url"
+fi
+printf 'Host token: %s/token\nSee docs/ntfy.md for publishing and phone setup.\n' "$dir"

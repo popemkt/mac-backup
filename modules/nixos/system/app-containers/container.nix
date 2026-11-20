@@ -35,6 +35,12 @@ let
   containerPort = if app.container.port != null then app.container.port else app.port;
   socketDir = if app.socket != null then dirOf app.socket else null;
 
+  checkedImage = import ./check-image.nix { inherit pkgs; } {
+    inherit name;
+    inherit (app) image;
+    dataPath = if app.dataDir == null then null else app.container.dataPath;
+  };
+
   # What `podman run` and the compose file both say, as (host, container)
   # pairs: one meaning, two spellings.
   mounts =
@@ -68,6 +74,7 @@ let
     "--cgroups=enabled"
     "--sdnotify=conmon"
     "--pull=never"
+    "--image-volume=ignore"
     "--log-driver=journald"
   ]
   ++ lib.optional noNetwork "--network=none"
@@ -93,7 +100,7 @@ let
         # Serialize archive loading and reference resolution per owner.
         exec 9>"$XDG_RUNTIME_DIR/app-container-load.lock"
         flock 9
-        loaded="$("$podman" load --quiet --input ${app.image} 9>&-)"
+        loaded="$("$podman" load --quiet --input ${checkedImage} 9>&-)"
         # "Loaded image: <ref>" (or "Loaded image(s): <ref>,<ref>").
         ref="$(sed -n 's/^Loaded image[^:]*: *//p' <<<"$loaded" | head -n 1 | cut -d, -f1)"
         [ -n "$ref" ] || {
@@ -134,6 +141,8 @@ let
   };
   composeFile = (pkgs.formats.yaml { }).generate "compose.yaml" compose;
   bundle = pkgs.runCommand "app-${name}-compose" { } ''
+    # Export a bundle only for an image that passed the same storage check.
+    test -s ${checkedImage}
     mkdir -p "$out"
     {
       echo "# my.services.${name} (owner ${app.owner}), portable: the image, files"

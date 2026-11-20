@@ -168,7 +168,7 @@ something does. On shared-server itself it only says to serve on 9001 directly.
 
 Two things it relies on:
 
-- Per-machine serve is reached through the policy's final device compatibility grant
+- Per-machine serve is reached through the policy's final wildcard grant
   (`"src": ["*"], "dst": ["*"]`); no grant names these per-machine HTTPS ports.
   Removing the wildcard breaks them until a narrower grant exists (see the
   `GAP` node in `.kb/nodes.jsonl`). The shared endpoint has its own grant.
@@ -267,15 +267,13 @@ access, and the policy workflow runs them before applying.
 
 ## Current Compatibility Grant
 
-The compatibility grant preserves broad access to user-owned devices and
-devices with the declared host tags. Service identities rely on explicit
-grants. The declared host tags keep access to member-facing Services such as
-Cognee and kb-work. The [ntfy](ntfy.md) and kb capture listeners are available
-to devices signed in as their owner. Subnet routes and shared devices outside
-the compatibility grant need explicit grants.
+The live tailnet started from Tailscale's unrestricted default policy. The
+tracked policy preserves that wildcard grant so adopting GitOps cannot silently
+break unrecorded traffic. The explicit Orca and Cognee grants are therefore
+documentation today and become enforcement when the wildcard is removed.
 
-Before narrowing direct device access further, inventory the remaining flows
-and add a policy test for each intended path.
+Before removing it, inventory remaining machine-to-machine, subnet, exit-node,
+SSH, and shared-device flows and add a policy test for each intended path.
 
 ### TODO: tightening pass
 
@@ -289,7 +287,7 @@ not match tagged devices. Confirm whether Tailscale SSH into `popemkt-work` is
 used before changing the tag; if so, the `ssh` block needs widening in the same
 change.
 
-**2. Narrow the device compatibility grant.** Flows observed on 2026-07-28, and whether a grant
+**2. Remove the wildcard.** Flows observed on 2026-07-28, and whether a grant
 already covers them:
 
 | Flow | Covered |
@@ -305,7 +303,7 @@ already covers them:
 | Mac-to-Mac file/screen sharing, exit node, subnet routes | unknown, needs a decision |
 
 The last row is the blocker: those cannot be observed from a single host. Decide
-them before narrowing direct device access further, and add a policy test for each path kept.
+them before the wildcard goes, and add a policy test for each path kept.
 
 ## What Is Not Exported
 

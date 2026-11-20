@@ -65,6 +65,7 @@ the UI's Origin acts as that person. The app's `package` is
 `pkgs.kb`, run by store path, so a rebuild that moves the kb pin restarts it
 (`configs/specs/app-service-contract.md`).
 
+<!-- GAP [[01M7WTAJYW03B2N9ZS36ZJHZ8G]]: kb capture Services ride the tailnet wildcard grant. -->
 A store with `capture.enable` also runs a capture-only listener for phones:
 `kb ui --capture-only` on the same root, as the owner, as the my.services
 entry `<name>-capture` (`app = "kb-capture"`: popemkt's unit is
@@ -74,8 +75,11 @@ It admits only capture version discovery, pairing with a one-use code, and
 delivery with the bearer token pairing returns (kb's DESIGN.md → Raw
 capture, in the pinned release; no stable tag has it yet); every other
 request is refused. The tailnet policy's grant for each listener names only
-its owner's own devices. The pairing code and the device's token control
-access at the application. On shared-server only popemkt's store has it on; bytetum's stays off until they
+its owner's own devices (`configs/tailscale/policy.hujson`); until the
+tightening pass removes the policy's wildcard grant
+([tailscale.md](tailscale.md)), any tailnet member can still connect, and the
+pairing code and the device's token are what admit a phone. On
+shared-server only popemkt's store has it on; bytetum's stays off until they
 ask for it (`capture.enable` on `kb-bytetum`, plus the grant and
 auto-approver for `svc:kb-capture-bytetum`).
 

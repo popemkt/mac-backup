@@ -123,6 +123,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A trigger from docs/research/2026-10-25-kb-topology.md fires: then a host entry runs kb graph.changes against each store a thread's machine holds, links are keyed by (root, id), and open goes through location.open.
 - **node** — `01M5QJFVQ61E19BAB2KXC0FA4M`
 
+### GAP: kb capture Services ride the tailnet wildcard grant
+
+- **expected** — svc:kb-capture-<owner> is reachable only from the owner's own devices, as its grant in configs/tailscale/policy.hujson says.
+- **current** — The grant names only the owner's login, but the policy's catch-all grant (src * → dst *) still admits every tailnet member, so any member's device can reach the capture-only listener.
+- **impact** — Any tailnet member can reach the pairing and submit endpoints. Admission still needs a one-use pairing code issued on the host, or a paired device's bearer token, so reachability alone does not let them write; it does let them probe or guess codes.
+- **closes** — The tightening pass in docs/tailscale.md removes the wildcard grant, leaving each Service's own grant as its access control.
+- **node** — `01M7WTAJYW03B2N9ZS36ZJHZ8G`
+
 ### GAP: kb.server has no NixOS side
 
 - **expected** — kb.server runs on NixOS as a supervised service for a named person, rendered from the same service declaration the macOS launchd agent comes from.
@@ -329,14 +337,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — A rebuild from another checkout or worktree, or a checkout behind main, runs a different sync script than the revision applied; nothing reports it.
 - **closes** — agent-plugins.nix builds the script with writeShellApplication from the flake source (or inlines it) and passes it the plugin folder; no activation path names ~/.dotfiles.
 - **node** — `01M5W9JKF16RWS5DG3P5ZZTWT9`
-
-### GAP: kb capture Services ride the tailnet wildcard grant
-
-- **expected** — svc:kb-capture-<owner> is reachable only from the owner's own devices, as its grant in configs/tailscale/policy.hujson says.
-- **current** — The grant names only the owner's login, but the policy's catch-all grant (src * → dst *) still admits every tailnet member, so any member's device can reach the capture-only listener.
-- **impact** — Any tailnet member can reach the pairing and submit endpoints. Admission still needs a one-use pairing code issued on the host, or a paired device's bearer token, so reachability alone does not let them write; it does let them probe or guess codes.
-- **closes** — The tightening pass in docs/tailscale.md removes the wildcard grant, leaving each Service's own grant as its access control.
-- **node** — `01M7WTAJYW03B2N9ZS36ZJHZ8G`
 
 ### GAP: kb Nix wrapper hard-codes Bun launch flags for releases without lib/kb/launch-flags
 

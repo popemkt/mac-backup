@@ -2,6 +2,23 @@
 
 let
   ntfyImage = pkgs.ntfy-image;
+  volumeImage = pkgs.dockerTools.buildImage {
+    name = "volume-fixture";
+    tag = "test";
+    config.Volumes."/image-state" = { };
+  };
+  volumeCheck =
+    dataPath:
+    import ./check-image.nix { inherit pkgs; } {
+      name = "volume-fixture";
+      image = volumeImage;
+      inherit dataPath;
+    };
+  rejectedVolume = pkgs.testers.testBuildFailure' {
+    drv = volumeCheck "/somewhere-else";
+    expectedBuilderExitCode = 5;
+    expectedBuilderLogEntries = [ "image VOLUME /image-state has no persistent mapping" ];
+  };
   # A stationary fixture for the pre-upgrade generation. The second
   # generation follows the normal ntfy pin.
   previousImage = pkgs.dockerTools.pullImage {
@@ -15,57 +32,68 @@ let
 in
 pkgs.testers.runNixOSTest {
   name = "app-containers";
-  nodes.machine = { lib, pkgs, ... }: {
-    imports = [
-      ../../../options/services.nix
-      ../../../stacks/ntfy
-      ../../../stacks/vpn/default.nix
-      ../services.nix
-    ];
-    options.my = {
-      people = lib.mkOption { default = [ "owner" ]; };
-      pkgs.npmGlobals = lib.mkOption { default = [ ]; };
-      stacks.t3-code.enable = lib.mkEnableOption "T3 Code";
-    };
-    config =
-      let
-        placement =
-          image: address:
-          (import ../../../stacks/ntfy/placement.nix {
-            inherit pkgs image;
-          } ({ owner = "owner"; } // address))
-          // {
-            expose = false;
-          };
-      in
-      {
-        users.users.owner = {
-          isNormalUser = true;
-          uid = 1000;
-        };
-        environment.systemPackages = [
-          pkgs.curl
-          pkgs.sqlite
-        ];
-        my.stacks.vpn = {
-          enable = true;
-          tailnetDomain = "example.test";
-        };
-        my.stacks.ntfy = {
-          enable = true;
-          servers.ntfy-socket.owner = "owner";
-        };
-        my.services = {
-          ntfy-port = placement previousImage {
-            port = 2586;
-            baseUrl = "http://127.0.0.1:2586";
-          };
-        };
-        specialisation.upgrade.configuration.my.services.ntfy-port.image = lib.mkForce ntfyImage;
+  nodes.machine =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    {
+      imports = [
+        ../../../options/services.nix
+        ../../../stacks/ntfy
+        ../../../stacks/vpn/default.nix
+        ../services.nix
+      ];
+      options.my = {
+        people = lib.mkOption { default = [ "owner" ]; };
+        pkgs.npmGlobals = lib.mkOption { default = [ ]; };
+        stacks.t3-code.enable = lib.mkEnableOption "T3 Code";
       };
-  };
+      config =
+        let
+          placement =
+            image: address:
+            import ../../../stacks/ntfy/placement.nix {
+              inherit pkgs image;
+            } ({ owner = "owner"; } // address);
+        in
+        {
+          users.users.owner = {
+            isNormalUser = true;
+            uid = 1000;
+          };
+          environment.systemPackages = [
+            pkgs.curl
+            pkgs.sqlite
+          ];
+          environment.etc = {
+            "volume-validation/rejected".source = rejectedVolume;
+            "volume-validation/accepted".source = volumeCheck "/image-state";
+          };
+          assertions = [
+            {
+              assertion = !config.my.services.ntfy-socket.expose && config.my.stacks.vpn.services == { };
+              message = "ntfy must stay local by default.";
+            }
+          ];
+          my.stacks.ntfy = {
+            enable = true;
+            servers.ntfy-socket.owner = "owner";
+          };
+          my.services = {
+            ntfy-port = placement previousImage {
+              port = 2586;
+              baseUrl = "http://127.0.0.1:2586";
+            };
+          };
+          specialisation.upgrade.configuration.my.services.ntfy-port.image = lib.mkForce ntfyImage;
+        };
+    };
   testScript = ''
     machine.start()
+    machine.succeed("test -e /etc/volume-validation/rejected && test -s /etc/volume-validation/accepted")
     machine.wait_for_unit("app-ntfy-port.service")
     machine.wait_for_unit("app-ntfy-socket.service")
     http = "curl -fsS http://127.0.0.1:2586"
@@ -74,8 +102,8 @@ pkgs.testers.runNixOSTest {
     machine.wait_until_succeeds(f"{unix}/v1/health")
     assert "127.0.0.1:2586" in machine.succeed("ss -Hln 'sport = :2586'")
     machine.fail("runuser -u nobody -- " + unix + "/v1/health")
-    assert machine.succeed(f"{unix}/private -d rejected -o /dev/null -w '%{{http_code}}' || true") == "403"
-    machine.succeed(f"{unix}/up-test -d allowed")
+    for topic in ("private", "up-test"):
+        assert machine.succeed(f"{unix}/{topic} -d rejected -o /dev/null -w '%{{http_code}}' || true") == "403"
     machine.succeed("runuser -u owner -- env XDG_RUNTIME_DIR=/run/user/1000 ntfy-setup >/dev/null")
     machine.succeed("test $(stat -c %a /home/owner/.config/ntfy/token) = 600")
     machine.succeed("sed 's/^/Authorization: Bearer /' /home/owner/.config/ntfy/token | " +
@@ -86,12 +114,15 @@ pkgs.testers.runNixOSTest {
     before = machine.succeed(podman + " inspect --format '{{.Image}}' app-ntfy-port").strip()
     current = machine.succeed(podman + " inspect --format '{{.Image}}' app-ntfy-socket").strip()
     assert before != current
-    machine.succeed(f"{http}/up-persist -d retained")
+    machine.succeed(podman + " exec --env NTFY_PASSWORD=test-only app-ntfy-port ntfy user add --role=admin owner")
+    machine.succeed(podman + " exec app-ntfy-port ntfy token add owner | " +
+                    "awk '{print \"Authorization: Bearer \" $2}' | " +
+                    http + "/persist --header @- --data retained")
     machine.succeed("test -f /srv/ntfy-port/cache.db && test -f /srv/ntfy-socket/user.db")
     machine.succeed("systemctl restart app-ntfy-port.service")
     machine.wait_until_succeeds(f"{http}/v1/health")
-    # Query the SQLite cache directly. Anonymous UnifiedPush writers cannot read.
-    retained = """sqlite3 /srv/ntfy-port/cache.db "SELECT message FROM messages WHERE topic='up-persist'" | grep -Fx retained"""
+    # Query the SQLite cache directly after the credentialed publish.
+    retained = """sqlite3 /srv/ntfy-port/cache.db "SELECT message FROM messages WHERE topic='persist'" | grep -Fx retained"""
     machine.succeed(retained)
 
     machine.succeed("/run/current-system/specialisation/upgrade/bin/switch-to-configuration test")
