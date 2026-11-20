@@ -87,7 +87,7 @@
         "name": "kb",
         "passthru": {
             "provenanceRepo": "popemkt/kb",
-            "provenanceSignerWorkflow": "popemkt/kb/.github/workflows/publish.yml",
+            "provenanceSignerIdentity": "https://github.com/popemkt/kb/.github/workflows/publish.yml@refs/heads/main",
             "provenanceSourceRef": "refs/heads/main"
         },
         "pinned": false,

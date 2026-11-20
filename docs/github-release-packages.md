@@ -69,17 +69,21 @@ nix run .#github-sources -- verify
 ```
 
 **Provenance.** Run `provenance` after `verify`. For each pin with
-`passthru.provenanceRepo`, `passthru.provenanceSignerWorkflow`, and
+`passthru.provenanceRepo`, `passthru.provenanceSignerIdentity`, and
 `passthru.provenanceSourceRef` in `nvfetcher.toml`, the command downloads the
 pinned artifact, checks its SHA-256 digest, and asks GitHub CLI to verify its
-signed build attestation against that policy. The flake app includes GitHub
-CLI. Sign in with `gh auth login` locally or supply `GH_TOKEN` in CI.
+signed build attestation against the exact signing workflow and its ref, as
+well as the declared source ref. The signed statement must list a subject
+with the same digest and the filename from `fetch.url` expanded at the
+declared version. Include `$ver` in the filename for any source that declares
+provenance. Sign in with `gh auth login` locally or supply `GH_TOKEN` in CI.
 
 ```bash
 nix run .#github-sources -- provenance
 ```
 
-A hash mismatch or missing or nonmatching attestation exits 11.
+A hash mismatch, missing attestation, or mismatch in the signer or signed
+subject exits 11.
 Unavailable verification, including offline downloads or GitHub API
 failures, exits 20. Use `provenance --best-effort` to warn and continue for
 unavailable verification. CI and `update-system` require the strict check.

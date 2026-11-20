@@ -58,7 +58,7 @@ fetch.url = "https://github.com/popemkt/kb/releases/download/v$ver/kb-$ver.tar.g
 # and nightlies (nightly.yml) both build and attest the bundle through the
 # reusable publish.yml, so that is the signer, and it builds only from main.
 passthru.provenanceRepo = "popemkt/kb"
-passthru.provenanceSignerWorkflow = "popemkt/kb/.github/workflows/publish.yml"
+passthru.provenanceSignerIdentity = "https://github.com/popemkt/kb/.github/workflows/publish.yml@refs/heads/main"
 passthru.provenanceSourceRef = "refs/heads/main"
 
 # SpacetimeDB's prebuilt Linux release (pkgs/spacetimedb), for axioms' live

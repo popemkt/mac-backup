@@ -57,8 +57,8 @@
       sha256 = "sha256-6CkWtYVWaqGscinYrP51vDOLKJFeg9BfROsGPng0K6Q=";
     };
     provenanceRepo = "popemkt/kb";
-    provenanceSignerWorkflow = "popemkt/kb/.github/workflows/publish.yml";
     provenanceSourceRef = "refs/heads/main";
+    provenanceSignerIdentity = "https://github.com/popemkt/kb/.github/workflows/publish.yml@refs/heads/main";
   };
   logseq = {
     pname = "logseq";

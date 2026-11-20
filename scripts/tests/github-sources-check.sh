@@ -137,15 +137,17 @@ expect verify-failed-best-effort stderr '^warning: could not fetch pinned releas
 # --- provenance -------------------------------------------------------------
 
 provenance_fixture() {
-  local root="$work/$1"
+  local root="$work/$1" artifact_version="${3:-5.3.7}"
   local hash="${2:-sha256-D8fIw1ffosxhFs3xFytXNJCKMWRNaoBxUgI91j1/FRo=}"
   fixture "$1" 5.3.7
-  printf 'fixture artifact\n' >"$root/artifact"
-  jq --arg url "file://$root/artifact" --arg hash "$hash" '
+  sed "s|/held\.tar\.gz|/held-\$ver.tar.gz|" "$root/nvfetcher.toml" >"$root/provenance.toml"
+  mv "$root/provenance.toml" "$root/nvfetcher.toml"
+  printf 'fixture artifact\n' >"$root/held-$artifact_version.tar.gz"
+  jq --arg url "file://$root/held-$artifact_version.tar.gz" --arg hash "$hash" '
     .held.src += {url: $url, sha256: $hash} |
     .held.passthru = {
       provenanceRepo: "example/held",
-      provenanceSignerWorkflow: "example/held/.github/workflows/publish.yml",
+      provenanceSignerIdentity: "https://github.com/example/held/.github/workflows/publish.yml@refs/heads/main",
       provenanceSourceRef: "refs/heads/main"
     }' "$root/regenerated/generated.json" >"$root/_sources/generated.json"
 }
@@ -165,11 +167,13 @@ $(sed -n '3p' "$work/provenance-pass/record/gh-args")
 github.com
 --repo
 example/held
---signer-workflow
-example/held/.github/workflows/publish.yml
+--cert-identity
+https://github.com/example/held/.github/workflows/publish.yml@refs/heads/main
 --source-ref
 refs/heads/main
 --deny-self-hosted-runners
+--format
+json
 EOF
 then
   fail "provenance-pass: unexpected gh arguments"
@@ -182,11 +186,19 @@ if [ -e "$work/provenance-wrong-hash/record/gh-args" ]; then
   fail "provenance-wrong-hash: gh ran before the artifact hash matched"
 fi
 
-for verdict in mismatch missing; do
+for verdict in mismatch missing signer-prefix signer-ref; do
   provenance_fixture "provenance-$verdict"
   run "provenance-$verdict" 11 STUB_ATTESTATION="$verdict" -- provenance --best-effort
   expect "provenance-$verdict" stderr 'no attestation matches the declared provenance'
 done
+
+provenance_fixture provenance-older-artifact '' 5.3.6
+run provenance-older-artifact 11 STUB_ATTESTATION=older-artifact -- provenance
+expect provenance-older-artifact stderr 'no verified attestation subject matches held-5\.3\.7\.tar\.gz and its pinned digest'
+
+provenance_fixture provenance-split-subject
+run provenance-split-subject 11 STUB_ATTESTATION=split-subject -- provenance --best-effort
+expect provenance-split-subject stderr 'no verified attestation subject matches held-5\.3\.7\.tar\.gz and its pinned digest'
 
 provenance_fixture provenance-offline
 run provenance-offline 20 STUB_ATTESTATION=offline -- provenance
