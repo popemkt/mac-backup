@@ -4,9 +4,12 @@
 #
 # <store> is the name of the store's UI Service, kb-<owner>; without it,
 # the one store the caller owns. The code comes from kb's capture.pairCode,
-# run as the store's owner (through sudo when that is someone else).
+# run as the caller, who must be the store's owner: a code pairs a device
+# with someone's store, so nobody issues one for a store not their own.
+# GAP [[01M7WTAJDSKJ5H5Q9ES56XG55P]]: an administrator with passwordless
+# sudo can still run capture.pairCode as another owner by hand.
 #
-# Env (set by the package): KB (kb by store path), SUDO, STORES (a JSON file:
+# Env (set by the package): KB (kb by store path), STORES (a JSON file:
 # store → {owner, root, url}).
 
 usage() {
@@ -37,15 +40,12 @@ entry="$(jq -c --arg s "$store" '.[$s] // empty' "$STORES")"
 owner="$(jq -r .owner <<<"$entry")"
 root="$(jq -r .root <<<"$entry")"
 url="$(jq -r .url <<<"$entry")"
+[ "$owner" = "$me" ] || {
+  echo "kb-pair: $store is $owner's store; only $owner can pair a device with it." >&2
+  exit 1
+}
 
-# The owner may not be able to enter the caller's directory.
-cd /
-invoke=("$KB" --root "$root" --json action-invoke '{"id":"capture.pairCode"}')
-if [ "$owner" = "$me" ]; then
-  receipt="$("${invoke[@]}")"
-else
-  receipt="$("$SUDO" -u "$owner" -H -- "${invoke[@]}")"
-fi
+receipt="$("$KB" --root "$root" --json action-invoke '{"id":"capture.pairCode"}')"
 jq -e '.status == "succeeded"' >/dev/null <<<"$receipt" || {
   echo "kb-pair: capture.pairCode failed for $store:" >&2
   echo "$receipt" >&2

@@ -115,6 +115,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A trigger from docs/research/2026-10-25-kb-topology.md fires: then a host entry runs kb graph.changes against each store a thread's machine holds, links are keyed by (root, id), and open goes through location.open.
 - **node** — `01M5QJFVQ61E19BAB2KXC0FA4M`
 
+### GAP: kb capture Services ride the tailnet wildcard grant
+
+- **expected** — svc:kb-capture-<owner> is reachable only from the owner's own devices, as its grant in configs/tailscale/policy.hujson says.
+- **current** — The grant names only the owner's login, but the policy's catch-all grant (src * → dst *) still admits every tailnet member, so any member's device can reach the capture-only listener.
+- **impact** — Any tailnet member can reach the pairing and submit endpoints. Admission still needs a one-use pairing code issued on the host, or a paired device's bearer token, so reachability alone does not let them write; it does let them probe or guess codes.
+- **closes** — The tightening pass in docs/tailscale.md removes the wildcard grant, leaving each Service's own grant as its access control.
+- **node** — `01M7WTAJYW03B2N9ZS36ZJHZ8G`
+
 ### GAP: kb.server has no NixOS side
 
 - **expected** — kb.server runs on NixOS as a supervised service for a named person, rendered from the same service declaration the macOS launchd agent comes from.
@@ -213,6 +221,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **impact** — The drift audit reports an unmanaged Homebrew formula, and stale processes can still inherit its executable on PATH.
 - **closes** — After rebuild, manually run brew uninstall bun and confirm the drift audit is clean.
 - **node** — `01M3FAE5T61DZS8T7WRW3RTZ93`
+
+### GAP: shared-server admins can issue kb pairing codes for each other's stores
+
+- **expected** — Only a store's owner can pair a device with their kb store: kb-pair refuses any other caller, and no other account can run capture.pairCode on the store.
+- **current** — kb-pair refuses a caller who is not the store's owner, but shared-server sets security.sudo.wheelNeedsPassword = false and both people are in wheel, so either can run 'sudo -u <owner> kb --root <store> action-invoke {"id":"capture.pairCode"}' by hand and pair a phone with the other's store.
+- **impact** — An administrator's device (or an agent running as them) can be paired with another person's kb store and deliver captures into it; the capture listener's token then admits it like the owner's phone.
+- **closes** — A host where administrators cannot act as one another without the other's consent (no blanket passwordless wheel), or kb pairing gated by a per-person approval the other account cannot produce (kb's actor-proof gap).
+- **node** — `01M7WTAJDSKJ5H5Q9ES56XG55P`
 
 ### GAP: shared-server hard-resets on AMD data fabric sync floods
 

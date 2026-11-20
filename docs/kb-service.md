@@ -65,6 +65,7 @@ the UI's Origin acts as that person. The app's `package` is
 `pkgs.kb`, run by store path, so a rebuild that moves the kb pin restarts it
 (`configs/specs/app-service-contract.md`).
 
+<!-- GAP [[01M7WTAJYW03B2N9ZS36ZJHZ8G]]: kb capture Services ride the tailnet wildcard grant. -->
 A store with `capture.enable` also runs a capture-only listener for phones:
 `kb ui --capture-only` on the same root, as the owner, as the my.services
 entry `<name>-capture` (`app = "kb-capture"`: popemkt's unit is
@@ -104,8 +105,16 @@ Valid once, until 2026-11-20T15:47:47.473Z.
 
 In the app, under **Stores**, enter that URL and code and tap **Pair**. The
 phone must be on the tailnet as the store's owner. `kb-pair` runs kb's
-`capture.pairCode` as the store's owner, through sudo when someone else asks
-for it. Revoke a phone on the host with
+`capture.pairCode` as you, and refuses a store that is not yours: a code pairs
+a device with someone's store, so only its owner issues one.
+
+<!-- GAP [[01M7WTAJDSKJ5H5Q9ES56XG55P]]: shared-server admins can issue kb pairing codes for each other's stores. -->
+That refusal is not a boundary between shared-server's administrators. Both
+are in `wheel` with passwordless sudo, so either can run `capture.pairCode` as
+the other by hand (`sudo -u <owner> kb --root <store> …`) and pair a device
+with the other's store; the host's sudo policy is deliberately left as it is.
+
+Revoke a phone on the host with
 `kb --root <store> action-invoke '{"id":"capture.revoke","input":{"deviceId":"<id>"}}'`
 as the owner.
 

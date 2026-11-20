@@ -76,7 +76,6 @@ let
     text = builtins.readFile ./kb-pair.sh;
     runtimeEnv = {
       KB = lib.getExe pkgs.kb;
-      SUDO = "${config.security.wrapperDir}/sudo";
       STORES = pkgs.writeText "kb-pair-stores.json" (builtins.toJSON captureStores);
     };
   };
