@@ -199,8 +199,15 @@ in
   security.sudo.wheelNeedsPassword = false;
   programs.firefox.enable = true;
 
-  # SpacetimeDB's licence (BSL 1.1) is unfree to nixpkgs; axioms needs it.
-  nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "spacetimedb" ];
+  # Unfree packages this host runs:
+  # - antigravity-cli: Google Antigravity CLI (`agy`) for bb's ACP agent.
+  # - spacetimedb: BSL 1.1; axioms needs it.
+  nixpkgs.config.allowUnfreePredicate =
+    pkg:
+    builtins.elem (lib.getName pkg) [
+      "antigravity-cli"
+      "spacetimedb"
+    ];
 
   # Passwords are machine state (scripts/shared-server-secrets), never declared.
   my.people = [
@@ -215,6 +222,7 @@ in
   });
 
   my.stacks = {
+    ai-agents.enable = true;
     bb.enable = true;
     # Blender, and `blender-mcp` for agents: one headless Blender per MCP
     # session (modules/stacks/blender).

@@ -267,12 +267,15 @@ access, and the policy workflow runs them before applying.
 
 ## Current Compatibility Grant
 
-The compatibility grant preserves broad access to user-owned devices, shared
-devices, and devices with the declared host tags. Service identities rely on
-their explicit grants. This keeps [ntfy](ntfy.md) and the kb capture listener
-reachable by their owner's devices. Subnet routes need explicit grants.
+The compatibility grant preserves broad access to user-owned devices and
+devices with the declared host tags. Service identities rely on explicit
+grants. The declared host tags keep access to member-facing Services such as
+Cognee and kb-work. The [ntfy](ntfy.md) and kb capture listeners are available
+to devices signed in as their owner. Subnet routes and shared devices outside
+the compatibility grant need explicit grants.
 
-Before narrowing direct device access further, inventory the remaining flows\nand add a policy test for each intended path.
+Before narrowing direct device access further, inventory the remaining flows
+and add a policy test for each intended path.
 
 ### TODO: tightening pass
 

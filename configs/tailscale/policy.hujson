@@ -17,97 +17,32 @@
       "ip": ["tcp:6768"],
     },
 
-    // Remote Cognee clients use the Tailscale Service HTTPS endpoint.
+    // Member-facing Services are also used from tagged machines. For example,
+    // the work Mac calls Cognee, and bb on shared-server reads kb-work.
     {
-      "src": ["autogroup:member"],
-      "dst": ["svc:cognee"],
+      "src": ["autogroup:member", "tag:home-server", "tag:orca-host", "tag:shared-server"],
+      "dst": [
+        "svc:adhoc",
+        "svc:adhoc-popemkt",
+        "svc:axioms-popemkt",
+        "svc:bb-bytetum",
+        "svc:bb-popemkt",
+        "svc:cognee",
+        "svc:kb",
+        "svc:kb-bytetum",
+        "svc:kb-popemkt",
+        "svc:kb-work",
+        "svc:marginalia-bytetum",
+        "svc:t3-bytetum",
+        "svc:t3-popemkt",
+      ],
       "ip": ["tcp:443"],
     },
 
-    // Tailnet members can reach the home knowledge base over HTTPS.
-    {
-      "src": ["autogroup:member"],
-      "dst": ["svc:kb"],
-      "ip": ["tcp:443"],
-    },
-
-    // Tailnet members can reach a temporary app on the reserved ad hoc port.
-    {
-      "src": ["autogroup:member"],
-      "dst": ["svc:adhoc"],
-      "ip": ["tcp:443"],
-    },
-
-    // Both people on the shared server reach both T3 Code servers.
-    {
-      "src": ["autogroup:member"],
-      "dst": ["svc:t3-popemkt", "svc:t3-bytetum"],
-      "ip": ["tcp:443"],
-    },
-
-    // Tailnet members can reach the shared-server kb graphs and the
-    // separate work graph on popemkt-work.
-    {
-      "src": ["autogroup:member"],
-      "dst": ["svc:kb-popemkt", "svc:kb-bytetum", "svc:kb-work"],
-      "ip": ["tcp:443"],
-    },
-
-    // popemkt's own devices (the phone's kb app) reach popemkt's kb capture-only
-    // listener: pairing with a code issued on the host, then delivery with
-    // the device's bearer token. Nobody else's devices.
+    // popemkt's own devices reach the private phone endpoints.
     {
       "src": ["hoangng71299@gmail.com"],
-      "dst": ["svc:kb-capture-popemkt"],
-      "ip": ["tcp:443"],
-    },
-
-    // popemkt's phones and other user-owned devices reach the ntfy server.
-    {
-      "src": ["hoangng71299@gmail.com"],
-      "dst": ["svc:ntfy-popemkt"],
-      "ip": ["tcp:443"],
-    },
-
-    // popemkt's bb on the shared server calls the work graph for its agent
-    // tools (the kb plugin's kb-work store). The owner accepted that the
-    // shared server's administrators can reach kb-work through this grant.
-    {
-      "src": ["tag:shared-server"],
-      "dst": ["svc:kb-work"],
-      "ip": ["tcp:443"],
-    },
-
-    // Tailnet members can reach bytetum's Marginalia on the shared server.
-    // The app's bearer token is its own access control.
-    {
-      "src": ["autogroup:member"],
-      "dst": ["svc:marginalia-bytetum"],
-      "ip": ["tcp:443"],
-    },
-
-    // Tailnet members can reach popemkt's temporary app on the shared server.
-    {
-      "src": ["autogroup:member"],
-      "dst": ["svc:adhoc-popemkt"],
-      "ip": ["tcp:443"],
-    },
-
-    // Tailnet members can reach popemkt's and bytetum's bb servers on the
-    // shared server. bb's API is unauthenticated, so this grant is its only
-    // access control.
-    {
-      "src": ["autogroup:member"],
-      "dst": ["svc:bb-popemkt", "svc:bb-bytetum"],
-      "ip": ["tcp:443"],
-    },
-
-    // Tailnet members can reach popemkt's axioms on the shared server: the UI,
-    // its API, and the SpacetimeDB websocket it relays. Its reducers trust
-    // any caller, so this grant is its only access control.
-    {
-      "src": ["autogroup:member"],
-      "dst": ["svc:axioms-popemkt"],
+      "dst": ["svc:kb-capture-popemkt", "svc:ntfy-popemkt"],
       "ip": ["tcp:443"],
     },
 
@@ -125,11 +60,11 @@
       "ip": ["tcp:22"],
     },
 
-    // Preserve direct access to user-owned, shared and declared tagged devices.
+    // Preserve direct access to user-owned and declared tagged devices.
     // Service destinations and subnet routes need their own grants.
     {
       "src": ["*"],
-      "dst": ["autogroup:member", "autogroup:shared", "tag:home-server", "tag:orca-host", "tag:shared-server"],
+      "dst": ["autogroup:member", "tag:home-server", "tag:orca-host", "tag:shared-server"],
       "ip": ["*"],
     },
   ],
@@ -184,12 +119,21 @@
 
   "tests": [
     {
+      "src": "tag:orca-host",
+      "accept": ["svc:cognee:443", "svc:bb-popemkt:443"],
+    },
+    {
+      "src": "tag:shared-server",
+      "accept": ["svc:kb-work:443"],
+    },
+    // Exercise the private-device grant against its existing Service identity.
+    {
       "src": "hoangng71299@gmail.com",
-      "accept": ["svc:ntfy-popemkt:443"],
+      "accept": ["svc:kb-capture-popemkt:443"],
     },
     {
       "src": "bytetum@github",
-      "deny": ["svc:ntfy-popemkt:443", "svc:kb-capture-popemkt:443"],
+      "deny": ["svc:kb-capture-popemkt:443"],
     },
   ],
 

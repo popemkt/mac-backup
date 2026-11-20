@@ -5,6 +5,7 @@ _:
 {
   imports = [
     ./default.nix
+    ./ai-agents/nixos.nix
     ./bb/nixos.nix
     ./blender
     ./kb/nixos.nix
