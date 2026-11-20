@@ -65,6 +65,18 @@
       sha256 = "sha256-/9bghrpvaKR0j4DqqLOCRKnPeLBcB2ND114CMP6UQLQ=";
     };
   };
+  ntfy-image = {
+    pname = "ntfy-image";
+    version = "v2.38.1";
+    src = dockerTools.pullImage {
+      imageName = "binwiederhier/ntfy";
+      imageDigest = "sha256:038da2be5e668fee6d36a62884eea48975e1b71c29a56964e5298c1b9165a573";
+      sha256 = "sha256-IMGWXl/VdddEAHYm150yTSIIC9t1liP95UZwX5vUDX0=";
+      finalImageTag = "v2.38.1";
+      os = "linux";
+      arch = "amd64";
+    };
+  };
   spacetimedb = {
     pname = "spacetimedb";
     version = "2.14.0";

@@ -1,10 +1,21 @@
 { lib, ... }:
 
-# Native server apps placed on a host: what runs, as whom, where it listens
-# (a loopback port or a Unix socket), and whether the tailnet sees it. The app's code and build live in its
-# own repository (configs/specs/app-service-contract.md); this is only the
-# placement. Every platform shares the schema; each platform's base runs the
-# apps (modules/nixos/system/services.nix).
+# Server apps placed on a host: what runs, as whom, where it listens (a
+# loopback port or a Unix socket), where its state lives, and whether the
+# tailnet sees it. The app's code and build live elsewhere
+# (configs/specs/app-service-contract.md); this is only the placement. Every
+# platform shares the schema; each platform's base runs the apps
+# (modules/nixos/system/services.nix).
+#
+# An app is one of two kinds, and only what it runs differs; owner, address,
+# state, restarts, idle checks and tailnet exposure are the same for both:
+#   - native, `package` or `updatedBy`: our own code, or a tool built for this
+#     host (Nix-built, or an installer's), run as a process of its owner.
+#   - container, `image`: a third-party server, run from a pinned OCI image
+#     in its owner's rootless Podman, isolated from the host but for its state
+#     directory, its address and the read-only files it is given, so the host
+#     is only compute and storage for it and the same image, files and state
+#     move to any other container runtime (docs/app-containers.md).
 #
 #   my.services.notes = {
 #     owner = "popemkt";
@@ -13,9 +24,20 @@
 #     args = [ "serve" ];
 #   };
 #
+#   my.services.ntfy = {
+#     owner = "popemkt";
+#     socket = "/run/ntfy-popemkt/ntfy.sock";
+#     image = pkgs.ntfy-image;   # pinned by digest (nvfetcher.toml)
+#     args = [ "serve" ];
+#     container.dataPath = "/var/lib/ntfy";   # where /srv/ntfy appears
+#     container.files."/etc/ntfy/server.yml" = serverYml;
+#   };
+#
 # An app always says what upgrades it, so an upgrade restarts it:
 #   - `package`: a Nix package. The unit names the program by store path, so
 #     a switch that changes the package changes the unit and restarts it.
+#   - `image`: an image archive pinned by digest. The unit names it by store
+#     path, so a switch to a new digest restarts the container the same way.
 #   - `updatedBy`: a tool a non-Nix installer owns, with `command` the shell
 #     command that runs it from the owner's PATH, e.g.
 #     `updatedBy.npmGlobal = "bb-app"`.
@@ -37,6 +59,10 @@
 # the socket's directory is the unit's own, owned by the owner with mode
 # 0700, so only they and root (tailscaled, which proxies the Service) can
 # reach it. Any account on the host can connect to a loopback port.
+#
+# An app's persistent state is one directory, `dataDir` (/srv/<entry> for a
+# container app), owned by its owner with mode 0700: what to back up, and
+# what to copy to move the app (docs/backup-strategy.md).
 #
 # An exposed app is published as the Tailscale Service `<app>-<owner>`
 # (svc:notes-popemkt), so it still needs its grant and auto-approver in
@@ -78,11 +104,14 @@ in
   options.my.services = mkOption {
     default = { };
     description = ''
-      Native server apps this host runs, one per entry, each as its owner.
-      Each sets exactly one of `port` and `socket`. An app with a `port` must
-      listen on 127.0.0.1 there; it is started with HOST and PORT set to that
-      address. An app with a `socket` gets neither and listens on that path,
-      which its arguments name. Each also sets exactly one of `package` and
+      Server apps this host runs, one per entry, each as its owner: native
+      ones (`package` or `updatedBy`) as a process, third-party ones
+      (`image`) as a rootless container. Each sets exactly one of `port` and
+      `socket`. A native app with a `port` must listen on 127.0.0.1 there; it
+      is started with HOST and PORT set to that address. A container app's
+      port is published on 127.0.0.1 from `container.port` inside it. An app
+      with a `socket` gets neither and listens on that path, which its
+      arguments name. Each also sets exactly one of `package`, `image` and
       `updatedBy`, so whatever upgrades it restarts it.
     '';
     type = types.attrsOf (
@@ -134,6 +163,80 @@ in
                 package restarts the app.
               '';
             };
+            image = mkOption {
+              type = types.nullOr types.package;
+              default = null;
+              example = lib.literalExpression "pkgs.ntfy-image";
+              description = ''
+                For a third-party server: the OCI image archive the app runs
+                as a container, one carrying `imageName` and `imageTag`
+                (dockerTools.pullImage, pinned by digest through
+                nvfetcher.toml, or dockerTools.buildImage). The unit loads it
+                into its owner's rootless Podman and runs it with `args` as
+                its command, `environment` as its environment, `dataDir`
+                mounted at `container.dataPath`, and no other access to the
+                host. The unit names the archive by store path, so a switch to
+                a new digest restarts the app. Never a moving tag such as
+                `latest`: the pin is the version.
+              '';
+            };
+            container = {
+              port = mkOption {
+                type = types.nullOr types.port;
+                default = null;
+                defaultText = lib.literalMD "`port`";
+                description = ''
+                  The port the app listens on inside its container, which the
+                  host publishes on 127.0.0.1:`port`; the same number when
+                  null.
+                '';
+              };
+              dataPath = mkOption {
+                type = types.str;
+                default = "/data";
+                example = "/var/lib/ntfy";
+                description = "Where `dataDir` appears inside the container.";
+              };
+              files = mkOption {
+                type = types.attrsOf types.path;
+                default = { };
+                example = lib.literalExpression ''{ "/etc/ntfy/server.yml" = serverYml; }'';
+                description = ''
+                  Files mounted read-only into the container, by the path
+                  they appear at: configuration generated from Nix values,
+                  in the app's own format, so the same file serves the app
+                  under any other runtime (the compose file beside it names
+                  them).
+                '';
+              };
+              outbound = mkOption {
+                type = types.bool;
+                default = false;
+                description = ''
+                  Whether a socket app's container may reach the network. By
+                  default it has none at all (`--network=none`): it serves
+                  only through its socket. A port app's container is always on
+                  the rootless default network, which reaches out, since its
+                  port is published through it.
+                '';
+              };
+            };
+            dataDir = mkOption {
+              type = types.nullOr types.str;
+              default = if config.image != null then "/srv/${name}" else null;
+              defaultText = lib.literalMD "`/srv/<entry>` for an `image` app, otherwise null";
+              example = "/srv/ntfy";
+              description = ''
+                The app's persistent state: one directory, created owned by
+                its owner with mode 0700, that holds everything the app keeps.
+                It is what to back up, and with the app's image and files all
+                that moves it to another host. A container app sees it at
+                `container.dataPath` (its root is the owner, so what it
+                writes there is the owner's); a native app is told nothing
+                and names it in its own arguments or environment. Null keeps
+                no directory.
+              '';
+            };
             updatedBy = mkOption {
               type = types.nullOr (
                 types.attrTag {
@@ -171,10 +274,11 @@ in
               type = types.listOf types.str;
               default = [ ];
               description = ''
-                Arguments to a `package` app's main program. Either way the app
-                runs in the foreground under bash with the owner's installed
-                packages on PATH (so it can start the tools they have), not
-                their interactive shell configuration.
+                Arguments to a `package` app's main program, or an `image`
+                app's command (what follows the image in `podman run`). A
+                native app runs in the foreground under bash with the owner's
+                installed packages on PATH (so it can start the tools they
+                have), not their interactive shell configuration.
               '';
             };
             idleCheck = idleCheckOption "app-<app>";
@@ -227,7 +331,11 @@ in
             environment = mkOption {
               type = types.attrsOf types.str;
               default = { };
-              description = "Extra environment variables for the app; these override HOST and PORT.";
+              description = ''
+                Extra environment variables for the app; these override HOST
+                and PORT. A container app's are its container's environment,
+                and it gets no HOST or PORT.
+              '';
             };
             workingDirectory = mkOption {
               type = types.nullOr types.str;

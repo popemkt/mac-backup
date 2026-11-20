@@ -10,10 +10,11 @@ let
 
   # A GitHub release source's homepage is its repository, which the pinned
   # release URL already names; derive it instead of restating nvfetcher.toml.
+  # A container image's source has no URL.
   withHomepage =
     _: source:
     let
-      repo = builtins.match "(https://github\\.com/[^/]+/[^/]+)/releases/.*" source.src.url;
+      repo = builtins.match "(https://github\\.com/[^/]+/[^/]+)/releases/.*" (source.src.url or "");
     in
     source // lib.optionalAttrs (repo != null) { homepage = builtins.head repo; };
 
@@ -46,6 +47,10 @@ in
   };
 
   marginalia = pkgs.callPackage ./marginalia { };
+
+  ntfy-image = pkgs.callPackage ./ntfy-image {
+    inherit sources;
+  };
 
   vite-plus = pkgs.callPackage ./vite-plus {
     inherit sources;

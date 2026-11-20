@@ -78,3 +78,17 @@ pinned = true
 src.github_tag = "popemkt/axioms"
 src.include_regex = '^v[0-9]+\.[0-9]+\.[0-9]+$'
 fetch.github = "popemkt/axioms"
+
+# ntfy's container image (pkgs/ntfy-image), which my.stacks.ntfy runs as a
+# my.services container app: pinned by digest, never a moving tag. The
+# version is the image tag (ntfy tags only releases, `v<x.y.z>`, besides
+# `latest`, which never sorts above them). The platform is fixed to the
+# server's, linux/amd64: the scheduled updater runs on an arm64 Mac, and an
+# unset platform would pin that machine's image. The digest is that
+# platform's manifest, which the portable compose file names too
+# (docs/app-containers.md).
+[ntfy-image]
+src.container = "binwiederhier/ntfy"
+fetch.docker = "binwiederhier/ntfy"
+docker.os = "linux"
+docker.arch = "amd64"
