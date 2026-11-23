@@ -8,10 +8,10 @@
 {
   antigravity-cli = {
     pname = "antigravity-cli";
-    version = "1.5.14-5302690847260672";
+    version = "1.5.15-5514532022517760";
     src = fetchurl {
-      url = "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.14-5302690847260672/linux-x64/cli_linux_x64.tar.gz";
-      sha256 = "sha256-1YOGMi0gc+lrM/fMMrTpri22Io9YRANpcllnst5Ix7U=";
+      url = "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.15-5514532022517760/linux-x64/cli_linux_x64.tar.gz";
+      sha256 = "sha256-jZkTKYYCBJ7ynpZp81JStreVcZec4b0PsndTx7rIQRQ=";
     };
   };
   axioms = {
@@ -35,18 +35,18 @@
   };
   cli-proxy-api = {
     pname = "cli-proxy-api";
-    version = "8.0.80";
+    version = "8.1.1";
     src = fetchurl {
-      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.80/CLIProxyAPI_8.0.80_darwin_aarch64.tar.gz";
-      sha256 = "sha256-wi47FaDUOV53nccLbk6ni98wU8k8Bv6aFelhYdTtRtM=";
+      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.1.1/CLIProxyAPI_8.1.1_darwin_aarch64.tar.gz";
+      sha256 = "sha256-eqBXeRzYiUuZGvi1Tu2oPcJ0qO6k5Ja6pX5d/1OZFwo=";
     };
   };
   cursor-cli = {
     pname = "cursor-cli";
-    version = "2026.11.19-f005e9d";
+    version = "2026.11.22-e9042b2";
     src = fetchurl {
-      url = "https://downloads.cursor.com/lab/2026.11.19-f005e9d/darwin/arm64/agent-cli-package.tar.gz";
-      sha256 = "sha256-FrszxZczcltGbTH5iEkN4zJ0fwkQ0tZLOTw2PlEObH0=";
+      url = "https://downloads.cursor.com/lab/2026.11.22-e9042b2/darwin/arm64/agent-cli-package.tar.gz";
+      sha256 = "sha256-kvOeRIIYiXU4vYAc2wHWkQarN6hqrz3A5rVRWcebdeI=";
     };
   };
   genoffice = {
