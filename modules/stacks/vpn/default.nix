@@ -101,7 +101,10 @@ in
           `tailscale serve`, not a Service. It needs no grant or
           auto-approver, being reachable from the tailnet wherever the
           machine is, and Funnel can publish it (`funnel`). Reconciled with
-          the Services; `adhoc` neither takes nor clears a declared port.
+          the Services; `adhoc` neither takes nor clears a declared port, and
+          the reconcile does not take a port something else already serves
+          (an adhoc share, a hand-made `tailscale serve`): it fails, naming
+          what is there, and retries until the port is free.
         '';
         type = types.attrsOf (
           types.submodule {
@@ -140,8 +143,10 @@ in
                   Funnel, at the same paths. The port must be 443, 8443 or
                   10000, and the tailnet policy must grant this machine's tag
                   the `funnel` node attribute (scripts/check-tailscale-policy.sh
-                  checks). Turning it off takes the port's Funnel down, and
-                  the reconcile turns off Funnel on any port not declared.
+                  checks). Funnel comes on only once the port serves exactly
+                  the declared mounts. Turning it off takes the port's Funnel
+                  down first, before anything else the reconcile does; Funnel
+                  on a port the reconcile does not manage is only warned about.
                 '';
               };
             };

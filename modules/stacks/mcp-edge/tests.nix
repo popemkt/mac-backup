@@ -59,13 +59,11 @@ let
   });
 
   # The vpn stack's reconcile with the edge's node serve entry, through
-  # Funnel and not, and without it (the off switch), against a tailscale that
-  # records its arguments and reports the serve status the test sets.
+  # Funnel and not, and without it (the off switch), with the machine's
+  # Tailscale Service beside it, against a tailscale that keeps a serve
+  # config as tailscaled does (./tests/fake-tailscale.py).
   fakeTailscale = pkgs.writeShellScript "tailscale" ''
-    echo "$*" >> /tmp/tailscale-calls
-    if [ "$*" = "serve status --json" ]; then
-      cat /tmp/fake-serve-status.json 2>/dev/null || echo '{}'
-    fi
+    exec ${pkgs.python3}/bin/python3 -I ${./tests/fake-tailscale.py} "$@"
   '';
   reconcile =
     nodeServe:
@@ -74,16 +72,17 @@ let
         inherit lib pkgs;
         cfg = {
           enable = true;
-          services = { };
+          inherit (serverEval.config.my.stacks.vpn) services;
           inherit nodeServe;
         };
         tailscale = fakeTailscale;
-        stateDir = "/tmp/tailscale-services";
+        stateDir = "/tmp/fake-tailscale/state";
       }).script;
   # The entry exactly as the edge contributes it (on the machine under test),
   # tailnet only, and with Funnel switched on.
-  edgeEntry = (evalServer [ ]).config.my.stacks.vpn.nodeServe.mcp-edge;
-  inherit ((evalServer [ ]).config.my.stacks.mcp-edge) publicPaths;
+  serverEval = evalServer [ ];
+  edgeEntry = serverEval.config.my.stacks.vpn.nodeServe.mcp-edge;
+  inherit (serverEval.config.my.stacks.mcp-edge) publicPaths;
   reconcileTailnet = reconcile { mcp-edge = edgeEntry; };
   reconcileFunnel = reconcile {
     mcp-edge = edgeEntry // {
@@ -606,24 +605,35 @@ pkgs.testers.runNixOSTest {
         server.wait_for_unit("kb-remote.service")
         server.wait_until_succeeds("test -S ${edge.socket}")
 
-    with subtest("tailnet and Funnel: tailscaled mounts the allow-list's paths and nothing else; off takes Funnel down"):
+    with subtest("tailnet and Funnel: tailscaled mounts the allow-list's paths and nothing else; Funnel only on exactly them"):
         FRONT = "http://127.0.0.1:${toString edge.ports.front}"
+        TS = "/tmp/fake-tailscale"
+        HP = "server.example.ts.net:443"
         paths = json.loads(r"""${builtins.toJSON publicPaths}""")
         assert "/mcp" in paths and len(paths) == len(set(paths)) == 18, paths
 
-        def reconcile(script, status=None):
-            server.succeed("rm -f /tmp/tailscale-calls")
-            server.succeed("echo '" + json.dumps(status or {}) + "' > /tmp/fake-serve-status.json")
-            server.succeed(script)
-            return server.succeed("cat /tmp/tailscale-calls").splitlines()
+        def fresh(seed=None):
+            server.succeed(f"rm -rf {TS} && mkdir -p {TS}")
+            if seed:
+                server.succeed(f"echo '{json.dumps(seed)}' > {TS}/serve.json")
 
-        def mounts(calls, verb):
-            found = {}
-            for call in calls:
-                m = re.fullmatch(verb + r" --bg --yes --https=443 --set-path=(\S+) (\S+)", call)
-                if m:
-                    found[m.group(1)] = m.group(2)
-            return found
+        def run(script, ok=True):
+            server.succeed(f"rm -f {TS}/calls")
+            status, out = server.execute(f"{script} 2>&1")
+            assert (status == 0) == ok, (status, out)
+            return out
+
+        def calls():
+            return server.succeed(f"cat {TS}/calls").splitlines()
+
+        def state():
+            return json.loads(server.succeed(f"cat {TS}/serve.json 2>/dev/null || echo '{{}}'"))
+
+        def mounts(sc, hp=HP):
+            return {p: h.get("Proxy") for p, h in sc.get("Web", {}).get(hp, {}).get("Handlers", {}).items()}
+
+        def public(sc):
+            return sorted(k for k, v in sc.get("AllowFunnel", {}).items() if v)
 
         def mounted(path, table):
             # tailscaled's own lookup (ipn/ipnlocal/serve.go getServeHandler):
@@ -660,34 +670,81 @@ pkgs.testers.runNixOSTest {
             "/realms/kb/broker/google/token", "/realms/kb/protocol/saml",
         ]
 
-        # Tailnet only: the allow-list mounted with serve, no `/`, no Funnel.
-        calls = reconcile("${reconcileTailnet}")
-        assert mounts(calls, "serve") == expected, calls
-        assert not any(c.startswith("funnel --bg") for c in calls), calls
-        assert not any(re.fullmatch(r"(serve|funnel) --bg --yes --https=443 \S+", c) for c in calls), calls
+        # Tailnet only: the allow-list mounted, no `/`, no Funnel.
+        fresh()
+        run("${reconcileTailnet}")
+        sc = state()
+        assert mounts(sc) == expected and public(sc) == [], sc
+        assert list(sc["Web"]) == [HP] and list(sc["TCP"]) == ["443"], sc
         reached = {p: m for p in never if (m := mounted(p, expected))}
         assert reached == {}, reached
 
-        # Funnel on: exactly the same mounts, through Funnel, nothing else on
-        # the port; a stray Funnel port (8443) is taken down first.
-        stray = {"AllowFunnel": {"server.example.ts.net:443": True, "server.example.ts.net:8443": True}}
-        calls = reconcile("${reconcileFunnel}", stray)
-        assert mounts(calls, "funnel") == expected, calls
-        assert mounts(calls, "serve") == {}, calls
-        assert "funnel --https=8443 off" in calls and "funnel --https=443 off" not in calls, calls
-        assert calls.index("funnel --https=8443 off") < min(i for i, c in enumerate(calls) if c.startswith("funnel --bg")), calls
+        # Funnel on: exactly the same mounts, now public.
+        run("${reconcileFunnel}")
+        sc = state()
+        assert mounts(sc) == expected and public(sc) == [HP], sc
 
-        # Funnel off again: the port set last time is dropped (which takes
-        # its Funnel down), any port tailscaled still reports with Funnel is
-        # turned off, and the tailnet mounts come back without Funnel.
-        calls = reconcile("${reconcileTailnet}", {"AllowFunnel": {"server.example.ts.net:443": True}})
-        assert calls.index("serve --https=443 off") < calls.index("funnel --https=443 off"), calls
-        assert mounts(calls, "serve") == expected and mounts(calls, "funnel") == {}, calls
+        # Funnel off while a Service command fails: Funnel is withdrawn
+        # before the Services are touched, so the failure leaves it off.
+        server.succeed(f"touch {TS}/fail-services")
+        out = run("${reconcileTailnet}", ok=False)
+        assert public(state()) == [], (state(), out)
+        first_service = min(i for i, c in enumerate(calls()) if "svc:" in c)
+        assert calls().index("serve --yes --https=443 off") < first_service, calls()
+        server.succeed(f"rm {TS}/fail-services")
+        run("${reconcileTailnet}")
+        sc = state()
+        assert mounts(sc) == expected and public(sc) == [], sc
+
+        # A mount added by hand to the edge's public port: the next run
+        # withdraws the port and sets exactly the declared mounts again.
+        run("${reconcileFunnel}")
+        server.succeed(
+            f"""jq '.Web["{HP}"].Handlers["/"] = {{"Proxy": "http://127.0.0.1:8000"}}' {TS}/serve.json > {TS}/x && mv {TS}/x {TS}/serve.json"""
+        )
+        run("${reconcileFunnel}")
+        sc = state()
+        assert mounts(sc) == expected and public(sc) == [HP], sc
 
         # The edge off: nothing of it is left, and no Funnel anywhere.
-        calls = reconcile("${reconcileOff}", {"AllowFunnel": {"server.example.ts.net:443": True}})
-        assert "serve --https=443 off" in calls and "funnel --https=443 off" in calls, calls
-        assert not any("--set-path" in c or c.startswith("funnel --bg") for c in calls), calls
+        run("${reconcileOff}")
+        sc = state()
+        assert mounts(sc) == {} and public(sc) == [] and "svc:kb-owner" in sc["Services"], sc
+
+        # An adhoc share already on :443 (`adhoc 8000`): neither switch takes
+        # the port over; the share stays as it was, and nothing goes public.
+        adhoc = {"TCP": {"443": {"HTTPS": True}}, "Web": {HP: {"Handlers": {"/": {"Proxy": "http://127.0.0.1:8000"}}}}}
+        for script in ["${reconcileFunnel}", "${reconcileTailnet}"]:
+            fresh(adhoc)
+            out = run(script, ok=False)
+            assert "HTTPS port 443 is already served" in out and "/ http://127.0.0.1:8000" in out, out
+            assert "adhoc off --https=443" in out, out
+            assert state() == {**adhoc, "Services": state()["Services"]}, state()
+            node = [c for c in calls() if "svc:" not in c]
+            assert not any(c.startswith("funnel") or "--https=443" in c for c in node), node
+
+        # Something else mounts a path on the port while the reconcile sets
+        # it: the port does not serve exactly the declared mounts, so Funnel
+        # stays off and the port is taken down.
+        fresh()
+        server.succeed(f"echo '/sneaky http://127.0.0.1:8000' > {TS}/inject-mount")
+        out = run("${reconcileFunnel}", ok=False)
+        assert "not turning Funnel on" in out and "/sneaky http://127.0.0.1:8000" in out, out
+        assert public(state()) == [] and mounts(state()) == {}, state()
+        assert not any(c.startswith("funnel") for c in calls()), calls()
+        server.succeed(f"rm {TS}/inject-mount")
+
+        # Funnel set by hand on a port the edge does not manage: a warning,
+        # not a change (turning it off would drop that port's mounts too).
+        hp8443 = "server.example.ts.net:8443"
+        stray = {"TCP": {"8443": {"HTTPS": True}}, "Web": {hp8443: {"Handlers": {"/": {"Proxy": "http://127.0.0.1:8000"}}}}, "AllowFunnel": {hp8443: True}}
+        fresh(stray)
+        out = run("${reconcileFunnel}")
+        assert "Funnel is on for HTTPS port 8443, which this configuration does not manage" in out, out
+        sc = state()
+        assert mounts(sc, hp8443) == {"/": "http://127.0.0.1:8000"} and public(sc) == sorted([HP, hp8443]), sc
+        assert mounts(sc) == expected, sc
+        assert not any("--https=8443" in c for c in calls()), calls()
 
     with subtest("B5: oauth2-proxy reaches loopback and nothing else"):
         deny = server.succeed("systemctl show mcp-edge-oauth2-proxy -p IPAddressDeny --value").split()

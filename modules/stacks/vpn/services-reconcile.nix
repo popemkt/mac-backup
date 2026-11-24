@@ -41,37 +41,81 @@ let
   );
 
   # Node-level entries (https://<host>[:port]), by HTTPS port.
-  nodePorts = map (entry: toString entry.port) (builtins.attrValues cfg.nodeServe);
-  nodePortsFile = pkgs.writeText "tailscale-managed-node-ports" (
-    concatStringsSep "\n" nodePorts + optionalString (nodePorts != [ ]) "\n"
+  nodeEntries = builtins.attrValues cfg.nodeServe;
+  nodePorts = map (entry: toString entry.port) nodeEntries;
+  funnelPorts = lib.unique (
+    map (entry: toString entry.port) (lib.filter (entry: entry.funnel) nodeEntries)
   );
   # One mount per path, each to `<target><path>`: tailscaled strips the
   # mount from the request path before proxying, and this puts it back.
-  # `funnel` sets the same mounts with Funnel on.
+  mountTarget = entry: path: if path == "/" then entry.target else entry.target + path;
+  # What tailscaled reports for an entry's port when it serves exactly the
+  # entry (`port_mounts` below): one "<path> <proxy>" line per mount.
+  expectedMounts =
+    entry:
+    pkgs.writeText "tailscale-node-mounts-${toString entry.port}" (
+      concatStringsSep "" (map (path: "${path} ${mountTarget entry path}\n") entry.paths)
+    );
+  setMounts =
+    command: entry:
+    concatStringsSep "\n" (
+      map (
+        path:
+        "${tailscale} ${command} --bg --yes --https=${toString entry.port}"
+        + optionalString (path != "/") " --set-path=${escapeShellArg path}"
+        + " ${escapeShellArg (mountTarget entry path)}"
+      ) entry.paths
+    );
+
+  # Each declared entry: take its port only when nothing is served there,
+  # record it as this job's before setting anything, set the mounts on the
+  # tailnet, and turn Funnel on only once the port serves exactly them.
   configureNodeServe = concatStringsSep "\n" (
-    lib.concatLists (
-      mapAttrsToList (
-        _: entry:
-        map (
-          path:
-          let
-            command = if entry.funnel then "funnel" else "serve";
-          in
-          if path == "/" then
-            "${tailscale} ${command} --bg --yes --https=${toString entry.port} ${escapeShellArg entry.target}"
-          else
-            "${tailscale} ${command} --bg --yes --https=${toString entry.port} --set-path=${escapeShellArg path} ${
-              escapeShellArg (entry.target + path)
-            }"
-        ) entry.paths
-      ) cfg.nodeServe
-    )
+    map (
+      entry:
+      let
+        port = toString entry.port;
+        expected = expectedMounts entry;
+      in
+      ''
+        read_status
+        if port_taken ${port}; then
+          refuse_port ${port}
+        else
+          echo ${port} >> "$managed_node_ports"
+          ${setMounts "serve" entry}
+          ${optionalString entry.funnel ''
+            read_status
+            if port_exact ${port} ${expected}; then
+              ${setMounts "funnel" entry}
+              read_status
+              if ! port_exact ${port} ${expected}; then
+                echo "tailscale-services: HTTPS port ${port} changed while Funnel came on; taking it down" >&2
+                ${tailscale} serve --yes --https=${port} off
+                failed=1
+              fi
+            else
+              echo "tailscale-services: HTTPS port ${port} does not serve exactly its declared mounts; not turning Funnel on. It serves:" >&2
+              port_mounts ${port} | ${sed} 's/^/  /' >&2
+              ${tailscale} serve --yes --https=${port} off
+              failed=1
+            fi
+          ''}
+        fi
+      ''
+    ) nodeEntries
   );
-  funnelPorts = lib.unique (
-    map (entry: toString entry.port) (
-      lib.filter (entry: entry.funnel) (builtins.attrValues cfg.nodeServe)
-    )
+  # A port this job manages keeps Funnel only when it is declared with
+  # Funnel and serves exactly the declared mounts.
+  keepsFunnel = concatStringsSep "\n" (
+    map (
+      entry: "${toString entry.port}) port_exact ${toString entry.port} ${expectedMounts entry} ;;"
+    ) (lib.filter (entry: entry.funnel) nodeEntries)
   );
+
+  jq = "${pkgs.jq}/bin/jq";
+  sed = "${pkgs.gnused}/bin/sed";
+  sort = "LC_ALL=C ${pkgs.coreutils}/bin/sort";
 
   validName = name: builtins.match "[a-z0-9][a-z0-9-]*" name != null;
   # A target stays on this host: a loopback http, https, or tcp address, or a
@@ -121,8 +165,81 @@ in
 
     state_dir=${stateDir}
     managed_services="$state_dir/managed-services"
+    managed_node_ports="$state_dir/managed-node-ports"
     ${pkgs.coreutils}/bin/mkdir -p "$state_dir"
+    failed=
 
+    # The node's serve config (`tailscale serve status --json`); Services sit
+    # under .Services, so .Web, .TCP and .AllowFunnel are node-level only.
+    read_status() {
+      if ! status=$(${tailscale} serve status --json) \
+        || ! printf '%s' "$status" | ${jq} -e 'type == "object"' > /dev/null; then
+        echo "tailscale-services: tailscale serve status failed; changing nothing more" >&2
+        exit 1
+      fi
+    }
+    # "<path> <proxy>" per mount on HTTPS port $1, sorted; a mount that is
+    # not a plain proxy shows as its JSON.
+    port_mounts() {
+      printf '%s' "$status" | ${jq} -r --arg port "$1" '
+        .Web // {} | to_entries[] | select(.key | endswith(":" + $port))
+        | .value.Handlers // {} | to_entries[]
+        | "\(.key) \(if (.value | keys) == ["Proxy"] then .value.Proxy else (.value | tojson) end)"' \
+        | ${sort}
+    }
+    port_listener() {
+      printf '%s' "$status" | ${jq} -c --arg port "$1" '.TCP // {} | .[$port] // empty'
+    }
+    port_taken() {
+      [ -n "$(port_listener "$1")" ] || [ -n "$(port_mounts "$1")" ]
+    }
+    # Port $1 serves HTTPS with exactly the mounts listed in file $2.
+    port_exact() {
+      [ "$(port_listener "$1")" = '{"HTTPS":true}' ] \
+        && [ "$(port_mounts "$1")" = "$(${sort} "$2")" ]
+    }
+    funnel_ports() {
+      printf '%s' "$status" | ${jq} -r '.AllowFunnel // {} | to_entries[] | select(.value) | .key | sub(".*:"; "")'
+    }
+    is_managed() {
+      [ -f "$managed_node_ports" ] && ${pkgs.gnugrep}/bin/grep -qxF "$1" "$managed_node_ports"
+    }
+    keeps_funnel() {
+      case $1 in
+        ${keepsFunnel}
+        *) return 1 ;;
+      esac
+    }
+    refuse_port() {
+      echo "tailscale-services: HTTPS port $1 is already served by something this configuration does not manage; not taking it over. It serves:" >&2
+      port_listener "$1" | ${sed} 's/^/  listener /' >&2
+      port_mounts "$1" | ${sed} 's/^/  /' >&2
+      echo "  Clear it with 'adhoc off --https=$1' (or 'tailscale serve --https=$1 off'); this job retries every 30 s and takes the port once it is free." >&2
+      failed=1
+    }
+
+    # 1. Public exposure first, before anything that can fail. A port this
+    # job manages keeps Funnel only when it is declared with Funnel and
+    # serves exactly the declared mounts; any other loses its mounts and
+    # Funnel with them (step 3 sets the mounts again). Funnel on a port this
+    # job does not manage (set by hand) is not this job's: a warning, no
+    # change, since turning it off would also drop that port's tailnet mounts.
+    # Not `funnel reset`: that clears the whole serve config, Services and
+    # adhoc shares included.
+    read_status
+    for port in $(funnel_ports); do
+      if ! is_managed "$port"; then
+        echo "tailscale-services: warning: Funnel is on for HTTPS port $port, which this configuration does not manage; leaving it (tailscale funnel status)" >&2
+      elif ! keeps_funnel "$port"; then
+        echo "tailscale-services: taking Funnel down on HTTPS port $port" >&2
+        if ! ${tailscale} serve --yes --https="$port" off; then
+          echo "tailscale-services: could not take Funnel down on HTTPS port $port" >&2
+          exit 1
+        fi
+      fi
+    done
+
+    # 2. Tailscale Services.
     if [ -f "$managed_services" ]; then
       while IFS= read -r service_name; do
         [ -z "$service_name" ] || ${tailscale} serve clear "$service_name" || true
@@ -131,39 +248,24 @@ in
 
     ${configureServices}
 
-    # Node-level entries: drop the ones this job set last time, then set the
-    # declared ones (an entry serves every path of its port).
-    managed_node_ports="$state_dir/managed-node-ports"
+    ${pkgs.coreutils}/bin/install -m 0600 ${serviceNamesFile} "$managed_services.new"
+    ${pkgs.coreutils}/bin/mv "$managed_services.new" "$managed_services"
+
+    # 3. Node-level entries: drop the ones this job set last time, then set
+    # the declared ones on ports nothing else serves.
+    read_status
     if [ -f "$managed_node_ports" ]; then
       while IFS= read -r port; do
-        [ -z "$port" ] || ${tailscale} serve --https="$port" off || true
+        if [ -n "$port" ] && port_taken "$port"; then
+          ${tailscale} serve --yes --https="$port" off
+        fi
       done < "$managed_node_ports"
     fi
-
-    # Funnel: on only where declared. Dropping the ports set last time
-    # already took their Funnel down; any other port with Funnel on (set by
-    # hand, or left by an older declaration) goes down here, before the
-    # declared entries are set. Not `funnel reset`: that clears the node's
-    # whole serve config, Services and adhoc shares included.
-    if ! serve_status=$(${tailscale} serve status --json); then
-      echo "tailscale serve status failed: cannot check which ports have Funnel on" >&2
-      exit 1
-    fi
-    funnel_on=$(printf '%s' "$serve_status" | ${pkgs.jq}/bin/jq -r '.AllowFunnel // {} | keys[]')
-    for host_port in $funnel_on; do
-      case " ${concatStringsSep " " funnelPorts} " in
-        *" ''${host_port##*:} "*) ;;
-        *) ${tailscale} funnel --https="''${host_port##*:}" off ;;
-      esac
-    done
+    : > "$managed_node_ports"
+    ${pkgs.coreutils}/bin/chmod 0600 "$managed_node_ports"
 
     ${configureNodeServe}
 
-
-    ${pkgs.coreutils}/bin/install -m 0600 ${nodePortsFile} "$managed_node_ports.new"
-    ${pkgs.coreutils}/bin/mv "$managed_node_ports.new" "$managed_node_ports"
-
-    ${pkgs.coreutils}/bin/install -m 0600 ${serviceNamesFile} "$managed_services.new"
-    ${pkgs.coreutils}/bin/mv "$managed_services.new" "$managed_services"
+    [ -z "$failed" ] || exit 1
   '';
 }
