@@ -121,6 +121,10 @@ let
   # switch that turns it, its store's kb-remote and its tailnet entry on or
   # off.
   mcpEdge = false;
+  # Its own switch for public reach (Funnel, phase 1c): Gemini's and
+  # Claude's backends call the edge from their clouds. Needs mcpEdge, and
+  # the policy's funnel node attribute for tag:shared-server.
+  mcpFunnel = false;
 in
 {
   imports = [
@@ -309,12 +313,14 @@ in
     };
   };
 
-  # popemkt's kb MCP for Gemini and Claude, behind the OAuth edge, on the
-  # tailnet only: https://shared-server.<tailnet>/mcp (docs/mcp-edge.md).
-  # Off until kb's pin ships `kb mcp --listen` and the owner has created the
-  # Google client; `mcpEdge` is the off switch for all three declarations.
+  # popemkt's kb MCP for Gemini and Claude, behind the OAuth edge:
+  # https://shared-server.<tailnet>/mcp (docs/mcp-edge.md), on the tailnet,
+  # and on the internet through Funnel with `mcpFunnel`. Off until kb's pin
+  # ships `kb mcp --listen` and the owner has created the Google client;
+  # `mcpEdge` turns off the edge, its store's kb-remote and its tailnet entry.
   my.stacks.mcp-edge = {
     enable = mcpEdge;
+    funnel = mcpFunnel;
     clients = {
       # Google publishes Gemini's redirect only as a pattern
       # (https://oauth-redirect.googleusercontent.com/r/*). Until its exact
@@ -328,9 +334,6 @@ in
     enable = mcpEdge;
     # The Google accounts whose tokens reach popemkt's store.
     emails = [ "hoangng71299@gmail.com" ];
-  };
-  my.stacks.vpn.nodeServe = lib.optionalAttrs mcpEdge {
-    mcp-edge.target = config.my.stacks.mcp-edge.frontOrigin;
   };
 
   # bytetum's Marginalia reading library (github.com/bytetum/marginalia;

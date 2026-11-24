@@ -45,10 +45,32 @@ let
   nodePortsFile = pkgs.writeText "tailscale-managed-node-ports" (
     concatStringsSep "\n" nodePorts + optionalString (nodePorts != [ ]) "\n"
   );
+  # One mount per path, each to `<target><path>`: tailscaled strips the
+  # mount from the request path before proxying, and this puts it back.
+  # `funnel` sets the same mounts with Funnel on.
   configureNodeServe = concatStringsSep "\n" (
-    mapAttrsToList (_: entry: ''
-      ${tailscale} serve --bg --yes --https=${toString entry.port} ${escapeShellArg entry.target}
-    '') cfg.nodeServe
+    lib.concatLists (
+      mapAttrsToList (
+        _: entry:
+        map (
+          path:
+          let
+            command = if entry.funnel then "funnel" else "serve";
+          in
+          if path == "/" then
+            "${tailscale} ${command} --bg --yes --https=${toString entry.port} ${escapeShellArg entry.target}"
+          else
+            "${tailscale} ${command} --bg --yes --https=${toString entry.port} --set-path=${escapeShellArg path} ${
+              escapeShellArg (entry.target + path)
+            }"
+        ) entry.paths
+      ) cfg.nodeServe
+    )
+  );
+  funnelPorts = lib.unique (
+    map (entry: toString entry.port) (
+      lib.filter (entry: entry.funnel) (builtins.attrValues cfg.nodeServe)
+    )
   );
 
   validName = name: builtins.match "[a-z0-9][a-z0-9-]*" name != null;
@@ -79,6 +101,17 @@ in
       assertion = lib.length nodePorts == lib.length (lib.unique nodePorts);
       message = "my.stacks.vpn.nodeServe entries must each use their own HTTPS port.";
     }
+    {
+      assertion = builtins.all (
+        port:
+        builtins.elem port [
+          "443"
+          "8443"
+          "10000"
+        ]
+      ) funnelPorts;
+      message = "my.stacks.vpn.nodeServe: Funnel serves only HTTPS ports 443, 8443 and 10000.";
+    }
   ];
 
   script = ''
@@ -107,7 +140,25 @@ in
       done < "$managed_node_ports"
     fi
 
+    # Funnel: on only where declared. Dropping the ports set last time
+    # already took their Funnel down; any other port with Funnel on (set by
+    # hand, or left by an older declaration) goes down here, before the
+    # declared entries are set. Not `funnel reset`: that clears the node's
+    # whole serve config, Services and adhoc shares included.
+    if ! serve_status=$(${tailscale} serve status --json); then
+      echo "tailscale serve status failed: cannot check which ports have Funnel on" >&2
+      exit 1
+    fi
+    funnel_on=$(printf '%s' "$serve_status" | ${pkgs.jq}/bin/jq -r '.AllowFunnel // {} | keys[]')
+    for host_port in $funnel_on; do
+      case " ${concatStringsSep " " funnelPorts} " in
+        *" ''${host_port##*:} "*) ;;
+        *) ${tailscale} funnel --https="''${host_port##*:}" off ;;
+      esac
+    done
+
     ${configureNodeServe}
+
 
     ${pkgs.coreutils}/bin/install -m 0600 ${nodePortsFile} "$managed_node_ports.new"
     ${pkgs.coreutils}/bin/mv "$managed_node_ports.new" "$managed_node_ports"

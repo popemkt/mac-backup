@@ -510,29 +510,40 @@ active</pre>
       </section>
 
       <!-- 4 -->
-      <section class="step" data-title="Open it to Gemini and Claude" data-later>
-        <p class="kicker">Step 4 of 7 · after the Funnel PR is merged</p>
+      <section class="step" data-title="Open it to Gemini and Claude">
+        <p class="kicker">Step 4 of 7 · in the dotfiles repo, then on shared-server</p>
         <h2>Open it to Gemini's and Claude's servers</h2>
-        <div class="note warn">
-          <p><strong>Not ready yet.</strong> This step waits for the Funnel change (phase 1c), which isn't built yet. Come back after it's merged; until then, steps 5 and 6 can't start.</p>
-        </div>
-        <p class="lead">Gemini and Claude connect from their own servers, not from your devices. A tailnet-only address is invisible to them, so not even the first sign-in can start. Funnel puts the same address on the internet.</p>
+        <p class="lead">Gemini and Claude connect from their own servers, not from your devices. A tailnet-only address is invisible to them, so not even the first sign-in can start. Funnel puts the same address on the internet, with its own switch.</p>
 
         <h3>Why this is safe before step 5</h3>
         <ol class="do">
-          <li>Only the edge's allow-listed addresses answer. Everything else is “not found”.</li>
+          <li>Only the edge's 18 allow-listed paths are published at all, and the edge answers “not found” to anything else.</li>
           <li><code>/mcp</code> needs a token from a Google sign-in by an allowed account.</li>
           <li>Gemini's list of return addresses is still empty, so every Gemini sign-in is refused until you add its address in step 5.</li>
         </ol>
 
         <h3>Do this</h3>
         <ol class="do">
-          <li>Merge the Funnel PR, then pull and rebuild on shared-server, as in step 3.</li>
+          <li>In <code>hosts/shared-server/default.nix</code>, flip the second switch:
+            <div class="cmd"><pre>mcpFunnel = true;</pre></div>
+          </li>
+          <li>Check that the tailnet policy allows Funnel for this machine:
+            <div class="cmd"><pre>scripts/dev scripts/check-tailscale-policy.sh check</pre></div>
+            <p class="expect-label">You should see it count one Funnel:</p>
+            <pre class="expect">ok: the policy grants and auto-approves all … declared Tailscale Services, and allows all 1 declared Funnels</pre>
+          </li>
+          <li>Commit, push to <code>main</code>, pull and rebuild, as in step 3. The policy in <code>configs/tailscale/policy.hujson</code> reaches your tailnet once it's on <code>main</code>.</li>
         </ol>
 
         <div class="check">
           <h3>Check it worked</h3>
-          <p>From a device <strong>not</strong> on your tailnet, such as your phone with Tailscale off:</p>
+          <div class="cmd"><pre>tailscale funnel status</pre></div>
+          <p class="expect-label">On shared-server, every line under the address is one of the allow-listed paths, and nothing is mounted at <code>/</code>:</p>
+          <pre class="expect">https://shared-server.taild98079.ts.net (Funnel on)
+|-- /mcp         proxy http://127.0.0.1:4190/mcp
+|-- /resources/  proxy http://127.0.0.1:4190/resources/
+…                18 paths in all; no line for / alone</pre>
+          <p style="margin-top:14px">Then, from a device <strong>not</strong> on your tailnet, such as your phone with Tailscale off:</p>
           <div class="cmd"><pre>curl -s https://shared-server.taild98079.ts.net/.well-known/oauth-protected-resource/mcp</pre></div>
           <p class="expect-label">You should see one line of JSON (wrapped here):</p>
           <pre class="expect">{"authorization_servers":["https://shared-server.taild98079.ts.net/realms/kb"],

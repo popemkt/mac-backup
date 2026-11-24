@@ -1,19 +1,22 @@
-# The OAuth edge for kb's MCP (tailnet only)
+# The OAuth edge for kb's MCP
 
 popemkt's kb store, reachable from Gemini and Claude as an MCP server
-behind Google sign-in, published on the tailnet only. Phase 1b of the design
-in popemkt/kb `docs/research/2026-11-24-public-mcp.md` (§6 row 1b, B1–B5).
-Funnel (public reach) is phase 1c and is not declared anywhere yet.
+behind Google sign-in. It is published on the tailnet (phase 1b) and, with
+its own switch, on the internet through Tailscale Funnel (phase 1c). The
+design is popemkt/kb `docs/research/2026-11-24-public-mcp.md` (§6 rows 1b
+and 1c, B1–B5).
 
 Code: `modules/stacks/mcp-edge/` (the edge) and
-`modules/stacks/kb/remote-mcp.nix` (the store's MCP server). Host switch:
-`mcpEdge` in `hosts/shared-server/default.nix`.
+`modules/stacks/kb/remote-mcp.nix` (the store's MCP server). Host
+switches, in `hosts/shared-server/default.nix`: `mcpEdge` (the edge, on the
+tailnet) and `mcpFunnel` (the same paths, on the internet; off by default).
 
 ## What runs
 
 ```
-tailscaled  https://shared-server.<tailnet>/  (vpn nodeServe, one target)
-  → front    nginx 127.0.0.1:4190   the public allow-list; anything else 404
+tailscaled  https://shared-server.<tailnet>/  (vpn nodeServe; Funnel with mcpFunnel)
+            mounts only the allow-list's 18 paths below; any other path is not served
+  → front    nginx 127.0.0.1:4190   the same allow-list, exact; anything else 404
       /mcp                            → oauth2-proxy 127.0.0.1:4180 → /run/kb-edge/mcp.sock
       /.well-known/… (PRM, AS meta)   static files, generated from Nix
       /realms/kb/{auth,token,certs}, /realms/kb/broker/google/…,
@@ -38,7 +41,11 @@ hides only *other* users' processes. So each runs in its own PID namespace
 Two choices differ from the design:
 
 - **Keycloak, not Dex (B3).** See below.
-- **A front, not tailscaled path mounts (B4).** tailscaled publishes one target, and the allow-list is the front's route table. Both run on loopback, so the VM test runs the allow-list under the real units. Funnel in phase 1c publishes the same single target.
+- **The allow-list at two layers (B4).** The design mounts paths in tailscaled. Here, one route table (`modules/stacks/mcp-edge/routes.nix`) feeds both layers:
+  - **tailscaled**, outer: it mounts exactly those paths, each one with its subpaths, all pointing at the front. The tailnet and Funnel get the same mounts.
+  - **the front (nginx)**, inner: it matches exact paths and answers 404 for anything else, a subpath of a mount included.
+
+  The front does more than filter: it strips cookies from `/mcp`, adds the 401 header, caps and streams bodies, normalises paths, and serves the discovery documents. So every mount goes through it, never straight to oauth2-proxy or Keycloak. The front runs on loopback, so the VM test checks the allow-list against the real units.
 
 ## B3: why Keycloak
 
@@ -114,12 +121,14 @@ page and this section differ, this section is right.
    - On shared-server, pull and run `nohup rebuild > ~/rebuild.log 2>&1 &`. It runs detached, so it finishes even if the session that started it ends.
 
    The first start writes `client-gemini-secret` and `client-claude-secret` into the secrets directory.
-4. **Public reach: Funnel (phase 1c, not built yet).**
+4. **Public reach: Funnel (phase 1c).**
    - Gemini's and Claude's backends call the edge from their own clouds, not from your devices. A tailnet-only URL cannot even start their sign-in, so Funnel has to be on before step 5, including the first Gemini attempt that reveals its redirect URI.
    - That is safe:
-     - Only the front's allow-listed routes are reachable, and everything else is 404.
+     - tailscaled mounts only the allow-list's paths, and the front answers 404 to anything else.
      - `/mcp` needs a token from an allow-listed Google account.
      - `clients.gemini.redirectUris` starts empty, so Keycloak refuses every Gemini sign-in until you pin its URI.
+   - First, the tailnet policy must grant `tag:shared-server` the `funnel` node attribute. `configs/tailscale/policy.hujson` declares it (`nodeAttrs`), and the policy reaches the tailnet when it lands on `main` (the Sync Tailscale policy workflow; docs/tailscale.md). `scripts/check-tailscale-policy.sh` fails a declared Funnel without it.
+   - Set `mcpFunnel = true;` in `hosts/shared-server/default.nix`, commit and push to `main`, then pull and rebuild on shared-server, as in step 3.
 5. **Connect Gemini.**
    - On gemini.google.com, turn on Developer Mode, then choose "Connect to an MCP server" and paste the URL `https://shared-server.taild98079.ts.net/mcp`.
    - Under "Show more" (additional settings), enter client ID `gemini` and the client secret from `sudo cat /var/lib/mcp-edge/secrets/client-gemini-secret`.
@@ -149,8 +158,12 @@ is the owner's (design §7). It would mean changing that assertion in
 
 ## Off switch
 
-- **Declared:** `mcpEdge = false;` in the host file, then `rebuild`. That removes the units, the `kb-edge` account's processes and the tailnet entry (the reconcile runs `tailscale serve --https=443 off`). `app-kb` is untouched.
-- **Immediate:** `sudo systemctl stop mcp-edge-oauth2-proxy kb-remote keycloak`, or `sudo tailscale serve --https=443 off`. The next `rebuild` restores the declared state.
+- **Public reach only:** `mcpFunnel = false;` in the host file, then `rebuild`. The edge stays on the tailnet.
+  - The reconcile first drops the port it set last time (`tailscale serve --https=443 off`), which takes that port's Funnel down with its mounts.
+  - It then turns Funnel off on any other port where tailscaled still reports it (`tailscale funnel --https=<port> off`), and sets the tailnet mounts again.
+  - It never runs `tailscale funnel reset`, which would clear the machine's whole serve config, its Tailscale Services and adhoc shares included.
+- **Declared:** `mcpEdge = false;` in the host file, then `rebuild`. That removes the units, the `kb-edge` account's processes and the tailnet entry, and its Funnel with it. `app-kb` is untouched.
+- **Immediate:** `sudo systemctl stop mcp-edge-oauth2-proxy kb-remote keycloak`, or `sudo tailscale serve --https=443 off`, which removes the mounts on port 443 and their Funnel. The next `rebuild` restores the declared state.
 
 ## Rotate a client secret
 
@@ -180,6 +193,12 @@ front. Dex's password connector stands in for Google, and an nginx TLS
 terminator stands in for tailscaled. It checks:
 
 - **Tailnet only:** nothing listens beyond loopback. Keycloak's admin API is gone even on loopback.
+- **tailscaled's mounts (fake `tailscale`, the vpn reconcile, the edge's real entry):**
+  - Tailnet only: exactly the 18 allow-list paths with `serve`, each to `<front><path>`, with no `/` mount and no Funnel.
+  - The front routes every one of them.
+  - Using tailscaled's own lookup, none of about 30 paths that must never be reachable (`/`, `/admin…`, `/oauth2/*`, the master realm, the account console, and Keycloak's userinfo, logout, registration and device endpoints) falls under a mount.
+  - Funnel on: the same mounts through `funnel`, nothing with `serve`. A stray Funnel port is turned off first.
+  - Funnel off again: the old port is dropped before any remaining Funnel is turned off. The edge off: nothing is left.
 - **Phishing:** a sign-in started as `gemini` and redeemed with a wrong secret, or with none, gets no token.
 - **Grants:** no PKCE, plain PKCE, a missing verifier, implicit, hybrid, password and client-credentials grants are all refused. The authorization endpoint itself refuses the implicit and hybrid ones, and the redirect's query and fragment carry no code and no token. `offline_access` is refused (`invalid_scope`). An unregistered redirect is refused and logged, and a `*` in a declared redirect fails evaluation.
 - **B3:** the owner's access token has `aud` = the resource; the ID token does not. Each of these is refused at `/mcp`:

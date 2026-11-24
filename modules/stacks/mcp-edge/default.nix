@@ -9,9 +9,13 @@
 # (docs/mcp-edge.md; the design is popemkt/kb
 # docs/research/2026-11-24-public-mcp.md, §6 row 1b and B1–B5). NixOS only.
 #
-#   tailscaled (node serve, HTTPS) → front (nginx, 127.0.0.1, the public
-#   allow-list) → Keycloak (sign-in, tokens) │ oauth2-proxy (/mcp) → kb's
-#   socket, /run/kb-edge/mcp.sock
+#   tailscaled (node serve, HTTPS; Funnel when `funnel` is on) → front
+#   (nginx, 127.0.0.1, the public allow-list) → Keycloak (sign-in, tokens) │
+#   oauth2-proxy (/mcp) → kb's socket, /run/kb-edge/mcp.sock
+#
+# tailscaled mounts only the allow-list's paths (./routes.nix), so the route
+# table is enforced twice: by what tailscaled forwards at all, and by the
+# front.
 #
 # The MCP server itself is not this stack's: a kb store contributes it through
 # `resource` (my.stacks.kb.stores.<store>.remoteMcp, modules/stacks/kb), and
@@ -19,14 +23,15 @@
 # that can open its socket (B1).
 #
 # Files: ./keycloak.nix (the broker: realm, static clients, Google),
-# ./oauth2-proxy.nix (the bearer check on /mcp), ./front.nix (the route
-# allow-list and the static discovery documents), ./tests.nix (the VM test,
-# checks.x86_64-linux.mcp-edge).
+# ./oauth2-proxy.nix (the bearer check on /mcp), ./routes.nix (the public
+# routes), ./front.nix (the route allow-list and the static discovery
+# documents), ./tests.nix (the VM test, checks.x86_64-linux.mcp-edge).
 let
   mkStack = import ../mk-stack.nix lib;
   inherit (lib) mkOption types;
   cfg = config.my.stacks.mcp-edge;
   edge = import ./constants.nix;
+  routes = import ./routes.nix;
 in
 {
   imports = [
@@ -47,6 +52,21 @@ in
           resource and every redirect are https://<host>/…. By default this
           machine's own tailnet name, which the vpn stack's node serve entry
           publishes (my.stacks.vpn.nodeServe).
+        '';
+      };
+
+      funnel = mkOption {
+        type = types.bool;
+        default = false;
+        description = ''
+          Publish the edge on the internet through Tailscale Funnel (phase
+          1c), not only on the tailnet: Gemini's and Claude's backends call
+          it from their own clouds. Only `publicPaths` are mounted, the same
+          as on the tailnet. Needs the tailnet policy's `funnel` node
+          attribute for this machine's tag (configs/tailscale/policy.hujson;
+          scripts/check-tailscale-policy.sh fails without it). Off: the
+          vpn reconcile takes the port's Funnel down
+          (docs/mcp-edge.md → Off switch).
         '';
       };
 
@@ -160,6 +180,21 @@ in
         default = "http://127.0.0.1:${toString edge.ports.front}";
         description = "Where the front listens: the one target tailscaled publishes.";
       };
+      publicPaths = mkOption {
+        type = types.listOf types.str;
+        readOnly = true;
+        default = [
+          routes.mcp
+        ]
+        ++ lib.attrNames routes.staticDocuments
+        ++ routes.keycloakExact
+        ++ routes.keycloakPrefixes;
+        description = ''
+          Every path tailscaled mounts for the edge, on the tailnet and
+          through Funnel: the front's allow-list (./routes.nix), and nothing
+          else.
+        '';
+      };
       user = mkOption {
         type = types.str;
         readOnly = true;
@@ -175,77 +210,95 @@ in
     };
   };
 
-  config = lib.mkIf cfg.enable {
-    assertions = [
-      {
-        assertion = cfg.resource != null;
-        message = "my.stacks.mcp-edge has nothing to serve: enable remoteMcp on one kb store.";
-      }
-      {
-        # Keycloak treats a trailing `*` as a wildcard; every redirect here is
-        # exact, so none may contain one.
-        assertion = lib.all (client: lib.all (uri: !lib.hasInfix "*" uri) client.redirectUris) (
-          lib.attrValues cfg.clients
-        );
-        message = "my.stacks.mcp-edge.clients.*.redirectUris must be exact: no `*` (${
-          toString (
-            lib.filter (lib.hasInfix "*") (lib.concatMap (c: c.redirectUris) (lib.attrValues cfg.clients))
-          )
-        }).";
-      }
-      {
-        assertion = cfg.upstream.provider == "oidc" -> cfg.upstream.issuer != null;
-        message = "my.stacks.mcp-edge.upstream.issuer is required for provider = \"oidc\".";
-      }
-    ];
+  config = lib.mkMerge [
+    {
+      assertions = [
+        {
+          assertion = cfg.funnel -> cfg.enable;
+          message = "my.stacks.mcp-edge.funnel publishes the edge, which is off: it needs my.stacks.mcp-edge.enable.";
+        }
+      ];
+    }
+    (lib.mkIf cfg.enable {
+      assertions = [
+        {
+          assertion = cfg.resource != null;
+          message = "my.stacks.mcp-edge has nothing to serve: enable remoteMcp on one kb store.";
+        }
+        {
+          # Keycloak treats a trailing `*` as a wildcard; every redirect here is
+          # exact, so none may contain one.
+          assertion = lib.all (client: lib.all (uri: !lib.hasInfix "*" uri) client.redirectUris) (
+            lib.attrValues cfg.clients
+          );
+          message = "my.stacks.mcp-edge.clients.*.redirectUris must be exact: no `*` (${
+            toString (
+              lib.filter (lib.hasInfix "*") (lib.concatMap (c: c.redirectUris) (lib.attrValues cfg.clients))
+            )
+          }).";
+        }
+        {
+          assertion = cfg.upstream.provider == "oidc" -> cfg.upstream.issuer != null;
+          message = "my.stacks.mcp-edge.upstream.issuer is required for provider = \"oidc\".";
+        }
+      ];
 
-    users.users.${edge.user} = {
-      isSystemUser = true;
-      group = edge.user;
-      description = "kb's OAuth edge (oauth2-proxy and the remote MCP server)";
-    };
-    users.groups.${edge.user} = { };
-
-    # The socket's directory: only kb-edge (and root) may enter it, so no
-    # process of the store's owner can reach the MCP server without a token.
-    systemd.tmpfiles.settings."10-mcp-edge".${edge.socketDir}.d = {
-      inherit (edge) user;
-      group = edge.user;
-      mode = "0700";
-    };
-
-    # The secrets directory, and the client secrets nobody needs to choose.
-    # The Google client is the owner's one-time step (docs/mcp-edge.md); a
-    # missing file fails this unit, naming it, and Keycloak waits for it.
-    systemd.services.mcp-edge-secrets = {
-      description = "Check and generate the MCP edge's machine-state secrets";
-      before = [ "keycloak.service" ];
-      requiredBy = [ "keycloak.service" ];
-      path = [ pkgs.openssl ];
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        UMask = "0077";
+      # The edge's own entry on this machine's tailnet name: the front, at the
+      # allow-list's paths only, and through Funnel when it is on.
+      my.stacks.vpn.nodeServe.mcp-edge = {
+        target = cfg.frontOrigin;
+        paths = cfg.publicPaths;
+        inherit (cfg) funnel;
       };
-      script = ''
-        set -eu
-        dir=${lib.escapeShellArg cfg.secretsDir}
-        install -d -m 0700 "$dir"
-        ${lib.concatMapStrings (name: ''
-          if [ ! -s "$dir/client-${name}-secret" ]; then
-            openssl rand -hex 32 > "$dir/client-${name}-secret"
-            echo "generated $dir/client-${name}-secret"
+
+      users.users.${edge.user} = {
+        isSystemUser = true;
+        group = edge.user;
+        description = "kb's OAuth edge (oauth2-proxy and the remote MCP server)";
+      };
+      users.groups.${edge.user} = { };
+
+      # The socket's directory: only kb-edge (and root) may enter it, so no
+      # process of the store's owner can reach the MCP server without a token.
+      systemd.tmpfiles.settings."10-mcp-edge".${edge.socketDir}.d = {
+        inherit (edge) user;
+        group = edge.user;
+        mode = "0700";
+      };
+
+      # The secrets directory, and the client secrets nobody needs to choose.
+      # The Google client is the owner's one-time step (docs/mcp-edge.md); a
+      # missing file fails this unit, naming it, and Keycloak waits for it.
+      systemd.services.mcp-edge-secrets = {
+        description = "Check and generate the MCP edge's machine-state secrets";
+        before = [ "keycloak.service" ];
+        requiredBy = [ "keycloak.service" ];
+        path = [ pkgs.openssl ];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          UMask = "0077";
+        };
+        script = ''
+          set -eu
+          dir=${lib.escapeShellArg cfg.secretsDir}
+          install -d -m 0700 "$dir"
+          ${lib.concatMapStrings (name: ''
+            if [ ! -s "$dir/client-${name}-secret" ]; then
+              openssl rand -hex 32 > "$dir/client-${name}-secret"
+              echo "generated $dir/client-${name}-secret"
+            fi
+          '') (lib.attrNames cfg.clients)}
+          missing=""
+          for file in google-client-id google-client-secret; do
+            [ -s "$dir/$file" ] || missing="$missing $dir/$file"
+          done
+          if [ -n "$missing" ]; then
+            echo "missing machine-state secrets:$missing (docs/mcp-edge.md → One-time steps)" >&2
+            exit 1
           fi
-        '') (lib.attrNames cfg.clients)}
-        missing=""
-        for file in google-client-id google-client-secret; do
-          [ -s "$dir/$file" ] || missing="$missing $dir/$file"
-        done
-        if [ -n "$missing" ]; then
-          echo "missing machine-state secrets:$missing (docs/mcp-edge.md → One-time steps)" >&2
-          exit 1
-        fi
-      '';
-    };
-  };
+        '';
+      };
+    })
+  ];
 }

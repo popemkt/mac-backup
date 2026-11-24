@@ -58,10 +58,14 @@ let
     };
   });
 
-  # The vpn stack's reconcile with the edge's node serve entry, and without
-  # it (the off switch), against a tailscale that records its arguments.
+  # The vpn stack's reconcile with the edge's node serve entry, through
+  # Funnel and not, and without it (the off switch), against a tailscale that
+  # records its arguments and reports the serve status the test sets.
   fakeTailscale = pkgs.writeShellScript "tailscale" ''
     echo "$*" >> /tmp/tailscale-calls
+    if [ "$*" = "serve status --json" ]; then
+      cat /tmp/fake-serve-status.json 2>/dev/null || echo '{}'
+    fi
   '';
   reconcile =
     nodeServe:
@@ -76,11 +80,14 @@ let
         tailscale = fakeTailscale;
         stateDir = "/tmp/tailscale-services";
       }).script;
-  # The entry as the host declares it, with the option's default port.
-  reconcileOn = reconcile {
-    mcp-edge = {
-      port = 443;
-      target = "http://127.0.0.1:${toString edge.ports.front}";
+  # The entry exactly as the edge contributes it (on the machine under test),
+  # tailnet only, and with Funnel switched on.
+  edgeEntry = (evalServer [ ]).config.my.stacks.vpn.nodeServe.mcp-edge;
+  inherit ((evalServer [ ]).config.my.stacks.mcp-edge) publicPaths;
+  reconcileTailnet = reconcile { mcp-edge = edgeEntry; };
+  reconcileFunnel = reconcile {
+    mcp-edge = edgeEntry // {
+      funnel = true;
     };
   };
   reconcileOff = reconcile { };
@@ -236,21 +243,26 @@ let
       };
     };
 
+  # The machine under test, evaluated outside the VM, with extra modules.
+  evalServer =
+    modules:
+    pkgs.nixos {
+      imports = [
+        serverModule
+        (pkgs.path + "/nixos/modules/virtualisation/qemu-vm.nix")
+        { system.stateVersion = lib.trivial.release; }
+      ]
+      ++ modules;
+    };
+
   # The failing redirect assertions of the machine under test, with gemini's
   # redirects replaced: a `*` must fail evaluation, the exact ones must not.
   redirectFailures =
     redirectUris:
     let
-      system = pkgs.nixos {
-        imports = [
-          serverModule
-          (pkgs.path + "/nixos/modules/virtualisation/qemu-vm.nix")
-          {
-            my.stacks.mcp-edge.clients.gemini.redirectUris = lib.mkForce redirectUris;
-            system.stateVersion = lib.trivial.release;
-          }
-        ];
-      };
+      system = evalServer [
+        { my.stacks.mcp-edge.clients.gemini.redirectUris = lib.mkForce redirectUris; }
+      ];
     in
     map (a: a.message) (
       lib.filter (
@@ -594,14 +606,88 @@ pkgs.testers.runNixOSTest {
         server.wait_for_unit("kb-remote.service")
         server.wait_until_succeeds("test -S ${edge.socket}")
 
-    with subtest("tailnet exposure: nodeServe publishes the front alone, and the off switch removes it"):
-        server.succeed("${reconcileOn}")
-        calls = server.succeed("cat /tmp/tailscale-calls").splitlines()
-        assert calls[-1] == "serve --bg --yes --https=443 http://127.0.0.1:${toString edge.ports.front}", calls
-        assert not any("funnel" in c for c in calls), calls
-        server.succeed("${reconcileOn} && ${reconcileOff}")
-        calls = server.succeed("cat /tmp/tailscale-calls").splitlines()
-        assert calls[-1] == "serve --https=443 off", calls
+    with subtest("tailnet and Funnel: tailscaled mounts the allow-list's paths and nothing else; off takes Funnel down"):
+        FRONT = "http://127.0.0.1:${toString edge.ports.front}"
+        paths = json.loads(r"""${builtins.toJSON publicPaths}""")
+        assert "/mcp" in paths and len(paths) == len(set(paths)) == 18, paths
+
+        def reconcile(script, status=None):
+            server.succeed("rm -f /tmp/tailscale-calls")
+            server.succeed("echo '" + json.dumps(status or {}) + "' > /tmp/fake-serve-status.json")
+            server.succeed(script)
+            return server.succeed("cat /tmp/tailscale-calls").splitlines()
+
+        def mounts(calls, verb):
+            found = {}
+            for call in calls:
+                m = re.fullmatch(verb + r" --bg --yes --https=443 --set-path=(\S+) (\S+)", call)
+                if m:
+                    found[m.group(1)] = m.group(2)
+            return found
+
+        def mounted(path, table):
+            # tailscaled's own lookup (ipn/ipnlocal/serve.go getServeHandler):
+            # the path itself, then each parent, with and without a slash.
+            if path in table:
+                return path
+            p = "/" + "/".join(s for s in path.split("/") if s)
+            while True:
+                if p.rstrip("/") + "/" in table:
+                    return p.rstrip("/") + "/"
+                if p in table:
+                    return p
+                if p == "/":
+                    return None
+                p = p.rsplit("/", 1)[0] or "/"
+
+        expected = {p: FRONT + p for p in paths}
+        # The front routes every one of them (the same table, ./routes.nix).
+        found_conf = re.search(r"-c (\S+)", server.succeed("systemctl show nginx -p ExecStart --value"))
+        assert found_conf is not None
+        nginx_conf = server.succeed(f"cat {found_conf.group(1)}")
+        unrouted = [p for p in paths if f"location = {p} " not in nginx_conf and f"location ^~ {p} " not in nginx_conf]
+        assert unrouted == [], unrouted
+
+        never = [
+            "/", "/index.html", "//admin/", "/admin", "/admin/", "/admin/master/console/", "/admin/realms/kb",
+            "/oauth2/sign_in", "/oauth2/start", "/oauth2/callback", "/oauth2/auth", "/oauth2/userinfo",
+            "/oauth2/sign_out", "/ping", "/ready", "/metrics", "/health", "/health/ready",
+            "/realms/master", "/realms/master/protocol/openid-connect/auth", "/realms/master/.well-known/openid-configuration",
+            "/realms/kb", "/realms/kb/account", "/realms/kb/account/", "/realms/kb/device",
+            "/realms/kb/protocol/openid-connect/userinfo", "/realms/kb/protocol/openid-connect/logout",
+            "/realms/kb/protocol/openid-connect/revoke", "/realms/kb/protocol/openid-connect/ext/ciba/auth",
+            "/realms/kb/clients-registrations/openid-connect", "/realms/kb/.well-known/uma2-configuration",
+            "/realms/kb/broker/google/token", "/realms/kb/protocol/saml",
+        ]
+
+        # Tailnet only: the allow-list mounted with serve, no `/`, no Funnel.
+        calls = reconcile("${reconcileTailnet}")
+        assert mounts(calls, "serve") == expected, calls
+        assert not any(c.startswith("funnel --bg") for c in calls), calls
+        assert not any(re.fullmatch(r"(serve|funnel) --bg --yes --https=443 \S+", c) for c in calls), calls
+        reached = {p: m for p in never if (m := mounted(p, expected))}
+        assert reached == {}, reached
+
+        # Funnel on: exactly the same mounts, through Funnel, nothing else on
+        # the port; a stray Funnel port (8443) is taken down first.
+        stray = {"AllowFunnel": {"server.example.ts.net:443": True, "server.example.ts.net:8443": True}}
+        calls = reconcile("${reconcileFunnel}", stray)
+        assert mounts(calls, "funnel") == expected, calls
+        assert mounts(calls, "serve") == {}, calls
+        assert "funnel --https=8443 off" in calls and "funnel --https=443 off" not in calls, calls
+        assert calls.index("funnel --https=8443 off") < min(i for i, c in enumerate(calls) if c.startswith("funnel --bg")), calls
+
+        # Funnel off again: the port set last time is dropped (which takes
+        # its Funnel down), any port tailscaled still reports with Funnel is
+        # turned off, and the tailnet mounts come back without Funnel.
+        calls = reconcile("${reconcileTailnet}", {"AllowFunnel": {"server.example.ts.net:443": True}})
+        assert calls.index("serve --https=443 off") < calls.index("funnel --https=443 off"), calls
+        assert mounts(calls, "serve") == expected and mounts(calls, "funnel") == {}, calls
+
+        # The edge off: nothing of it is left, and no Funnel anywhere.
+        calls = reconcile("${reconcileOff}", {"AllowFunnel": {"server.example.ts.net:443": True}})
+        assert "serve --https=443 off" in calls and "funnel --https=443 off" in calls, calls
+        assert not any("--set-path" in c or c.startswith("funnel --bg") for c in calls), calls
 
     with subtest("B5: oauth2-proxy reaches loopback and nothing else"):
         deny = server.succeed("systemctl show mcp-edge-oauth2-proxy -p IPAddressDeny --value").split()

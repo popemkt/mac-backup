@@ -68,7 +68,7 @@ let
   # rest of the call. The front refuses (413) exactly what kb would.
   mcpBodyMax = (25 * 1024 * 1024 + 2) / 3 * 4 + 256 + 64 * 1024;
 
-  realmPath = "/realms/${edge.realm}";
+  routes = import ./routes.nix;
   keycloak = "http://127.0.0.1:${toString edge.ports.keycloak}";
   oauth2Proxy = "http://127.0.0.1:${toString edge.ports.oauth2Proxy}";
 
@@ -80,34 +80,14 @@ let
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
   '';
 
-  # The allow-list. Exact paths, except the two prefixes Keycloak's sign-in
-  # pages need (their form posts and their stylesheets).
-  staticDocuments = {
-    "/.well-known/oauth-protected-resource" = protectedResource;
-    "/.well-known/oauth-protected-resource/mcp" = protectedResource;
-    # Gemini reads the origin root; RFC 8414 clients insert the issuer's
-    # path; OpenID clients append to the issuer.
-    "/.well-known/oauth-authorization-server" = authorizationServer;
-    "/.well-known/openid-configuration" = authorizationServer;
-    "/.well-known/oauth-authorization-server${realmPath}" = authorizationServer;
-    "/.well-known/openid-configuration${realmPath}" = authorizationServer;
-    "${realmPath}/.well-known/openid-configuration" = authorizationServer;
-    "${realmPath}/.well-known/oauth-authorization-server" = authorizationServer;
+  # The allow-list (./routes.nix): exact paths, except the two prefixes
+  # Keycloak's sign-in pages need.
+  documents = {
+    resource = protectedResource;
+    server = authorizationServer;
   };
-  keycloakExact = [
-    "${realmPath}/protocol/openid-connect/auth"
-    "${realmPath}/protocol/openid-connect/token"
-    "${realmPath}/protocol/openid-connect/certs"
-    # The identity provider's sign-in and callback, and the steps after it.
-    "${realmPath}/broker/${edge.idpAlias}/login"
-    "${realmPath}/broker/${edge.idpAlias}/endpoint"
-    "${realmPath}/broker/after-first-broker-login"
-    "${realmPath}/broker/after-post-broker-login"
-  ];
-  keycloakPrefixes = [
-    "${realmPath}/login-actions/"
-    "/resources/"
-  ];
+  staticDocuments = lib.mapAttrs (_: kind: documents.${kind}) routes.staticDocuments;
+  inherit (routes) keycloakExact keycloakPrefixes;
 
   locations =
     lib.mapAttrs' (
@@ -133,7 +113,7 @@ let
       ) keycloakPrefixes
     )
     // {
-      "= /mcp".extraConfig = ''
+      "= ${routes.mcp}".extraConfig = ''
         proxy_pass ${oauth2Proxy}/mcp;
         ${forwarded}
         # Only a bearer token authenticates: no session cookie reaches

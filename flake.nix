@@ -475,5 +475,28 @@
         nixpkgs.lib.concatLists (
           nixpkgs.lib.mapAttrsToList hostServices (self.darwinConfigurations // self.nixosConfigurations)
         );
+
+      # Every node-level entry a host publishes through Funnel, with the
+      # host's tags: the tailnet policy must grant one of those tags the
+      # `funnel` node attribute (scripts/check-tailscale-policy.sh).
+      tailscaleFunnels =
+        let
+          hostFunnels =
+            hostname: configuration:
+            let
+              vpn = configuration.config.my.stacks.vpn;
+            in
+            nixpkgs.lib.optionals vpn.enable (
+              nixpkgs.lib.mapAttrsToList (name: entry: {
+                inherit name;
+                host = hostname;
+                inherit (entry) port;
+                inherit (vpn) tags;
+              }) (nixpkgs.lib.filterAttrs (_: entry: entry.funnel) vpn.nodeServe)
+            );
+        in
+        nixpkgs.lib.concatLists (
+          nixpkgs.lib.mapAttrsToList hostFunnels (self.darwinConfigurations // self.nixosConfigurations)
+        );
     };
 }
