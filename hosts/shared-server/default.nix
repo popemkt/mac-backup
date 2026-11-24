@@ -117,6 +117,10 @@ let
     MemoryMax = "1G";
     CPUQuota = "200%";
   };
+  # The OAuth edge for popemkt's kb MCP (my.stacks.mcp-edge below): the one
+  # switch that turns it, its store's kb-remote and its tailnet entry on or
+  # off.
+  mcpEdge = false;
 in
 {
   imports = [
@@ -303,6 +307,30 @@ in
       owner = "bytetum";
       uiArgs = bbFramesKb "bytetum";
     };
+  };
+
+  # popemkt's kb MCP for Gemini and Claude, behind the OAuth edge, on the
+  # tailnet only: https://shared-server.<tailnet>/mcp (docs/mcp-edge.md).
+  # Off until kb's pin ships `kb mcp --listen` and the owner has created the
+  # Google client; `mcpEdge` is the off switch for all three declarations.
+  my.stacks.mcp-edge = {
+    enable = mcpEdge;
+    clients = {
+      # Google publishes Gemini's redirect only as a pattern
+      # (https://oauth-redirect.googleusercontent.com/r/*). Until its exact
+      # URI is listed here Gemini's sign-in is refused; the first attempt
+      # logs it (docs/mcp-edge.md → Gemini's redirect).
+      gemini.redirectUris = [ ];
+      claude.redirectUris = [ "https://claude.ai/api/mcp/auth_callback" ];
+    };
+  };
+  my.stacks.kb.stores.kb.remoteMcp = {
+    enable = mcpEdge;
+    # The Google accounts whose tokens reach popemkt's store.
+    emails = [ "hoangng71299@gmail.com" ];
+  };
+  my.stacks.vpn.nodeServe = lib.optionalAttrs mcpEdge {
+    mcp-edge.target = config.my.stacks.mcp-edge.frontOrigin;
   };
 
   # bytetum's Marginalia reading library (github.com/bytetum/marginalia;

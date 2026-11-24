@@ -81,6 +81,9 @@ let
   };
 in
 {
+  # A store's MCP behind the OAuth edge (`remoteMcp`).
+  imports = [ ./remote-mcp.nix ];
+
   # The served stores' part of the stack's schema, declared with its only
   # reader: my.services runs native apps on NixOS only.
   options.my.stacks.kb = mkOption {
@@ -138,6 +141,33 @@ in
                     Further `kb ui` arguments, after the root, socket and
                     public origin the stack passes.
                   '';
+                };
+                remoteMcp = {
+                  enable = mkEnableOption ''
+                    kb's MCP on this store behind the OAuth edge
+                    (my.stacks.mcp-edge; docs/mcp-edge.md): `kb mcp --listen`
+                    in a sandboxed unit, `kb-remote`, as the edge's identity
+                    `kb-edge`, which sees only this store. At most one store
+                  '';
+                  emails = mkOption {
+                    type = types.listOf types.str;
+                    default = [ ];
+                    example = [ "owner@gmail.com" ];
+                    description = ''
+                      Verified Google addresses whose tokens reach this
+                      store's MCP. Declared in the host file.
+                    '';
+                  };
+                  package = mkOption {
+                    type = types.package;
+                    default = pkgs.kb;
+                    defaultText = lib.literalExpression "pkgs.kb";
+                    description = ''
+                      The kb the unit runs, as `<main program> --root <root>
+                      mcp --listen unix:<socket>`. Needs a kb with
+                      `mcp --listen` (popemkt/kb, feat/mcp-listen).
+                    '';
+                  };
                 };
               };
             }
