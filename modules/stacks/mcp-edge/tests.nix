@@ -263,7 +263,12 @@ let
 in
 pkgs.testers.runNixOSTest {
   name = "mcp-edge";
-  nodes.server = serverModule;
+  # `funnel`: the same machine with mcpFunnel on, which changes only the
+  # front's nginx (the VM runs no tailscaled).
+  nodes.server = {
+    imports = [ serverModule ];
+    specialisation.funnel.configuration.my.stacks.mcp-edge.funnel = true;
+  };
 
   testScript = ''
     import json, re
@@ -710,7 +715,7 @@ pkgs.testers.runNixOSTest {
             fresh(adhoc)
             out = run(script, ok=False)
             assert "HTTPS port 443 is already served" in out and "/ http://127.0.0.1:8000" in out, out
-            assert "adhoc off --https=443" in out, out
+            assert "sudo tailscale serve --https=443 off" in out, out
             assert state() == {**adhoc, "Services": state()["Services"]}, state()
             node = [c for c in calls() if "svc:" not in c]
             assert not any(c.startswith("funnel") or "--https=443" in c for c in node), node
@@ -832,5 +837,35 @@ pkgs.testers.runNixOSTest {
         status, fresh = signin("gemini", "owner@example.com", GEMINI)
         assert status == 0, fresh
         assert mcp(token=fresh["access_token"])["status"] == 200
+
+    with subtest("Funnel off: the front refuses a request a public connection carries; Funnel on: it passes"):
+        MARK = "-H 'Tailscale-Funnel-Request: ?1'"
+
+        def code(path, marked, method="GET"):
+            header = MARK if marked else ""
+            return server.succeed(
+                f"curl -s -o /dev/null -w '%{{http_code}}' -X {method} --cacert ${cert}/cert.pem {header} {BASE}{path}"
+            )
+
+        def settles(path, want):
+            server.wait_until_succeeds(
+                f"test \"$(curl -s -o /dev/null -w '%{{http_code}}' --cacert ${cert}/cert.pem {MARK} {BASE}{path})\" = {want}"
+            )
+
+        doc = "/.well-known/oauth-protected-resource/mcp"
+        token = "/realms/${edge.realm}/protocol/openid-connect/token"
+        # mcpFunnel = false (this machine): a marked request is 404 on every
+        # route, before any proxying; tailnet requests work.
+        assert code(doc, False) == "200" and code("/mcp", False, "POST") == "401"
+        assert code(doc, True) == "404" and code("/mcp", True, "POST") == "404", "a Funnel request got past mcpFunnel = false"
+        assert code(token, True, "POST") == "404"
+        # mcpFunnel = true: the same marked requests reach the edge.
+        server.succeed("/run/booted-system/specialisation/funnel/bin/switch-to-configuration test")
+        settles(doc, "200")
+        assert code("/mcp", True, "POST") == "401" and code(token, True, "POST") in ("400", "401")
+        # Off again: refused again.
+        server.succeed("/run/booted-system/bin/switch-to-configuration test")
+        settles(doc, "404")
+        assert code(doc, False) == "200"
   '';
 }

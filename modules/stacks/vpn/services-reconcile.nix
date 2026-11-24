@@ -214,7 +214,7 @@ in
       echo "tailscale-services: HTTPS port $1 is already served by something this configuration does not manage; not taking it over. It serves:" >&2
       port_listener "$1" | ${sed} 's/^/  listener /' >&2
       port_mounts "$1" | ${sed} 's/^/  /' >&2
-      echo "  Clear it with 'adhoc off --https=$1' (or 'tailscale serve --https=$1 off'); this job retries every 30 s and takes the port once it is free." >&2
+      echo "  Clear it with 'sudo tailscale serve --https=$1 off' ('adhoc off' leaves a declared port alone); this job retries every 30 s and takes the port once it is free." >&2
       failed=1
     }
 

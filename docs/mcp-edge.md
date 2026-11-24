@@ -45,7 +45,7 @@ Two choices differ from the design:
   - **tailscaled**, outer: it mounts exactly those paths, each one with its subpaths, all pointing at the front. The tailnet and Funnel get the same mounts.
   - **the front (nginx)**, inner: it matches exact paths and answers 404 for anything else, a subpath of a mount included.
 
-  The front does more than filter: it strips cookies from `/mcp`, adds the 401 header, caps and streams bodies, normalises paths, and serves the discovery documents. So every mount goes through it, never straight to oauth2-proxy or Keycloak. The front runs on loopback, so the VM test checks the allow-list against the real units.
+  The front does more than filter: with `mcpFunnel` off it refuses any request tailscaled marks as public (Off switch, below), it strips cookies from `/mcp`, adds the 401 header, caps and streams bodies, normalises paths, and serves the discovery documents. So every mount goes through it, never straight to oauth2-proxy or Keycloak. The front runs on loopback, so the VM test checks the allow-list against the real units.
 
 ## B3: why Keycloak
 
@@ -129,7 +129,7 @@ page and this section differ, this section is right.
      - `clients.gemini.redirectUris` starts empty, so Keycloak refuses every Gemini sign-in until you pin its URI.
    - First, the tailnet policy must grant `tag:shared-server` the `funnel` node attribute. `configs/tailscale/policy.hujson` declares it (`nodeAttrs`), and the policy reaches the tailnet when it lands on `main` (the Sync Tailscale policy workflow; docs/tailscale.md). `scripts/check-tailscale-policy.sh` fails a declared Funnel without it.
    - Set `mcpFunnel = true;` in `hosts/shared-server/default.nix`, commit and push to `main`, then pull and rebuild on shared-server, as in step 3.
-   - Funnel comes on only when port 443 serves exactly the allow-list's mounts. If something else already serves 443 (an `adhoc` share, which takes 443 by default, or a hand-made `tailscale serve`), the reconcile does not take the port over and nothing goes public: `journalctl -u tailscale-services` names what is mounted there. Clear it with `adhoc off --https=443`; the job retries every 30 seconds and takes the port once it is free.
+   - Funnel comes on only when port 443 serves exactly the allow-list's mounts. If something else already serves 443 (an `adhoc` share, which takes 443 by default, or a hand-made `tailscale serve`), the reconcile does not take the port over and nothing goes public: `journalctl -u tailscale-services` names what is mounted there. Clear it with `sudo tailscale serve --https=443 off` (`adhoc off` refuses a port the configuration declares, which 443 is once the edge is deployed); the job retries every 30 seconds and takes the port once it is free.
 5. **Connect Gemini.**
    - On gemini.google.com, turn on Developer Mode, then choose "Connect to an MCP server" and paste the URL `https://shared-server.taild98079.ts.net/mcp`.
    - Under "Show more" (additional settings), enter client ID `gemini` and the client secret from `sudo cat /var/lib/mcp-edge/secrets/client-gemini-secret`.
@@ -164,6 +164,7 @@ is the owner's (design §7). It would mean changing that assertion in
   - A port it manages that is declared with Funnel keeps it only while it serves exactly the declared mounts; one with a mount added by hand loses Funnel the same way, and gets exactly the declared mounts back.
   - Funnel on a port it does not manage (an `adhoc` share turned public by hand) gets a warning in `journalctl -u tailscale-services`, not a change: turning it off would also drop that port's tailnet mounts. `tailscale funnel status` shows it.
   - It never runs `tailscale funnel reset`, which would clear the machine's whole serve config, its Tailscale Services and adhoc shares included.
+  - The front refuses (404) any request tailscaled marks as public (`Tailscale-Funnel-Request: ?1`), before proxying it. tailscaled checks Funnel only when it accepts a connection, so a public keep-alive connection opened while Funnel was on would otherwise keep reaching the mounts. tailscaled sets that header on every request of a Funnel connection and strips it from any other, so a client can neither remove it nor fake its way past: sending it only gets the sender refused.
 - **Declared:** `mcpEdge = false;` in the host file, then `rebuild`. That removes the units, the `kb-edge` account's processes and the tailnet entry, and its Funnel with it. `app-kb` is untouched.
 - **Immediate:** `sudo systemctl stop mcp-edge-oauth2-proxy kb-remote keycloak`, or `sudo tailscale serve --https=443 off`, which removes the mounts on port 443 and their Funnel. The next `rebuild` restores the declared state.
 
@@ -202,9 +203,10 @@ terminator stands in for tailscaled. It checks:
   - Using tailscaled's own lookup, none of about 30 paths that must never be reachable (`/`, `/admin…`, `/oauth2/*`, the master realm, the account console, and Keycloak's userinfo, logout, registration and device endpoints) falls under a mount.
   - Funnel on: the same mounts, public. A mount added by hand to that port is gone after the next run, and Funnel stays on exactly the declared mounts. The edge off: nothing of it is left, its Service stays.
   - Funnel off while every Service command fails: Funnel is down anyway, taken down before the first Service command.
-  - An adhoc share already on 443: neither switch takes the port over, the share is untouched, nothing goes public, and the failure names the share and `adhoc off --https=443`.
+  - An adhoc share already on 443: neither switch takes the port over, the share is untouched, nothing goes public, and the failure names the share and `sudo tailscale serve --https=443 off`.
   - A mount appearing on the port while the reconcile sets it: Funnel never comes on, and the port is taken down.
   - Funnel set by hand on a port the edge does not manage (8443): warned about, left as it was.
+- **The front under each switch:** with `mcpFunnel = false`, a request carrying `Tailscale-Funnel-Request: ?1` is 404 on every route (the discovery document, `/mcp`, the token endpoint), while the same requests unmarked work. Switched to `mcpFunnel = true` (a specialisation of the same machine), the marked requests reach the edge; switched back, they are 404 again.
 - **Phishing:** a sign-in started as `gemini` and redeemed with a wrong secret, or with none, gets no token.
 - **Grants:** no PKCE, plain PKCE, a missing verifier, implicit, hybrid, password and client-credentials grants are all refused. The authorization endpoint itself refuses the implicit and hybrid ones, and the redirect's query and fragment carry no code and no token. `offline_access` is refused (`invalid_scope`). An unregistered redirect is refused and logged, and a `*` in a declared redirect fails evaluation.
 - **B3:** the owner's access token has `aud` = the resource; the ID token does not. Each of these is refused at `/mcp`:

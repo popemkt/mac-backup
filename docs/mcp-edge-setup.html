@@ -506,7 +506,7 @@ active</pre>
           <p class="expect-label">From any device on your tailnet. 401 means the door is there, and locked:</p>
           <pre class="expect">401</pre>
           <p style="margin-top:12px">If <code>keycloak</code> isn't active, <code>journalctl -u mcp-edge-secrets -b</code> names any file that is missing.</p>
-          <p>If the <code>curl</code> gets no answer at all, something else may already hold port 443, such as an <code>adhoc</code> share: the edge never takes a port over. <code>journalctl -u tailscale-services -b</code> names what is mounted there; <code>adhoc off --https=443</code> frees it, and the edge takes the port within 30 seconds.</p>
+          <p>If the <code>curl</code> gets no answer at all, something else may already hold port 443, such as an <code>adhoc</code> share: the edge never takes a port over. <code>journalctl -u tailscale-services -b</code> names what is mounted there; <code>sudo tailscale serve --https=443 off</code> frees it (<code>adhoc off</code> leaves a declared port alone), and the edge takes the port within 30 seconds.</p>
         </div>
       </section>
 
@@ -544,7 +544,7 @@ active</pre>
 |-- /mcp         proxy http://127.0.0.1:4190/mcp
 |-- /resources/  proxy http://127.0.0.1:4190/resources/
 …                18 paths in all; no line for / alone</pre>
-          <p style="margin-top:12px">No “(Funnel on)”? Funnel comes on only while port 443 serves exactly those 18 paths. <code>journalctl -u tailscale-services -b</code> says why not, for example an <code>adhoc</code> share on 443 (free it with <code>adhoc off --https=443</code>).</p>
+          <p style="margin-top:12px">No “(Funnel on)”? Funnel comes on only while port 443 serves exactly those 18 paths. <code>journalctl -u tailscale-services -b</code> says why not, for example an <code>adhoc</code> share on 443 (free it with <code>sudo tailscale serve --https=443 off</code>).</p>
           <p style="margin-top:14px">Then, from a device <strong>not</strong> on your tailnet, such as your phone with Tailscale off:</p>
           <div class="cmd"><pre>curl -s https://shared-server.taild98079.ts.net/.well-known/oauth-protected-resource/mcp</pre></div>
           <p class="expect-label">You should see one line of JSON (wrapped here):</p>

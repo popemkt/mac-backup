@@ -157,6 +157,18 @@ in
         # takes a large body (below).
         extraConfig = ''
           client_max_body_size 64k;
+        ''
+        # Funnel off: tailscaled checks Funnel when it accepts a connection,
+        # so a public connection opened while Funnel was on keeps reaching
+        # the same mounts after they return to tailnet only. tailscaled
+        # marks every request of a Funnel connection with
+        # `Tailscale-Funnel-Request: ?1` and strips the header from any
+        # other request, so its presence alone means public: refused here,
+        # before anything is proxied.
+        + lib.optionalString (!cfg.funnel) ''
+          if ($http_tailscale_funnel_request) {
+            return 404;
+          }
         '';
         listen = [
           {
