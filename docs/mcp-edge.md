@@ -88,11 +88,16 @@ Keycloak start, `mcp-edge-realm` reconciles the realm from Nix with
 keycloak-config-cli:
 
 - It sets the realm's settings (token lifetimes, the 30-day session and offline caps), each client (secret, exact redirects, scopes, grant toggles, the audience mapper) and the Google identity provider exactly as declared.
+- keycloak-config-cli merges a client's attributes, so an override set by hand would survive it. So each client also declares, pinned to the realm's values, every attribute that would override the realm's lifetimes: `access.token.lifespan`, the client session and offline session idle and max, and `client_credentials.use_refresh_token`. It also declares an empty `authenticationFlowBindingOverrides`, so no client gets a sign-in flow of its own.
 - It deletes any client or identity provider that is not declared, such as one added by hand. Keycloak's own built-in clients stay.
-- It leaves users, sessions and signing keys alone.
+- It deletes any key provider Keycloak did not generate (a key imported by hand). It leaves users, sessions and the generated signing keys alone.
 
-oauth2-proxy waits for it, so `/mcp` is never served for a realm that did
-not reconcile. Revoking every token is a command of its own (below), no
+Until it has succeeded after this Keycloak start, nothing is served under
+rules that may be stale. The front answers 503 on every Keycloak route
+(sign-in, token, keys, broker, login pages) until `mcp-edge-realm` writes
+`/run/mcp-edge-realm/reconciled`. systemd removes that file when the unit
+stops or fails, and the unit stops with Keycloak. oauth2-proxy waits for it
+too, so `/mcp` is never served for a realm that did not reconcile. Revoking every token is a command of its own (below), no
 longer a side effect of a restart.
 
 Keycloak's database is machine state that is not backed up: losing it only
@@ -215,8 +220,10 @@ use `ssh -t` so its prompts work.
 
 ## Rotate a client secret
 
-`sudo mcp-edge-secrets rotate gemini` deletes the secret, writes a new one,
-and restarts Keycloak and the realm reconcile, which sets it. Nobody else is
+`sudo mcp-edge-secrets rotate gemini` writes a new secret under a temporary
+name and renames it into place (0400 root), so the file always holds one
+whole secret, old or new, even if the command is killed. It then reruns the
+realm reconcile, which sets it. Nobody else is
 signed out, but the vendor's old secret stops working at its next refresh.
 Then paste the new one into Gemini: `sudo mcp-edge-secrets client gemini`.
 
@@ -236,8 +243,9 @@ sudo cat /var/lib/mcp-edge/secrets/client-gemini-secret   # paste into Gemini
 the admin client, over loopback, it:
 
 1. ends every session in the realm, which kills every refresh token;
-2. replaces the realm's signing, encryption and HMAC keys with new ones, so every access token signed before fails its signature check;
-3. restarts oauth2-proxy, which cached the old keys, so an unexpired access token (5 minutes long) is refused at once, not when a token with a new key id makes it refetch them.
+2. replaces every key provider: a generated one by a new one of the same kind, and any other (a key imported by hand) by nothing;
+3. checks that no key id that signed or verified tokens before (active or passive) still does, and that the realm has an RS256 signing key again. Otherwise it fails and says which keys survived, and never reports success;
+4. restarts oauth2-proxy, which cached the old keys, so an unexpired access token (5 minutes long) is refused at once, not when a token with a new key id makes it refetch them.
 
 Every connector then signs in again. A Keycloak restart, reboot, crash or
 upgrade no longer does this: they keep everyone signed in. oauth2-proxy still
@@ -297,7 +305,10 @@ terminator stands in for tailscaled. It checks:
   - Keycloak killed with SIGKILL: oauth2-proxy goes down with it within 2 seconds and comes back with the restarted Keycloak as a new process. The token from before still passes, and so does its refresh.
   - `systemctl stop keycloak`, then `start`: oauth2-proxy and the realm reconcile stop, then run again, and a token from before passes.
 - **The realm is Nix's:** a client added by hand through the admin API, and Claude's redirect changed by hand (which then refuses Claude's real sign-in), are gone and restored after the next Keycloak start. A token from before the restart still passes.
-- **`mcp-edge-secrets`:** as a non-root user it refuses. Empty input changes nothing. The Google client typed with stray spaces is saved trimmed, 0400 root in the 0700 directory, with no temporary file left, and the secret appears in neither stdout nor stderr. Both shape warnings fire for the stand-in's values. Applying it re-reconciles the realm and sign-in still works. `status` prints no value at all. `client gemini` prints exactly the file's secret on stdout. `rotate claude` writes a new secret, and Claude signs in with it.
+  - A client's `access.token.lifespan` set to an hour by hand (a token then lasts 3600 s) is back to 300 s after the next start. A signing key imported by hand (which Keycloak then signs with) is gone, and its token is refused.
+  - With the reconcile held after a start, every Keycloak route (`/auth`, `/token`, `/certs`, `/resources/`) is 503. The discovery documents still answer, `/admin` and `/realms/master` are 404 at the front, and the admin API on loopback is 401 without a token.
+- **`revoke-all` with a key imported by hand:** Keycloak signs with that key, `revoke-all` deletes it (and says so), it is gone from the JWKS, and its token is refused.
+- **`mcp-edge-secrets`:** as a non-root user it refuses. Empty input changes nothing. The Google client typed with stray spaces is saved trimmed, 0400 root in the 0700 directory, with no temporary file left, and the secret appears in neither stdout nor stderr. Both shape warnings fire for the stand-in's values. Applying it re-reconciles the realm and sign-in still works. `status` prints no value at all. `client gemini` prints exactly the file's secret on stdout. The unit's own secrets are 0400 root. `rotate claude` replaces the live file in one rename (`inotifywait` sees only `MOVED_TO` for it, never a delete or a write in place), and Claude signs in with the new secret. Killed at six points in its run, it leaves one whole 64-hex-digit secret, 0400.
 
 kb-remote and app-kb both run the pinned kb (`pkgs.kb`) on the same store,
 as shared-server would.

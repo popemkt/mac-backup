@@ -16,6 +16,9 @@ rec {
   # `mcp-edge-secrets revoke-all` use it, over loopback.
   adminClient = "mcp-edge-admin";
   adminSecretFile = "keycloak-admin-secret";
+  # Present only while this boot's realm reconcile succeeded (mcp-edge-realm):
+  # until then the front answers 503 on every Keycloak route.
+  realmReady = "/run/mcp-edge-realm/reconciled";
   ports = {
     front = 4190;
     oauth2Proxy = 4180;

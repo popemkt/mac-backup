@@ -275,8 +275,10 @@ in
       # The secrets directory, and the secrets nobody needs to choose: each
       # client's, and Keycloak's admin client's. The Google client is the
       # owner's one-time step (docs/mcp-edge.md); a missing file fails this
-      # unit, naming it, and Keycloak waits for it. Restarting it restarts
-      # Keycloak (Requires=), whose realm reconcile then sets a new secret.
+      # unit, naming it, and Keycloak waits for it. Each secret is written
+      # whole under a temporary name, then renamed into place, 0400: the
+      # live path never holds part of one (mcp-edge-secrets writes the same
+      # way).
       systemd.services.mcp-edge-secrets = {
         description = "Check and generate the MCP edge's machine-state secrets";
         before = [ "keycloak.service" ];
@@ -293,7 +295,10 @@ in
           install -d -m 0700 "$dir"
           ${lib.concatMapStrings (file: ''
             if [ ! -s "$dir/${file}" ]; then
-              openssl rand -hex 32 > "$dir/${file}"
+              tmp=$(mktemp "$dir/.${file}.XXXXXX")
+              openssl rand -hex 32 > "$tmp"
+              chmod 0400 "$tmp"
+              mv -f "$tmp" "$dir/${file}"
               echo "generated $dir/${file}"
             fi
           '') (map (name: "client-${name}-secret") (lib.attrNames cfg.clients) ++ [ edge.adminSecretFile ])}

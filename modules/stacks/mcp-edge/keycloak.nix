@@ -46,6 +46,20 @@ let
       name: _: lib.nameValuePair (clientSecretFile name) (clientSecretFile name)
     ) cfg.clients;
 
+  # Token and session lifetimes, in seconds: the realm's, and every
+  # client's too (below).
+  lifetimes = {
+    # Short access tokens; a connector refreshes.
+    accessToken = 300;
+    # A session lasts at most 30 days, idle 14, Keycloak restarts included;
+    # `mcp-edge-secrets revoke-all` ends them all.
+    sessionIdle = 14 * 24 * 3600;
+    sessionMax = 30 * 24 * 3600;
+    # The backstop, should an offline token ever be issued: the same 30 days.
+    offlineIdle = 30 * 24 * 3600;
+    offlineMax = 30 * 24 * 3600;
+  };
+
   client = name: client: {
     clientId = name;
     inherit name;
@@ -67,7 +81,20 @@ let
     # The approval screen: "<client> wants access to your account". A weak
     # second layer behind the secret against the shared-callback attack.
     consentRequired = true;
+    # The realm's browser flow, never one bound to this client by hand
+    # (the reconcile clears any binding not declared).
+    authenticationFlowBindingOverrides = { };
+    # The reconcile merges attributes: one set by hand and not declared
+    # here would survive it. So every attribute that would override the
+    # realm's lifetimes or loosen a grant is declared, pinned to the realm's
+    # value.
     attributes = {
+      "access.token.lifespan" = toString lifetimes.accessToken;
+      "client.session.idle.timeout" = toString lifetimes.sessionIdle;
+      "client.session.max.lifespan" = toString lifetimes.sessionMax;
+      "client.offline.session.idle.timeout" = toString lifetimes.offlineIdle;
+      "client.offline.session.max.lifespan" = toString lifetimes.offlineMax;
+      "client_credentials.use_refresh_token" = "false";
       # PKCE is required, and only S256.
       "pkce.code.challenge.method" = "S256";
       "oauth2.device.authorization.grant.enabled" = "false";
@@ -147,17 +174,15 @@ let
     loginWithEmailAllowed = false;
     editUsernameAllowed = false;
     bruteForceProtected = true;
-    # Short access tokens; a connector refreshes. Refresh tokens rotate and
-    # are single-use. A session lasts at most 30 days, idle 14, Keycloak
-    # restarts included; `mcp-edge-secrets revoke-all` ends them all.
-    accessTokenLifespan = 300;
+    # Lifetimes (above). Refresh tokens rotate and are single-use.
+    accessTokenLifespan = lifetimes.accessToken;
     revokeRefreshToken = true;
     refreshTokenMaxReuse = 0;
-    ssoSessionIdleTimeout = 14 * 24 * 3600;
-    ssoSessionMaxLifespan = 30 * 24 * 3600;
-    # The backstop, should an offline token ever be issued: the same 30 days.
+    ssoSessionIdleTimeout = lifetimes.sessionIdle;
+    ssoSessionMaxLifespan = lifetimes.sessionMax;
+    offlineSessionIdleTimeout = lifetimes.offlineIdle;
     offlineSessionMaxLifespanEnabled = true;
-    offlineSessionMaxLifespan = 30 * 24 * 3600;
+    offlineSessionMaxLifespan = lifetimes.offlineMax;
     defaultSignatureAlgorithm = "RS256";
     identityProviders = [ identityProvider ];
     clients = lib.mapAttrsToList client cfg.clients;
@@ -263,10 +288,24 @@ in
       bindsTo = [ "keycloak.service" ];
       upheldBy = [ "keycloak.service" ];
       restartTriggers = [ realmJson ];
+      path = [
+        pkgs.curl
+        pkgs.jq
+      ];
+      environment = {
+        EDGE_KEYCLOAK = keycloakUrl;
+        EDGE_REALM = edge.realm;
+        EDGE_ADMIN_CLIENT = edge.adminClient;
+      };
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
         DynamicUser = true;
+        # The front's gate (./front.nix): the flag file exists only while
+        # this run succeeded. systemd removes the directory when the unit
+        # stops or fails, and it stops with Keycloak (BindsTo=).
+        RuntimeDirectory = baseNameOf (dirOf edge.realmReady);
+        RuntimeDirectoryMode = "0755";
         LoadCredential = [
           "admin-secret:${adminSecret}"
         ]
@@ -293,15 +332,19 @@ in
       # line (which every local user can read). remote-state off: it deletes
       # every client and identity provider not declared, not only the ones
       # it created itself. cache off: it imports every time, so a value
-      # changed by hand is restored though the file did not change.
+      # changed by hand is restored though the file did not change. Then the
+      # realm's key providers: any Keycloak did not generate (a key
+      # imported by hand) is removed, since no declaration here makes one.
       script = ''
+        set -euo pipefail
+        ${builtins.readFile ./keycloak-admin.sh}
         ${lib.concatMapStrings (credential: ''
           ${envName credential}=$(<"$CREDENTIALS_DIRECTORY/${credential}")
           export ${envName credential}
         '') (lib.attrNames credentials)}
         KEYCLOAK_CLIENTSECRET=$(<"$CREDENTIALS_DIRECTORY/admin-secret")
         export KEYCLOAK_CLIENTSECRET
-        exec ${lib.getExe pkgs.keycloak-config-cli} \
+        ${lib.getExe pkgs.keycloak-config-cli} \
           --keycloak.url=${keycloakUrl} \
           --keycloak.login-realm=master \
           --keycloak.grant-type=client_credentials \
@@ -311,6 +354,9 @@ in
           --import.var-substitution.enabled=true \
           --import.remote-state.enabled=false \
           --import.cache.enabled=false
+        admin_login "$KEYCLOAK_CLIENTSECRET"
+        remove_foreign_key_providers
+        touch ${edge.realmReady}
       '';
     };
   };

@@ -12,6 +12,7 @@ pkgs.writeShellApplication {
     coreutils
     curl
     jq
+    openssl
     systemd
   ];
   runtimeEnv = {
@@ -22,6 +23,6 @@ pkgs.writeShellApplication {
     EDGE_ADMIN_CLIENT = edge.adminClient;
     EDGE_ADMIN_SECRET = edge.adminSecretFile;
   };
-  text = builtins.readFile ./secrets-cli.sh;
+  text = builtins.readFile ./keycloak-admin.sh + builtins.readFile ./secrets-cli.sh;
   meta.mainProgram = "mcp-edge-secrets";
 }

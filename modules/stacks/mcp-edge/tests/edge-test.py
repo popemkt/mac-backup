@@ -161,9 +161,7 @@ def cmd_refresh(a):
     return 0 if r.status_code == 200 else 1
 
 
-def cmd_admin(a):
-    """Keycloak's admin API on loopback, as the admin service client (what
-    someone with root, editing the realm by hand, would use)."""
+def admin_session():
     with open(f"{SECRETS}/keycloak-admin-secret") as f:
         secret = f.read().strip()
     keycloak = os.environ["EDGE_KEYCLOAK"]
@@ -172,8 +170,50 @@ def cmd_admin(a):
         f"{keycloak}/realms/master/protocol/openid-connect/token",
         data={"grant_type": "client_credentials", "client_id": "mcp-edge-admin", "client_secret": secret},
     ).json()["access_token"]
+    s.headers["Authorization"] = f"Bearer {token}"
+    return s, f"{keycloak}/admin/realms"
+
+
+def cmd_add_key(a):
+    """A signing key imported by hand (provider `rsa`), at a priority above
+    the generated one, so Keycloak signs with it. Prints its key id."""
+    s, admin = admin_session()
+    realm_id = s.get(f"{admin}/kb").json()["id"]
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    pem = key.private_bytes(
+        serialization.Encoding.PEM, serialization.PrivateFormat.TraditionalOpenSSL, serialization.NoEncryption()
+    ).decode()
+    r = s.post(
+        f"{admin}/kb/components",
+        json={
+            "name": "handmade-rsa",
+            "providerId": "rsa",
+            "providerType": "org.keycloak.keys.KeyProvider",
+            "parentId": realm_id,
+            "config": {"priority": ["500"], "enabled": ["true"], "active": ["true"], "algorithm": ["RS256"], "privateKey": [pem]},
+        },
+    )
+    r.raise_for_status()
+    component = r.headers["Location"].rstrip("/").rsplit("/", 1)[-1]
+    # /keys names each key's component in `providerId`.
+    for k in s.get(f"{admin}/kb/keys").json()["keys"]:
+        if k.get("providerId") == component:
+            print(k["kid"])
+            return 0
+    raise SystemExit("the added key is not among the realm's keys")
+
+
+def cmd_kids(a):
+    """The key ids in the realm's public JWKS (what oauth2-proxy trusts)."""
+    print(json.dumps([k["kid"] for k in session().get(f"{ISSUER}/protocol/openid-connect/certs").json()["keys"]]))
+
+
+def cmd_admin(a):
+    """Keycloak's admin API on loopback, as the admin service client (what
+    someone with root, editing the realm by hand, would use)."""
+    s, admin = admin_session()
     body = json.loads(a.json) if a.json else None
-    r = s.request(a.method, f"{keycloak}/admin/realms/{a.path}", json=body, headers={"Authorization": f"Bearer {token}"})
+    r = s.request(a.method, f"{admin}/{a.path}", json=body)
     print(json.dumps({"status": r.status_code, "body": r.json() if r.content else None}))
     return 0 if r.ok else 1
 
@@ -400,6 +440,10 @@ def main():
     s.add_argument("path")
     s.add_argument("--json")
     s.set_defaults(fn=cmd_admin)
+    s = sub.add_parser("add-key")
+    s.set_defaults(fn=cmd_add_key)
+    s = sub.add_parser("kids")
+    s.set_defaults(fn=cmd_kids)
     s = sub.add_parser("acl")
     s.add_argument("root")
     s.add_argument("owner")
