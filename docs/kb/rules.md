@@ -157,14 +157,6 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The switchover step repoints the backup at the new directory, or declares the job here, and docs/backup-strategy.md → Marginalia Library names it.
 - **node** — `01M66FVYBMPZV44NS7CTC00ST4`
 
-### GAP: mcp-edge's kb-remote needs a kb pin with `mcp --listen`; its VM test runs kb built from kb main (merged, not yet released)
-
-- **expected** — pkgs.kb (the release pin) ships `kb mcp --listen`; my.stacks.kb.stores.<store>.remoteMcp.package keeps its default and checks.x86_64-linux.mcp-edge runs the pinned kb, as shared-server would
-- **current** — The pin has no --listen yet: kb PR #294 is merged (main 18b7326f) but not released. modules/stacks/mcp-edge/tests.nix builds kb from popemkt/kb main at 18b7326f (getFlake, locked by narHash) for kb-remote, while app-kb runs the pin; mcpEdge stays false in hosts/shared-server
-- **impact** — The edge cannot be turned on until the pin moves; the test proves kb-remote against a branch build, not the release
-- **closes** — After a kb release with --listen is pinned: drop kbListen and remoteMcp.package from tests.nix, rerun checks.x86_64-linux.mcp-edge, then set mcpEdge = true
-- **node** — `01M86QT0G81VG04JQ294EXACE2`
-
 ### GAP: my.services runs native apps on NixOS only
 
 - **expected** — An app declared in my.services runs on any host as its owner, under that platform's service manager (systemd on NixOS, a launchd agent on macOS), and is exposed the same way
@@ -362,6 +354,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Enable branch protection for main with the documented Nix and KB checks required and verify the policy.
 - **rule** — Admission gate
 - **node** — `01M1PJXGKQ0HAYEWY2V0QPWVX1`
+
+### GAP: mcp-edge's kb-remote needs a kb pin with `mcp --listen`; its VM test runs kb built from kb main (merged, not yet released)
+
+- **expected** — pkgs.kb (the release pin) ships `kb mcp --listen`; my.stacks.kb.stores.<store>.remoteMcp.package keeps its default and checks.x86_64-linux.mcp-edge runs the pinned kb, as shared-server would
+- **current** — Closed 2026-11-24: the pin (0.3.1-nightly.20261124162930, kb main 18b7326f) ships mcp --listen. tests.nix no longer builds kb from source; kb-remote and app-kb run the pinned kb in checks.x86_64-linux.mcp-edge, as shared-server would. mcpEdge stays false in hosts/shared-server: turning the edge on is the owner's step (docs/mcp-edge.md step 3), not this gap
+- **impact** — The edge cannot be turned on until the pin moves; the test proves kb-remote against a branch build, not the release
+- **closes** — Closed by pinning kb 0.3.1-nightly.20261124162930 and dropping kbListen and remoteMcp.package from tests.nix (checks.x86_64-linux.mcp-edge rerun). Setting mcpEdge = true remains the owner's decision
+- **node** — `01M86QT0G81VG04JQ294EXACE2`
 
 ### GAP: no channel registers MCP servers with agent harnesses
 

@@ -115,7 +115,7 @@ page and this section differ, this section is right.
    sudo sh -c 'umask 077; cat > /var/lib/mcp-edge/secrets/google-client-secret'  # paste, Enter, Ctrl-D
    ```
 
-3. **Turn it on**, once kb's pin has `kb mcp --listen` (`scripts/dev kb mcp --help` lists it; gap `01M86QT0G81VG04JQ294EXACE2`).
+3. **Turn it on.** kb's pin has `kb mcp --listen` since 0.3.1-nightly.20261124162930 (`scripts/dev kb mcp --help` lists it).
    - Check the email list (above).
    - Set `mcpEdge = true;` in `hosts/shared-server/default.nix`, then commit and push to `main`.
    - On shared-server, pull and run `nohup rebuild > ~/rebuild.log 2>&1 &`. It runs detached, so it finishes even if the session that started it ends.
@@ -239,8 +239,5 @@ terminator stands in for tailscaled. It checks:
   - Keycloak killed with SIGKILL: oauth2-proxy goes down with it and comes back with the restarted Keycloak as a new process, and an old token is refused.
   - `systemctl stop keycloak`, then `start`: oauth2-proxy stops, then runs again.
 
-kb-remote runs `kb mcp --listen` built from popemkt/kb `main` (commit
-18b7326f, which merged kb PR #294; kb's own flake, locked by narHash) until
-kb's pin ships
-it; app-kb runs the pinned kb on the same store. Gap
-`01M86QT0G81VG04JQ294EXACE2` says how to switch.
+kb-remote and app-kb both run the pinned kb (`pkgs.kb`) on the same store,
+as shared-server would.

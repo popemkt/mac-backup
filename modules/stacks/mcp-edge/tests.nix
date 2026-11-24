@@ -8,8 +8,8 @@
 #     through Keycloak's generic OpenID provider (`upstream.provider = "oidc"`);
 #   - tailscaled: an nginx that terminates TLS for the public name and
 #     forwards every path to the front, as `nodeServe` does.
-# kb-remote runs `kb mcp --listen` from kb's main (merged, not released) until
-# the kb pin ships it (kbListen below); app-kb runs the pinned kb.
+# kb-remote and app-kb both run the pinned kb (pkgs.kb), as shared-server
+# would.
 let
   inherit (pkgs) lib;
   edge = import ./constants.nix;
@@ -25,13 +25,6 @@ let
       -addext "subjectAltName=DNS:${host}" \
       -keyout "$out/key.pem" -out "$out/cert.pem"
   '';
-
-  # GAP [[01M86QT0G81VG04JQ294EXACE2]]: the kb pin has no `mcp --listen` yet, so
-  # kb-remote runs kb built from popemkt/kb main at a fixed commit
-  # (kb's own flake, locked by rev and narHash; test-only).
-  kbListen =
-    (builtins.getFlake "github:popemkt/kb/18b7326f745ecaba872510604f791e757d401a33?narHash=sha256-eH2LGXTlbTbmE1a%2BwPDYwKrvfw6d%2F6BEhzUlMgCpdrc%3D")
-    .packages.${pkgs.stdenv.hostPlatform.system}.kb;
 
   python = pkgs.python3.withPackages (p: [
     p.requests
@@ -131,7 +124,6 @@ let
               remoteMcp = {
                 enable = true;
                 emails = [ "owner@example.com" ];
-                package = kbListen;
               };
             };
           };
