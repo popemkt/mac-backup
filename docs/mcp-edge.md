@@ -86,17 +86,46 @@ approval screen ("gemini wants access") is a second, weak layer.
 
 ## One-time steps (the owner)
 
-1. **Google OAuth client.** In Google Cloud console → APIs & Services → Credentials, create an OAuth client ID of type *Web application* with the authorized redirect URI `https://shared-server.taild98079.ts.net/realms/kb/broker/google/endpoint`. On the OAuth consent screen, add your account as a test user, or publish the app; it asks only for `openid email profile`.
-2. **Machine-state files** on shared-server, root-only, never committed:
+A step-by-step page walks through these, with a check for each step:
+[mcp-edge-setup.html](mcp-edge-setup.html) (open it from a checkout; it
+is one static file). This section is the canonical statement: where the
+page and this section differ, this section is right.
+
+**Decided defaults, pending the owner's confirmation:**
+
+- Every Keycloak start is a fresh realm (above). So after a reboot, an upgrade or any Keycloak restart, you sign in again in Gemini and Claude. Changing that means keeping Keycloak's database across starts, in `modules/stacks/mcp-edge/keycloak.nix`.
+- The only Google account let through is `hoangng71299@gmail.com`: `my.stacks.kb.stores.kb.remoteMcp.emails` in `hosts/shared-server/default.nix`.
+
+1. **Google OAuth client.**
+   - In Google Cloud console → APIs & Services → Credentials, create an OAuth client ID of type *Web application*.
+   - Give it exactly one authorized redirect URI: `https://shared-server.taild98079.ts.net/realms/kb/broker/google/endpoint`.
+   - On the OAuth consent screen (newer consoles: Google Auth Platform → Audience), add your account as a test user, or publish the app. It asks only for `openid email profile`.
+2. **Machine-state files** on shared-server, root-only, never committed, never pasted anywhere else:
 
    ```bash
    sudo install -d -m 0700 /var/lib/mcp-edge/secrets
-   sudo sh -c 'umask 077; cat > /var/lib/mcp-edge/secrets/google-client-id'      # paste, Ctrl-D
-   sudo sh -c 'umask 077; cat > /var/lib/mcp-edge/secrets/google-client-secret'  # paste, Ctrl-D
+   sudo sh -c 'umask 077; cat > /var/lib/mcp-edge/secrets/google-client-id'      # paste, Enter, Ctrl-D
+   sudo sh -c 'umask 077; cat > /var/lib/mcp-edge/secrets/google-client-secret'  # paste, Enter, Ctrl-D
    ```
 
-3. **Turn it on:** `mcpEdge = true;` in `hosts/shared-server/default.nix`, once kb's pin has `kb mcp --listen`. Commit, push, `rebuild`. The first start writes `client-gemini-secret` and `client-claude-secret` into the same directory.
-4. **Connect.** URL `https://shared-server.taild98079.ts.net/mcp`. Client ID `gemini` (or `claude`). Client secret: `sudo cat /var/lib/mcp-edge/secrets/client-gemini-secret`. On the tailnet only until phase 1c, so a vendor's cloud cannot reach it yet.
+3. **Turn it on**, once kb's pin has `kb mcp --listen` (`scripts/dev kb mcp --help` lists it; gap `01M86QT0G81VG04JQ294EXACE2`).
+   - Check the email list (above).
+   - Set `mcpEdge = true;` in `hosts/shared-server/default.nix`, then commit and push to `main`.
+   - On shared-server, pull and run `nohup rebuild > ~/rebuild.log 2>&1 &`. It runs detached, so it finishes even if the session that started it ends.
+
+   The first start writes `client-gemini-secret` and `client-claude-secret` into the secrets directory.
+4. **Public reach: Funnel (phase 1c, not built yet).**
+   - Gemini's and Claude's backends call the edge from their own clouds, not from your devices. A tailnet-only URL cannot even start their sign-in, so Funnel has to be on before step 5, including the first Gemini attempt that reveals its redirect URI.
+   - That is safe:
+     - Only the front's allow-listed routes are reachable, and everything else is 404.
+     - `/mcp` needs a token from an allow-listed Google account.
+     - `clients.gemini.redirectUris` starts empty, so Keycloak refuses every Gemini sign-in until you pin its URI.
+5. **Connect Gemini.**
+   - URL: `https://shared-server.taild98079.ts.net/mcp`. Client ID: `gemini`. Client secret: `sudo cat /var/lib/mcp-edge/secrets/client-gemini-secret`.
+   - The first attempt is refused, by design: see Gemini's redirect, below. Pin the URI, rebuild, and connect again.
+6. **Connect Claude.**
+   - claude.ai → Settings → Connectors → Add custom connector, with the same URL. Under Advanced settings: client ID `claude`, client secret `sudo cat /var/lib/mcp-edge/secrets/client-claude-secret`.
+   - Claude's redirect, `https://claude.ai/api/mcp/auth_callback`, is already pinned in `clients.claude.redirectUris`. If Claude is refused with "Invalid parameter: redirect_uri" anyway, take the refused URI from the same log, as for Gemini.
 
 ### Gemini's redirect
 
