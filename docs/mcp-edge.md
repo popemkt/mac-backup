@@ -182,8 +182,9 @@ keys, so every access token (5 minutes long), refresh token and session dies.
 oauth2-proxy stops and starts with it, so it drops the keys it cached and
 refuses an old access token at once. Without that, it would accept one until
 a token with a new key id made it refetch. A Keycloak crash does the same:
-oauth2-proxy stops with it, and both come back after 5 seconds. Every connector has to
-sign in again.
+oauth2-proxy stops with it at once. Keycloak restarts 5 seconds after the
+crash, rebuilds its realm, and is back once that is done, with oauth2-proxy
+starting as it comes up. Every connector has to sign in again.
 
 ## Tests
 
@@ -233,7 +234,8 @@ terminator stands in for tailscaled. It checks:
   - Keycloak killed with SIGKILL: oauth2-proxy goes down with it and comes back with the restarted Keycloak as a new process, and an old token is refused.
   - `systemctl stop keycloak`, then `start`: oauth2-proxy stops, then runs again.
 
-kb-remote runs `kb mcp --listen` built from popemkt/kb `feat/mcp-listen`
-(commit 5a506e46, kb's own flake, locked by narHash) until kb's pin ships
+kb-remote runs `kb mcp --listen` built from popemkt/kb `main` (commit
+18b7326f, which merged kb PR #294; kb's own flake, locked by narHash) until
+kb's pin ships
 it; app-kb runs the pinned kb on the same store. Gap
 `01M86QT0G81VG04JQ294EXACE2` says how to switch.
