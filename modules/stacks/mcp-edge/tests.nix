@@ -208,8 +208,10 @@ let
             proxy_set_header Host $host;
             proxy_set_header X-Forwarded-For $remote_addr;
             proxy_buffering off;
-            # tailscaled sets no body limit: the front's is the one tested.
+            # tailscaled sets no body limit and streams the body on: the
+            # front's limit and buffering are the ones tested.
             client_max_body_size 0;
+            proxy_request_buffering off;
           '';
         };
 
@@ -225,6 +227,7 @@ let
           mintCookie
           pkgs.acl
           pkgs.curl
+          pkgs.inotify-tools
           pkgs.jq
           pkgs.socat
           pkgs.kb
@@ -514,6 +517,34 @@ pkgs.testers.runNixOSTest {
         # Refused by the front (nginx's own page), before oauth2-proxy or kb.
         assert out["status"] == 413 and "413 Request Entity Too Large" in out["body"], out
 
+    with subtest("/mcp never spools a body to disk; the sign-in routes take only small ones"):
+        # nginx's client-body temp directory, in its private /tmp, watched
+        # for any file nginx creates there.
+        spool = server.succeed("ls -d /tmp/systemd-private-*-nginx.service-*/tmp/nginx_client_body").strip()
+        server.succeed(f"systemd-run --unit spool-watch inotifywait -m -r -e create --format 'spooled %w%f' {spool}")
+        server.wait_until_succeeds("journalctl -u spool-watch -o cat | grep -q 'Watches established'")
+        def spooled():
+            return [l for l in server.succeed("journalctl -u spool-watch -o cat").splitlines() if l.startswith("spooled ")]
+        # Control: a 48 KiB POST to Keycloak's token route outgrows nginx's
+        # 16 KiB buffer and is spooled, so the watch sees spooling.
+        out = run_json("edge-test post ${"/realms/${edge.realm}"}/protocol/openid-connect/token 49152")[1]
+        server.wait_until_succeeds("journalctl -u spool-watch -o cat | grep -q '^spooled '", timeout=10)
+        before = len(spooled())
+        # A near-limit body with no token: refused, and nothing written.
+        out = run_json(f"edge-test post /mcp {33 * 1024 * 1024}")[1]
+        assert out["status"] in (401, 0), out
+        assert out["status"] == 0 or "invalid_token" in out["body"], out
+        # An authenticated near-limit upload streams through as well.
+        status, up = signin("claude", "owner@example.com", CLAUDE)
+        assert status == 0, up
+        out = run_json(f"edge-test upload '{up['access_token']}' {25 * 1024 * 1024}")[1]
+        assert out["status"] == 200 and not out["isError"], out
+        assert len(spooled()) == before, spooled()
+        # The sign-in routes refuse a body over 64 KiB outright.
+        out = run_json("edge-test post ${"/realms/${edge.realm}"}/protocol/openid-connect/token 1048576")[1]
+        assert out["status"] == 413, out
+        server.succeed("systemctl stop spool-watch")
+
     with subtest("B2: kb-remote's sandbox, probed from inside it"):
         server.wait_until_succeeds("ss -xlH | grep -q '@kb-remote-sandbox-probe'")
         # The probe reaches the abstract socket from the host…
@@ -610,7 +641,7 @@ pkgs.testers.runNixOSTest {
         now = int(server.succeed("date +%s"))
         assert claims(before["access_token"])["claims"]["exp"] > now + 30, "the old token expired: the check proves nothing"
         assert mcp(token=before["access_token"])["status"] == 401, "a token from before the restart still works"
-        # Because it restarted with Keycloak (PartOf=) and holds no old key.
+        # Because it restarted with Keycloak (BindsTo=, Upholds=) and holds no old key.
         assert server.succeed("systemctl show mcp-edge-oauth2-proxy -p MainPID --value").strip() != pid
         status, fresh = signin("gemini", "owner@example.com", GEMINI)
         assert status == 0, fresh
@@ -618,5 +649,53 @@ pkgs.testers.runNixOSTest {
         assert mcp(token=fresh["access_token"])["status"] == 200
         assert mcp(token=before["access_token"])["status"] == 401
         assert mcp(token=forge("wrong-iss"))["status"] in (401, 403)
+
+    def proxy_state():
+        return server.succeed(
+            "systemctl show mcp-edge-oauth2-proxy -p MainPID -p InactiveEnterTimestampMonotonic --value"
+        ).split()
+
+    def wait_edge_up():
+        # Polled: between runs the units pass through failed and inactive
+        # with no job queued, which wait_for_unit takes as final.
+        server.wait_until_succeeds("systemctl is-active keycloak mcp-edge-oauth2-proxy", timeout=300)
+        for port in [${toString edge.ports.keycloak}, ${toString edge.ports.oauth2Proxy}]:
+            server.wait_for_open_port(port)
+
+    with subtest("broker lifetime: Keycloak crashes; oauth2-proxy stops, returns with it, and refuses an old token"):
+        status, before = signin("gemini", "owner@example.com", GEMINI)
+        assert status == 0, before
+        assert mcp(token=before["access_token"])["status"] == 200
+        pid, inactive = proxy_state()
+        server.succeed("systemctl kill -s KILL keycloak")
+        # It went down with Keycloak…
+        server.wait_until_succeeds(
+            f"test \"$(systemctl show mcp-edge-oauth2-proxy -p InactiveEnterTimestampMonotonic --value)\" != {inactive}",
+            timeout=60,
+        )
+        # …and is back with the restarted Keycloak, a new process.
+        wait_edge_up()
+        # Down at once, not when Keycloak's restart comes round 5 s later:
+        # in between it would still take tokens with the dead run's keys.
+        def went_down(unit):
+            return int(server.succeed(f"systemctl show {unit} -p InactiveEnterTimestampMonotonic --value"))
+        gap = went_down("mcp-edge-oauth2-proxy") - went_down("keycloak")
+        assert -1_000_000 < gap < 2_000_000, f"oauth2-proxy stopped {gap} µs after Keycloak died"
+        assert proxy_state()[0] not in (pid, "0"), proxy_state()
+        now = int(server.succeed("date +%s"))
+        assert claims(before["access_token"])["claims"]["exp"] > now + 30, "the old token expired: the check proves nothing"
+        assert mcp(token=before["access_token"])["status"] == 401, "a token from before the crash still works"
+        status, fresh = signin("gemini", "owner@example.com", GEMINI)
+        assert status == 0, fresh
+        assert mcp(token=fresh["access_token"])["status"] == 200
+
+    with subtest("broker lifetime: stop Keycloak, then start it; oauth2-proxy follows both"):
+        server.succeed("systemctl stop keycloak")
+        server.succeed("! systemctl is-active mcp-edge-oauth2-proxy")
+        server.succeed("systemctl start keycloak")
+        wait_edge_up()
+        status, fresh = signin("gemini", "owner@example.com", GEMINI)
+        assert status == 0, fresh
+        assert mcp(token=fresh["access_token"])["status"] == 200
   '';
 }

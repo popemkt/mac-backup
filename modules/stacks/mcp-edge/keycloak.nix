@@ -228,6 +228,10 @@ in
       # A realm change restarts it, which re-imports.
       restartTriggers = [ realmJson ];
       serviceConfig = {
+        # A crash comes back as a fresh realm; oauth2-proxy stops and starts
+        # with it (./oauth2-proxy.nix).
+        Restart = "on-failure";
+        RestartSec = 5;
         ExecStartPre = [ "+${resetDatabase}" ];
         LoadCredential = lib.mapAttrsToList (
           credential: file: "${credential}:${cfg.secretsDir}/${file}"

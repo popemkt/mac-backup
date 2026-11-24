@@ -182,7 +182,13 @@ def cmd_mcp(a):
     if init.status_code == 200:
         params = json.loads(a.params) if a.params else {}
         call = mcp_post({"jsonrpc": "2.0", "id": 2, "method": a.method, "params": params}, token=a.token, cookie=a.cookie, base=a.base)
-        out |= {"call_status": call.status_code, "answer": call.json()}
+        answer = call.json()
+        # Tool names only: the full schemas run to ~100 KB, more than the
+        # test driver's console carries reliably.
+        tools = answer.get("result", {}).get("tools")
+        if tools is not None:
+            answer["result"]["tools"] = [{"name": t["name"]} for t in tools]
+        out |= {"call_status": call.status_code, "answer": answer}
     else:
         out["body"] = init.text[:500]
     print(json.dumps(out))
@@ -212,6 +218,18 @@ def cmd_upload(a):
         result = r.json().get("result", {})
         out |= {"isError": bool(result.get("isError")), "text": result.get("content", [{}])[0].get("text", "")[:300]}
     print(json.dumps(out))
+
+
+def cmd_post(a):
+    """A POST of about `size` bytes (a JSON-RPC call padded out), with no
+    token: the status, or the error when the connection is cut."""
+    head, tail = '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"pad":"', '"}}'
+    body = head + "A" * max(0, a.size - len(head) - len(tail)) + tail
+    try:
+        r = session().post(f"{BASE}{a.path}", data=body, headers={"Content-Type": "application/json", "Accept": "application/json, text/event-stream"})
+        print(json.dumps({"status": r.status_code, "body": r.text[:200]}))
+    except requests.exceptions.ConnectionError as e:
+        print(json.dumps({"status": 0, "error": str(e)[:300]}))
 
 
 def cmd_status(a):
@@ -337,6 +355,10 @@ def main():
     s.add_argument("token")
     s.add_argument("size", type=int)
     s.set_defaults(fn=cmd_upload)
+    s = sub.add_parser("post")
+    s.add_argument("path")
+    s.add_argument("size", type=int)
+    s.set_defaults(fn=cmd_post)
     s = sub.add_parser("status")
     s.add_argument("path")
     s.add_argument("--method", default="GET")

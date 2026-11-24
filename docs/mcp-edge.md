@@ -22,9 +22,9 @@ tailscaled  https://shared-server.<tailnet>/  (vpn nodeServe, one target)
 
 | Unit | Runs as | What it does |
 |---|---|---|
-| `nginx` (vhost `mcp-edge`) | nginx | The allow-list (B4). Strips cookies from `/mcp`. Adds `WWW-Authenticate: Bearer resource_metadata=…` to a 401. Takes a `/mcp` body up to kb's own limit, 35018328 bytes: kb's largest asset (25 MiB) as base64, plus 64 KiB |
-| `keycloak` + `postgresql` | dynamic `keycloak` | Realm `kb`: static clients `gemini` and `claude`, Google as the only way in. Drops and re-imports its database on every start |
-| `mcp-edge-oauth2-proxy` | `kb-edge` | Lets a request through only with a Keycloak access token whose `aud` is `https://<host>/mcp`, whose `iss` is the public issuer, and whose verified email is listed. Loopback egress only. Restarts with Keycloak (`PartOf=`) |
+| `nginx` (vhost `mcp-edge`) | nginx | The allow-list (B4). Strips cookies from `/mcp`. Adds `WWW-Authenticate: Bearer resource_metadata=…` to a 401. Takes a `/mcp` body up to kb's own limit, 35018328 bytes (kb's largest asset, 25 MiB, as base64, plus 64 KiB), and streams it on without spooling it to disk, so a request without a token costs no storage. Other routes take at most 64 KiB |
+| `keycloak` + `postgresql` | dynamic `keycloak` | Realm `kb`: static clients `gemini` and `claude`, Google as the only way in. Drops and re-imports its database on every start. Restarts after a crash |
+| `mcp-edge-oauth2-proxy` | `kb-edge` | Lets a request through only with a Keycloak access token whose `aud` is `https://<host>/mcp`, whose `iss` is the public issuer, and whose verified email is listed. Loopback egress only. Lives exactly as long as one Keycloak run: stops when Keycloak stops or crashes (`BindsTo=`), starts with every Keycloak start (`Upholds=`) |
 | `kb-remote` | `kb-edge` | `kb --root <store> mcp --listen unix:/run/kb-edge/mcp.sock`, `KB_VIA=mcp-remote`, in an allow-list sandbox. `tini` is its PID 1 |
 | `kb-remote-sandbox-check` | `kb-edge` | The same sandbox, probed from inside. `kb-remote` requires it to pass |
 | `kb-remote-store-acl` | root | ACLs so `kb-edge` and the owner both read and write the store |
@@ -136,9 +136,10 @@ The restart also revokes every token (next section).
 
 `sudo systemctl restart keycloak`. The realm is rebuilt with new signing
 keys, so every access token (5 minutes long), refresh token and session dies.
-oauth2-proxy restarts with it (`PartOf=`), so it drops the keys it cached and
-refuses an old access token at once. Without the restart, it would accept
-one until a token with a new key id made it refetch. Every connector has to
+oauth2-proxy stops and starts with it, so it drops the keys it cached and
+refuses an old access token at once. Without that, it would accept one until
+a token with a new key id made it refetch. A Keycloak crash does the same:
+oauth2-proxy stops with it, and both come back after 5 seconds. Every connector has to
 sign in again.
 
 ## Tests
@@ -165,7 +166,10 @@ terminator stands in for tailscaled. It checks:
   - The socket is `kb-edge kb-edge 0600` in a `0700` directory, and a process of the owner's cannot connect.
   - Writes through app-kb and through kb-remote interleave, and each side sees the other's. Every file stays read-write for both after kb's atomic replaces.
   - From inside kb-remote's namespaces, oauth2-proxy's process and its `/proc/<pid>/root` are absent, and the reverse holds too; on the host's `/proc`, kb-edge reaches both. Both units still stop promptly on SIGTERM, and afterwards the proxy still reaches kb's socket.
-- **Uploads:** a 25 MiB asset passes through the whole chain, and a 26 MiB one is 413 at the front, before oauth2-proxy or kb.
+- **Uploads:**
+  - A 25 MiB asset passes through the whole chain, and a 26 MiB one is 413 at the front, before oauth2-proxy or kb.
+  - A watch on nginx's client-body temporary directory sees nothing written for an unauthenticated 33 MiB `/mcp` POST (refused) or for the authenticated 25 MiB upload. Its control, a 48 KiB POST to the token route, is seen.
+  - A 1 MiB POST to a sign-in route is 413.
 - **B2:** `kb-remote-sandbox-check` passes inside the unit:
   - `/` lists only the binds and the API filesystems, and `/run` holds only `kb-edge`;
   - other stores' sockets, `/run/tailscale`, `/run/dbus`, `/run/user` and `/etc` are absent, and the owner's home shows only the way down to the store;
@@ -177,6 +181,8 @@ terminator stands in for tailscaled. It checks:
   - oauth2-proxy has `IPAddressDeny=any` and `IPAddressAllow=localhost`.
   - A listener on the machine's LAN address is reachable from the host but refused from inside oauth2-proxy's cgroup. Keycloak on loopback still answers from inside.
   - After a Keycloak restart, which rotates the keys, an unexpired old token is refused first, before any new token could make oauth2-proxy refetch keys. Then a new token passes.
+  - Keycloak killed with SIGKILL: oauth2-proxy goes down with it and comes back with the restarted Keycloak as a new process, and an old token is refused.
+  - `systemctl stop keycloak`, then `start`: oauth2-proxy stops, then runs again.
 
 kb-remote runs `kb mcp --listen` built from popemkt/kb `feat/mcp-listen`
 (commit 5a506e46, kb's own flake, locked by narHash) until kb's pin ships

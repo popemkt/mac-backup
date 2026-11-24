@@ -147,6 +147,12 @@ let
         proxy_read_timeout 1h;
         # kb's own limit (mcpBodyMax above); anything larger is 413 here.
         client_max_body_size ${toString mcpBodyMax};
+        # The body streams to oauth2-proxy as it arrives, through one small
+        # buffer, and is never spooled to disk: oauth2-proxy refuses a
+        # request without a token before reading it, so unauthenticated
+        # uploads cannot fill nginx's temporary storage.
+        proxy_request_buffering off;
+        client_body_buffer_size 16k;
         # A 401 says where to sign in (RFC 9728 §5.1), which Claude reads.
         proxy_intercept_errors on;
         error_page 401 = @mcp-unauthorized;
@@ -167,6 +173,11 @@ in
       virtualHosts.mcp-edge = {
         default = true;
         serverName = cfg.host;
+        # Keycloak's sign-in forms and token requests are small; only /mcp
+        # takes a large body (below).
+        extraConfig = ''
+          client_max_body_size 64k;
+        '';
         listen = [
           {
             addr = "127.0.0.1";
