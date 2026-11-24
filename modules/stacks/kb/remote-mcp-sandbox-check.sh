@@ -97,6 +97,22 @@ else
   fail "a network or abstract socket was reachable"
 fi
 
+# Its own PID namespace: only this unit's processes are visible, none of
+# oauth2-proxy's, which runs as the same user, so no /proc/<pid>/root leads
+# into another unit's mount view. PID 1 is this unit's own main process.
+foreign=""
+for status in /proc/[0-9]*/status; do
+  name=$(sed -n 's/^Name:\t//p' "$status" 2> /dev/null) || continue
+  case $name in
+    oauth2-proxy | nginx | java | systemd | kb | bun) foreign="$foreign $name" ;;
+  esac
+done
+if [ -z "$foreign" ] && [ "$(sed -n 's/^Name:\t//p' /proc/1/status)" != systemd ]; then
+  ok "only this unit's processes are visible ($(find /proc -mindepth 1 -maxdepth 1 -name '[0-9]*' | wc -l) pids)"
+else
+  fail "other processes are visible:$foreign"
+fi
+
 # Writes land only in the store and the unit's state.
 for dir in / /nix/store /run /var /home "$(dirname "$STORE")"; do
   if touch "$dir/.kb-remote-sandbox-probe" 2> /dev/null; then

@@ -14,8 +14,10 @@
 #
 # It fetches Keycloak's keys over loopback, never the public URL, and reaches
 # nothing but loopback (B5): no discovery, and the issuer it checks is still
-# the public one. An unknown key id refetches the keys, so a rotation needs no
-# restart.
+# the public one. Keys rotate only when Keycloak restarts (a fresh realm), and
+# oauth2-proxy restarts with it (PartOf=): its cached keys would otherwise keep
+# a token of the old realm valid until a token with a new key id made it
+# refetch them. Between restarts an unknown key id refetches them on its own.
 #
 # Its own sign-in is unusable: its routes (/oauth2/*) are never routed by the
 # front, it has no client at Keycloak (its client id is the resource URI,
@@ -66,6 +68,8 @@ in
       description = "oauth2-proxy: the bearer check in front of kb's remote MCP";
       wantedBy = [ "multi-user.target" ];
       after = [ "keycloak.service" ];
+      # A Keycloak restart is a key rotation: drop the old keys with it.
+      partOf = [ "keycloak.service" ];
       path = [ pkgs.openssl ];
       serviceConfig = {
         User = edge.user;
@@ -99,6 +103,10 @@ in
         PrivateTmp = true;
         PrivateDevices = true;
         PrivateIPC = true;
+        # Its own PID namespace: kb-remote shares its user, and ProtectProc=
+        # hides only other users' processes (/proc/<pid>/root of either would
+        # open the other's mount view).
+        PrivatePIDs = true;
         ProtectProc = "invisible";
         ProcSubset = "pid";
         ProtectKernelTunables = true;

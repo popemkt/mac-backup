@@ -73,7 +73,11 @@ let
       "email"
       "profile"
     ];
-    optionalClientScopes = [ "offline_access" ];
+    # No offline_access: an offline token would outlive the session maximum
+    # below. Asking for it fails the sign-in (invalid_scope). Listing the
+    # default scopes already drops the realm's optional ones at import; this
+    # says so rather than leaning on it.
+    optionalClientScopes = [ ];
     protocolMappers = [
       {
         # B3: the access token, and only it, names the MCP resource.
@@ -141,6 +145,9 @@ let
     refreshTokenMaxReuse = 0;
     ssoSessionIdleTimeout = 14 * 24 * 3600;
     ssoSessionMaxLifespan = 30 * 24 * 3600;
+    # The backstop, should an offline token ever be issued: the same 30 days.
+    offlineSessionMaxLifespanEnabled = true;
+    offlineSessionMaxLifespan = 30 * 24 * 3600;
     defaultSignatureAlgorithm = "RS256";
     identityProviders = [ identityProvider ];
     clients = lib.mapAttrsToList client cfg.clients;

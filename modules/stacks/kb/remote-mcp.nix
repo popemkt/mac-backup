@@ -20,10 +20,11 @@
 # Sandbox (B2): an allow-list, not a deny-list. The unit's root is an empty
 # read-only tmpfs; into it go the Nix store (read-only), the store's root and
 # the socket's directory (read-write), its own state (KB_DATA) and the kernel
-# API filesystems; no network, no IPC, AF_UNIX only, no capabilities. The
-# same attribute set defines `kb-remote-sandbox-check`, which probes those
-# restrictions from inside and which kb-remote requires: it never starts in
-# a sandbox that leaks.
+# API filesystems; no network, no IPC, AF_UNIX only, no capabilities, and a
+# PID namespace of its own, so it sees no process of oauth2-proxy's, which
+# shares its user. The same attribute set defines `kb-remote-sandbox-check`,
+# which probes those restrictions from inside and which kb-remote requires:
+# it never starts in a sandbox that leaks.
 let
   inherit (config.my.stacks) kb;
   edge = config.my.stacks.mcp-edge;
@@ -94,6 +95,10 @@ let
 
       PrivateNetwork = true;
       PrivateIPC = true;
+      # Its own PID namespace: oauth2-proxy runs as the same kb-edge, and
+      # ProtectProc= hides only other users' processes, so without this kb
+      # could reach the proxy's mount view through /proc/<pid>/root.
+      PrivatePIDs = true;
       PrivateDevices = true;
       PrivateUsers = false;
       RestrictAddressFamilies = [ "AF_UNIX" ];
@@ -129,6 +134,7 @@ let
     runtimeInputs = [
       pkgs.coreutils
       pkgs.findutils
+      pkgs.gnused
       pkgs.python3
     ];
     runtimeEnv = {
@@ -211,7 +217,14 @@ in
           "kb-remote-sandbox-check.service"
         ];
         serviceConfig = {
+          # PID 1 of its namespace (PrivatePIDs) ignores a signal it has no
+          # handler for, so kb would sit out SIGTERM until the stop timeout:
+          # tini is PID 1 and passes it on (exit 143, a SIGTERM, is success).
           ExecStart = lib.escapeShellArgs [
+            (lib.getExe pkgs.tini)
+            "-e"
+            "143"
+            "--"
             (lib.getExe store.remoteMcp.package)
             "--root"
             store.root

@@ -30,7 +30,7 @@ let
   # kb-remote runs kb built from popemkt/kb feat/mcp-listen at a fixed commit
   # (kb's own flake, locked by rev and narHash; test-only).
   kbListen =
-    (builtins.getFlake "github:popemkt/kb/bdde545562bb053cb39504b2400bfb01bec96352?narHash=sha256-TqbGtjpXjIvWa1GsMJGJiKtIVwSrxqR41B8OVsZR4sM%3D")
+    (builtins.getFlake "github:popemkt/kb/5a506e465279330c4ebaf1184f6c7e8f57d3aa57?narHash=sha256-v40Qn12h2%2FjKrjxtsnCXRBueBevS33JUGxOZ8dyuNEA%3D")
     .packages.${pkgs.stdenv.hostPlatform.system}.kb;
 
   python = pkgs.python3.withPackages (p: [
@@ -87,10 +87,9 @@ let
 
   # bcrypt of "password" (Dex's own example hash).
   passwordHash = "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W";
-in
-pkgs.testers.runNixOSTest {
-  name = "mcp-edge";
-  nodes.server =
+
+  # The machine under test; also evaluated below with other redirects.
+  serverModule =
     { config, lib, ... }:
     {
       imports = [
@@ -209,6 +208,8 @@ pkgs.testers.runNixOSTest {
             proxy_set_header Host $host;
             proxy_set_header X-Forwarded-For $remote_addr;
             proxy_buffering off;
+            # tailscaled sets no body limit: the front's is the one tested.
+            client_max_body_size 0;
           '';
         };
 
@@ -231,6 +232,32 @@ pkgs.testers.runNixOSTest {
         ];
       };
     };
+
+  # The failing redirect assertions of the machine under test, with gemini's
+  # redirects replaced: a `*` must fail evaluation, the exact ones must not.
+  redirectFailures =
+    redirectUris:
+    let
+      system = pkgs.nixos {
+        imports = [
+          serverModule
+          (pkgs.path + "/nixos/modules/virtualisation/qemu-vm.nix")
+          {
+            my.stacks.mcp-edge.clients.gemini.redirectUris = lib.mkForce redirectUris;
+            system.stateVersion = lib.trivial.release;
+          }
+        ];
+      };
+    in
+    map (a: a.message) (
+      lib.filter (
+        a: !a.assertion && lib.hasInfix "redirectUris must be exact" a.message
+      ) system.config.assertions
+    );
+in
+pkgs.testers.runNixOSTest {
+  name = "mcp-edge";
+  nodes.server = serverModule;
 
   testScript = ''
     import json, re
@@ -283,6 +310,14 @@ pkgs.testers.runNixOSTest {
         out = mcp(token=token, method="tools/call", params={"name": tool, "arguments": {"text": text}})
         assert out["status"] == 200 and not out["answer"]["result"].get("isError"), out
         return out["answer"]["result"]["content"][0]["text"]
+
+    with subtest("redirects: a `*` fails evaluation, exact ones pass"):
+        wildcard = json.loads(r"""${
+          builtins.toJSON (redirectFailures [ "https://oauth-redirect.googleusercontent.com/r/*" ])
+        }""")
+        exact = json.loads(r"""${builtins.toJSON (redirectFailures [ geminiRedirect ])}""")
+        assert len(wildcard) == 1 and "/r/*" in wildcard[0], wildcard
+        assert exact == [], exact
 
     start_all()
     server.wait_for_unit("multi-user.target")
@@ -353,14 +388,30 @@ pkgs.testers.runNixOSTest {
         assert status != 0 and "access_token" not in out, out
 
     with subtest("code + S256 PKCE only; no implicit, password or client-credentials grant"):
-        for flags in ["--pkce none", "--pkce plain", "--response-type token", "--response-type id_token"]:
+        for flags in [
+            "--pkce none", "--pkce plain",
+            "--response-type token", "--response-type id_token",
+            "--response-type 'id_token token'", "--response-type 'code id_token'",
+        ]:
             status, out = signin("gemini", "owner@example.com", GEMINI, flags)
-            assert status != 0 and "access_token" not in out, (flags, out)
+            assert status != 0 and "access_token" not in out and "id_token" not in out, (flags, out)
+            # Refused by the authorization endpoint itself, and the redirect
+            # (query and fragment) carries no code and no token.
+            auth = out["authorize"]
+            location = auth.get("location", "")
+            assert "error" in auth and "code" not in auth, (flags, out)
+            assert "access_token" not in auth and "id_token" not in auth, (flags, out)
+            assert "access_token=" not in location and "id_token=" not in location and "code=" not in location, (flags, out)
         status, out = signin("gemini", "owner@example.com", GEMINI, "--no-verifier")
         assert status != 0 and "access_token" not in out, out
         for grant in ["password", "client_credentials"]:
             out = run_json(f"edge-test grant gemini {grant}")[1]
             assert "access_token" not in out and out["status"] in (400, 401), (grant, out)
+
+    with subtest("no offline_access: asking for it gets no token at all"):
+        status, out = signin("gemini", "owner@example.com", GEMINI, "--scope 'openid email offline_access'")
+        assert status != 0 and "access_token" not in out and "refresh_token" not in out, out
+        assert out["authorize"].get("error") == "invalid_scope", out
 
     with subtest("an unregistered redirect is refused, and Keycloak logs it"):
         status, out = signin("gemini", "owner@example.com", "https://oauth-redirect.googleusercontent.com/r/someone-else")
@@ -452,6 +503,17 @@ pkgs.testers.runNixOSTest {
         assert out["problems"] == [], out
         server.succeed(f"runuser -u owner -- kb --root {ROOT} search interleave-remote-2 | grep -q interleave-remote-2")
 
+    with subtest("/mcp takes kb's largest asset, and a larger body is 413"):
+        status, up = signin("claude", "owner@example.com", CLAUDE)
+        assert status == 0, up
+        # 25 MiB, kb's limit: about 33.3 MiB of base64 in the call.
+        out = run_json(f"edge-test upload '{up['access_token']}' {25 * 1024 * 1024}")[1]
+        assert out["status"] == 200 and not out["isError"], out
+        # 26 MiB: about 34.7 MiB of base64, over kb's limit (and the front's).
+        out = run_json(f"edge-test upload '{up['access_token']}' {26 * 1024 * 1024}")[1]
+        # Refused by the front (nginx's own page), before oauth2-proxy or kb.
+        assert out["status"] == 413 and "413 Request Entity Too Large" in out["body"], out
+
     with subtest("B2: kb-remote's sandbox, probed from inside it"):
         server.wait_until_succeeds("ss -xlH | grep -q '@kb-remote-sandbox-probe'")
         # The probe reaches the abstract socket from the host…
@@ -468,6 +530,39 @@ pkgs.testers.runNixOSTest {
         assert found is not None, execstart
         server.fail(f"runuser -u kb-edge -- {found.group(1)}")
 
+    with subtest("B1: kb-remote and oauth2-proxy share a user, and neither sees the other's processes"):
+        def main_pid(unit):
+            return server.succeed(f"systemctl show {unit} -p MainPID --value").strip()
+        kb_pid, proxy_pid = main_pid("kb-remote"), main_pid("mcp-edge-oauth2-proxy")
+        # The threat: on the host's /proc, one kb-edge process opens the
+        # other's mount view.
+        server.succeed(f"runuser -u kb-edge -- ls /proc/{proxy_pid}/root/ > /dev/null")
+        server.succeed(f"runuser -u kb-edge -- ls /proc/{kb_pid}/root/ > /dev/null")
+        def inside(pid, cmd):
+            # As kb-edge, in the unit's PID and mount namespaces; only the Nix
+            # store is there, so every tool by its store path.
+            return (f"nsenter --target {pid} --pid --mount --setuid $(id -u kb-edge) --setgid $(id -g kb-edge) -- "
+                    f"${pkgs.bash}/bin/bash -c '{cmd}'")
+        names = "for f in /proc/[0-9]*/comm; do read -r c < $f && echo $c; done"
+        for unit_pid, other_pid, other in [(kb_pid, proxy_pid, "oauth2-proxy"), (proxy_pid, kb_pid, "kb")]:
+            seen = server.succeed(inside(unit_pid, names)).split()
+            assert seen != [] and other not in seen and "systemd" not in seen, (unit_pid, seen)
+            server.succeed(inside(unit_pid, "${pkgs.coreutils}/bin/ls /proc/1/root/ > /dev/null"))
+            server.fail(inside(unit_pid, f"${pkgs.coreutils}/bin/ls /proc/{other_pid}/root/"))
+        # PID 1 in its namespace still stops on SIGTERM, without waiting out
+        # the stop timeout.
+        server.succeed("timeout 30 systemctl restart kb-remote")
+        server.succeed("timeout 30 systemctl restart mcp-edge-oauth2-proxy")
+        assert server.succeed("systemctl is-failed kb-remote mcp-edge-oauth2-proxy || true").split() == ["active", "active"]
+        server.wait_until_succeeds("test -S ${edge.socket}")
+        server.wait_for_open_port(${toString edge.ports.oauth2Proxy})
+        # …and the proxy, in its own namespace, still reaches kb's socket.
+        status, again = signin("claude", "owner@example.com", CLAUDE)
+        assert status == 0, again
+        assert mcp(token=again["access_token"])["status"] == 200
+        server.wait_for_unit("kb-remote.service")
+        server.wait_until_succeeds("test -S ${edge.socket}")
+
     with subtest("tailnet exposure: nodeServe publishes the front alone, and the off switch removes it"):
         server.succeed("${reconcileOn}")
         calls = server.succeed("cat /tmp/tailscale-calls").splitlines()
@@ -477,23 +572,51 @@ pkgs.testers.runNixOSTest {
         calls = server.succeed("cat /tmp/tailscale-calls").splitlines()
         assert calls[-1] == "serve --https=443 off", calls
 
-    with subtest("B5: loopback egress, key rotation without a restart, wrong iss refused"):
+    with subtest("B5: oauth2-proxy reaches loopback and nothing else"):
         deny = server.succeed("systemctl show mcp-edge-oauth2-proxy -p IPAddressDeny --value").split()
         allow = server.succeed("systemctl show mcp-edge-oauth2-proxy -p IPAddressAllow --value").split()
         assert sorted(deny) == ["0.0.0.0/0", "::/0"], deny
         assert sorted(allow) == ["127.0.0.0/8", "::1/128"], allow
+        # A listener on the machine's own LAN address: reachable from the
+        # host, refused from inside oauth2-proxy's cgroup, where loopback
+        # (Keycloak) still answers.
+        ip = server.succeed("ip -4 -o addr show dev eth1 | awk '{print $4}' | cut -d/ -f1").strip()
+        assert ip and not ip.startswith("127."), ip
+        server.succeed(f"systemd-run --unit egress-target ${pkgs.socat}/bin/socat TCP-LISTEN:8099,bind={ip},fork,reuseaddr EXEC:${pkgs.coreutils}/bin/true")
+        server.wait_until_succeeds(f"socat -u /dev/null TCP:{ip}:8099,connect-timeout=2", timeout=30)
+        cgroup = "/sys/fs/cgroup" + server.succeed("systemctl show mcp-edge-oauth2-proxy -p ControlGroup --value").strip()
+        def from_proxy(target):
+            return f"sh -c 'echo $$ > {cgroup}/cgroup.procs && exec socat -u /dev/null TCP:{target},connect-timeout=3'"
+        server.fail(from_proxy(f"{ip}:8099"))
+        server.succeed(from_proxy("127.0.0.1:${toString edge.ports.keycloak}"))
+        server.succeed(f"socat -u /dev/null TCP:{ip}:8099,connect-timeout=2")
+        server.succeed("systemctl stop egress-target")
+
+    with subtest("B5: a Keycloak restart rotates the keys and refuses an old token at once"):
         assert mcp(token=forge("wrong-iss"))["status"] in (401, 403)
+        status, before = signin("gemini", "owner@example.com", GEMINI)
+        assert status == 0, before
+        # oauth2-proxy now holds the current keys.
+        assert mcp(token=before["access_token"])["status"] == 200
+        old_kid = claims(before["access_token"])["header"]["kid"]
         pid = server.succeed("systemctl show mcp-edge-oauth2-proxy -p MainPID --value").strip()
-        old_kid = claims(owner["access_token"])["header"]["kid"]
         server.succeed("systemctl restart keycloak")
-        server.wait_for_unit("keycloak.service")
-        server.wait_for_open_port(${toString edge.ports.keycloak})
+        for unit in ["keycloak", "mcp-edge-oauth2-proxy"]:
+            server.wait_for_unit(f"{unit}.service")
+        for port in [${toString edge.ports.keycloak}, ${toString edge.ports.oauth2Proxy}]:
+            server.wait_for_open_port(port)
+        # The old token, before any new one could make it refetch keys, and
+        # while it is still unexpired.
+        now = int(server.succeed("date +%s"))
+        assert claims(before["access_token"])["claims"]["exp"] > now + 30, "the old token expired: the check proves nothing"
+        assert mcp(token=before["access_token"])["status"] == 401, "a token from before the restart still works"
+        # Because it restarted with Keycloak (PartOf=) and holds no old key.
+        assert server.succeed("systemctl show mcp-edge-oauth2-proxy -p MainPID --value").strip() != pid
         status, fresh = signin("gemini", "owner@example.com", GEMINI)
         assert status == 0, fresh
         assert claims(fresh["access_token"])["header"]["kid"] != old_kid, "the restart did not rotate the key"
         assert mcp(token=fresh["access_token"])["status"] == 200
-        assert mcp(token=owner["access_token"])["status"] == 401, "a token from before the restart still works"
+        assert mcp(token=before["access_token"])["status"] == 401
         assert mcp(token=forge("wrong-iss"))["status"] in (401, 403)
-        assert server.succeed("systemctl show mcp-edge-oauth2-proxy -p MainPID --value").strip() == pid
   '';
 }

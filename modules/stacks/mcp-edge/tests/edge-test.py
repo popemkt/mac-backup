@@ -87,8 +87,11 @@ def authorize(client, email, redirect, pkce="S256", response_type="code", scope=
         if r.status_code in (301, 302, 303, 307):
             location = urllib.parse.urljoin(r.url, r.headers["Location"])
             if location.startswith(redirect):
+                # Both halves: an implicit grant would put its tokens in the
+                # fragment.
                 parts = urllib.parse.urlsplit(location)
-                return dict(urllib.parse.parse_qsl(parts.query or parts.fragment)), verifier
+                found = dict(urllib.parse.parse_qsl(parts.query)) | dict(urllib.parse.parse_qsl(parts.fragment))
+                return found | {"location": location}, verifier
             r = s.get(location, allow_redirects=False)
             continue
         if r.status_code != 200:
@@ -129,7 +132,7 @@ def redeem(client, query, verifier, redirect, secret=None, send_verifier=True):
 
 
 def cmd_signin(a):
-    query, verifier = authorize(a.client, a.email, a.redirect, pkce=a.pkce, response_type=a.response_type)
+    query, verifier = authorize(a.client, a.email, a.redirect, pkce=a.pkce, response_type=a.response_type, scope=a.scope)
     if "code" not in query:
         print(json.dumps({"authorize": query}))
         return 1
@@ -182,6 +185,32 @@ def cmd_mcp(a):
         out |= {"call_status": call.status_code, "answer": call.json()}
     else:
         out["body"] = init.text[:500]
+    print(json.dumps(out))
+
+
+def cmd_upload(a):
+    """asset_upload of `size` bytes, base64 in one JSON-RPC call through the
+    edge: the status, and kb's answer when it got one."""
+    data = base64.b64encode(b"\x01" * a.size).decode()
+    init = mcp_post(
+        {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "edge-test", "version": "0"}}},
+        token=a.token,
+    )
+    if init.status_code != 200:
+        print(json.dumps({"status": init.status_code, "at": "initialize"}))
+        return
+    body = {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "asset_upload", "arguments": {"bytes": data, "ext": "png"}}}
+    try:
+        r = mcp_post(body, token=a.token)
+    except requests.exceptions.ConnectionError as e:
+        print(json.dumps({"status": 0, "error": str(e)[:300]}))
+        return
+    out = {"status": r.status_code, "body_bytes": len(json.dumps(body))}
+    if r.status_code != 200:
+        out["body"] = r.text[:300]
+    else:
+        result = r.json().get("result", {})
+        out |= {"isError": bool(result.get("isError")), "text": result.get("content", [{}])[0].get("text", "")[:300]}
     print(json.dumps(out))
 
 
@@ -288,6 +317,7 @@ def main():
     s.add_argument("--pkce", choices=["S256", "plain", "none"], default="S256")
     s.add_argument("--no-verifier", action="store_true")
     s.add_argument("--response-type", default="code")
+    s.add_argument("--scope", default="openid email")
     s.set_defaults(fn=cmd_signin)
     s = sub.add_parser("grant")
     s.add_argument("client")
@@ -303,6 +333,10 @@ def main():
     s.add_argument("--method", default="tools/list")
     s.add_argument("--params")
     s.set_defaults(fn=cmd_mcp)
+    s = sub.add_parser("upload")
+    s.add_argument("token")
+    s.add_argument("size", type=int)
+    s.set_defaults(fn=cmd_upload)
     s = sub.add_parser("status")
     s.add_argument("path")
     s.add_argument("--method", default="GET")

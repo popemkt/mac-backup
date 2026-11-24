@@ -57,11 +57,16 @@ let
       "openid"
       "email"
       "profile"
-      "offline_access"
     ];
     subject_types_supported = [ "public" ];
     id_token_signing_alg_values_supported = [ "RS256" ];
   };
+
+  # kb's own body limit on `mcp --listen` (packages/app/mcp/src/http.ts,
+  # MAX_BODY_BYTES): the base64 of its largest asset, 25 MiB
+  # (ASSET_BYTES_INPUT_MAX = ceil(25 MiB / 3) * 4 + 256), plus 64 KiB for the
+  # rest of the call. The front refuses (413) exactly what kb would.
+  mcpBodyMax = (25 * 1024 * 1024 + 2) / 3 * 4 + 256 + 64 * 1024;
 
   realmPath = "/realms/${edge.realm}";
   keycloak = "http://127.0.0.1:${toString edge.ports.keycloak}";
@@ -140,6 +145,8 @@ let
         proxy_buffering off;
         proxy_cache off;
         proxy_read_timeout 1h;
+        # kb's own limit (mcpBodyMax above); anything larger is 413 here.
+        client_max_body_size ${toString mcpBodyMax};
         # A 401 says where to sign in (RFC 9728 §5.1), which Claude reads.
         proxy_intercept_errors on;
         error_page 401 = @mcp-unauthorized;

@@ -67,7 +67,8 @@ in
               type = types.listOf (types.strMatching "https://[^[:space:]]+");
               default = [ ];
               description = ''
-                The exact redirect URIs the vendor sends. Empty: the client
+                The exact redirect URIs the vendor sends; a `*` is refused
+                (Keycloak would read it as a wildcard). Empty: the client
                 cannot complete a sign-in (Keycloak refuses every redirect),
                 which is how a client whose redirect is not yet known stays
                 closed.
@@ -179,6 +180,18 @@ in
       {
         assertion = cfg.resource != null;
         message = "my.stacks.mcp-edge has nothing to serve: enable remoteMcp on one kb store.";
+      }
+      {
+        # Keycloak treats a trailing `*` as a wildcard; every redirect here is
+        # exact, so none may contain one.
+        assertion = lib.all (client: lib.all (uri: !lib.hasInfix "*" uri) client.redirectUris) (
+          lib.attrValues cfg.clients
+        );
+        message = "my.stacks.mcp-edge.clients.*.redirectUris must be exact: no `*` (${
+          toString (
+            lib.filter (lib.hasInfix "*") (lib.concatMap (c: c.redirectUris) (lib.attrValues cfg.clients))
+          )
+        }).";
       }
       {
         assertion = cfg.upstream.provider == "oidc" -> cfg.upstream.issuer != null;
