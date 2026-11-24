@@ -14,12 +14,13 @@
 #
 # It fetches Keycloak's keys over loopback, never the public URL, and reaches
 # nothing but loopback (B5): no discovery, and the issuer it checks is still
-# the public one. Keys rotate only when Keycloak starts (a fresh realm), so
-# oauth2-proxy lives exactly as long as one Keycloak run: it stops whenever
-# Keycloak stops, crashes included (BindsTo=), and starts again with every
-# Keycloak start (Upholds=), holding no key of the run before. Otherwise its
-# cached keys would keep a token of the old realm valid until a token with a
-# new key id made it refetch them.
+# the public one. It lives exactly as long as one Keycloak run whose realm
+# reconciled: it stops whenever Keycloak stops, crashes included (BindsTo=),
+# and starts again once mcp-edge-realm has reconciled the realm after the
+# next start (Upholds=), so it never serves /mcp for a realm that is not the
+# declared one. It caches Keycloak's keys: `mcp-edge-secrets revoke-all`,
+# which rotates them, restarts it, so a token signed with an old key is
+# refused at once rather than when a new key id made it refetch.
 #
 # Its own sign-in is unusable: its routes (/oauth2/*) are never routed by the
 # front, it has no client at Keycloak (its client id is the resource URI,
@@ -69,10 +70,17 @@ in
     systemd.services.mcp-edge-oauth2-proxy = {
       description = "oauth2-proxy: the bearer check in front of kb's remote MCP";
       wantedBy = [ "multi-user.target" ];
-      # One Keycloak run, one oauth2-proxy run (see the header).
-      after = [ "keycloak.service" ];
-      bindsTo = [ "keycloak.service" ];
-      upheldBy = [ "keycloak.service" ];
+      # One Keycloak run, one oauth2-proxy run, after the realm reconciled
+      # (see the header).
+      after = [
+        "keycloak.service"
+        "mcp-edge-realm.service"
+      ];
+      bindsTo = [
+        "keycloak.service"
+        "mcp-edge-realm.service"
+      ];
+      upheldBy = [ "mcp-edge-realm.service" ];
       path = [ pkgs.openssl ];
       serviceConfig = {
         User = edge.user;

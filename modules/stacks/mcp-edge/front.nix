@@ -72,6 +72,18 @@ let
   keycloak = "http://127.0.0.1:${toString edge.ports.keycloak}";
   oauth2Proxy = "http://127.0.0.1:${toString edge.ports.oauth2Proxy}";
 
+  # Keycloak's routes are closed (503) until the realm has reconciled after
+  # this Keycloak start (constants.nix → realmReady): a token issued under
+  # rules not yet put back to the declared ones would outlive them, since
+  # Keycloak's keys persist.
+  toKeycloak = path: ''
+    if (!-f ${edge.realmReady}) {
+      return 503;
+    }
+    proxy_pass ${keycloak}${path};
+    ${forwarded}
+  '';
+
   forwarded = ''
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-Host $host;
@@ -101,16 +113,8 @@ let
       }
     ) staticDocuments
     // lib.listToAttrs (
-      map (
-        path:
-        lib.nameValuePair "= ${path}" { extraConfig = "proxy_pass ${keycloak}${path};\n${forwarded}"; }
-      ) keycloakExact
-      ++ map (
-        path:
-        lib.nameValuePair "^~ ${path}" {
-          extraConfig = "proxy_pass ${keycloak}${path};\n${forwarded}";
-        }
-      ) keycloakPrefixes
+      map (path: lib.nameValuePair "= ${path}" { extraConfig = toKeycloak path; }) keycloakExact
+      ++ map (path: lib.nameValuePair "^~ ${path}" { extraConfig = toKeycloak path; }) keycloakPrefixes
     )
     // {
       "= ${routes.mcp}".extraConfig = ''

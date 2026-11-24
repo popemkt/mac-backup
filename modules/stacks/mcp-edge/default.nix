@@ -22,7 +22,9 @@
 # runs it as the edge's identity, `kb-edge`, the only account besides root
 # that can open its socket (B1).
 #
-# Files: ./keycloak.nix (the broker: realm, static clients, Google),
+# Files: ./keycloak.nix (the broker: realm, static clients, Google, and the
+# realm reconcile), ./secrets-cli.{nix,sh} (`mcp-edge-secrets`, the owner's
+# secrets and revocation command),
 # ./oauth2-proxy.nix (the bearer check on /mcp), ./routes.nix (the public
 # routes), ./front.nix (the route allow-list and the static discovery
 # documents), ./tests.nix (the VM test, checks.x86_64-linux.mcp-edge).
@@ -218,6 +220,10 @@ in
           message = "my.stacks.mcp-edge.funnel publishes the edge, which is off: it needs my.stacks.mcp-edge.enable.";
         }
       ];
+      # On every host with the stack, even before it is switched on: the
+      # Google client goes on the server first (docs/mcp-edge.md, step 2),
+      # and the edge's first start needs it.
+      environment.systemPackages = [ (import ./secrets-cli.nix { inherit lib pkgs cfg; }) ];
     }
     (lib.mkIf cfg.enable {
       assertions = [
@@ -266,14 +272,18 @@ in
         mode = "0700";
       };
 
-      # The secrets directory, and the client secrets nobody needs to choose.
-      # The Google client is the owner's one-time step (docs/mcp-edge.md); a
-      # missing file fails this unit, naming it, and Keycloak waits for it.
+      # The secrets directory, and the secrets nobody needs to choose: each
+      # client's, and Keycloak's admin client's. The Google client is the
+      # owner's one-time step (docs/mcp-edge.md); a missing file fails this
+      # unit, naming it, and Keycloak waits for it. Each secret is generated
+      # and checked whole, then renamed into place, 0400 (./secret-file.sh,
+      # which mcp-edge-secrets writes with too).
       systemd.services.mcp-edge-secrets = {
         description = "Check and generate the MCP edge's machine-state secrets";
         before = [ "keycloak.service" ];
         requiredBy = [ "keycloak.service" ];
         path = [ pkgs.openssl ];
+        environment.EDGE_SECRETS_DIR = cfg.secretsDir;
         serviceConfig = {
           Type = "oneshot";
           RemainAfterExit = true;
@@ -281,14 +291,19 @@ in
         };
         script = ''
           set -eu
+          ${builtins.readFile ./secret-file.sh}
           dir=${lib.escapeShellArg cfg.secretsDir}
           install -d -m 0700 "$dir"
-          ${lib.concatMapStrings (name: ''
-            if [ ! -s "$dir/client-${name}-secret" ]; then
-              openssl rand -hex 32 > "$dir/client-${name}-secret"
-              echo "generated $dir/client-${name}-secret"
+          for file in ${
+            lib.escapeShellArgs (
+              map (name: "client-${name}-secret") (lib.attrNames cfg.clients) ++ [ edge.adminSecretFile ]
+            )
+          }; do
+            if [ ! -s "$dir/$file" ]; then
+              new_secret "$file"
+              echo "generated $dir/$file"
             fi
-          '') (lib.attrNames cfg.clients)}
+          done
           missing=""
           for file in google-client-id google-client-secret; do
             [ -s "$dir/$file" ] || missing="$missing $dir/$file"

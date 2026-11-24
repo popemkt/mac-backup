@@ -110,6 +110,10 @@
   details.defaults summary strong { color: var(--text); font-weight: 600; }
   details.defaults ul { margin: 0; padding: 0 20px 14px 44px; font-size: .9375rem; }
   details.defaults li + li { margin-top: 6px; }
+  details.fallback { margin-top: 14px; font-size: .9375rem; }
+  details.fallback summary { cursor: pointer; color: var(--muted); }
+  details.fallback summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+  details.fallback[open] summary { margin-bottom: 8px; }
 
   .layout {
     display: grid;
@@ -386,10 +390,10 @@
   </header>
 
   <details class="defaults" id="defaults" open>
-    <summary><span><strong>Decided for you</strong>, pending your confirmation: two defaults</span></summary>
+    <summary><span><strong>Good to know</strong>: two settings</span></summary>
     <ul>
-      <li><strong>You sign in again after every restart.</strong> Each Keycloak start, including after a reboot or an upgrade, rebuilds the sign-in realm from scratch, so Gemini and Claude ask you to sign in again. Changing that is a change to <code>modules/stacks/mcp-edge/keycloak.nix</code>.</li>
-      <li><strong>Only <code>hoangng71299@gmail.com</code> gets in.</strong> To change the list, edit <code>my.stacks.kb.stores.kb.remoteMcp.emails</code> in <code>hosts/shared-server/default.nix</code>.</li>
+      <li><strong>Restarts keep you signed in</strong> (your decision). A reboot, an upgrade or a Keycloak restart leaves Gemini and Claude signed in, for at most 30 days a session. Signing everyone out is a command of its own: <code>sudo mcp-edge-secrets revoke-all</code> (step 7). The sign-in settings still come from the dotfiles repo: every start puts them back as declared, and removes anything added by hand.</li>
+      <li><strong>Only <code>hoangng71299@gmail.com</code> gets in</strong> (pending your confirmation). To change the list, edit <code>my.stacks.kb.stores.kb.remoteMcp.emails</code> in <code>hosts/shared-server/default.nix</code>.</li>
     </ul>
   </details>
 
@@ -435,31 +439,35 @@ Authorized redirect URIs  https://shared-server.taild98079.ts.net/realms/kb/brok
       <section class="step" data-title="Google client on the server">
         <p class="kicker">Step 2 of 7 · on shared-server</p>
         <h2>Put the Google client on shared-server</h2>
-        <p class="lead">The server reads the client ID and secret from two files that only root can open. They never go into git, a chat or this page.</p>
+        <p class="lead">The server reads the client ID and secret from two files that only root can open. They never go into git, a chat or this page. One command asks for both.</p>
 
         <h3>Do this</h3>
         <ol class="do">
-          <li>Make the folder:
-            <div class="cmd"><pre>sudo install -d -m 0700 /var/lib/mcp-edge/secrets</pre></div>
+          <li>From any machine, run:
+            <div class="cmd"><pre>ssh -t shared-server sudo mcp-edge-secrets google</pre></div>
           </li>
-          <li>Save the <strong>Client ID</strong>. Run this, paste the ID, press <kbd>Enter</kbd>, then <kbd>Ctrl-D</kbd>:
-            <div class="cmd"><pre>sudo sh -c 'umask 077; cat &gt; /var/lib/mcp-edge/secrets/google-client-id'</pre></div>
-          </li>
-          <li>Save the <strong>Client secret</strong> the same way:
-            <div class="cmd"><pre>sudo sh -c 'umask 077; cat &gt; /var/lib/mcp-edge/secrets/google-client-secret'</pre></div>
-          </li>
+          <li>Paste the <strong>Client ID</strong> and press <kbd>Enter</kbd>. Then paste the <strong>Client secret</strong> and press <kbd>Enter</kbd>: it is not shown as you type, on purpose.</li>
+          <li>It warns if a value does not look like Google's, and saves it anyway. Fix a typo by running it again.</li>
         </ol>
+        <details class="fallback">
+          <summary>Without the command</summary>
+          <div class="cmd"><pre>sudo install -d -m 0700 /var/lib/mcp-edge/secrets</pre></div>
+          <p>Then run each of these, paste the value, press <kbd>Enter</kbd>, then <kbd>Ctrl-D</kbd>:</p>
+          <div class="cmd"><pre>sudo sh -c 'umask 077; cat &gt; /var/lib/mcp-edge/secrets/google-client-id'</pre></div>
+          <div class="cmd"><pre>sudo sh -c 'umask 077; cat &gt; /var/lib/mcp-edge/secrets/google-client-secret'</pre></div>
+        </details>
 
         <div class="check">
           <h3>Check it worked</h3>
-          <p>Neither command prints a secret.</p>
-          <div class="cmd"><pre>sudo ls -l /var/lib/mcp-edge/secrets</pre></div>
-          <p class="expect-label">You should see two files, readable by root only (the sizes will differ):</p>
-          <pre class="expect">-rw------- 1 root root 73 … google-client-id
--rw------- 1 root root 36 … google-client-secret</pre>
-          <div class="cmd" style="margin-top:14px"><pre>sudo grep -c 'apps.googleusercontent.com' /var/lib/mcp-edge/secrets/google-client-id</pre></div>
-          <p class="expect-label">You should see (the ID went into the right file):</p>
-          <pre class="expect">1</pre>
+          <p>It never prints a secret, and neither does this:</p>
+          <div class="cmd"><pre>sudo mcp-edge-secrets status</pre></div>
+          <p class="expect-label">You should see both Google files, readable by root only (the rest come in step 3):</p>
+          <pre class="expect">/var/lib/mcp-edge/secrets  700 root (directory)
+  google-client-id         400 root, 1 min old
+  google-client-secret     400 root, 1 min old
+  client-claude-secret     missing
+  client-gemini-secret     missing
+  keycloak-admin-secret    missing</pre>
         </div>
       </section>
 
@@ -493,15 +501,16 @@ Authorized redirect URIs  https://shared-server.taild98079.ts.net/realms/kb/brok
 
         <div class="check">
           <h3>Check it worked</h3>
-          <div class="cmd"><pre>systemctl is-active keycloak mcp-edge-oauth2-proxy kb-remote nginx</pre></div>
+          <div class="cmd"><pre>systemctl is-active keycloak mcp-edge-realm mcp-edge-oauth2-proxy kb-remote nginx</pre></div>
           <p class="expect-label">You should see:</p>
           <pre class="expect">active
 active
 active
+active
 active</pre>
           <div class="cmd" style="margin-top:14px"><pre>sudo ls /var/lib/mcp-edge/secrets</pre></div>
-          <p class="expect-label">The first start added a secret for each client:</p>
-          <pre class="expect">client-claude-secret  client-gemini-secret  google-client-id  google-client-secret</pre>
+          <p class="expect-label">The first start added a secret for each client, and one for the edge's own admin:</p>
+          <pre class="expect">client-claude-secret  client-gemini-secret  google-client-id  google-client-secret  keycloak-admin-secret</pre>
           <div class="cmd" style="margin-top:14px"><pre>curl -s -o /dev/null -w '%{http_code}\n' -X POST https://shared-server.taild98079.ts.net/mcp</pre></div>
           <p class="expect-label">From any device on your tailnet. 401 means the door is there, and locked:</p>
           <pre class="expect">401</pre>
@@ -574,7 +583,8 @@ active</pre>
         <ol class="do">
           <li>On <strong>gemini.google.com</strong>, turn on <strong>Developer Mode</strong>, then choose <strong>Connect to an MCP server</strong> and paste the server URL.</li>
           <li>Open <strong>Show more</strong> (additional settings) and enter the client ID. For the client secret, print it on shared-server and copy it straight into the <em>Client secret</em> field:
-            <div class="cmd"><pre>sudo cat /var/lib/mcp-edge/secrets/client-gemini-secret</pre></div>
+            <div class="cmd"><pre>ssh -t shared-server sudo mcp-edge-secrets client gemini</pre></div>
+            <details class="fallback"><summary>Without the command</summary><div class="cmd"><pre>sudo cat /var/lib/mcp-edge/secrets/client-gemini-secret</pre></div></details>
           </li>
           <li>Connect.</li>
           <li>The first time, it stops at <strong>“Invalid parameter: redirect_uri”</strong>. That's expected.</li>
@@ -586,7 +596,7 @@ active</pre>
           <li>Add it, exactly, in <code>hosts/shared-server/default.nix</code>. A <code>*</code> anywhere is refused when the configuration is built.
             <div class="cmd"><pre>gemini.redirectUris = [ "https://oauth-redirect.googleusercontent.com/r/…" ];</pre></div>
           </li>
-          <li>Commit, push, pull and rebuild, as in step 3. Wait for the rebuild to finish: it restarts the sign-in service.</li>
+          <li>Commit, push, pull and rebuild, as in step 3. Wait for the rebuild to finish: it re-applies the sign-in settings (nobody is signed out).</li>
           <li>Connect again in Gemini. Sign in with Google, and accept <em>“gemini wants access to your account”</em>.</li>
         </ol>
 
@@ -615,8 +625,9 @@ active</pre>
 
         <h3>Do this</h3>
         <ol class="do">
-          <li>On shared-server, print Claude's client secret:
-            <div class="cmd"><pre>sudo cat /var/lib/mcp-edge/secrets/client-claude-secret</pre></div>
+          <li>Print Claude's client secret:
+            <div class="cmd"><pre>ssh -t shared-server sudo mcp-edge-secrets client claude</pre></div>
+            <details class="fallback"><summary>Without the command</summary><div class="cmd"><pre>sudo cat /var/lib/mcp-edge/secrets/client-claude-secret</pre></div></details>
           </li>
           <li>On claude.ai: <strong>Settings → Connectors → Add custom connector</strong>. Enter the name and URL. Under <strong>Advanced settings</strong>, enter the client ID and paste the secret.</li>
           <li>Connect. Sign in with Google, and accept <em>“claude wants access to your account”</em>.</li>
@@ -636,28 +647,34 @@ active</pre>
       <section class="step" data-title="Keep handy">
         <p class="kicker">Step 7 of 7 · for later</p>
         <h2>Keep these handy</h2>
-        <p class="lead">You're set up. These are the three things you may need later. All run on shared-server.</p>
+        <p class="lead">You're set up. These are the three things you may need later. All run on shared-server; <code>sudo mcp-edge-secrets -h</code> lists the rest.</p>
 
         <h3>Turn it off</h3>
         <p>For good: set <code>mcpEdge = false;</code> in <code>hosts/shared-server/default.nix</code>, then commit, push, pull and rebuild. Your own kb app is untouched. Right now, until the next rebuild:</p>
         <div class="cmd"><pre>sudo systemctl stop mcp-edge-oauth2-proxy kb-remote keycloak</pre></div>
 
         <h3>Replace a client secret</h3>
-        <p>For Gemini (use <code>claude</code> in the file name for Claude). Then paste the new secret into the connector.</p>
-        <div class="cmd"><pre>sudo rm /var/lib/mcp-edge/secrets/client-gemini-secret</pre></div>
-        <div class="cmd"><pre>sudo systemctl restart mcp-edge-secrets keycloak</pre></div>
-        <div class="cmd"><pre>sudo cat /var/lib/mcp-edge/secrets/client-gemini-secret</pre></div>
+        <p>For Gemini (or <code>claude</code>). It makes a new secret and puts it in place; nobody else is signed out. Then print it and paste it into the connector.</p>
+        <div class="cmd"><pre>sudo mcp-edge-secrets rotate gemini</pre></div>
+        <div class="cmd"><pre>sudo mcp-edge-secrets client gemini</pre></div>
+        <details class="fallback">
+          <summary>Without the command</summary>
+          <div class="cmd"><pre>sudo rm /var/lib/mcp-edge/secrets/client-gemini-secret</pre></div>
+          <div class="cmd"><pre>sudo systemctl restart mcp-edge-secrets mcp-edge-realm</pre></div>
+          <div class="cmd"><pre>sudo cat /var/lib/mcp-edge/secrets/client-gemini-secret</pre></div>
+        </details>
 
         <h3>Sign everyone out</h3>
-        <p>Every token and session ends at once, and both connectors ask you to sign in again. A reboot does the same.</p>
-        <div class="cmd"><pre>sudo systemctl restart keycloak</pre></div>
+        <p>Every session and token ends at once, and both connectors ask you to sign in again. It asks before it does anything. A reboot or a restart does <em>not</em> do this.</p>
+        <div class="cmd"><pre>sudo mcp-edge-secrets revoke-all</pre></div>
 
         <div class="check">
           <h3>Check it worked</h3>
-          <div class="cmd"><pre>systemctl is-active keycloak mcp-edge-oauth2-proxy</pre></div>
-          <p class="expect-label">After a restart, both come back together:</p>
-          <pre class="expect">active
-active</pre>
+          <div class="cmd"><pre>sudo mcp-edge-secrets status</pre></div>
+          <p class="expect-label">Every file present, never a value shown, and the edge running:</p>
+          <pre class="expect">  keycloak                 active
+  mcp-edge-realm           active
+  mcp-edge-oauth2-proxy    active</pre>
         </div>
       </section>
 

@@ -33,6 +33,7 @@ let
   ]);
   edgeTest = pkgs.writeShellScriptBin "edge-test" ''
     export EDGE_HOST=${host} EDGE_CA=${cert}/cert.pem EDGE_SECRETS=/var/lib/mcp-edge/secrets
+    export EDGE_KEYCLOAK=http://127.0.0.1:${toString edge.ports.keycloak}
     exec ${python}/bin/python3 -I ${./tests/edge-test.py} "$@"
   '';
 
@@ -271,7 +272,7 @@ pkgs.testers.runNixOSTest {
   };
 
   testScript = ''
-    import json, re
+    import json, re, shlex
 
     HOST = "${host}"
     BASE = f"https://{HOST}"
@@ -317,6 +318,32 @@ pkgs.testers.runNixOSTest {
         )
         assert json.loads(out)["status"] == "succeeded", out
 
+    def refresh(client, token):
+        return run_json(f"edge-test refresh {client} '{token}'")
+
+    def admin(method, path, body=None):
+        cmd = f"edge-test admin {method} '{path}'"
+        if body is not None:
+            cmd += " --json '" + json.dumps(body) + "'"
+        return run_json(cmd)
+
+    def kids():
+        return set(json.loads(server.succeed("edge-test kids")))
+
+    def lifetime(token):
+        c = claims(token)["claims"]
+        return c["exp"] - c["iat"]
+
+    def oauth2_proxy_pid():
+        return server.succeed("systemctl show mcp-edge-oauth2-proxy -p MainPID --value").strip()
+
+    def wait_edge_up():
+        # Polled: between runs the units pass through failed and inactive
+        # with no job queued, which wait_for_unit takes as final.
+        server.wait_until_succeeds("systemctl is-active keycloak mcp-edge-realm mcp-edge-oauth2-proxy", timeout=300)
+        for port in [${toString edge.ports.keycloak}, ${toString edge.ports.oauth2Proxy}]:
+            server.wait_for_open_port(port)
+
     def remote(token, tool, text):
         out = mcp(token=token, method="tools/call", params={"name": tool, "arguments": {"text": text}})
         assert out["status"] == 200 and not out["answer"]["result"].get("isError"), out
@@ -343,7 +370,11 @@ pkgs.testers.runNixOSTest {
         loopback = ("127.", "[::1]:", "[::ffff:127.")
         beyond = [l for l in listeners if not l.startswith(loopback)]
         assert beyond == [], f"listening beyond loopback: {beyond}"
-        server.fail("curl -sf http://127.0.0.1:${toString edge.ports.keycloak}/admin/realms")
+        # Keycloak's admin API answers on loopback only (the front never routes
+        # it), and only with the admin client's token.
+        assert server.succeed(
+            "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:${toString edge.ports.keycloak}/admin/realms"
+        ) == "401"
 
     with subtest("discovery: PRM and AS metadata describe the realm, code + S256 only"):
         prm = json.loads(server.succeed(f"curl -sf --cacert ${cert}/cert.pem {BASE}/.well-known/oauth-protected-resource/mcp"))
@@ -763,46 +794,64 @@ pkgs.testers.runNixOSTest {
         server.succeed(f"socat -u /dev/null TCP:{ip}:8099,connect-timeout=2")
         server.succeed("systemctl stop egress-target")
 
-    with subtest("B5: a Keycloak restart rotates the keys and refuses an old token at once"):
+    with subtest("B5: a Keycloak restart keeps every connector signed in; revoke-all signs them all out at once"):
         assert mcp(token=forge("wrong-iss"))["status"] in (401, 403)
         status, before = signin("gemini", "owner@example.com", GEMINI)
         assert status == 0, before
-        # oauth2-proxy now holds the current keys.
         assert mcp(token=before["access_token"])["status"] == 200
         old_kid = claims(before["access_token"])["header"]["kid"]
-        pid = server.succeed("systemctl show mcp-edge-oauth2-proxy -p MainPID --value").strip()
+        pid = oauth2_proxy_pid()
         server.succeed("systemctl restart keycloak")
-        for unit in ["keycloak", "mcp-edge-oauth2-proxy"]:
-            server.wait_for_unit(f"{unit}.service")
-        for port in [${toString edge.ports.keycloak}, ${toString edge.ports.oauth2Proxy}]:
-            server.wait_for_open_port(port)
-        # The old token, before any new one could make it refetch keys, and
-        # while it is still unexpired.
+        wait_edge_up()
+        # oauth2-proxy restarted with it (one Keycloak run, one oauth2-proxy
+        # run)…
+        assert oauth2_proxy_pid() != pid
+        # …and the owner is still signed in: the token from before works, and
+        # so does the connector's refresh, signed with the same key.
+        assert mcp(token=before["access_token"])["status"] == 200, "a restart signed the owner out"
+        status, again = refresh("gemini", before["refresh_token"])
+        assert status == 0, again
+        assert claims(again["access_token"])["header"]["kid"] == old_kid, "a restart rotated the keys"
+        assert mcp(token=again["access_token"])["status"] == 200
+        # revoke-all: every session over, the keys rotated, oauth2-proxy
+        # restarted; an unexpired token is refused at once.
+        out = server.succeed("mcp-edge-secrets revoke-all --yes 2>&1")
+        assert "Every session ended" in out, out
+        wait_edge_up()
         now = int(server.succeed("date +%s"))
-        assert claims(before["access_token"])["claims"]["exp"] > now + 30, "the old token expired: the check proves nothing"
-        assert mcp(token=before["access_token"])["status"] == 401, "a token from before the restart still works"
-        # Because it restarted with Keycloak (BindsTo=, Upholds=) and holds no old key.
-        assert server.succeed("systemctl show mcp-edge-oauth2-proxy -p MainPID --value").strip() != pid
+        assert claims(again["access_token"])["claims"]["exp"] > now + 30, "the old token expired: the check proves nothing"
+        assert mcp(token=again["access_token"])["status"] == 401, "a token from before revoke-all still works"
+        status, gone = refresh("gemini", again["refresh_token"])
+        assert status != 0, gone
         status, fresh = signin("gemini", "owner@example.com", GEMINI)
         assert status == 0, fresh
-        assert claims(fresh["access_token"])["header"]["kid"] != old_kid, "the restart did not rotate the key"
+        assert claims(fresh["access_token"])["header"]["kid"] != old_kid, "revoke-all did not rotate the key"
         assert mcp(token=fresh["access_token"])["status"] == 200
-        assert mcp(token=before["access_token"])["status"] == 401
+        assert mcp(token=again["access_token"])["status"] == 401
         assert mcp(token=forge("wrong-iss"))["status"] in (401, 403)
+
+    with subtest("revoke-all: a signing key imported by hand is revoked too"):
+        hand = server.succeed("edge-test add-key").strip()
+        assert hand in kids()
+        status, before = signin("gemini", "owner@example.com", GEMINI)
+        assert status == 0, before
+        assert claims(before["access_token"])["header"]["kid"] == hand, "Keycloak did not sign with the key added by hand"
+        assert mcp(token=before["access_token"])["status"] == 200
+        out = server.succeed("mcp-edge-secrets revoke-all --yes 2>&1")
+        assert "not generated by Keycloak" in out and "Every session ended" in out, out
+        wait_edge_up()
+        assert hand not in kids(), "the key added by hand survived revoke-all"
+        assert mcp(token=before["access_token"])["status"] == 401, "a token signed with the key added by hand still works"
+        status, fresh = signin("gemini", "owner@example.com", GEMINI)
+        assert status == 0, fresh
+        assert mcp(token=fresh["access_token"])["status"] == 200
 
     def proxy_state():
         return server.succeed(
             "systemctl show mcp-edge-oauth2-proxy -p MainPID -p InactiveEnterTimestampMonotonic --value"
         ).split()
 
-    def wait_edge_up():
-        # Polled: between runs the units pass through failed and inactive
-        # with no job queued, which wait_for_unit takes as final.
-        server.wait_until_succeeds("systemctl is-active keycloak mcp-edge-oauth2-proxy", timeout=300)
-        for port in [${toString edge.ports.keycloak}, ${toString edge.ports.oauth2Proxy}]:
-            server.wait_for_open_port(port)
-
-    with subtest("broker lifetime: Keycloak crashes; oauth2-proxy stops, returns with it, and refuses an old token"):
+    with subtest("broker lifetime: Keycloak crashes; oauth2-proxy stops and returns with it; the owner stays signed in"):
         status, before = signin("gemini", "owner@example.com", GEMINI)
         assert status == 0, before
         assert mcp(token=before["access_token"])["status"] == 200
@@ -815,28 +864,196 @@ pkgs.testers.runNixOSTest {
         )
         # …and is back with the restarted Keycloak, a new process.
         wait_edge_up()
-        # Down at once, not when Keycloak's restart comes round 5 s later:
-        # in between it would still take tokens with the dead run's keys.
+        # Down at once, not when Keycloak's restart comes round 5 s later.
         def went_down(unit):
             return int(server.succeed(f"systemctl show {unit} -p InactiveEnterTimestampMonotonic --value"))
         gap = went_down("mcp-edge-oauth2-proxy") - went_down("keycloak")
         assert -1_000_000 < gap < 2_000_000, f"oauth2-proxy stopped {gap} µs after Keycloak died"
         assert proxy_state()[0] not in (pid, "0"), proxy_state()
-        now = int(server.succeed("date +%s"))
-        assert claims(before["access_token"])["claims"]["exp"] > now + 30, "the old token expired: the check proves nothing"
-        assert mcp(token=before["access_token"])["status"] == 401, "a token from before the crash still works"
+        # The crash signed nobody out.
+        assert mcp(token=before["access_token"])["status"] == 200, "a crash signed the owner out"
+        status, again = refresh("gemini", before["refresh_token"])
+        assert status == 0, again
+        assert mcp(token=again["access_token"])["status"] == 200
+
+    with subtest("broker lifetime: stop Keycloak, then start it; oauth2-proxy follows both"):
+        status, before = signin("gemini", "owner@example.com", GEMINI)
+        assert status == 0, before
+        server.succeed("systemctl stop keycloak")
+        server.succeed("! systemctl is-active mcp-edge-oauth2-proxy")
+        server.succeed("! systemctl is-active mcp-edge-realm")
+        server.succeed("systemctl start keycloak")
+        wait_edge_up()
+        assert mcp(token=before["access_token"])["status"] == 200, "a stop and start signed the owner out"
         status, fresh = signin("gemini", "owner@example.com", GEMINI)
         assert status == 0, fresh
         assert mcp(token=fresh["access_token"])["status"] == 200
 
-    with subtest("broker lifetime: stop Keycloak, then start it; oauth2-proxy follows both"):
-        server.succeed("systemctl stop keycloak")
-        server.succeed("! systemctl is-active mcp-edge-oauth2-proxy")
-        server.succeed("systemctl start keycloak")
+    with subtest("the realm is Nix's: on the next start a client added by hand is gone, a changed redirect restored"):
+        status, before = signin("claude", "owner@example.com", CLAUDE)
+        assert status == 0, before
+        status, out = admin("POST", "kb/clients", {"clientId": "handmade", "publicClient": True, "redirectUris": ["https://evil.example/*"]})
+        assert status == 0 and out["status"] == 201, out
+        status, out = admin("GET", "kb/clients?clientId=claude")
+        assert status == 0, out
+        claude = out["body"][0]
+        claude["redirectUris"] = ["https://evil.example/cb"]
+        status, out = admin("PUT", f"kb/clients/{claude['id']}", claude)
+        assert status == 0, out
+        # Tampered: Claude's real redirect is refused now.
+        status, out = signin("claude", "owner@example.com", CLAUDE)
+        assert status != 0, out
+        server.succeed("systemctl restart keycloak")
+        wait_edge_up()
+        status, out = admin("GET", "kb/clients?clientId=handmade")
+        assert status == 0 and out["body"] == [], out
+        status, out = admin("GET", "kb/clients?clientId=claude")
+        assert status == 0 and out["body"][0]["redirectUris"] == [CLAUDE], out
+        status, fresh = signin("claude", "owner@example.com", CLAUDE)
+        assert status == 0, fresh
+        assert mcp(token=fresh["access_token"])["status"] == 200
+        # Reconciling signed nobody out.
+        assert mcp(token=before["access_token"])["status"] == 200
+
+    with subtest("the realm is Nix's: a client's lifetime and a key added by hand are undone on the next start"):
+        status, out = admin("GET", "kb/clients?clientId=gemini")
+        assert status == 0, out
+        gemini = out["body"][0]
+        gemini["attributes"]["access.token.lifespan"] = "3600"
+        status, out = admin("PUT", f"kb/clients/{gemini['id']}", gemini)
+        assert status == 0, out
+        hand = server.succeed("edge-test add-key").strip()
+        status, drifted = signin("gemini", "owner@example.com", GEMINI)
+        assert status == 0, drifted
+        # Both took: an hour-long token, signed with the key added by hand.
+        assert lifetime(drifted["access_token"]) == 3600, claims(drifted["access_token"])
+        assert claims(drifted["access_token"])["header"]["kid"] == hand
+        server.succeed("systemctl restart keycloak")
         wait_edge_up()
         status, fresh = signin("gemini", "owner@example.com", GEMINI)
         assert status == 0, fresh
+        assert lifetime(fresh["access_token"]) == 300, claims(fresh["access_token"])
+        assert hand not in kids(), "the key added by hand survived the reconcile"
+        assert mcp(token=drifted["access_token"])["status"] == 401
         assert mcp(token=fresh["access_token"])["status"] == 200
+
+    with subtest("until the realm has reconciled, every Keycloak route is 503; the admin API stays on loopback"):
+        token_path = "/realms/kb/protocol/openid-connect/token"
+        auth_path = "/realms/kb/protocol/openid-connect/auth"
+        # The reconcile held (masked, so Keycloak's Upholds= cannot start it
+        # again) while Keycloak runs: as after a start whose reconcile has
+        # not finished, or failed.
+        server.succeed("systemctl mask --runtime mcp-edge-realm && systemctl stop mcp-edge-realm")
+        server.succeed("test ! -e ${edge.realmReady}")
+        assert server.succeed("systemctl is-active keycloak").strip() == "active"
+        closed = {p: path_status(p) for p in [auth_path, "/realms/kb/protocol/openid-connect/certs", "/resources/x"]}
+        closed[token_path] = int(server.succeed(f"edge-test status '{token_path}' --method POST").strip())
+        assert set(closed.values()) == {503}, closed
+        # The static discovery documents stay; the admin API is still only
+        # on loopback, and needs a token there.
+        assert path_status("/.well-known/oauth-protected-resource/mcp") == 200
+        assert path_status("/admin/realms/kb") == 404 and path_status("/realms/master/protocol/openid-connect/token") == 404
+        assert server.succeed(
+            "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:${toString edge.ports.keycloak}/admin/realms"
+        ) == "401"
+        server.succeed("systemctl unmask --runtime mcp-edge-realm && systemctl start mcp-edge-realm")
+        wait_edge_up()
+        server.succeed("test -f ${edge.realmReady}")
+        assert path_status(auth_path) != 503
+        status, fresh = signin("gemini", "owner@example.com", GEMINI)
+        assert status == 0, fresh
+
+    with subtest("mcp-edge-secrets: the Google client from its prompts, never echoed; status, client, rotate"):
+        SECRETS = "/var/lib/mcp-edge/secrets"
+        GOOGLE_SECRET = "${mockGoogleSecret}"
+        def read(name):
+            return server.succeed(f"cat {SECRETS}/{name}")
+        server.fail("runuser -u owner -- mcp-edge-secrets status")
+        # The unit wrote its secrets whole and 0400, like the command.
+        for name in ["client-gemini-secret", "client-claude-secret", "keycloak-admin-secret"]:
+            assert server.succeed(f"stat -c '%a %U' {SECRETS}/{name}").strip() == "400 root", name
+        # Nothing typed: refused, nothing changed.
+        server.fail("printf '\\n' | mcp-edge-secrets google")
+        assert read("google-client-id").strip() == "keycloak"
+        # As the owner would type it, with stray spaces, then "yes, apply".
+        server.succeed(
+            f"printf '  keycloak  \\n  {GOOGLE_SECRET}  \\ny\\n' | mcp-edge-secrets google > /tmp/google.out 2> /tmp/google.err"
+        )
+        out, err = server.succeed("cat /tmp/google.out"), server.succeed("cat /tmp/google.err")
+        assert GOOGLE_SECRET not in out and GOOGLE_SECRET not in err, (out, err)
+        assert "Applied." in out and err.count("warning") == 2, (out, err)
+        assert read("google-client-id") == "keycloak\n" and read("google-client-secret") == GOOGLE_SECRET + "\n"
+        for name in ["google-client-id", "google-client-secret"]:
+            assert server.succeed(f"stat -c '%a %U %G' {SECRETS}/{name}").strip() == "400 root root"
+        assert server.succeed(f"stat -c '%a %U' {SECRETS}").strip() == "700 root"
+        assert not server.succeed(f"find {SECRETS} -name '.*' -type f"), "a temporary file was left"
+        wait_edge_up()
+        status, fresh = signin("gemini", "owner@example.com", GEMINI)
+        assert status == 0, fresh
+        # status: every file, never a value.
+        out = server.succeed("mcp-edge-secrets status 2>&1")
+        values = [read(n).strip() for n in ["google-client-secret", "client-gemini-secret", "client-claude-secret", "keycloak-admin-secret"]]
+        assert not any(v in out for v in values), out
+        assert re.search(r"google-client-secret +400 root", out) and re.search(r"keycloak +active", out), out
+        # client: the one value it prints, on stdout alone.
+        status, printed = server.execute("mcp-edge-secrets client gemini 2>/dev/null")
+        assert status == 0 and printed.strip() == read("client-gemini-secret").strip(), printed
+        # rotate: a new secret, set in the realm; Claude signs in with it.
+        # The live file is replaced by one rename, never removed or
+        # rewritten in place.
+        old = read("client-claude-secret")
+        server.succeed(
+            f"(inotifywait -m -q -e create,delete,close_write,moved_to,moved_from --format '%e %f' {SECRETS} > /tmp/inotify.log 2>&1 & echo $! > /tmp/inotify.pid)"
+        )
+        server.wait_until_succeeds("ps -p $(cat /tmp/inotify.pid) && sleep 1")
+        server.succeed("mcp-edge-secrets rotate claude")
+        server.succeed("kill $(cat /tmp/inotify.pid)")
+        events = server.succeed("cat /tmp/inotify.log").splitlines()
+        live = [e for e in events if e.split()[-1] == "client-claude-secret"]
+        assert live == ["MOVED_TO client-claude-secret"], events
+        assert read("client-claude-secret") != old
+        # Killed at any point, it leaves one whole secret, old or new.
+        for delay in ["0.005", "0.02", "0.05", "0.1", "0.2", "0.4"]:
+            server.execute(f"timeout -s KILL {delay} mcp-edge-secrets rotate claude")
+            assert re.fullmatch(r"[0-9a-f]{64}\n", read("client-claude-secret")), delay
+            assert server.succeed(f"stat -c '%a %U' {SECRETS}/client-claude-secret").strip() == "400 root"
+        # A generator that fails, or prints a short value, changes nothing:
+        # not a rotation's file, not one the unit would generate. The fake
+        # openssl is bind-mounted over the real one both of them run.
+        openssl = server.succeed(
+            "grep -o '/nix/store/[^:]*-openssl-[^:]*-bin/bin' $(readlink -f $(command -v mcp-edge-secrets)) | head -1"
+        ).strip() + "/openssl"
+        unit_path = server.succeed("systemctl show mcp-edge-secrets -p Environment --value")
+        assert openssl.removesuffix("/openssl") in unit_path, (openssl, unit_path)
+        fakes = {
+            "fails after writing part": "printf 0123abcd; exit 1",
+            "exits 0 with a short value": "printf '%063d' 0",
+            "exits 0 with a value not hex": "printf '%064d' 0 | tr 0 z",
+        }
+        old = read("client-claude-secret")
+        for what, body in fakes.items():
+            server.succeed(f"printf '#!/bin/sh\\n%s\\n' {shlex.quote(body)} > /tmp/fake-openssl && chmod +x /tmp/fake-openssl")
+            server.succeed(f"mount --bind /tmp/fake-openssl {openssl}")
+            status, out = server.execute("mcp-edge-secrets rotate claude 2>&1")
+            assert status != 0 and "unchanged" in out, (what, out)
+            assert read("client-claude-secret") == old, what
+            server.succeed(f"umount {openssl}")
+        assert not server.succeed(f"find {SECRETS} -name '.*' -type f"), "a temporary file was left"
+        # The unit, with a secret to generate: it fails and writes none.
+        server.succeed("systemctl stop keycloak")
+        server.succeed(f"mv {SECRETS}/client-gemini-secret /tmp/gemini-secret")
+        server.succeed("printf '#!/bin/sh\\nprintf 0123abcd; exit 1\\n' > /tmp/fake-openssl")
+        server.succeed(f"mount --bind /tmp/fake-openssl {openssl}")
+        server.fail("systemctl restart mcp-edge-secrets")
+        server.succeed(f"umount {openssl}")
+        server.fail(f"test -e {SECRETS}/client-gemini-secret")
+        assert not server.succeed(f"find {SECRETS} -name '.*' -type f"), "a temporary file was left"
+        server.succeed(f"mv /tmp/gemini-secret {SECRETS}/client-gemini-secret")
+        server.succeed("systemctl restart mcp-edge-secrets && systemctl start keycloak")
+        server.succeed("mcp-edge-secrets rotate claude")
+        wait_edge_up()
+        status, fresh = signin("claude", "owner@example.com", CLAUDE)
+        assert status == 0, fresh
 
     with subtest("Funnel off: the front refuses a request a public connection carries; Funnel on: it passes"):
         MARK = "-H 'Tailscale-Funnel-Request: ?1'"
