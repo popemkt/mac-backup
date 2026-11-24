@@ -10,6 +10,12 @@ rec {
   # The identity provider's alias in the realm, which names its callback
   # (/realms/<realm>/broker/<alias>/endpoint) whatever provider it is.
   idpAlias = "google";
+  # Keycloak's admin: a service client in the master realm, created when
+  # Keycloak first creates that realm, whose secret is machine state
+  # (<secretsDir>/keycloak-admin-secret). Only the realm reconcile and
+  # `mcp-edge-secrets revoke-all` use it, over loopback.
+  adminClient = "mcp-edge-admin";
+  adminSecretFile = "keycloak-admin-secret";
   ports = {
     front = 4190;
     oauth2Proxy = 4180;

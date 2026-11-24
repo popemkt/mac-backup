@@ -10,23 +10,33 @@
 # with the ID token's own code and audience). Keycloak adds the resource to
 # the access token only, through an audience mapper on each client.
 #
-# The realm is declared here and nowhere else: every start drops Keycloak's
-# database and imports the realm afresh, with the secrets substituted from
-# LoadCredential=. So a change here applies on the next start, the database
-# holds nothing worth backing up (people come from Google at each sign-in),
-# and a restart revokes every token and session and rotates the signing keys.
-# Keycloak has no admin account; its admin console, admin API and account
-# console are disabled at build time, and the front never routes to them.
+# Keycloak's database persists across restarts, reboots and upgrades: its
+# sessions, refresh tokens and signing keys survive, so a connector stays
+# signed in (at most 30 days, below). Revoking them is an explicit command,
+# `mcp-edge-secrets revoke-all` (docs/mcp-edge.md → Revoke every token).
+#
+# The realm is still declared here and nowhere else: after every Keycloak
+# start, `mcp-edge-realm` reconciles it from Nix with keycloak-config-cli,
+# secrets substituted from LoadCredential=. It sets the realm, its clients
+# (secrets, exact redirects, scopes, grant toggles, the audience mapper) and
+# the identity provider as declared, and deletes any client or identity
+# provider not declared (one added by hand); Keycloak's own built-in clients
+# stay. It does not touch users, sessions or keys.
+#
+# It signs in as a service client of the master realm (constants.nix →
+# adminClient), over loopback. Keycloak's admin API exists for it, on
+# 127.0.0.1 only; the front never routes /admin or /realms/master, and the
+# admin console and account console are disabled at build time.
 let
   cfg = config.my.stacks.mcp-edge;
   edge = import ./constants.nix;
   inherit (config.services.postgresql) package;
 
-  # A secret's environment variable: Keycloak substitutes ${NAME} in the
-  # imported realm from its environment (the unit's script exports each from
-  # $CREDENTIALS_DIRECTORY).
+  # A secret's environment variable: keycloak-config-cli substitutes
+  # $(env:NAME) in the realm from its environment (mcp-edge-realm exports each
+  # from $CREDENTIALS_DIRECTORY).
   envName = name: "KB_EDGE_" + lib.toUpper (lib.replaceStrings [ "-" ] [ "_" ] name);
-  placeholder = name: "\${${envName name}}";
+  placeholder = name: "$(env:${envName name})";
 
   clientSecretFile = name: "client-${name}-secret";
   # Credential name → machine-state file, for LoadCredential= and the exports.
@@ -138,8 +148,8 @@ let
     editUsernameAllowed = false;
     bruteForceProtected = true;
     # Short access tokens; a connector refreshes. Refresh tokens rotate and
-    # are single-use. A session lasts at most 30 days (or until Keycloak
-    # restarts), idle 14.
+    # are single-use. A session lasts at most 30 days, idle 14, Keycloak
+    # restarts included; `mcp-edge-secrets revoke-all` ends them all.
     accessTokenLifespan = 300;
     revokeRefreshToken = true;
     refreshTokenMaxReuse = 0;
@@ -152,18 +162,21 @@ let
     identityProviders = [ identityProvider ];
     clients = lib.mapAttrsToList client cfg.clients;
   };
-  # Under /etc, by a path with no store reference: the module keys a tmpfiles
-  # rule on the file's name, which may not name a store path.
-  realmFile = "/etc/mcp-edge/${edge.realm}-realm.json";
   realmJson = pkgs.writeText "${edge.realm}-realm.json" (builtins.toJSON realm);
 
-  # Every start begins from an empty database (see the header).
-  resetDatabase = pkgs.writeShellScript "keycloak-reset-database" ''
+  # The database is created once, and kept (see the header).
+  ensureDatabase = pkgs.writeShellScript "keycloak-ensure-database" ''
     set -eu
-    ${pkgs.util-linux}/bin/runuser -u postgres -- ${package}/bin/psql -v ON_ERROR_STOP=1 -q \
-      -c 'DROP DATABASE IF EXISTS keycloak WITH (FORCE)' \
-      -c 'CREATE DATABASE keycloak OWNER keycloak'
+    psql() {
+      ${pkgs.util-linux}/bin/runuser -u postgres -- ${package}/bin/psql -v ON_ERROR_STOP=1 -qtA "$@"
+    }
+    if [ "$(psql -c "SELECT 1 FROM pg_database WHERE datname = 'keycloak'")" != 1 ]; then
+      psql -c 'CREATE DATABASE keycloak OWNER keycloak'
+    fi
   '';
+
+  keycloakUrl = "http://127.0.0.1:${toString edge.ports.keycloak}";
+  adminSecret = "${cfg.secretsDir}/${edge.adminSecretFile}";
 in
 {
   config = lib.mkIf cfg.enable {
@@ -173,8 +186,6 @@ in
       # authentication: no password exists.
       ensureUsers = [ { name = "keycloak"; } ];
     };
-
-    environment.etc."mcp-edge/${edge.realm}-realm.json".source = realmJson;
 
     services.keycloak = {
       enable = true;
@@ -201,9 +212,10 @@ in
         # No management interface (health, metrics) at all.
         health-enabled = false;
         metrics-enabled = false;
+        # The admin API stays, for mcp-edge-realm and revoke-all (see the
+        # header); its console does not.
         features-disabled = lib.concatStringsSep "," [
           "admin"
-          "admin-api"
           "account"
           "device-flow"
           "ciba"
@@ -216,7 +228,6 @@ in
           "twitter-broker"
         ];
       };
-      realmFiles = [ realmFile ];
     };
 
     systemd.services.keycloak = {
@@ -225,28 +236,81 @@ in
         "mcp-edge-secrets.service"
       ];
       requires = [ "postgresql.target" ];
-      # A realm change restarts it, which re-imports.
-      restartTriggers = [ realmJson ];
       serviceConfig = {
-        # A crash comes back as a fresh realm; oauth2-proxy stops and starts
-        # with it (./oauth2-proxy.nix).
+        # A crash comes back with the same database: sessions survive. The
+        # realm reconcile and oauth2-proxy stop and start with it
+        # (mcp-edge-realm below, ./oauth2-proxy.nix).
         Restart = "on-failure";
         RestartSec = 5;
-        ExecStartPre = [ "+${resetDatabase}" ];
-        LoadCredential = lib.mapAttrsToList (
-          credential: file: "${credential}:${cfg.secretsDir}/${file}"
-        ) credentials;
+        ExecStartPre = [ "+${ensureDatabase}" ];
+        LoadCredential = [ "admin-secret:${adminSecret}" ];
       };
-      # Before the module's own script. The module links the realm into
-      # /run/keycloak/data/import only at boot (tmpfiles), and the runtime
-      # directory is emptied at every stop: link it again on each start.
+      # The admin service client, created with the master realm (first start
+      # on an empty database); Keycloak ignores these once an admin exists.
+      environment.KC_BOOTSTRAP_ADMIN_CLIENT_ID = edge.adminClient;
       script = lib.mkBefore ''
+        KC_BOOTSTRAP_ADMIN_CLIENT_SECRET=$(<"$CREDENTIALS_DIRECTORY/admin-secret")
+        export KC_BOOTSTRAP_ADMIN_CLIENT_SECRET
+      '';
+    };
+
+    # The realm from Nix, after every Keycloak start (see the header). It
+    # lives as long as one Keycloak run, like oauth2-proxy, which waits for
+    # it: a realm that did not reconcile serves no /mcp.
+    systemd.services.mcp-edge-realm = {
+      description = "Reconcile the MCP edge's Keycloak realm from Nix";
+      after = [ "keycloak.service" ];
+      bindsTo = [ "keycloak.service" ];
+      upheldBy = [ "keycloak.service" ];
+      restartTriggers = [ realmJson ];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        DynamicUser = true;
+        LoadCredential = [
+          "admin-secret:${adminSecret}"
+        ]
+        ++ lib.mapAttrsToList (credential: file: "${credential}:${cfg.secretsDir}/${file}") credentials;
+        # Loopback only: Keycloak's admin API.
+        IPAddressDeny = "any";
+        IPAddressAllow = "localhost";
+        RestrictAddressFamilies = [
+          "AF_UNIX"
+          "AF_INET"
+          "AF_INET6"
+        ];
+        PrivateTmp = true;
+        PrivateDevices = true;
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        NoNewPrivileges = true;
+        CapabilityBoundingSet = "";
+      };
+      # Secrets reach it through its environment only, never its command
+      # line (which every local user can read). remote-state off: it deletes
+      # every client and identity provider not declared, not only the ones
+      # it created itself. cache off: it imports every time, so a value
+      # changed by hand is restored though the file did not change.
+      script = ''
         ${lib.concatMapStrings (credential: ''
           ${envName credential}=$(<"$CREDENTIALS_DIRECTORY/${credential}")
           export ${envName credential}
         '') (lib.attrNames credentials)}
-        mkdir -p /run/keycloak/data/import
-        ln -sfn ${realmFile} /run/keycloak/data/import/${baseNameOf realmFile}
+        KEYCLOAK_CLIENTSECRET=$(<"$CREDENTIALS_DIRECTORY/admin-secret")
+        export KEYCLOAK_CLIENTSECRET
+        exec ${lib.getExe pkgs.keycloak-config-cli} \
+          --keycloak.url=${keycloakUrl} \
+          --keycloak.login-realm=master \
+          --keycloak.grant-type=client_credentials \
+          --keycloak.client-id=${edge.adminClient} \
+          --keycloak.availability-check.enabled=true \
+          --import.files.locations=${realmJson} \
+          --import.var-substitution.enabled=true \
+          --import.remote-state.enabled=false \
+          --import.cache.enabled=false
       '';
     };
   };

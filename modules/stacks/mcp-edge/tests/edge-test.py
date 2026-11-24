@@ -153,6 +153,31 @@ def cmd_grant(a):
     print(json.dumps({"status": r.status_code} | r.json()))
 
 
+def cmd_refresh(a):
+    """What a connector does every 5 minutes to stay signed in."""
+    data = {"grant_type": "refresh_token", "refresh_token": a.token}
+    r = session().post(f"{ISSUER}/protocol/openid-connect/token", data=data, auth=(a.client, secret_of(a.client)))
+    print(json.dumps({"status": r.status_code} | r.json()))
+    return 0 if r.status_code == 200 else 1
+
+
+def cmd_admin(a):
+    """Keycloak's admin API on loopback, as the admin service client (what
+    someone with root, editing the realm by hand, would use)."""
+    with open(f"{SECRETS}/keycloak-admin-secret") as f:
+        secret = f.read().strip()
+    keycloak = os.environ["EDGE_KEYCLOAK"]
+    s = session()
+    token = s.post(
+        f"{keycloak}/realms/master/protocol/openid-connect/token",
+        data={"grant_type": "client_credentials", "client_id": "mcp-edge-admin", "client_secret": secret},
+    ).json()["access_token"]
+    body = json.loads(a.json) if a.json else None
+    r = s.request(a.method, f"{keycloak}/admin/realms/{a.path}", json=body, headers={"Authorization": f"Bearer {token}"})
+    print(json.dumps({"status": r.status_code, "body": r.json() if r.content else None}))
+    return 0 if r.ok else 1
+
+
 def claims(token):
     return jwt.decode(token, options={"verify_signature": False})
 
@@ -366,6 +391,15 @@ def main():
     s = sub.add_parser("forge")
     s.add_argument("variant")
     s.set_defaults(fn=cmd_forge)
+    s = sub.add_parser("refresh")
+    s.add_argument("client")
+    s.add_argument("token")
+    s.set_defaults(fn=cmd_refresh)
+    s = sub.add_parser("admin")
+    s.add_argument("method")
+    s.add_argument("path")
+    s.add_argument("--json")
+    s.set_defaults(fn=cmd_admin)
     s = sub.add_parser("acl")
     s.add_argument("root")
     s.add_argument("owner")
