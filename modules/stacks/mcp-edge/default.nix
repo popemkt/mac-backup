@@ -223,7 +223,7 @@ in
       # On every host with the stack, even before it is switched on: the
       # Google client goes on the server first (docs/mcp-edge.md, step 2),
       # and the edge's first start needs it.
-      environment.systemPackages = [ (import ./secrets-cli.nix { inherit pkgs cfg; }) ];
+      environment.systemPackages = [ (import ./secrets-cli.nix { inherit lib pkgs cfg; }) ];
     }
     (lib.mkIf cfg.enable {
       assertions = [
@@ -275,15 +275,15 @@ in
       # The secrets directory, and the secrets nobody needs to choose: each
       # client's, and Keycloak's admin client's. The Google client is the
       # owner's one-time step (docs/mcp-edge.md); a missing file fails this
-      # unit, naming it, and Keycloak waits for it. Each secret is written
-      # whole under a temporary name, then renamed into place, 0400: the
-      # live path never holds part of one (mcp-edge-secrets writes the same
-      # way).
+      # unit, naming it, and Keycloak waits for it. Each secret is generated
+      # and checked whole, then renamed into place, 0400 (./secret-file.sh,
+      # which mcp-edge-secrets writes with too).
       systemd.services.mcp-edge-secrets = {
         description = "Check and generate the MCP edge's machine-state secrets";
         before = [ "keycloak.service" ];
         requiredBy = [ "keycloak.service" ];
         path = [ pkgs.openssl ];
+        environment.EDGE_SECRETS_DIR = cfg.secretsDir;
         serviceConfig = {
           Type = "oneshot";
           RemainAfterExit = true;
@@ -291,17 +291,19 @@ in
         };
         script = ''
           set -eu
+          ${builtins.readFile ./secret-file.sh}
           dir=${lib.escapeShellArg cfg.secretsDir}
           install -d -m 0700 "$dir"
-          ${lib.concatMapStrings (file: ''
-            if [ ! -s "$dir/${file}" ]; then
-              tmp=$(mktemp "$dir/.${file}.XXXXXX")
-              openssl rand -hex 32 > "$tmp"
-              chmod 0400 "$tmp"
-              mv -f "$tmp" "$dir/${file}"
-              echo "generated $dir/${file}"
+          for file in ${
+            lib.escapeShellArgs (
+              map (name: "client-${name}-secret") (lib.attrNames cfg.clients) ++ [ edge.adminSecretFile ]
+            )
+          }; do
+            if [ ! -s "$dir/$file" ]; then
+              new_secret "$file"
+              echo "generated $dir/$file"
             fi
-          '') (map (name: "client-${name}-secret") (lib.attrNames cfg.clients) ++ [ edge.adminSecretFile ])}
+          done
           missing=""
           for file in google-client-id google-client-secret; do
             [ -s "$dir/$file" ] || missing="$missing $dir/$file"

@@ -7,8 +7,9 @@
 #   EDGE_REALM          the edge's realm
 #   EDGE_ADMIN_CLIENT   Keycloak's admin service client (master realm)
 #   EDGE_ADMIN_SECRET   its secret's file name in EDGE_SECRETS_DIR
-# ./keycloak-admin.sh comes first in the same file (admin_login, admin_api,
-# key_providers, is_generated, live_kids).
+# ./secret-file.sh (die, put, new_secret) and ./keycloak-admin.sh
+# (admin_login, admin_api, key_providers, is_generated, live_kids) come first
+# in the same file.
 #
 # No secret value ever reaches a command line (every local user can read
 # those), and none is printed except by `client`, on purpose.
@@ -28,11 +29,6 @@ mcp-edge-secrets: the MCP edge's machine-state secrets (run with sudo).
 
 Remotely: ssh -t shared-server sudo mcp-edge-secrets google
 USAGE
-}
-
-die() {
-  echo "mcp-edge-secrets: $*" >&2
-  exit 1
 }
 
 warn() {
@@ -60,17 +56,6 @@ ask() {
     read -r -p "$question [y/N] " answer || answer=""
     [[ $answer =~ ^[Yy] ]]
   fi
-}
-
-# Writes stdin to $EDGE_SECRETS_DIR/<name>, 0400 root, replacing it at once.
-put() {
-  local name=$1 tmp
-  install -d -m 0700 -o root -g root "$EDGE_SECRETS_DIR"
-  tmp=$(mktemp "$EDGE_SECRETS_DIR/.$name.XXXXXX")
-  cat > "$tmp"
-  chmod 0400 "$tmp"
-  chown root:root "$tmp"
-  mv -f "$tmp" "$EDGE_SECRETS_DIR/$name"
 }
 
 is_client() {
@@ -180,9 +165,9 @@ rotate() {
   local name=$1
   is_client "$name" || die "no client '$name' (declared: $EDGE_CLIENTS)"
   unit_exists keycloak.service || die "the edge is off on this machine"
-  # The new secret replaces the old one in a single rename: interrupted at
-  # any point, the file holds one whole secret, old or new, never none.
-  openssl rand -hex 32 | put "client-$name-secret"
+  # Generated and checked whole, then one rename (./secret-file.sh): a
+  # failure or an interruption at any point leaves the old secret working.
+  new_secret "client-$name-secret"
   # The realm reconcile sets it (nobody is signed out).
   reconcile_now
   echo "$name has a new client secret; its old one no longer works."

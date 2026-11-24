@@ -220,10 +220,12 @@ use `ssh -t` so its prompts work.
 
 ## Rotate a client secret
 
-`sudo mcp-edge-secrets rotate gemini` writes a new secret under a temporary
-name and renames it into place (0400 root), so the file always holds one
-whole secret, old or new, even if the command is killed. It then reruns the
-realm reconcile, which sets it. Nobody else is
+`sudo mcp-edge-secrets rotate gemini` generates a new secret and keeps it
+only if the generator succeeded and it is exactly 64 hex digits. It then
+writes it under a temporary name and renames it into place (0400 root), so
+the file always holds one whole secret, old or new, even if the command is
+killed or the generator fails. The first-start unit writes its secrets the
+same way. It then reruns the realm reconcile, which sets it. Nobody else is
 signed out, but the vendor's old secret stops working at its next refresh.
 Then paste the new one into Gemini: `sudo mcp-edge-secrets client gemini`.
 
@@ -308,7 +310,7 @@ terminator stands in for tailscaled. It checks:
   - A client's `access.token.lifespan` set to an hour by hand (a token then lasts 3600 s) is back to 300 s after the next start. A signing key imported by hand (which Keycloak then signs with) is gone, and its token is refused.
   - With the reconcile held after a start, every Keycloak route (`/auth`, `/token`, `/certs`, `/resources/`) is 503. The discovery documents still answer, `/admin` and `/realms/master` are 404 at the front, and the admin API on loopback is 401 without a token.
 - **`revoke-all` with a key imported by hand:** Keycloak signs with that key, `revoke-all` deletes it (and says so), it is gone from the JWKS, and its token is refused.
-- **`mcp-edge-secrets`:** as a non-root user it refuses. Empty input changes nothing. The Google client typed with stray spaces is saved trimmed, 0400 root in the 0700 directory, with no temporary file left, and the secret appears in neither stdout nor stderr. Both shape warnings fire for the stand-in's values. Applying it re-reconciles the realm and sign-in still works. `status` prints no value at all. `client gemini` prints exactly the file's secret on stdout. The unit's own secrets are 0400 root. `rotate claude` replaces the live file in one rename (`inotifywait` sees only `MOVED_TO` for it, never a delete or a write in place), and Claude signs in with the new secret. Killed at six points in its run, it leaves one whole 64-hex-digit secret, 0400.
+- **`mcp-edge-secrets`:** as a non-root user it refuses. Empty input changes nothing. The Google client typed with stray spaces is saved trimmed, 0400 root in the 0700 directory, with no temporary file left, and the secret appears in neither stdout nor stderr. Both shape warnings fire for the stand-in's values. Applying it re-reconciles the realm and sign-in still works. `status` prints no value at all. `client gemini` prints exactly the file's secret on stdout. The unit's own secrets are 0400 root. `rotate claude` replaces the live file in one rename (`inotifywait` sees only `MOVED_TO` for it, never a delete or a write in place), and Claude signs in with the new secret. Killed at six points in its run, it leaves one whole 64-hex-digit secret, 0400. With a fake `openssl` bind-mounted over the real one (one that fails after printing part of a value, one that prints 63 digits, one that prints 64 non-hex characters), `rotate` refuses and leaves the old secret, and the unit fails without writing the secret it had to generate; no temporary file is left.
 
 kb-remote and app-kb both run the pinned kb (`pkgs.kb`) on the same store,
 as shared-server would.

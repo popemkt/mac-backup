@@ -1,4 +1,8 @@
-{ pkgs, cfg }:
+{
+  lib,
+  pkgs,
+  cfg,
+}:
 # The `mcp-edge-secrets` command (./secrets-cli.sh, docs/mcp-edge.md): the
 # owner's way to put the Google client on the server, read a client's
 # secret, rotate one, and revoke every token. This file hands the script its
@@ -23,6 +27,10 @@ pkgs.writeShellApplication {
     EDGE_ADMIN_CLIENT = edge.adminClient;
     EDGE_ADMIN_SECRET = edge.adminSecretFile;
   };
-  text = builtins.readFile ./keycloak-admin.sh + builtins.readFile ./secrets-cli.sh;
+  text = lib.concatMapStrings builtins.readFile [
+    ./secret-file.sh
+    ./keycloak-admin.sh
+    ./secrets-cli.sh
+  ];
   meta.mainProgram = "mcp-edge-secrets";
 }

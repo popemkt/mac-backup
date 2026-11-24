@@ -272,7 +272,7 @@ pkgs.testers.runNixOSTest {
   };
 
   testScript = ''
-    import json, re
+    import json, re, shlex
 
     HOST = "${host}"
     BASE = f"https://{HOST}"
@@ -1017,6 +1017,39 @@ pkgs.testers.runNixOSTest {
             server.execute(f"timeout -s KILL {delay} mcp-edge-secrets rotate claude")
             assert re.fullmatch(r"[0-9a-f]{64}\n", read("client-claude-secret")), delay
             assert server.succeed(f"stat -c '%a %U' {SECRETS}/client-claude-secret").strip() == "400 root"
+        # A generator that fails, or prints a short value, changes nothing:
+        # not a rotation's file, not one the unit would generate. The fake
+        # openssl is bind-mounted over the real one both of them run.
+        openssl = server.succeed(
+            "grep -o '/nix/store/[^:]*-openssl-[^:]*-bin/bin' $(readlink -f $(command -v mcp-edge-secrets)) | head -1"
+        ).strip() + "/openssl"
+        unit_path = server.succeed("systemctl show mcp-edge-secrets -p Environment --value")
+        assert openssl.removesuffix("/openssl") in unit_path, (openssl, unit_path)
+        fakes = {
+            "fails after writing part": "printf 0123abcd; exit 1",
+            "exits 0 with a short value": "printf '%063d' 0",
+            "exits 0 with a value not hex": "printf '%064d' 0 | tr 0 z",
+        }
+        old = read("client-claude-secret")
+        for what, body in fakes.items():
+            server.succeed(f"printf '#!/bin/sh\\n%s\\n' {shlex.quote(body)} > /tmp/fake-openssl && chmod +x /tmp/fake-openssl")
+            server.succeed(f"mount --bind /tmp/fake-openssl {openssl}")
+            status, out = server.execute("mcp-edge-secrets rotate claude 2>&1")
+            assert status != 0 and "unchanged" in out, (what, out)
+            assert read("client-claude-secret") == old, what
+            server.succeed(f"umount {openssl}")
+        assert not server.succeed(f"find {SECRETS} -name '.*' -type f"), "a temporary file was left"
+        # The unit, with a secret to generate: it fails and writes none.
+        server.succeed("systemctl stop keycloak")
+        server.succeed(f"mv {SECRETS}/client-gemini-secret /tmp/gemini-secret")
+        server.succeed("printf '#!/bin/sh\\nprintf 0123abcd; exit 1\\n' > /tmp/fake-openssl")
+        server.succeed(f"mount --bind /tmp/fake-openssl {openssl}")
+        server.fail("systemctl restart mcp-edge-secrets")
+        server.succeed(f"umount {openssl}")
+        server.fail(f"test -e {SECRETS}/client-gemini-secret")
+        assert not server.succeed(f"find {SECRETS} -name '.*' -type f"), "a temporary file was left"
+        server.succeed(f"mv /tmp/gemini-secret {SECRETS}/client-gemini-secret")
+        server.succeed("systemctl restart mcp-edge-secrets && systemctl start keycloak")
         server.succeed("mcp-edge-secrets rotate claude")
         wait_edge_up()
         status, fresh = signin("claude", "owner@example.com", CLAUDE)
