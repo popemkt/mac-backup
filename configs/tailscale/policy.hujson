@@ -158,6 +158,18 @@
     },
   },
 
+  // Funnel: the tags whose machines may publish an entry on the internet.
+  // A machine publishes only what it declares with
+  // my.stacks.vpn.nodeServe.<name>.funnel (shared-server: the MCP edge's
+  // allow-listed paths, docs/mcp-edge.md); scripts/check-tailscale-policy.sh
+  // fails a declared Funnel whose host has no tag here.
+  "nodeAttrs": [
+    {
+      "target": ["tag:shared-server"],
+      "attr": ["funnel"],
+    },
+  ],
+
   "ssh": [
     // Preserve Tailscale's default check-mode SSH access to a user's own node.
     {

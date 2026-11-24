@@ -90,6 +90,69 @@ in
           };
         };
       };
+      nodeServe = mkOption {
+        default = { };
+        example = {
+          mcp-edge.target = "http://127.0.0.1:4190";
+        };
+        description = ''
+          HTTPS entries this machine serves on its own tailnet name
+          (https://<host>.<tailnetDomain>[:port]), by name: node-level
+          `tailscale serve`, not a Service. It needs no grant or
+          auto-approver, being reachable from the tailnet wherever the
+          machine is, and Funnel can publish it (`funnel`). Reconciled with
+          the Services; `adhoc` neither takes nor clears a declared port, and
+          the reconcile does not take a port something else already serves
+          (an adhoc share, a hand-made `tailscale serve`): it fails, naming
+          what is there, and retries until the port is free.
+        '';
+        type = types.attrsOf (
+          types.submodule {
+            options = {
+              port = mkOption {
+                type = types.port;
+                default = 443;
+                description = "HTTPS port on the machine's tailnet name.";
+              };
+              target = mkOption {
+                type = types.str;
+                example = "http://127.0.0.1:4190";
+                description = ''
+                  Loopback URL tailscaled forwards to: `<target><path>` for
+                  each of `paths`, the request's path kept as sent.
+                '';
+              };
+              paths = mkOption {
+                type = types.nonEmptyListOf (types.strMatching "/[^[:space:]]*");
+                default = [ "/" ];
+                example = [
+                  "/mcp"
+                  "/.well-known/oauth-protected-resource"
+                ];
+                description = ''
+                  The paths tailscaled mounts, each with the paths under it
+                  (tailscaled matches a mount and its subpaths); any other
+                  path is not served at all. `/` serves every path.
+                '';
+              };
+              funnel = mkOption {
+                type = types.bool;
+                default = false;
+                description = ''
+                  Publish this entry on the internet through Tailscale
+                  Funnel, at the same paths. The port must be 443, 8443 or
+                  10000, and the tailnet policy must grant this machine's tag
+                  the `funnel` node attribute (scripts/check-tailscale-policy.sh
+                  checks). Funnel comes on only once the port serves exactly
+                  the declared mounts. Turning it off takes the port's Funnel
+                  down first, before anything else the reconcile does; Funnel
+                  on a port the reconcile does not manage is only warned about.
+                '';
+              };
+            };
+          }
+        );
+      };
       services = mkOption {
         default = { };
         description = ''

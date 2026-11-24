@@ -8,6 +8,9 @@
 #   ADHOC_SHARED_PORT   loopback port the shared endpoint proxies there
 #   ADHOC_SHARED_URL    the shared endpoint's public https origin
 #   ADHOC_ON_SHARED     1 when this machine is ADHOC_SHARED_HOST, else 0
+#   ADHOC_DECLARED_HTTPS  HTTPS ports this machine's configuration serves
+#                       (my.stacks.vpn.nodeServe), space-separated: never
+#                       taken or cleared here
 
 usage() {
   cat <<'USAGE'
@@ -20,6 +23,7 @@ adhoc: publish a local web app on the tailnet, temporarily.
                                shared-server (foreground; Ctrl-C stops it)
   adhoc ls                     what this machine publishes (tailscale serve status)
   adhoc off [--https=<p>]      stop one entry, or every one without the flag
+                               (declared entries, my.stacks.vpn.nodeServe, stay)
   adhoc -h                     this help
 USAGE
 }
@@ -55,6 +59,10 @@ served() {
     | "\(if .value.HTTPS then "https" elif .value.HTTP then "http" else "tcp" end) \(.key)"'
 }
 
+is_declared() {
+  [[ " $ADHOC_DECLARED_HTTPS " == *" $1 "* ]]
+}
+
 is_served() {
   served | awk -v port="$1" '$2 == port { found = 1 } END { exit !found }'
 }
@@ -73,6 +81,9 @@ publish() {
     args+=("--https=$https")
   else
     https=443
+  fi
+  if is_declared "$https"; then
+    die "HTTPS port $https belongs to this machine's configuration (my.stacks.vpn.nodeServe); pick another with --https=<443|8443|10000>."
   fi
   if is_served "$https"; then
     die "HTTPS port $https is already served on this machine; not replacing it. Pick another with --https=<443|8443|10000>, or free it with 'adhoc off --https=$https' (see 'adhoc ls')."
@@ -125,14 +136,16 @@ shared() {
 off() {
   local https=$1 kind port
   if [[ -n $https ]]; then
+    ! is_declared "$https" || die "HTTPS port $https belongs to this machine's configuration (my.stacks.vpn.nodeServe); adhoc leaves it alone."
     is_served "$https" || die "nothing is served on HTTPS port $https (see 'adhoc ls')."
     ts serve "--https=$https" off
     return 0
   fi
   # Not `tailscale serve reset`: it empties the whole serve config, and on a
   # host that declares Tailscale Services that takes those down with it.
+  # Declared entries stay.
   while read -r kind port; do
-    [[ -z $kind ]] || ts serve "--$kind=$port" off
+    [[ -z $kind ]] || { [[ $kind == https ]] && is_declared "$port"; } || ts serve "--$kind=$port" off
   done < <(served)
 }
 

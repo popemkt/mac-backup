@@ -117,6 +117,14 @@ let
     MemoryMax = "1G";
     CPUQuota = "200%";
   };
+  # The OAuth edge for popemkt's kb MCP (my.stacks.mcp-edge below): the one
+  # switch that turns it, its store's kb-remote and its tailnet entry on or
+  # off.
+  mcpEdge = false;
+  # Its own switch for public reach (Funnel, phase 1c): Gemini's and
+  # Claude's backends call the edge from their clouds. Needs mcpEdge, and
+  # the policy's funnel node attribute for tag:shared-server.
+  mcpFunnel = false;
 in
 {
   imports = [
@@ -303,6 +311,29 @@ in
       owner = "bytetum";
       uiArgs = bbFramesKb "bytetum";
     };
+  };
+
+  # popemkt's kb MCP for Gemini and Claude, behind the OAuth edge:
+  # https://shared-server.<tailnet>/mcp (docs/mcp-edge.md), on the tailnet,
+  # and on the internet through Funnel with `mcpFunnel`. Off until kb's pin
+  # ships `kb mcp --listen` and the owner has created the Google client;
+  # `mcpEdge` turns off the edge, its store's kb-remote and its tailnet entry.
+  my.stacks.mcp-edge = {
+    enable = mcpEdge;
+    funnel = mcpFunnel;
+    clients = {
+      # Google publishes Gemini's redirect only as a pattern
+      # (https://oauth-redirect.googleusercontent.com/r/*). Until its exact
+      # URI is listed here Gemini's sign-in is refused; the first attempt
+      # logs it (docs/mcp-edge.md → Gemini's redirect).
+      gemini.redirectUris = [ ];
+      claude.redirectUris = [ "https://claude.ai/api/mcp/auth_callback" ];
+    };
+  };
+  my.stacks.kb.stores.kb.remoteMcp = {
+    enable = mcpEdge;
+    # The Google accounts whose tokens reach popemkt's store.
+    emails = [ "hoangng71299@gmail.com" ];
   };
 
   # bytetum's Marginalia reading library (github.com/bytetum/marginalia;

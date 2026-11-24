@@ -2,7 +2,8 @@
 #
 # scripts/check-tailscale-policy.sh
 #
-# Guard that the tailnet policy covers every Tailscale Service a host declares.
+# Guard that the tailnet policy covers every Tailscale Service a host declares,
+# and every Funnel.
 #
 # A host exposes a Service by declaring it in my.stacks.vpn.services; the flake
 # gathers those declarations, with each host's tags, into `tailscaleServices`.
@@ -14,6 +15,11 @@
 #   - an `autoApprovers.services` entry listing one of its host's tags, so the
 #     host's advertisement is approved without the admin console.
 #
+# A host publishes a node-level entry on the internet with
+# my.stacks.vpn.nodeServe.<name>.funnel; the flake gathers those into
+# `tailscaleFunnels`. Funnel only works once the policy's `nodeAttrs` grant
+# one of the host's tags the `funnel` attribute.
+#
 #   check        Evaluate the flake's tailscaleServices and the policy; exit 1
 #                naming every Service the policy does not cover.
 #
@@ -24,6 +30,7 @@
 #                              the script's parent directory).
 #   TAILSCALE_SERVICES_JSON    A file holding the tailscaleServices JSON to
 #                              check instead of evaluating the flake.
+#   TAILSCALE_FUNNELS_JSON     The same, for tailscaleFunnels.
 
 set -euo pipefail
 
@@ -32,7 +39,8 @@ usage() {
 Usage: check-tailscale-policy.sh check
 
   check  Fail when a declared Tailscale Service lacks a policy grant or a
-         Service auto-approver for one of its host's tags.
+         Service auto-approver for one of its host's tags, or a declared
+         Funnel lacks the funnel node attribute for one of its host's tags.
 EOF
 }
 
@@ -58,15 +66,17 @@ require() {
   done
 }
 
-# The declared Services as JSON. A git checkout is evaluated as one, so only
-# tracked files count; anything else (the gate's index snapshot) as a path.
-declared_services() {
-  if [ -n "${TAILSCALE_SERVICES_JSON:-}" ]; then
-    command cat "$TAILSCALE_SERVICES_JSON"
+# A flake output as JSON, or the file an override names. A git checkout is
+# evaluated as one, so only tracked files count; anything else (the gate's
+# index snapshot) as a path.
+declared() {
+  local output="$1" override="$2"
+  if [ -n "$override" ]; then
+    command cat "$override"
   elif [ -e "$ROOT_DIR/.git" ]; then
-    nix eval --json "$ROOT_DIR#tailscaleServices"
+    nix eval --json "$ROOT_DIR#$output"
   else
-    nix eval --json "path:$ROOT_DIR#tailscaleServices"
+    nix eval --json "path:$ROOT_DIR#$output"
   fi
 }
 
@@ -77,39 +87,52 @@ check() {
     exit 2
   }
 
-  local policy_json services_json violations line
+  local policy_json services_json funnels_json violations line
   # HuJSON (comments, trailing commas) standardized to plain JSON.
   policy_json="$(hujsonfmt -s "$POLICY")"
-  services_json="$(declared_services)"
+  services_json="$(declared tailscaleServices "${TAILSCALE_SERVICES_JSON:-}")"
+  funnels_json="$(declared tailscaleFunnels "${TAILSCALE_FUNNELS_JSON:-}")"
 
   violations="$(
-    jq -rn --argjson policy "$policy_json" --argjson services "$services_json" '
-      ($policy.grants // [] | map(.dst // []) | add // []) as $granted
-      | ($policy.autoApprovers.services // {}) as $approvers
-      | $services[]
-      | . as $s
-      | (if ($granted | index($s.name)) == null then
-           "\($s.name) (declared by \($s.host)): no grant has it in dst"
-         else empty end),
-        (($approvers[$s.name] // []) as $approved
-         | if ($s.tags | any(. as $t | $approved | index($t) != null)) then empty
-           elif ($s.tags | length) == 0 then
-             "\($s.name) (declared by \($s.host)): the host records no tags in my.stacks.vpn.tags, so no auto-approver can match it"
-           else
-             "\($s.name) (declared by \($s.host), tags \($s.tags | join(", "))): autoApprovers.services lists none of those tags"
-           end)
-    ' | sort -u
+    {
+      jq -rn --argjson policy "$policy_json" --argjson funnels "$funnels_json" '
+        ($policy.nodeAttrs // [] | map(select((.attr // []) | index("funnel") != null) | .target // []) | add // []) as $funnel_tags
+        | $funnels[]
+        | if (.tags | any(. as $t | $funnel_tags | index($t) != null)) then empty
+          elif (.tags | length) == 0 then
+            "Funnel \(.name) (declared by \(.host)): the host records no tags in my.stacks.vpn.tags, so no funnel node attribute can match it"
+          else
+            "Funnel \(.name) (declared by \(.host), tags \(.tags | join(", "))): no nodeAttrs entry grants funnel to any of those tags"
+          end
+      '
+      jq -rn --argjson policy "$policy_json" --argjson services "$services_json" '
+        ($policy.grants // [] | map(.dst // []) | add // []) as $granted
+        | ($policy.autoApprovers.services // {}) as $approvers
+        | $services[]
+        | . as $s
+        | (if ($granted | index($s.name)) == null then
+             "\($s.name) (declared by \($s.host)): no grant has it in dst"
+           else empty end),
+          (($approvers[$s.name] // []) as $approved
+           | if ($s.tags | any(. as $t | $approved | index($t) != null)) then empty
+             elif ($s.tags | length) == 0 then
+               "\($s.name) (declared by \($s.host)): the host records no tags in my.stacks.vpn.tags, so no auto-approver can match it"
+             else
+               "\($s.name) (declared by \($s.host), tags \($s.tags | join(", "))): autoApprovers.services lists none of those tags"
+             end)
+      '
+    } | sort -u
   )"
 
   if [ -n "$violations" ]; then
-    echo "error: configs/tailscale/policy.hujson does not cover every declared Tailscale Service:" >&2
+    echo "error: configs/tailscale/policy.hujson does not cover every declared Tailscale Service and Funnel:" >&2
     while IFS= read -r line; do
       echo "  $line" >&2
     done <<<"$violations"
-    echo "Add the grant and the autoApprovers.services entry, or drop the Service from its host." >&2
+    echo "Add the grant and the autoApprovers.services entry (a Service), or the funnel nodeAttrs entry (a Funnel), or drop the declaration from its host." >&2
     exit 1
   fi
-  echo "ok: the policy grants and auto-approves all $(jq 'map(.name) | unique | length' <<<"$services_json") declared Tailscale Services"
+  echo "ok: the policy grants and auto-approves all $(jq 'map(.name) | unique | length' <<<"$services_json") declared Tailscale Services, and allows all $(jq 'length' <<<"$funnels_json") declared Funnels"
 }
 
 case "${1:-}" in
