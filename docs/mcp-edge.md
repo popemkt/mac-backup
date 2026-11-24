@@ -121,7 +121,8 @@ page and this section differ, this section is right.
      - `/mcp` needs a token from an allow-listed Google account.
      - `clients.gemini.redirectUris` starts empty, so Keycloak refuses every Gemini sign-in until you pin its URI.
 5. **Connect Gemini.**
-   - URL: `https://shared-server.taild98079.ts.net/mcp`. Client ID: `gemini`. Client secret: `sudo cat /var/lib/mcp-edge/secrets/client-gemini-secret`.
+   - On gemini.google.com, turn on Developer Mode, then choose "Connect to an MCP server" and paste the URL `https://shared-server.taild98079.ts.net/mcp`.
+   - Under "Show more" (additional settings), enter client ID `gemini` and the client secret from `sudo cat /var/lib/mcp-edge/secrets/client-gemini-secret`.
    - The first attempt is refused, by design: see Gemini's redirect, below. Pin the URI, rebuild, and connect again.
 6. **Connect Claude.**
    - claude.ai → Settings → Connectors → Add custom connector, with the same URL. Under Advanced settings: client ID `claude`, client secret `sudo cat /var/lib/mcp-edge/secrets/client-claude-secret`.

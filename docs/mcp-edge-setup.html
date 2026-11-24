@@ -559,10 +559,11 @@ active</pre>
 
         <h3>Do this</h3>
         <ol class="do">
-          <li>On shared-server, print Gemini's client secret, and copy it straight into Gemini's <em>Client secret</em> field:
+          <li>On <strong>gemini.google.com</strong>, turn on <strong>Developer Mode</strong>, then choose <strong>Connect to an MCP server</strong> and paste the server URL.</li>
+          <li>Open <strong>Show more</strong> (additional settings) and enter the client ID. For the client secret, print it on shared-server and copy it straight into the <em>Client secret</em> field:
             <div class="cmd"><pre>sudo cat /var/lib/mcp-edge/secrets/client-gemini-secret</pre></div>
           </li>
-          <li>In Gemini, add a custom MCP connector with the URL, client ID and secret, and connect.</li>
+          <li>Connect.</li>
           <li>The first time, it stops at <strong>“Invalid parameter: redirect_uri”</strong>. That's expected.</li>
           <li>On shared-server, read the address the edge refused:
             <div class="cmd"><pre>journalctl -u keycloak | grep -o 'redirect_uri="[^"]*"' | tail -n 1</pre></div>
@@ -606,7 +607,7 @@ active</pre>
           </li>
           <li>On claude.ai: <strong>Settings → Connectors → Add custom connector</strong>. Enter the name and URL. Under <strong>Advanced settings</strong>, enter the client ID and paste the secret.</li>
           <li>Connect. Sign in with Google, and accept <em>“claude wants access to your account”</em>.</li>
-          <li>If it stops at “Invalid parameter: redirect_uri” anyway, Claude has moved its address. Do step 5's items 4–6, adding the address to <code>clients.claude.redirectUris</code>.</li>
+          <li>If it stops at “Invalid parameter: redirect_uri” anyway, Claude has moved its address. Do step 5's items 5–7, adding the address to <code>clients.claude.redirectUris</code>.</li>
         </ol>
 
         <div class="check">
