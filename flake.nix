@@ -366,6 +366,12 @@
         pkgs = (pkgsFor "x86_64-linux").extend self.overlays.default;
       };
 
+      # The OAuth edge for kb's MCP under its real units and sandboxes
+      # (docs/mcp-edge.md → Tests).
+      checks.x86_64-linux.mcp-edge = import ./modules/stacks/mcp-edge/tests.nix {
+        pkgs = (pkgsFor "x86_64-linux").extend self.overlays.default;
+      };
+
       checks.x86_64-linux.package-executors-contract = executorContractCheck (pkgsFor "x86_64-linux");
 
       checks.x86_64-linux.npm-global-activation-check =

@@ -157,6 +157,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — The switchover step repoints the backup at the new directory, or declares the job here, and docs/backup-strategy.md → Marginalia Library names it.
 - **node** — `01M66FVYBMPZV44NS7CTC00ST4`
 
+### GAP: mcp-edge's kb-remote needs a kb pin with `mcp --listen`; its VM test runs kb built from the feat/mcp-listen branch
+
+- **expected** — pkgs.kb (the release pin) ships `kb mcp --listen`; my.stacks.kb.stores.<store>.remoteMcp.package keeps its default and checks.x86_64-linux.mcp-edge runs the pinned kb, as shared-server would
+- **current** — The pin has no --listen. modules/stacks/mcp-edge/tests.nix builds kb from popemkt/kb feat/mcp-listen at bdde5455 (getFlake, locked by narHash) for kb-remote, while app-kb runs the pin; mcpEdge stays false in hosts/shared-server
+- **impact** — The edge cannot be turned on until the pin moves; the test proves kb-remote against a branch build, not the release
+- **closes** — After a kb release with --listen is pinned: drop kbListen and remoteMcp.package from tests.nix, rerun checks.x86_64-linux.mcp-edge, then set mcpEdge = true
+- **node** — `01M86QT0G81VG04JQ294EXACE2`
+
 ### GAP: my.services runs native apps on NixOS only
 
 - **expected** — An app declared in my.services runs on any host as its owner, under that platform's service manager (systemd on NixOS, a launchd agent on macOS), and is exposed the same way
