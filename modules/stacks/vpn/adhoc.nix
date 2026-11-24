@@ -46,6 +46,9 @@ pkgs.writeShellApplication {
     ADHOC_SHARED_PORT = targetPort;
     ADHOC_SHARED_URL = shared.origin;
     ADHOC_ON_SHARED = if hostname == shared.host then "1" else "0";
+    # This machine's declared node-level HTTPS ports (my.stacks.vpn.nodeServe),
+    # which adhoc never takes or clears.
+    ADHOC_DECLARED_HTTPS = toString (map (entry: entry.port) (builtins.attrValues cfg.nodeServe));
   };
   text = builtins.readFile ./adhoc.sh;
   meta.mainProgram = "adhoc";

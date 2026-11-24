@@ -90,6 +90,36 @@ in
           };
         };
       };
+      nodeServe = mkOption {
+        default = { };
+        example = {
+          mcp-edge.target = "http://127.0.0.1:4190";
+        };
+        description = ''
+          HTTPS entries this machine serves on its own tailnet name
+          (https://<host>.<tailnetDomain>[:port]), by name: node-level
+          `tailscale serve`, not a Service. It needs no grant or
+          auto-approver, being reachable from the tailnet wherever the
+          machine is, and it is what Funnel can publish. Reconciled with the
+          Services; `adhoc` neither takes nor clears a declared port.
+        '';
+        type = types.attrsOf (
+          types.submodule {
+            options = {
+              port = mkOption {
+                type = types.port;
+                default = 443;
+                description = "HTTPS port on the machine's tailnet name.";
+              };
+              target = mkOption {
+                type = types.str;
+                example = "http://127.0.0.1:4190";
+                description = "Loopback URL tailscaled forwards every path to.";
+              };
+            };
+          }
+        );
+      };
       services = mkOption {
         default = { };
         description = ''
