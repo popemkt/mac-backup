@@ -470,9 +470,9 @@ Authorized redirect URIs  https://shared-server.taild98079.ts.net/realms/kb/brok
         <p class="lead">One switch in the host file turns on the sign-in service, the token check, kb's remote MCP server and the tailnet address.</p>
 
         <div class="note">
-          <p><strong>Wait for kb.</strong> kb's pinned release must have <code>kb mcp --listen</code> (kb PR #294). In a checkout:</p>
+          <p><strong>kb is ready.</strong> kb's pinned release has <code>kb mcp --listen</code> (kb PR #294). To confirm, in a checkout:</p>
           <div class="cmd"><pre>scripts/dev kb mcp --help | grep -- --listen</pre></div>
-          <p>One line mentioning <code>--listen</code> means it's there. No output means the pin needs <code>nix run .#github-sources -- update kb</code> first.</p>
+          <p>One line mentioning <code>--listen</code> means it's there. The pin has it since 0.3.1-nightly.20261124162930; no output would mean an older checkout: pull first.</p>
         </div>
 
         <h3>Do this</h3>

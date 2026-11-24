@@ -165,7 +165,7 @@ in
                     description = ''
                       The kb the unit runs, as `<main program> --root <root>
                       mcp --listen unix:<socket>`. Needs a kb with
-                      `mcp --listen` (popemkt/kb, feat/mcp-listen).
+                      `mcp --listen` (0.3.1-nightly.20261124162930 or later).
                     '';
                   };
                 };
