@@ -296,7 +296,12 @@
         nixpkgs.lib.nixosSystem {
           modules = hostBase hostname ++ [
             home-manager.nixosModules.home-manager
-            { home-manager = homeManagerBase; }
+            {
+              home-manager = homeManagerBase;
+              # The commit applied, `<rev>-dirty` for uncommitted changes
+              # (modules/nixos/system writes it into the system).
+              system.configurationRevision = self.rev or self.dirtyRev or null;
+            }
           ];
         };
       executorContractCheck =
@@ -370,6 +375,12 @@
       # (docs/mcp-edge.md → Tests).
       checks.x86_64-linux.mcp-edge = import ./modules/stacks/mcp-edge/tests.nix {
         pkgs = (pkgsFor "x86_64-linux").extend self.overlays.default;
+      };
+
+      # The pull agent against a local stand-in for GitHub, and the shared-host
+      # rebuild guard beside it (docs/deploys.md → Tests).
+      checks.x86_64-linux.pull-deploy = import ./modules/stacks/pull-deploy/tests.nix {
+        pkgs = pkgsFor "x86_64-linux";
       };
 
       # Eval-only: the guard against upheld services a switch would stop

@@ -61,6 +61,36 @@ if [[ -n "$untracked" ]]; then
   while IFS= read -r file; do echo "  $file"; done <<<"$untracked" >&2
 fi
 
+# On a shared host the pull agent (modules/stacks/pull-deploy) applies too.
+# Wait for any apply in flight, then switch only forward: never to an
+# ancestor of what the host runs, which would undo what the agent or another
+# person applied since this checkout was fetched. The rule is shared with the
+# agent (scripts/lib/deploy-guard.sh, docs/deploys.md).
+# shellcheck source=scripts/lib/deploy-guard.sh
+source "$ROOT_DIR/scripts/lib/deploy-guard.sh"
+if [[ -e "$shared_marker" ]]; then
+  if [[ -r "$(dotfiles_apply_lock)" ]]; then
+    exec 9<"$(dotfiles_apply_lock)"
+    if ! flock -n 9; then
+      echo "rebuild: another apply (the pull agent: journalctl -fu pull-deploy) is running; waiting for it." >&2
+      flock 9
+    fi
+  fi
+  if [[ -z "${REBUILD_LOCAL:-}" ]]; then
+    applied="$(dotfiles_applied_revision)"
+    case "$(dotfiles_revision_relation "$ROOT_DIR" "$applied" HEAD)" in
+      behind)
+        echo "rebuild: $(hostname) already runs $applied, which this checkout's HEAD precedes; switching would roll it back." >&2
+        echo "rebuild: refusing to switch. Pull (git -C $ROOT_DIR pull --rebase) and rerun." >&2
+        exit 1
+        ;;
+      unknown | diverged)
+        echo "rebuild: $(hostname) runs ${applied:-a system with no recorded revision}, not a commit of origin/main; switching to origin/main replaces it." >&2
+        ;;
+    esac
+  fi
+fi
+
 if [[ -n "${REBUILD_DRY_RUN:-}" ]]; then
   printf '%q ' "${switch_cmd[@]}" "$@"
   printf '\n'
@@ -91,33 +121,10 @@ fi
 # A failed switch aborts here (set -e) with its own status, before any check.
 "${switch_cmd[@]}" "$@"
 
-# Converge bb plugins to their source in the generation just applied (the
-# plugin folders are in its closure). Home Manager activation runs the same
-# installer, but only when the generation changes: a sync activation skipped
-# (no bb server answering) or an interrupted activation would otherwise stay
-# stale. Unchanged plugins are skipped by store hash. Best effort, as in
-# activation; it reaches only this user's bb.
-bb_plugins_sync="/etc/profiles/per-user/$(id -un)/bin/bb-plugins-sync"
-if [[ -x "$bb_plugins_sync" ]]; then
-  "$bb_plugins_sync" || echo "rebuild: bb-plugins-sync failed; rerun it by hand." >&2
-fi
-
-# Rerun the Tailscale Services reconcile, which re-advertises every declared
-# Service, even when the switch left the job alone. A host advertising a new
-# Service is approved only if, at that moment, the Service exists and the
-# policy auto-approves it, and both come from CI after the push
-# (tailscale-services.yml, then tailscale-policy.yml). A host that advertised
-# before CI finished is never approved later, so it stays unreachable; rerunning
-# rebuild once CI is done fixes it.
-if [[ "$(uname -s)" == Linux ]] && systemctl cat tailscale-services.service >/dev/null 2>&1; then
-  sudo systemctl restart tailscale-services.service
-fi
-
-# my.services restarts still pending (an app waiting for idle), companions
-# not running beside their app, and waiters that gave up.
-if [[ "$(uname -s)" == Linux ]] && command -v restart-app >/dev/null; then
-  restart-app --status || true
-fi
+# What follows every switch, shared with the pull agent.
+# shellcheck source=scripts/lib/post-switch.sh
+source "$ROOT_DIR/scripts/lib/post-switch.sh"
+dotfiles_post_switch "$(id -un)"
 
 if [[ "$skip_checks" == true ]]; then
   exit 0
