@@ -2,8 +2,10 @@
 
 # checks.x86_64-linux.monitoring: the monitoring stack under its real units
 # (docs/monitoring.md → Tests). Two stand-ins:
-#   - ntfy: ./tests/ntfy-standin.py on the owner-only socket /run/ntfy, as
-#     the owner, checking the owner's token and logging each message;
+#   - ntfy: ./tests/ntfy-standin.py on the owner-only socket /run/alerts, as
+#     the owner, checking the owner's token and logging each message. Its
+#     server entry is `alerts`, not `ntfy`, so the alerts reach it only
+#     through the selected server's publisher (`ntfy-publish-alerts`);
 #   - tailscale: answers `serve status --json` from a file the test writes,
 #     for the Funnel drift check.
 let
@@ -22,6 +24,12 @@ let
     echo "fake tailscale: unsupported: $*" >&2
     exit 64
   '';
+  # A foreground `tailscale funnel 8443` session, as tailscaled keeps one.
+  foregroundFunnel.session-1 = {
+    TCP."8443".HTTPS = true;
+    Web."server.example.ts.net:8443".Handlers."/".Proxy = "http://127.0.0.1:9999";
+    AllowFunnel."server.example.ts.net:8443" = true;
+  };
   # Twelve error events, as Keycloak's jboss-logging listener logs them.
   keycloakNoise = pkgs.writeShellScript "keycloak-noise" ''
     for _ in $(${pkgs.coreutils}/bin/seq 12); do
@@ -64,11 +72,12 @@ pkgs.testers.runNixOSTest {
           };
           # The server's entry, for its publisher; the stand-in below runs
           # in its place, so the stack itself stays off.
-          ntfy.servers.ntfy.owner = "owner";
+          ntfy.servers.alerts.owner = "owner";
           monitoring = {
             enable = true;
             alerts = {
               enable = true;
+              server = "alerts";
               keycloakUnit = "keycloak.service";
             };
             dashboard = {
@@ -90,10 +99,10 @@ pkgs.testers.runNixOSTest {
           wantedBy = [ "multi-user.target" ];
           serviceConfig = {
             User = "owner";
-            RuntimeDirectory = "ntfy";
+            RuntimeDirectory = "alerts";
             RuntimeDirectoryMode = "0700";
             StateDirectory = "ntfy-standin";
-            ExecStart = "${pkgs.python3}/bin/python3 -I ${./tests/ntfy-standin.py} /run/ntfy/ntfy.sock ${config.my.stacks.ntfy.publishers.ntfy.tokenFile} /var/lib/ntfy-standin/messages.jsonl";
+            ExecStart = "${pkgs.python3}/bin/python3 -I ${./tests/ntfy-standin.py} /run/alerts/ntfy.sock ${config.my.stacks.ntfy.publishers.alerts.tokenFile} /var/lib/ntfy-standin/messages.jsonl";
           };
         };
         # Services that fail when started: a plain one, a template instance,
@@ -121,11 +130,12 @@ pkgs.testers.runNixOSTest {
   testScript =
     let
       # What tailscaled reports when the edge's entry is served with Funnel,
-      # plus `extra` paths.
+      # plus `extra` paths, plus `foreground` sessions.
       status =
-        extra:
+        extra: foreground:
         pkgs.writeText "serve-status.json" (
           builtins.toJSON {
+            Foreground = foreground;
             TCP."443".HTTPS = true;
             Web."server.example.ts.net:443".Handlers = lib.genAttrs (edgePaths ++ extra) (path: {
               Proxy = edgeTarget + path;
@@ -143,10 +153,10 @@ pkgs.testers.runNixOSTest {
           "printf 'tk_standin\\n' > /home/owner/.config/ntfy/token",
           "chown owner /home/owner/.config/ntfy/token && chmod 0600 /home/owner/.config/ntfy/token",
           "install -d -m 0700 /var/lib/fake-tailscale",
-          "cp ${status [ ]} /var/lib/fake-tailscale/status.json",
+          "cp ${status [ ] { }} /var/lib/fake-tailscale/status.json",
       )
       machine.wait_for_unit("ntfy-standin.service")
-      machine.wait_for_file("/run/ntfy/ntfy.sock")
+      machine.wait_for_file("/run/alerts/ntfy.sock")
 
       def messages(title_part):
           out = machine.succeed("cat /var/lib/ntfy-standin/messages.jsonl 2>/dev/null || true")
@@ -198,12 +208,29 @@ pkgs.testers.runNixOSTest {
           assert loops == "", f"the notifier notified about itself: {loops}"
           # Nothing was recorded, so once ntfy is back the next failure is sent.
           machine.succeed("systemctl start ntfy-standin.service")
-          machine.wait_for_file("/run/ntfy/ntfy.sock")
+          machine.wait_for_file("/run/alerts/ntfy.sock")
           machine.succeed("systemctl reset-failed monitoring-unit-failed@flaky-offline.service")
           machine.fail("systemctl start flaky-offline.service")
           machine.wait_until_succeeds(
               "grep -q 'flaky-offline.service failed on server' /var/lib/ntfy-standin/messages.jsonl"
           )
+
+      with subtest("many failures at once: the burst limit, then one summary"):
+          # An empty burst window: the alerts above do not count.
+          machine.succeed("rm -f /var/lib/monitoring/unit-failed/sent")
+          machine.succeed("systemctl start --no-block " + " ".join(f"flaky-template@b{i}.service" for i in range(1, 9)))
+          machine.wait_until_succeeds(
+              "test \"$(journalctl -o cat -u 'monitoring-unit-failed@flaky-template@b*' "
+              + "| grep -cE 'alerted: flaky-template@b[0-9].service failed|flaky-template@b[0-9].service failed; .*next summary')\" = 8"
+          )
+          singles = [m for m in messages("flaky-template@b") if "failed on server" in m["title"]]
+          assert len(singles) == 5, [m["title"] for m in singles]
+          health()
+          [summary] = messages("3 more services failed on server")
+          queued = {f"flaky-template@b{i}.service" for i in range(1, 9)} - {m["title"].split(" ")[0] for m in singles}
+          assert all(u in summary["message"] for u in queued), (queued, summary["message"])
+          health()
+          assert len(messages("more services failed")) == 1
 
       with subtest("a full disk alerts once, and its recovery once"):
           machine.succeed(
@@ -230,14 +257,24 @@ pkgs.testers.runNixOSTest {
       with subtest("Funnel drift: a planted extra path alerts once"):
           health()
           assert messages("Tailscale serve drift") == []
-          machine.succeed("cp ${status [ "/admin" ]} /var/lib/fake-tailscale/status.json")
+          machine.succeed("cp ${status [ "/admin" ] { }} /var/lib/fake-tailscale/status.json")
           health()
           health()
           [drift] = messages("Tailscale serve drift")
           assert "/admin" in drift["message"], drift["message"]
-          machine.succeed("cp ${status [ ]} /var/lib/fake-tailscale/status.json")
+          machine.succeed("cp ${status [ ] { }} /var/lib/fake-tailscale/status.json")
           health()
           assert len(messages("Recovered: Tailscale serve drift")) == 1
+
+      with subtest("Funnel drift: a foreground tailscale funnel session alerts"):
+          machine.succeed("cp ${status [ ] foregroundFunnel} /var/lib/fake-tailscale/status.json")
+          health()
+          drifts = [m for m in messages("Tailscale serve drift") if m["title"] == "Tailscale serve drift on server"]
+          assert len(drifts) == 2, drifts
+          assert "8443" in drifts[1]["message"] and "foreground" in drifts[1]["message"], drifts[1]["message"]
+          machine.succeed("cp ${status [ ] { }} /var/lib/fake-tailscale/status.json")
+          health()
+          assert len(messages("Recovered: Tailscale serve drift")) == 2
 
       with subtest("a burst of Keycloak error events alerts"):
           machine.succeed("systemd-run --unit=keycloak --wait ${keycloakNoise}")

@@ -47,6 +47,23 @@ in
             failures of the same unit are only logged, not sent.
           '';
         };
+        burst = {
+          limit = mkOption {
+            type = types.ints.positive;
+            default = 5;
+            description = ''
+              At most this many failed-service alerts within `window`, across
+              all units (one incident often fails many at once). Failures
+              beyond it are collected and sent as one summary by the next
+              health check run.
+            '';
+          };
+          window = mkOption {
+            type = types.ints.positive;
+            default = 600;
+            description = "Seconds the burst limit counts over.";
+          };
+        };
         journalLines = mkOption {
           type = types.ints.between 1 50;
           default = 15;

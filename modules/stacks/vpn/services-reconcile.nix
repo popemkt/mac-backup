@@ -198,7 +198,7 @@ in
 
   # The drift check (the monitoring stack's alert): exit 0 when every
   # declared node-level entry serves exactly its mounts, with Funnel exactly
-  # where declared and on no other port; 1 with one line per difference on
+  # where declared and on no other port, foreground sessions' included; 1 with one line per difference on
   # stdout; 2 when tailscaled cannot be read.
   driftScript = ''
     set -eu
@@ -236,6 +236,16 @@ in
         *" $port "*) ;;
         *) echo "Funnel is on for HTTPS port $port, which no declared entry serves"; drift=1 ;;
       esac
+    done
+    # A foreground `tailscale funnel <port>` keeps its listener in its own
+    # session (.Foreground[]), and tailscaled publishes it as well
+    # (ipn/serve.go). No declaration covers one, so any is drift. Only this
+    # check looks there: the reconcile manages the node's own listeners.
+    for port in $(printf '%s' "$status" | ${jq} -r '
+      .Foreground // {} | to_entries[] | .value.AllowFunnel // {} | to_entries[]
+      | select(.value) | .key | sub(".*:"; "")' | ${sort} -u); do
+      echo "Funnel is on for HTTPS port $port through a foreground session (tailscale funnel), which no declared entry covers"
+      drift=1
     done
     [ -z "$drift" ]
   '';

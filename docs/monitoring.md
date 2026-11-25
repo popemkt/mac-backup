@@ -23,11 +23,12 @@ my.stacks.monitoring = {
 
 | Alert | When | Sent |
 |---|---|---|
-| `<unit> failed on shared-server` | any system service enters the failed state | once per unit per `failureCooldown` (1 h), with its result and last `journalLines` (15) journal lines |
+| `<unit> failed on shared-server` | any system service enters the failed state | once per unit per `failureCooldown` (1 h), with its result and last `journalLines` (15) journal lines; at most `burst.limit` (5) such alerts per `burst.window` (600 s) across all units |
+| `<n> more services failed on shared-server` | failures beyond the burst limit | one summary listing them, at the next health check run |
 | `Disk <mount> full` | a mounted filesystem is at least `thresholds.diskPercent` (90 %) full | once when it crosses, once `Recovered:` when it is back under |
 | `Memory low` | available memory under `thresholds.memoryAvailablePercent` (10 %), or tasks stalled on memory at least `thresholds.memoryPressurePercent` (20 %) of the last minute (PSI `full avg60`) | once, then `Recovered:` |
 | `Units stuck failed` | any unit failed for at least `thresholds.failedMinutes` (30) | once while the list is non-empty, then `Recovered:` |
-| `Tailscale serve drift` | the node's `tailscale serve` config differs from the declared `my.stacks.vpn.nodeServe` entries (the MCP edge's public paths: a path added or missing, or Funnel on where it is not declared, or off where it is) | once, with the difference, then `Recovered:` |
+| `Tailscale serve drift` | the node's `tailscale serve` config differs from the declared `my.stacks.vpn.nodeServe` entries (the MCP edge's public paths: a path added or missing, or Funnel on where it is not declared, or off where it is), or any foreground `tailscale funnel` session is public | once, with the difference, then `Recovered:` |
 | `Keycloak sign-in errors` | at least `thresholds.signInErrors` (10) Keycloak error events (`LOGIN_ERROR`, `CODE_TO_TOKEN_ERROR`, ...) in `thresholds.signInWindowMinutes` (15) | once, with the commonest errors, then `Recovered:` |
 
 The options are under `my.stacks.monitoring.alerts` (defaults in brackets);
@@ -43,7 +44,11 @@ How it works:
   fails (ntfy down, no token) never starts a notifier for itself: systemd
   already drops a template's dependency on its own instances, and the
   notifier's own drop-in clears `OnFailure=` again in case that heuristic
-  changes. A failure inside the
+  changes. One incident often fails many units (or template instances) at
+  once: past the burst limit a failure is queued, and the next health check
+  run sends one summary of the queue. Notifiers take turns, each waiting at
+  most 30 s for its turn (queued too if it cannot get one), and each run is
+  capped at 2 min. A failure inside the
   cooldown is logged (`journalctl -u 'monitoring-unit-failed@*'`), not sent;
   a publish that failed records nothing, so the next failure tries again.
   User services (`systemctl --user`) are not covered.
@@ -137,13 +142,15 @@ and the agent, which restarts with the hub, reads the new key.
 
 `checks.x86_64-linux.monitoring` (`modules/stacks/monitoring/tests.nix`)
 boots one VM with the real units, an ntfy stand-in on the owner-only socket
-(checking the token) and a stub `tailscale`. It proves: a failed service
+(checking the token; its entry is not `ntfy`, so the alerts must call the
+selected server's publisher) and a stub `tailscale`. It proves: a failed service
 gives exactly one alert naming it, with its journal, and a second failure in
 the cooldown gives none; a template instance alerts too; the notifier has no
 `OnFailure=` and, with ntfy down, fails without starting a notifier for
-itself, and the next failure after ntfy is back is sent; a full disk alerts
+itself, and the next failure after ntfy is back is sent; eight failures at once give
+five alerts and one summary of the other three; a full disk alerts
 once and recovers once; a path planted in the serve config alerts once and
-recovers; a burst of Keycloak error events alerts; Beszel answers on its
+recovers, and so does a foreground Funnel session; a burst of Keycloak error events alerts; Beszel answers on its
 socket, refuses no identity and a wrong one, accepts the declared login, has
 password sign-in off, is not on the host's loopback, refuses a non-root
 account at its socket, and sees this machine through the agent.

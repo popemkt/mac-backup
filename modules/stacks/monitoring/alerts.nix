@@ -41,6 +41,9 @@ let
   '';
 
   environment = {
+    # The selected server's publisher, by store path: its program is
+    # `ntfy-publish-<entry>` for any entry but `ntfy`.
+    NTFY_PUBLISH = lib.getExe publisher.package;
     MONITOR_HOST = config.my.hostname;
     TOPIC = alerts.topic;
     IGNORE_UNITS = lib.concatStringsSep "\n" alerts.ignoreUnits;
@@ -67,7 +70,6 @@ let
       pkgs.writeShellApplication {
         inherit name;
         runtimeInputs = [
-          publisher.package
           pkgs.coreutils
           pkgs.gnugrep
           pkgs.util-linux
@@ -87,13 +89,18 @@ lib.mkIf (cfg.enable && alerts.enable) {
     environment = environment // {
       FAILURE_COOLDOWN = toString alerts.failureCooldown;
       JOURNAL_LINES = toString alerts.journalLines;
+      BURST_LIMIT = toString alerts.burst.limit;
+      BURST_WINDOW = toString alerts.burst.window;
     };
     serviceConfig =
       publisher.serviceConfig
       // hardening
       // {
         Type = "oneshot";
-        ExecStart = "${script notifier ./unit-failed.sh [ ]} %i";
+        ExecStart = "${script notifier ./unit-failed.sh [ pkgs.gawk ]} %i";
+        # A oneshot has no start timeout by default; the lock wait and one
+        # publish fit well inside this.
+        TimeoutStartSec = "2min";
       };
   };
 

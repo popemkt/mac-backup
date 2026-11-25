@@ -5,7 +5,7 @@
 # $STATE_DIRECTORY/health; a publish that fails changes no state, so the next
 # run tries again, and the run exits 1.
 #
-# Env: MONITOR_HOST, TOPIC, DISK_PERCENT, MEMORY_AVAILABLE_PERCENT,
+# Env: NTFY_PUBLISH, MONITOR_HOST, TOPIC, DISK_PERCENT, MEMORY_AVAILABLE_PERCENT,
 # MEMORY_PRESSURE_PERCENT, FAILED_MINUTES, IGNORE_UNITS (newline-separated),
 # DRIFT_CHECK (a command, or empty), KEYCLOAK_UNIT (or empty),
 # SIGNIN_ERRORS, SIGNIN_WINDOW_MINUTES.
@@ -20,7 +20,7 @@ check() {
   local key="$1" title="$2" wrong="$3" detail="$4" file="$dir/$1"
   if [ "$wrong" = 1 ] && [ ! -e "$file" ]; then
     if printf '%s\n' "$detail" |
-      ntfy-publish --title "$title on $MONITOR_HOST" --priority high --tags warning "$TOPIC"; then
+      "$NTFY_PUBLISH" --title "$title on $MONITOR_HOST" --priority high --tags warning "$TOPIC"; then
       printf '%s\n' "$detail" >"$file"
       echo "alerted: $key: $detail"
     else
@@ -28,7 +28,7 @@ check() {
     fi
   elif [ "$wrong" = 0 ] && [ -e "$file" ]; then
     if printf '%s\n' "$detail" |
-      ntfy-publish --title "Recovered: $title on $MONITOR_HOST" --tags white_check_mark "$TOPIC"; then
+      "$NTFY_PUBLISH" --title "Recovered: $title on $MONITOR_HOST" --tags white_check_mark "$TOPIC"; then
       rm -f "$file"
       echo "recovered: $key: $detail"
     else
@@ -36,6 +36,29 @@ check() {
     fi
   fi
 }
+
+# Failed services the notifier queued instead of alerting on each (its
+# burst limit, or a lock it could not get): one summary of them all. The
+# queue is taken under the notifier's lock; a publish that fails puts the
+# units back.
+failed_dir="$STATE_DIRECTORY/unit-failed"
+if [ -s "$failed_dir/pending" ]; then
+  exec 8>"$failed_dir/.lock"
+  if flock -w 60 8; then
+    mv "$failed_dir/pending" "$failed_dir/pending.sending"
+    flock -u 8
+    mapfile -t units < <(sort -u "$failed_dir/pending.sending")
+    if printf 'Also failed: %s\n\nEach alerted on its own up to the burst limit; journalctl -u <unit> for each.\n' "${units[*]}" |
+      "$NTFY_PUBLISH" --title "${#units[@]} more services failed on $MONITOR_HOST" --priority high --tags warning "$TOPIC"; then
+      rm "$failed_dir/pending.sending"
+      echo "alerted: summary of ${#units[@]} failed services"
+    else
+      cat "$failed_dir/pending.sending" >>"$failed_dir/pending"
+      rm "$failed_dir/pending.sending"
+      publish_failed=1
+    fi
+  fi
+fi
 
 # Disks: every mounted filesystem with a backing store, once per device (the
 # store's bind mounts share their device with /).
