@@ -2,6 +2,7 @@
 # A `gh` that answers `gh api repos/<repo>/actions/runs?head_sha=<sha>...`
 # from $STUB_RUNS/<sha>.json (a list of runs; none when absent), and first
 # runs $STUB_RUNS/<sha>.hook when there is one (to move a branch mid-run).
+# With $STUB_RUNS/<sha>.fail it fails, as the API does when it is down.
 set -eu
 
 if [ "$1" != api ]; then
@@ -17,6 +18,10 @@ case "$2" in
 esac
 sha="${2#*head_sha=}"
 sha="${sha%%&*}"
+if [ -e "$STUB_RUNS/$sha.fail" ]; then
+  echo "gh: HTTP 502: Server Error" >&2
+  exit 1
+fi
 if [ -x "$STUB_RUNS/$sha.hook" ]; then
   "$STUB_RUNS/$sha.hook"
 fi

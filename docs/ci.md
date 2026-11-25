@@ -8,7 +8,8 @@ applies, and the rest maintain it.
 | `validate.yml` | PR, push to `main` | Is the repo green? |
 | `deploy.yml` | a gating workflow finishing on `main`, hourly, manual | Which `main` commit may shared-server run? |
 | `update-github-sources.yml` | schedule / manual | Are the GitHub release pins current? |
-| `tailscale-policy.yml` | policy changes | Is the Tailscale ACL valid? |
+| `tailscale-policy.yml` | PRs changing the policy | Is the Tailscale ACL valid? |
+| `tailscale-reconcile.yml` | push to `main` that can change Tailscale state, manual | Does the tailnet match the current `main` (Services, then policy)? |
 
 `validate.yml` is the single answer to "does this change land". It has two
 independent jobs that run in parallel because they share nothing:
@@ -34,8 +35,8 @@ independent jobs that run in parallel because they share nothing:
 ## Deploy gate
 
 `deploy.yml` runs `scripts/deploy-gate`, which fast-forwards `deploy` to the
-newest `main` commit that Validate passed and whose Tailscale policy and
-Services runs have settled successfully; shared-server applies `deploy` by
+newest `main` commit that Validate passed and whose Tailscale reconcile
+has settled successfully; shared-server applies `deploy` by
 itself. It gates nothing on a PR and never forces the branch. The rules, the
 agent on the host, and how to pause it:
 [deploys.md](deploys.md).

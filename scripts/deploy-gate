@@ -6,18 +6,19 @@
 #
 # A candidate commit X is green when
 #   - Validate (validate.yml, every push to main) passed on X itself, and
-#   - for each path-filtered workflow that changes the outside world
-#     (tailscale-policy.yml, tailscale-services.yml) whose paths changed
-#     between deploy and X: there is positive evidence it passed for that
-#     change. Let L be the last first-parent commit up to X that touched its
-#     paths: at least one run of it exists on a commit from L to X, all of
-#     them have ended, and the newest succeeded. Each run applies the whole
-#     state at its commit, and nothing it watches changed after L, so that
-#     run applied X's state. A required run GitHub has not listed yet is no
-#     evidence, and L is found from the whole history, not from the
-#     commits looked at, so a failure older than the window still counts.
-#   - no run of those workflows on a commit between deploy and X is still
-#     going (it could still apply an older state over a newer one).
+#   - if the paths of the one workflow that writes Tailscale state
+#     (tailscale-reconcile.yml) changed between deploy and X, there is
+#     positive evidence it passed for that change. Let L be the last
+#     first-parent commit up to X that touched its paths: at least one run
+#     of it exists on a commit from L to X, all of them have ended, and the
+#     newest succeeded. Each run reconciles main as it is when the run
+#     starts, which for a run triggered from L on includes L, and nothing
+#     it watches changed after L, so that run applied X's state or a newer
+#     one. A run GitHub has not listed yet is no evidence, and L is found
+#     in the whole history, not only the commits looked at, so a failure
+#     older than the window still counts;
+#   - no run of it on a commit between deploy and X is still going.
+# Any failed read of the Actions API ends the gate without a decision.
 # Only main's first-parent commits after deploy are candidates; deploy moves
 # to the newest green one with a plain push (fast-forward only: the remote
 # refuses anything else), never backwards.
@@ -34,13 +35,12 @@ own_workflow=.github/workflows/validate.yml
 # The push path filters of each watched workflow, as in its `on.push.paths`
 # (checks.*.deploy-gate-check fails when they drift apart).
 declare -A watched=(
-  [.github/workflows/tailscale-policy.yml]="configs/tailscale/policy.hujson
-.github/workflows/tailscale-policy.yml"
-  [.github/workflows/tailscale-services.yml]="flake.nix
+  [.github/workflows/tailscale-reconcile.yml]="configs/tailscale/policy.hujson
+flake.nix
 flake.lock
 hosts/**
 modules/**
-.github/workflows/tailscale-services.yml"
+.github/workflows/tailscale-reconcile.yml"
 )
 
 if [[ "${1:-}" == --print-watched ]]; then
@@ -81,34 +81,52 @@ fi
 cache="$(mktemp -d)"
 trap 'rm -rf "$cache"' EXIT
 
-# runs_of <sha>: the gating runs CI made for <sha> on main, as a JSON array
-# of {sha, path, id, status, conclusion}; read once.
+# load_runs <sha>...: read each commit's gating runs on main from the
+# Actions API into the cache, as a JSON array of {sha, path, id, status,
+# conclusion}. A failed or malformed read ends the gate (exit 1): no answer
+# is never taken for "no runs". Only a good answer is cached.
+load_runs() {
+  local sha raw
+  for sha in "$@"; do
+    [[ -f "$cache/$sha" ]] && continue
+    raw="$cache/$sha.raw"
+    if ! gh api "repos/$repo/actions/runs?head_sha=$sha&per_page=100" >"$raw" ||
+      ! jq -c --arg sha "$sha" --arg main "$main" '
+        if (.workflow_runs | type) != "array" then error("no workflow_runs") else . end
+        | [.workflow_runs[]
+          | select(.head_branch == $main and (.event == "push" or .event == "workflow_dispatch"))
+          | {sha: $sha, path: (.path | split("@")[0]), id, status, conclusion}]' "$raw" >"$cache/$sha.new"; then
+      echo "::error::could not read the Actions runs of $sha; deciding nothing." >&2
+      exit 1
+    fi
+    mv "$cache/$sha.new" "$cache/$sha"
+  done
+}
+
+# runs_of <sha>...: the cached runs of those commits, one array each
+# (load_runs first, outside any pipeline, so its exit ends the gate).
 runs_of() {
-  if [[ ! -f "$cache/$1" ]]; then
-    gh api "repos/$repo/actions/runs?head_sha=$1&per_page=100" |
-      jq -c --arg sha "$1" --arg main "$main" '[
-        .workflow_runs[]
-        | select(.head_branch == $main and (.event == "push" or .event == "workflow_dispatch"))
-        | {sha: $sha, path: (.path | split("@")[0]), id, status, conclusion}]' >"$cache/$1"
-  fi
-  cat "$cache/$1"
+  local sha
+  for sha in "$@"; do cat "$cache/$sha"; done
 }
 
 # passed <workflow> <sha>...: runs of <workflow> exist on those commits, all
 # have ended, and the newest succeeded.
 passed() {
-  local workflow="$1" sha
+  local workflow="$1"
   shift
-  for sha in "$@"; do runs_of "$sha"; done |
+  load_runs "$@"
+  runs_of "$@" |
     jq -se --arg w "$workflow" '[.[][] | select(.path == $w)]
       | length > 0 and all(.[]; .status == "completed") and (max_by(.id).conclusion == "success")' >/dev/null
 }
 
 # going <workflow> <sha>...: a run of <workflow> on those commits has not ended.
 going() {
-  local workflow="$1" sha
+  local workflow="$1"
   shift
-  for sha in "$@"; do runs_of "$sha"; done |
+  load_runs "$@"
+  runs_of "$@" |
     jq -se --arg w "$workflow" 'any(.[][]; .path == $w and .status != "completed")' >/dev/null
 }
 

@@ -1,17 +1,17 @@
 name: Deploy gate
 
 # Moves the deploy branch forward to the newest main commit every gating
-# workflow passed on: Validate on the commit itself, and the newest run of
-# each Tailscale workflow since deploy (scripts/deploy-gate). shared-server
-# applies deploy by itself (modules/stacks/pull-deploy); docs/deploys.md.
+# workflow passed on: Validate on the commit itself, and the Tailscale
+# reconcile for every Tailscale change since deploy (scripts/deploy-gate).
+# shared-server applies deploy by itself (modules/stacks/pull-deploy);
+# docs/deploys.md.
 # Fast-forward only, with this run's own token: it never forces deploy, so
 # deploy never moves backwards.
 on:
   workflow_run:
     workflows:
       - Validate
-      - Sync Tailscale policy
-      - Tailscale Services
+      - Tailscale reconcile
     types:
       - completed
     branches:

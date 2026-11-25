@@ -6,7 +6,7 @@ passed, and a pull agent on the host applies `deploy`. The Macs are
 unchanged: they apply with `rebuild` by hand.
 
 ```
-push to main ──► Validate, Tailscale policy, Tailscale Services (CI)
+push to main ──► Validate, Tailscale reconcile (CI)
                     │ each completion
                     ▼
             Deploy gate (deploy.yml → scripts/deploy-gate)
@@ -21,8 +21,8 @@ shared-server: pull-deploy-poll.timer (every 2 min)
 ## The gate
 
 [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) runs
-[`scripts/deploy-gate`](../scripts/deploy-gate) every time Validate, Sync
-Tailscale policy or Tailscale Services finishes on `main`, hourly as a
+[`scripts/deploy-gate`](../scripts/deploy-gate) every time Validate or
+Tailscale reconcile finishes on `main`, hourly as a
 safety net, and by hand (`gh workflow run deploy.yml`). It looks at `main`'s
 first-parent commits after `deploy` and pushes `deploy` to the newest one
 that is green:
@@ -30,28 +30,31 @@ that is green:
 - **Validate** (`validate.yml`) succeeded on that commit itself. A commit
   pushed together with others, or whose run was cancelled by a newer push,
   has no passing run of its own and is never a target.
-- **Tailscale policy** and **Tailscale Services** run only when their paths
-  change, and each run applies the whole state at its commit (the whole
-  policy file; every declared Service). The gate asks git which of them a
-  candidate needs: one whose paths changed since `deploy`. For each, let L
-  be the last commit up to the candidate that touched its paths (found in
-  the whole history, not just the commits looked at). There must be
-  positive evidence: at least one run on a commit from L to the candidate,
-  all of them ended, the newest successful. A run GitHub has not listed
-  yet is no evidence, so it holds `deploy`. A failed policy apply holds
-  `deploy` until a later policy change's run succeeds, even for commits
-  that do not touch the policy. No run of either since `deploy` may still
-  be going. More than 100 commits between L and the candidate holds rather
-  than guesses. The gate's copy of each workflow's path filters is checked
-  against the workflow files.
-- When the Services sync creates a Service, it reapplies the policy
-  **in the same run, from the same commit** (the Service auto-approvers
-  resolve against existing Services), so that run passing is evidence for
-  both. Policy applies on `main` and Services syncs share one concurrency
-  queue (`tailscale-apply`, never cancelling a run in progress), so an
-  older state never lands after a newer one. A run waiting in the queue
-  can be replaced by a newer one; the gate then holds until a run passes
-  for that change (rerun the cancelled one: `gh run rerun <id>`).
+- **Tailscale reconcile** (`tailscale-reconcile.yml`) is the one workflow
+  that writes Tailscale state. It runs on pushes that touch its paths, and
+  every run reconciles **the current `main`**, not the commit that triggered
+  it: it creates or updates every declared Service, then applies the whole
+  policy, every time (the Service auto-approvers resolve against existing
+  Services, so the policy follows the sync). A run that starts late, waits
+  in its queue (`tailscale-reconcile`, one at a time, never cut off), or is
+  rerun can therefore only write the newest state; the order of runs stops
+  mattering, and a run whose policy apply failed is red, so its rerun
+  applies the policy again. The gate needs it for a candidate whose
+  reconcile paths changed since `deploy`. Let L be the last commit up to
+  the candidate that touched them (found in the whole history, not just
+  the commits looked at). There must be positive evidence: at least one run
+  on a commit from L to the candidate, all of them ended, the newest
+  successful. Since nothing it watches changed after L, that run applied
+  the candidate's state or a newer one. A run GitHub has not listed yet is
+  no evidence, so it holds `deploy`; a failed run holds `deploy` until a
+  later run succeeds (`gh workflow run tailscale-reconcile.yml`, or a rerun),
+  even for commits that do not touch Tailscale state. No run since `deploy`
+  may still be going. More than 100 commits between L and the candidate
+  holds rather than guesses. The gate's copy of the workflow's path filters
+  is checked against the workflow file.
+- Any failed or malformed read of the Actions API ends the gate run without
+  a decision (the job fails); only good answers are cached, so a missing
+  answer is never read as "no runs".
 
 That ordering is why the host's post-switch restart of
 `tailscale-services.service` now works the first time: a host advertising a
@@ -237,8 +240,10 @@ post-switch steps and a failed unit per bad commit.
   from fixtures: creating `deploy`, skipping commits still validating or
   never validated, a failed or running Tailscale run holding later commits,
   a required run not listed yet, a failed run older than the commits looked
-  at, the path filters matching the workflows, the Services sync reapplying
-  the policy itself in the shared queue, pull-request runs not counting, never
+  at, a failed runs API read ending the gate rather than counting as no
+  runs, the path filters matching the workflows, the reconcile checking out
+  the current `main` and ending every run with a policy apply (and the PR
+  workflow applying nothing), pull-request runs not counting, never
   moving backwards, a concurrent move winning, and refusing a `deploy` off
   `main`.
 

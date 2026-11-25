@@ -44,7 +44,7 @@ dotfiles_post_switch() {
   # declared Service, even when the switch left the job alone. A host
   # advertising a new Service is approved only if, at that moment, the
   # Service exists and the policy auto-approves it, and both come from CI
-  # after the push (tailscale-services.yml, then tailscale-policy.yml). A host
+  # after the push (tailscale-reconcile.yml: Services, then policy). A host
   # that advertised before CI finished is never approved later, so it stays
   # unreachable; rerunning this once CI is done fixes it. The pull agent
   # applies only commits whose CI is done (docs/deploys.md).

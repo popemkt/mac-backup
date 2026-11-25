@@ -1,5 +1,7 @@
-name: Sync Tailscale policy
+name: Test Tailscale policy
 
+# Tests a policy change on its pull request. Applying it on main is
+# tailscale-reconcile.yml's, the one workflow that writes Tailscale state.
 on:
   pull_request:
     branches:
@@ -7,24 +9,14 @@ on:
     paths:
       - configs/tailscale/policy.hujson
       - .github/workflows/tailscale-policy.yml
-  push:
-    branches:
-      - main
-    paths:
-      - configs/tailscale/policy.hujson
-      - .github/workflows/tailscale-policy.yml
-  workflow_dispatch:
 
 permissions:
   contents: read
   id-token: write
 
-# A pull request's test cancels its older one. Runs on main apply, and queue
-# with tailscale-services.yml's in one group without cancelling, so applies
-# land in order (the deploy gate reads them: scripts/deploy-gate).
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && format('tailscale-policy-{0}', github.ref) || 'tailscale-apply' }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: tailscale-policy-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   policy:
@@ -62,7 +54,7 @@ jobs:
           fi
 
       - name: Test policy
-        if: github.event_name == 'pull_request' && steps.config.outputs.enabled == 'true'
+        if: steps.config.outputs.enabled == 'true'
         uses: tailscale/gitops-acl-action@v1
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_ID }}
@@ -70,13 +62,3 @@ jobs:
           tailnet: ${{ secrets.TS_TAILNET }}
           policy-file: configs/tailscale/policy.hujson
           action: test
-
-      - name: Apply policy
-        if: github.event_name != 'pull_request' && steps.config.outputs.enabled == 'true'
-        uses: tailscale/gitops-acl-action@v1
-        with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_ID }}
-          audience: ${{ secrets.TS_AUDIENCE }}
-          tailnet: ${{ secrets.TS_TAILNET }}
-          policy-file: configs/tailscale/policy.hujson
-          action: apply

@@ -86,30 +86,32 @@ expect_deploy() {
 
 ok=validate.yml=completed/success
 
-# 0. The paths the gate watches are the workflows' own push filters.
-for w in tailscale-policy tailscale-services; do
-  want="$(yq -r '.on.push.paths[]' "$workflows/$w.yml" | sort)"
-  got="$({ bash "$gate_script" --print-watched 2>/dev/null || true; } | awk -F'\t' -v w=".github/workflows/$w.yml" '$1 == w { print $2 }' | sort)"
-  [[ -n "$want" && "$want" == "$got" ]] || fail "deploy-gate watches for $w.yml: '$got'; the workflow filters: '$want'"
-done
+# 0. The paths the gate watches are the reconcile workflow's own push filter.
+[[ -f "$workflows/tailscale-reconcile.yml" ]] || fail "tailscale-reconcile.yml must exist"
+want="$(yq -r '.on.push.paths[]' "$workflows/tailscale-reconcile.yml" | sort)"
+got="$({ bash "$gate_script" --print-watched 2>/dev/null || true; } | awk -F'\t' '$1 == ".github/workflows/tailscale-reconcile.yml" { print $2 }' | sort)"
+[[ -n "$want" && "$want" == "$got" ]] || fail "deploy-gate watches '$got'; the reconcile workflow filters '$want'"
+[[ "$(bash "$gate_script" --print-watched | cut -f1 | sort -u)" == .github/workflows/tailscale-reconcile.yml ]] ||
+  fail "deploy-gate must watch the reconcile workflow only"
 
-# 0b. A Services sync that created a Service reapplies the policy inside its
-#     own run, from its own commit, so the run passing is the gate's evidence
-#     for both; and every Tailscale apply on main shares one queue, so an
-#     older state never lands after a newer one.
-services_yml="$workflows/tailscale-services.yml"
+# 0b. One workflow writes Tailscale state from main, and every run of it
+#     reconciles the CURRENT main (never its triggering commit, so a late or
+#     rerun run cannot write a stale state) and applies the policy after the
+#     Services sync, every time. The policy workflow only tests pull requests.
+reconcile_yml="$workflows/tailscale-reconcile.yml"
 policy_yml="$workflows/tailscale-policy.yml"
-[[ "$(yq -r '.jobs.sync.steps[] | select(.uses == "tailscale/gitops-acl-action@v1") | .with.action' "$services_yml")" == apply ]] ||
-  fail "tailscale-services.yml must reapply the policy in its own sync job"
-if grep -q 'gh workflow run' "$services_yml"; then
-  fail "tailscale-services.yml must not dispatch the policy reapply as a separate run"
+[[ -f "$reconcile_yml" ]] || fail "tailscale-reconcile.yml must exist"
+[[ "$(yq -r '[.jobs[].steps[] | select(.uses == "actions/checkout@v6") | .with.ref // "none"] | unique | join(",")' "$reconcile_yml")" == main ]] ||
+  fail "every checkout in tailscale-reconcile.yml must take the current main"
+[[ "$(yq -r '.jobs.sync.steps[-1] | (.uses // "") + " " + (.with.action // "") + " " + (.if // "always")' "$reconcile_yml")" == "tailscale/gitops-acl-action@v1 apply always" ]] ||
+  fail "tailscale-reconcile.yml must end every sync by applying the policy, unconditionally"
+[[ "$(yq -r '.on.push // "none"' "$policy_yml")" == none ]] ||
+  fail "tailscale-policy.yml must not run on pushes to main"
+if grep -q 'action: apply' "$policy_yml"; then
+  fail "tailscale-policy.yml must not apply the policy"
 fi
-[[ "$(yq -r '.concurrency.group' "$services_yml")" == tailscale-apply ]] ||
-  fail "tailscale-services.yml must queue in the tailscale-apply concurrency group"
-[[ "$(yq -r '.concurrency.group' "$policy_yml")" == *"'tailscale-apply'"* ]] ||
-  fail "tailscale-policy.yml must queue its main runs in the tailscale-apply concurrency group"
-[[ "$(yq -r '.concurrency.cancel-in-progress' "$policy_yml")" != true ]] ||
-  fail "tailscale-policy.yml must not cancel a main apply in progress"
+[[ "$(yq -r '.on.workflow_run.workflows | sort | join(",")' "$workflows/deploy.yml")" == "$(yq -r '.name' "$reconcile_yml"),Validate" ]] ||
+  fail "deploy.yml must run after Validate and the reconcile workflow"
 
 # 1. No deploy branch yet: created at the newest green commit.
 a="$(commit a)"
@@ -142,23 +144,23 @@ expect_deploy "$c" "commits without a passing Validate are not green"
 # 4. A failed policy apply blocks every later commit until a newer policy
 #    run succeeds, even ones that do not touch the policy.
 g="$(commit g "$policy")"
-runs "$g" "$ok" tailscale-policy.yml=completed/failure
+runs "$g" "$ok" tailscale-reconcile.yml=completed/failure
 h="$(commit h)"
 runs "$h" "$ok"
 gate
 expect_deploy "$c" "a failed policy apply holds deploy"
 i="$(commit i "$policy")"
-runs "$i" "$ok" tailscale-policy.yml=completed/success
+runs "$i" "$ok" tailscale-reconcile.yml=completed/success
 gate
 expect_deploy "$i" "a newer successful policy run settles it"
 
 # 5. A Services sync still running holds deploy until it passes (it also
 #    reapplies the policy when it created a Service, inside the same run).
 j="$(commit j "$services")"
-runs "$j" "$ok" tailscale-services.yml=in_progress/-
+runs "$j" "$ok" tailscale-reconcile.yml=in_progress/-
 gate
 expect_deploy "$i" "a Services sync still running holds deploy"
-runs "$j" tailscale-services.yml=completed/success
+runs "$j" tailscale-reconcile.yml=completed/success
 gate
 expect_deploy "$j" "a green sync releases deploy"
 
@@ -168,7 +170,7 @@ q="$(commit q "$policy")"
 runs "$q" "$ok"
 gate
 expect_deploy "$j" "a policy change without a listed policy run holds deploy"
-runs "$q" tailscale-policy.yml=completed/success
+runs "$q" tailscale-reconcile.yml=completed/success
 gate
 expect_deploy "$q" "its run passing releases deploy"
 
@@ -199,19 +201,19 @@ grep -q "nothing to do" "$work/out" || fail "the refused push is reported"
 # 9. An older run still going holds deploy even though a newer one passed:
 #    it could still apply its older state over the newer one.
 o="$(commit o "$policy")"
-runs "$o" "$ok" tailscale-policy.yml=in_progress/-
+runs "$o" "$ok" tailscale-reconcile.yml=in_progress/-
 p="$(commit p "$policy")"
-runs "$p" "$ok" tailscale-policy.yml=completed/success
+runs "$p" "$ok" tailscale-reconcile.yml=completed/success
 gate
 expect_deploy "$n" "an older policy run still going holds deploy"
-runs "$o" tailscale-policy.yml=completed/success
+runs "$o" tailscale-reconcile.yml=completed/success
 gate
 expect_deploy "$p" "once it ends, deploy moves"
 
 # 9b. A failed policy apply older than the commits the gate looks at still
 #     holds deploy: what must pass comes from every change since deploy.
 r="$(commit r "$policy")"
-runs "$r" "$ok" tailscale-policy.yml=completed/failure
+runs "$r" "$ok" tailscale-reconcile.yml=completed/failure
 for x in s t u; do
   sha="$(commit "$x")"
   runs "$sha" "$ok"
@@ -219,9 +221,25 @@ done
 DEPLOY_GATE_WINDOW=2 gate
 expect_deploy "$p" "a failed policy run before the window holds deploy"
 v="$(commit v "$policy")"
-runs "$v" "$ok" tailscale-policy.yml=completed/success
+runs "$v" "$ok" tailscale-reconcile.yml=completed/success
 DEPLOY_GATE_WINDOW=2 gate
 expect_deploy "$v" "a later passing policy run releases it"
+
+# 11. The Actions API failing for one commit aborts the gate: no evidence
+#     read is treated as "no runs", which could hide a run still going.
+w="$(commit w "$services")"
+runs "$w" "$ok" tailscale-reconcile.yml=in_progress/-
+y="$(commit y)"
+runs "$y" "$ok" tailscale-reconcile.yml=completed/success@workflow_dispatch
+touch "$STUB_RUNS/$w.fail"
+if gate; then
+  fail "a failed runs API read must fail the gate"
+fi
+expect_deploy "$v" "a failed runs API read moves nothing"
+rm "$STUB_RUNS/$w.fail"
+runs "$w" tailscale-reconcile.yml=completed/success
+gate
+expect_deploy "$y" "once the API answers and the run passed, deploy moves"
 
 # 10. deploy with commits main lacks: refuse, change nothing.
 git checkout --quiet --detach "$n"
