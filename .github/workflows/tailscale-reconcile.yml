@@ -1,25 +1,39 @@
-name: Tailscale Services
+name: Tailscale reconcile
 
-# Creates the Tailscale Services the hosts declare (the flake's
-# tailscaleServices), so a Service needs no admin-console step. The probe
-# shows whether the GitOps credential reaches the Services API (vip-services)
-# at all; sync creates or updates each declared Service and reports, without
-# deleting, the ones nothing declares. It runs on every push to main that can
-# change a declaration.
+# The one workflow that writes Tailscale state from this repository, after
+# a push to main that can change it. Every run reconciles the CURRENT main,
+# never the commit that triggered it, so a run that starts late, waits in
+# the queue or is rerun can only write the newest state, and the order of
+# runs does not matter. Each run, in its sync job:
+#   1. creates or updates every Service the hosts declare (the flake's
+#      tailscaleServices), reporting without deleting the ones nothing
+#      declares;
+#   2. applies the policy (configs/tailscale/policy.hujson), every time:
+#      its Service auto-approvers resolve against existing Services, so it
+#      must follow the sync, and a run whose apply failed is red, so a rerun
+#      applies it again.
+# The probe shows whether the GitOps credential reaches the Services API.
+# The `applied` job names the commit the run checked out.
+# Pull requests only test the policy (tailscale-policy.yml). The deploy gate
+# (scripts/deploy-gate) waits for this run before shared-server applies a
+# commit.
 on:
   push:
     branches:
       - main
     paths:
+      - configs/tailscale/policy.hujson
       - flake.nix
       - flake.lock
       - hosts/**
       - modules/**
-      - .github/workflows/tailscale-services.yml
+      - .github/workflows/tailscale-reconcile.yml
   workflow_dispatch:
 
+# One run at a time, never cut off mid-write. A run waiting here may be
+# replaced by a newer one, which reconciles the same or a newer main.
 concurrency:
-  group: tailscale-services
+  group: tailscale-reconcile
   cancel-in-progress: false
 
 permissions:
@@ -68,16 +82,24 @@ jobs:
     runs-on: ubuntu-latest
     needs: probe
     permissions:
-      actions: write
       contents: read
       id-token: write
+    outputs:
+      applied: ${{ steps.checkout.outputs.applied }}
     env:
       TS_OAUTH_ID: ${{ secrets.TS_OAUTH_ID }}
       TS_AUDIENCE: ${{ secrets.TS_AUDIENCE }}
 
     steps:
-      - name: Check out repository
+      - name: Check out the current main
         uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - name: Record the commit checked out
+        id: checkout
+        shell: bash
+        run: echo "applied=$(git rev-parse HEAD)" >>"$GITHUB_OUTPUT"
 
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v22
@@ -118,10 +140,7 @@ jobs:
               -H "Authorization: Bearer $token" "$api/$name")
             case "$status" in
               200) current=$(command cat current.json) ;;
-              404)
-                current='{}'
-                touch created
-                ;;
+              404) current='{}' ;;
               *)
                 echo "::error::reading $name returned HTTP $status"
                 jq -c . current.json || true
@@ -152,10 +171,25 @@ jobs:
             echo "::warning::$name exists in the tailnet but no host declares it"
           done
 
-      # The policy's Service auto-approvers resolve against existing Service
-      # identities, so a Service created here needs the policy applied again.
-      - name: Reapply the policy after creating a Service
-        if: hashFiles('created') != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run tailscale-policy.yml --repo "$GITHUB_REPOSITORY" --ref main
+      # Every run, after the sync: the auto-approvers resolve against the
+      # Services that exist now, and the same checkout of main is applied.
+      - name: Apply the policy
+        uses: tailscale/gitops-acl-action@v1
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_ID }}
+          audience: ${{ secrets.TS_AUDIENCE }}
+          tailnet: ${{ secrets.TS_TAILNET }}
+          policy-file: configs/tailscale/policy.hujson
+          action: apply
+
+  # The commit this run applied, in a job name the deploy gate reads
+  # (scripts/deploy-gate): the run reconciles main as it was at checkout,
+  # not its triggering commit. Rerunning the sync reruns this job too.
+  applied:
+    name: applied ${{ needs.sync.outputs.applied }}
+    runs-on: ubuntu-latest
+    needs: sync
+    permissions: {}
+    steps:
+      - name: Report
+        run: echo "applied ${{ needs.sync.outputs.applied }}"

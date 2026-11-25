@@ -198,6 +198,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Install pi and link the extension on the Mac, spawn a pi thread from a composition, read its report via a bb.host entry.
 - **node** — `01M5QKD8SDR9TX6Y5G2DM220HP`
 
+### GAP: pull-deploy fetch failures are only logged
+
+- **expected** — A shared host that cannot fetch the deploy branch for a long time (GitHub down, DNS, the repository made private) raises the same failed-unit alert a failed apply does, once.
+- **current** — pull-deploy-poll logs 'could not fetch' and succeeds, so it never fails a unit; only pull-deploy status (the last successful fetch time) shows it.
+- **impact** — shared-server silently stops following main until someone looks; it never rolls back, it only stops moving.
+- **closes** — The poll fails a separate unit once fetches have failed for a set time (e.g. 30 min), and clears it on the next success, so a failed-unit monitor alerts once (modules/stacks/pull-deploy).
+- **node** — `01M89TBG2GTS2ACABN4C68FZKB`
+
 ### GAP: restart-resume is not yet verified against a live daemon restart
 
 - **expected** — After a host daemon restart, each thread interrupted with host-daemon-restarted gets one continuation message from the restart-resume bb plugin, resumes its provider session, and stops after 3 in a row

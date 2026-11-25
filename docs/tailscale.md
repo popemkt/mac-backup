@@ -14,7 +14,9 @@ reviewed and reproduced safely:
 - `configs/tailscale/policy.hujson` owns grants, tag ownership, service host
   auto-approval, and Tailscale SSH authorization.
 - `.github/workflows/tailscale-policy.yml` tests policy changes on pull
-  requests and applies them after they reach `main`.
+  requests. `.github/workflows/tailscale-reconcile.yml` applies them after
+  they reach `main`: each run reconciles the current `main` (Services, then
+  the policy), so a late or rerun run never writes an older state.
 
 Device enrollment, node keys, OAuth secrets, user membership, and live device
 inventory are mutable control-plane state. Do not commit them to this repo.
@@ -74,8 +76,8 @@ Verify the complete path rather than assuming that secret presence means the
 trust works:
 
 ```bash
-gh workflow run tailscale-policy.yml --repo popemkt/mac-backup --ref main
-gh run list --repo popemkt/mac-backup --workflow tailscale-policy.yml --limit 1
+gh workflow run tailscale-reconcile.yml --repo popemkt/mac-backup --ref main
+gh run list --repo popemkt/mac-backup --workflow tailscale-reconcile.yml --limit 1
 gh run watch --repo popemkt/mac-backup <run-id> --exit-status
 ```
 
@@ -185,16 +187,16 @@ The remaining manual control-plane steps are:
 1. Sign the machine into Tailscale from the menu bar. Device identity and node
    keys must never be committed.
 2. Nothing to create by hand for Services: on every push that can change a
-   declaration, the `sync` job of `.github/workflows/tailscale-services.yml`
-   creates or updates every Service in the flake's `tailscaleServices` (keeping
-   each one's existing addresses) and warns about Services nothing declares,
-   deleting none. When it creates one, it reapplies the policy (step 3) itself.
-   It needs the trust credential's `all` scope.
-3. Apply the tracked policy through the GitHub workflow so that
-   `tag:home-server`, its owner, grants, and the Service auto-approver exist.
-   Service auto-approvers are resolved against existing Service identities, so
-   rerun this workflow whenever a Service was created after the last policy
-   apply.
+   declaration, the `sync` job of `.github/workflows/tailscale-reconcile.yml`
+   creates or updates every Service in the current `main`'s
+   `tailscaleServices` (keeping each one's existing addresses) and warns about
+   Services nothing declares, deleting none. It needs the trust credential's
+   `all` scope.
+3. The same run then applies the tracked policy, so that `tag:home-server`,
+   its owner, grants, and the Service auto-approver exist. Service
+   auto-approvers are resolved against existing Service identities, which is
+   why every run applies the policy after the sync. To apply both again by
+   hand: `gh workflow run tailscale-reconcile.yml --ref main`.
 4. Open **Machines**, select the home server (`popemkt-personal`), edit its tags, and assign
    `tag:home-server`.
 5. Rebuild the host. The `tailscale-services` launchd job advertises
@@ -323,7 +325,7 @@ new configuration path:
 | Tailnet account and membership | Tailscale | Admin console **Users** |
 | `tag:home-server` assignment | Tailscale machine record | **Machines > Edit tags** |
 | `tag:orca-host` assignment | Tailscale machine record | **Machines > Edit tags** |
-| Service identities (`svc:*`) | Tailscale, created from this repository | `.github/workflows/tailscale-services.yml` on push, from the flake's `tailscaleServices`; verify in Admin console **Services** |
+| Service identities (`svc:*`) | Tailscale, created from this repository | `.github/workflows/tailscale-reconcile.yml` on push, from the current `main`'s `tailscaleServices`; verify in Admin console **Services** |
 | GitHub OIDC trust credential (scope `all`: the Services API needs more than Policy File) | Tailscale | **Settings > Trust credentials** |
 | Enrollment values | GitHub Actions secrets | `gh secret list --repo popemkt/mac-backup` |
 | Policy, tag owner, grants, SSH, auto-approver | This repository | `configs/tailscale/policy.hujson` |

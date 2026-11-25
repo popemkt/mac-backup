@@ -160,6 +160,27 @@
             touch "$out"
           '';
 
+      # scripts/deploy-gate (what moves the deploy branch) against a
+      # temporary bare repository and a gh answering the runs API from
+      # fixtures (docs/deploys.md → Tests).
+      deployGateCheck =
+        pkgs:
+        pkgs.runCommand "deploy-gate-check"
+          {
+            nativeBuildInputs = with pkgs; [
+              bash
+              coreutils
+              git
+              gnugrep
+              jq
+              yq-go
+            ];
+          }
+          ''
+            bash ${./scripts/tests/deploy-gate-check.sh} ${./scripts/deploy-gate} ${./scripts/tests/gh-runs-stub.sh} ${./.github/workflows}
+            touch "$out"
+          '';
+
       # Unit tests of the activation reconcilers (scripts/reconcile_*.py).
       reconcileScriptsCheck =
         pkgs.runCommand "reconcile-scripts-check"
@@ -296,7 +317,12 @@
         nixpkgs.lib.nixosSystem {
           modules = hostBase hostname ++ [
             home-manager.nixosModules.home-manager
-            { home-manager = homeManagerBase; }
+            {
+              home-manager = homeManagerBase;
+              # The commit applied, `<rev>-dirty` for uncommitted changes
+              # (modules/nixos/system/applying.nix writes it into the system).
+              my.revision = self.rev or self.dirtyRev or null;
+            }
           ];
         };
       executorContractCheck =
@@ -356,6 +382,7 @@
         # port in front of a test app.
         local-proxy-check = import ./modules/stacks/local-proxy/tests.nix { inherit pkgs; };
         pin-tools-check = pinToolsCheck pkgs;
+        deploy-gate-check = deployGateCheck pkgs;
         system-setup-manifest-personal = systemSetupManifestCheck "popemkt-personal";
         system-setup-manifest-work = systemSetupManifestCheck "popemkt-work";
         darwin-personal = self.darwinConfigurations.popemkt-personal.system;
@@ -370,6 +397,12 @@
       # (docs/mcp-edge.md → Tests).
       checks.x86_64-linux.mcp-edge = import ./modules/stacks/mcp-edge/tests.nix {
         pkgs = (pkgsFor "x86_64-linux").extend self.overlays.default;
+      };
+
+      # The pull agent against a local stand-in for GitHub, and the shared-host
+      # rebuild guard beside it (docs/deploys.md → Tests).
+      checks.x86_64-linux.pull-deploy = import ./modules/stacks/pull-deploy/tests.nix {
+        pkgs = pkgsFor "x86_64-linux";
       };
 
       # Eval-only: the guard against upheld services a switch would stop
@@ -387,6 +420,8 @@
           };
 
       checks.x86_64-linux.pin-tools-check = pinToolsCheck (pkgsFor "x86_64-linux");
+
+      checks.x86_64-linux.deploy-gate-check = deployGateCheck (pkgsFor "x86_64-linux");
 
       checks.x86_64-linux.mcp-servers-check = import ./modules/common/home-manager/mcp-servers/tests.nix {
         pkgs = pkgsFor "x86_64-linux";

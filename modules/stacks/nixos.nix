@@ -11,6 +11,7 @@ _:
     ./kb/nixos.nix
     ./mcp-edge
     ./ntfy
+    ./pull-deploy
     ./sandboxes
     ./t3-code/nixos.nix
     ./vpn/nixos.nix
