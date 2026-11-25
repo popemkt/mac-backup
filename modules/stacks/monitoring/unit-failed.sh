@@ -6,7 +6,7 @@
 #     only logged.
 #   - At most BURST_LIMIT alerts per BURST_WINDOW seconds across every unit:
 #     one incident often fails many units (or template instances) at once.
-#     A failure beyond that is queued in `pending`, which the next health
+#     A failure beyond that is queued (./queue.sh), which the next health
 #     check run (./health.sh) sends as one summary.
 #   - Notifiers take turns (a lock), each waiting at most LOCK_WAIT seconds;
 #     one that cannot get its turn queues its unit the same way.

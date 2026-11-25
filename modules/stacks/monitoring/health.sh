@@ -38,26 +38,17 @@ check() {
 }
 
 # Failed services the notifier queued instead of alerting on each (its
-# burst limit, or a lock it could not get): one summary of them all. The
-# batch being sent is `pending.sending`; one a run left behind (it died
-# after taking it) is sent first, with whatever was queued since merged in,
-# never overwritten (./queue.sh, under its own lock, which the notifier's
-# append takes too). A publish that fails leaves the batch to the next run.
-failed_dir="$STATE_DIRECTORY/unit-failed"
-if [ -s "$failed_dir/pending" ] || [ -e "$failed_dir/pending.sending" ]; then
-  if queue_take "$failed_dir"; then
-    mapfile -t units < <(sort -u "$failed_dir/pending.sending")
-    if [ ${#units[@]} -eq 0 ]; then
-      rm -f "$failed_dir/pending.sending"
-    elif printf 'Also failed: %s\n\nEach alerted on its own up to the burst limit; journalctl -u <unit> for each.\n' "${units[*]}" |
-      "$NTFY_PUBLISH" --title "${#units[@]} more services failed on $MONITOR_HOST" --priority high --tags warning "$TOPIC"; then
-      rm "$failed_dir/pending.sending"
-      echo "alerted: summary of ${#units[@]} failed services"
-    else
-      publish_failed=1
-    fi
-  fi
-fi
+# burst limit, or a lock it could not get): one summary of them all
+# (./queue.sh). Entries are deleted only once the summary is sent, so a
+# run that fails or dies leaves them to the next.
+send_summary() {
+  local -a units
+  mapfile -t units
+  printf 'Also failed: %s\n\nEach alerted on its own up to the burst limit; journalctl -u <unit> for each.\n' "${units[*]}" |
+    "$NTFY_PUBLISH" --title "${#units[@]} more services failed on $MONITOR_HOST" --priority high --tags warning "$TOPIC" &&
+    echo "alerted: summary of ${#units[@]} failed services"
+}
+queue_send "$STATE_DIRECTORY/unit-failed" send_summary || publish_failed=1
 
 # Disks: every mounted filesystem with a backing store, once per device (the
 # store's bind mounts share their device with /).

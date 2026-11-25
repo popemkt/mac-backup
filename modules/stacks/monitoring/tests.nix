@@ -232,17 +232,18 @@ pkgs.testers.runNixOSTest {
           health()
           assert len(messages("more services failed")) == 1
 
-      with subtest("a summary batch a dead health run left behind is still sent"):
-          # A run that died after taking the queue (pending.sending), and a
-          # failure queued since (pending): the next run sends both.
+      with subtest("queued failures a run did not send are sent by the next"):
+          # Two entries in the spool, as a run that died or failed to publish
+          # leaves them: the next run sends both once and deletes them.
           machine.succeed(
-              "printf 'stranded-a.service\\n' > /var/lib/monitoring/unit-failed/pending.sending",
-              "printf 'queued-b.service\\n' >> /var/lib/monitoring/unit-failed/pending",
+              "mkdir -p /var/lib/monitoring/unit-failed/queue",
+              "printf 'stranded-a.service\\n' > /var/lib/monitoring/unit-failed/queue/entry.left1",
+              "printf 'queued-b.service\\n' > /var/lib/monitoring/unit-failed/queue/entry.left2",
           )
           health()
           [batch] = messages("2 more services failed on server")
           assert "stranded-a.service" in batch["message"] and "queued-b.service" in batch["message"], batch["message"]
-          machine.fail("test -e /var/lib/monitoring/unit-failed/pending.sending")
+          machine.succeed("test -z \"$(ls -A /var/lib/monitoring/unit-failed/queue)\"")
           health()
           assert len(messages("2 more services failed on server")) == 1
 

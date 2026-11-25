@@ -148,8 +148,8 @@ gives exactly one alert naming it, with its journal, and a second failure in
 the cooldown gives none; a template instance alerts too; the notifier has no
 `OnFailure=` and, with ntfy down, fails without starting a notifier for
 itself, and the next failure after ntfy is back is sent; eight failures at once give
-five alerts and one summary of the other three, and a batch a dead run
-left behind is still sent; a full disk alerts
+five alerts and one summary of the other three, and failures a run did not
+send are sent by the next; a full disk alerts
 once and recovers once; a path planted in the serve config alerts once and
 recovers, and so does a foreground Funnel session; a burst of Keycloak error events alerts; Beszel answers on its
 socket, refuses no identity and a wrong one, accepts the declared login, has
@@ -157,8 +157,10 @@ password sign-in off, is not on the host's loopback, refuses a non-root
 account at its socket, and sees this machine through the agent.
 
 `checks.x86_64-linux.monitoring-queue` (`queue-check.nix`, no VM) races the
-queue of failures waiting for a summary: hundreds of notifiers append while
-a health run keeps taking batches, and every unit must be sent exactly once.
+queue of failures waiting for a summary (a spool directory, one file per
+failure, no lock): hundreds of notifiers queue while a health run keeps
+sending, and every unit must be sent exactly once; an entry that cannot be
+read sends and deletes nothing, and a failed send deletes nothing.
 
 ```bash
 nix build .#checks.x86_64-linux.monitoring -L
