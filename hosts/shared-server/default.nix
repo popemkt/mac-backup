@@ -120,7 +120,7 @@ let
   # The OAuth edge for popemkt's kb MCP (my.stacks.mcp-edge below): the one
   # switch that turns it, its store's kb-remote and its tailnet entry on or
   # off.
-  mcpEdge = false;
+  mcpEdge = true;
   # Its own switch for public reach (Funnel, phase 1c): Gemini's and
   # Claude's backends call the edge from their clouds. Needs mcpEdge, and
   # the policy's funnel node attribute for tag:shared-server.
