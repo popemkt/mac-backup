@@ -124,7 +124,7 @@ let
   # Its own switch for public reach (Funnel, phase 1c): Gemini's and
   # Claude's backends call the edge from their clouds. Needs mcpEdge, and
   # the policy's funnel node attribute for tag:shared-server.
-  mcpFunnel = false;
+  mcpFunnel = true;
 in
 {
   imports = [
