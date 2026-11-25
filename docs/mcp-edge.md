@@ -125,8 +125,10 @@ A step-by-step page walks through these, with a check for each step:
 is one static file). This section is the canonical statement: where the
 page and this section differ, this section is right.
 
-**Decided defaults, pending the owner's confirmation:**
+**Decided (the owner's decisions):**
 
+- Restarts keep everyone signed in: a reboot, an upgrade, a Keycloak restart or crash signs nobody out. Signing everyone out is a command of its own ([Revoke every token](#revoke-every-token)).
+- A sign-in lasts at most 30 days, and ends sooner after 14 days without use. Then the connector asks you to sign in again: one Google sign-in, nothing on the server ([When the sign-in expires](#when-the-sign-in-expires)).
 - The only Google account let through is `hoangng71299@gmail.com`: `my.stacks.kb.stores.kb.remoteMcp.emails` in `hosts/shared-server/default.nix`.
 
 1. **Google OAuth client.**
@@ -254,6 +256,23 @@ upgrade no longer does this: they keep everyone signed in. oauth2-proxy still
 lives exactly as long as one Keycloak run. It stops with Keycloak at once,
 crashes included. Keycloak restarts 5 seconds after a crash, and oauth2-proxy
 starts again once the realm has reconciled.
+
+## When the sign-in expires
+
+A connector's sign-in ends when its session reaches 30 days, or after 14
+days without use, or at once after `revoke-all`. The connector then asks you
+to reconnect, or to sign in, on the kb connector. Click it, sign in with
+Google as `hoangng71299@gmail.com`, and approve the access if Keycloak asks.
+That is all: no step on the server, and no new secret. The client secret in
+the connector stays valid.
+
+After `sudo mcp-edge-secrets rotate <name>` there is one step more: the old
+secret stops working, so first paste the new one into that connector
+(`sudo mcp-edge-secrets client <name>`), then sign in the same way.
+
+Not yet seen: how Gemini and Claude show this (the exact wording, and where
+the reconnect button is). The steps above follow from the OAuth flow, not
+from the vendors' screens.
 
 ## Tests
 
