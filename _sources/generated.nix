@@ -8,10 +8,10 @@
 {
   antigravity-cli = {
     pname = "antigravity-cli";
-    version = "1.5.15-5514532022517760";
+    version = "1.5.17-4823843970351104";
     src = fetchurl {
-      url = "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.15-5514532022517760/linux-x64/cli_linux_x64.tar.gz";
-      sha256 = "sha256-jZkTKYYCBJ7ynpZp81JStreVcZec4b0PsndTx7rIQRQ=";
+      url = "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.17-4823843970351104/linux-x64/cli_linux_x64.tar.gz";
+      sha256 = "sha256-YwS09ZKul+WSMc+xs2XuKcFVdQyaiB8MyO/l9SgQd88=";
     };
   };
   axioms = {
@@ -35,10 +35,10 @@
   };
   cli-proxy-api = {
     pname = "cli-proxy-api";
-    version = "8.1.1";
+    version = "8.1.3";
     src = fetchurl {
-      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.1.1/CLIProxyAPI_8.1.1_darwin_aarch64.tar.gz";
-      sha256 = "sha256-eqBXeRzYiUuZGvi1Tu2oPcJ0qO6k5Ja6pX5d/1OZFwo=";
+      url = "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.1.3/CLIProxyAPI_8.1.3_darwin_aarch64.tar.gz";
+      sha256 = "sha256-xu7n5hbjlC5O4nnJP75/mJozf5GsWwBmUXQkSui1cm8=";
     };
   };
   cursor-cli = {
@@ -51,10 +51,10 @@
   };
   genoffice = {
     pname = "genoffice";
-    version = "0.13.615";
+    version = "0.13.886";
     src = fetchurl {
-      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.13.615/GenOffice-0.13.615-arm64.dmg";
-      sha256 = "sha256-nvfK172yxnklxdRseDrBnNwYVgpzUPOZ1cwiApp9/n4=";
+      url = "https://github.com/genspark-ai/genoffice/releases/download/v0.13.886/GenOffice-0.13.886-arm64.dmg";
+      sha256 = "sha256-6bPKhDkVR8OcQoO9gsjkXzz9KE9ixd1R3wTSfqt5HHI=";
     };
   };
   kb = {
@@ -78,12 +78,12 @@
   };
   ntfy-image = {
     pname = "ntfy-image";
-    version = "v2.38.1";
+    version = "v2.38.2";
     src = dockerTools.pullImage {
       imageName = "binwiederhier/ntfy";
-      imageDigest = "sha256:038da2be5e668fee6d36a62884eea48975e1b71c29a56964e5298c1b9165a573";
-      sha256 = "sha256-IMGWXl/VdddEAHYm150yTSIIC9t1liP95UZwX5vUDX0=";
-      finalImageTag = "v2.38.1";
+      imageDigest = "sha256:ca35419d29a834824db2440fa9320897fbe40b026c5fc2360c76ed3501b5e716";
+      sha256 = "sha256-igHeI4uKgI9BoXDpMZVJ5CfZcFMMKBURamivvhf3JE4=";
+      finalImageTag = "v2.38.2";
       os = "linux";
       arch = "amd64";
     };
@@ -98,10 +98,10 @@
   };
   vite-plus = {
     pname = "vite-plus";
-    version = "1.7.0";
+    version = "1.8.0";
     src = fetchurl {
-      url = "https://github.com/voidzero-dev/vite-plus/releases/download/v1.7.0/vp-aarch64-apple-darwin.tar.gz";
-      sha256 = "sha256-poB2ofV0Zt4cPgwKnMQ/mYoFkkpXNeh+IiCakitnCoo=";
+      url = "https://github.com/voidzero-dev/vite-plus/releases/download/v1.8.0/vp-aarch64-apple-darwin.tar.gz";
+      sha256 = "sha256-zH3/yTjW+5FEXipMN4JdyTP/Ox16SAqfF7+LT3c1dCE=";
     };
   };
 }
