@@ -76,7 +76,8 @@ let
           config.systemd.package
         ]
         ++ inputs;
-        text = builtins.readFile file;
+        # ./queue.sh's functions, which both scripts use.
+        text = builtins.readFile ./queue.sh + builtins.readFile file;
       }
     );
 in

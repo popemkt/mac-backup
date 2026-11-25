@@ -26,7 +26,7 @@ fi
 dir="$STATE_DIRECTORY/unit-failed"
 mkdir -p "$dir"
 queue() {
-  printf '%s\n' "$unit" >>"$dir/pending"
+  queue_append "$dir" "$unit"
   echo "$unit failed; $1, so it goes in the next summary"
   exit 0
 }

@@ -377,6 +377,10 @@
       checks.x86_64-linux.monitoring = import ./modules/stacks/monitoring/tests.nix {
         pkgs = (pkgsFor "x86_64-linux").extend self.overlays.default;
       };
+      # The failed-service queue's handoff, raced (no VM).
+      checks.x86_64-linux.monitoring-queue = import ./modules/stacks/monitoring/queue-check.nix {
+        pkgs = pkgsFor "x86_64-linux";
+      };
 
       # Eval-only: the guard against upheld services a switch would stop
       # (modules/nixos/system/upheld-units.nix).

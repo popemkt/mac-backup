@@ -156,6 +156,11 @@ socket, refuses no identity and a wrong one, accepts the declared login, has
 password sign-in off, is not on the host's loopback, refuses a non-root
 account at its socket, and sees this machine through the agent.
 
+`checks.x86_64-linux.monitoring-queue` (`queue-check.nix`, no VM) races the
+queue of failures waiting for a summary: hundreds of notifiers append while
+a health run keeps taking batches, and every unit must be sent exactly once.
+
 ```bash
 nix build .#checks.x86_64-linux.monitoring -L
+nix build .#checks.x86_64-linux.monitoring-queue -L
 ```

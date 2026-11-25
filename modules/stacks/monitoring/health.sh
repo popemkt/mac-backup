@@ -41,17 +41,11 @@ check() {
 # burst limit, or a lock it could not get): one summary of them all. The
 # batch being sent is `pending.sending`; one a run left behind (it died
 # after taking it) is sent first, with whatever was queued since merged in,
-# never overwritten. The queue is taken under the notifier's lock; a publish
-# that fails leaves the batch to the next run.
+# never overwritten (./queue.sh, under its own lock, which the notifier's
+# append takes too). A publish that fails leaves the batch to the next run.
 failed_dir="$STATE_DIRECTORY/unit-failed"
 if [ -s "$failed_dir/pending" ] || [ -e "$failed_dir/pending.sending" ]; then
-  exec 8>"$failed_dir/.lock"
-  if flock -w 60 8; then
-    if [ -s "$failed_dir/pending" ]; then
-      cat "$failed_dir/pending" >>"$failed_dir/pending.sending"
-      rm "$failed_dir/pending"
-    fi
-    flock -u 8
+  if queue_take "$failed_dir"; then
     mapfile -t units < <(sort -u "$failed_dir/pending.sending")
     if [ ${#units[@]} -eq 0 ]; then
       rm -f "$failed_dir/pending.sending"
