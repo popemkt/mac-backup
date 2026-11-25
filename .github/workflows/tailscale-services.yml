@@ -18,8 +18,12 @@ on:
       - .github/workflows/tailscale-services.yml
   workflow_dispatch:
 
+# One queue with tailscale-policy.yml's main runs: every Tailscale apply on
+# main runs one at a time, so an older state never lands after a newer one.
+# A run waiting in the queue can be replaced by a newer one; the deploy gate
+# then holds until a run passes (rerun the cancelled one).
 concurrency:
-  group: tailscale-services
+  group: tailscale-apply
   cancel-in-progress: false
 
 permissions:
@@ -68,7 +72,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: probe
     permissions:
-      actions: write
       contents: read
       id-token: write
     env:
@@ -153,9 +156,16 @@ jobs:
           done
 
       # The policy's Service auto-approvers resolve against existing Service
-      # identities, so a Service created here needs the policy applied again.
+      # identities, so a Service created here needs the policy applied again:
+      # here, in this run, from this commit. The run passes only once it has,
+      # which is what the deploy gate (scripts/deploy-gate) reads before
+      # shared-server advertises the Service.
       - name: Reapply the policy after creating a Service
         if: hashFiles('created') != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run tailscale-policy.yml --repo "$GITHUB_REPOSITORY" --ref main
+        uses: tailscale/gitops-acl-action@v1
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_ID }}
+          audience: ${{ secrets.TS_AUDIENCE }}
+          tailnet: ${{ secrets.TS_TAILNET }}
+          policy-file: configs/tailscale/policy.hujson
+          action: apply

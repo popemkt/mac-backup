@@ -173,10 +173,11 @@
               git
               gnugrep
               jq
+              yq-go
             ];
           }
           ''
-            bash ${./scripts/tests/deploy-gate-check.sh} ${./scripts/deploy-gate} ${./scripts/tests/gh-runs-stub.sh}
+            bash ${./scripts/tests/deploy-gate-check.sh} ${./scripts/deploy-gate} ${./scripts/tests/gh-runs-stub.sh} ${./.github/workflows}
             touch "$out"
           '';
 

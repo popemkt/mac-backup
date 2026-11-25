@@ -19,9 +19,12 @@ permissions:
   contents: read
   id-token: write
 
+# A pull request's test cancels its older one. Runs on main apply, and queue
+# with tailscale-services.yml's in one group without cancelling, so applies
+# land in order (the deploy gate reads them: scripts/deploy-gate).
 concurrency:
-  group: tailscale-policy-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.event_name == 'pull_request' && format('tailscale-policy-{0}', github.ref) || 'tailscale-apply' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   policy:

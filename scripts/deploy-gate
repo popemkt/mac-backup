@@ -4,31 +4,58 @@
 # (modules/stacks/pull-deploy); .github/workflows/deploy.yml runs this.
 # How it decides: docs/deploys.md → The gate.
 #
-# A commit is green when
-#   - Validate (validate.yml, every push to main) succeeded on it, and
+# A candidate commit X is green when
+#   - Validate (validate.yml, every push to main) passed on X itself, and
 #   - for each path-filtered workflow that changes the outside world
-#     (tailscale-policy.yml, tailscale-services.yml), its newest run among
-#     the commits after deploy up to this one succeeded, and none of those
-#     runs is still going. Each run applies the whole state at its commit
-#     (the whole policy file, every declared Service), so the newest one
-#     settles the state; a commit it skipped changed nothing it watches.
+#     (tailscale-policy.yml, tailscale-services.yml) whose paths changed
+#     between deploy and X: there is positive evidence it passed for that
+#     change. Let L be the last first-parent commit up to X that touched its
+#     paths: at least one run of it exists on a commit from L to X, all of
+#     them have ended, and the newest succeeded. Each run applies the whole
+#     state at its commit, and nothing it watches changed after L, so that
+#     run applied X's state. A required run GitHub has not listed yet is no
+#     evidence, and L is found from the whole history, not from the
+#     commits looked at, so a failure older than the window still counts.
+#   - no run of those workflows on a commit between deploy and X is still
+#     going (it could still apply an older state over a newer one).
 # Only main's first-parent commits after deploy are candidates; deploy moves
 # to the newest green one with a plain push (fast-forward only: the remote
 # refuses anything else), never backwards.
 #
 # Environment: GITHUB_REPOSITORY (owner/name, for the runs API, through
 # `gh api`), DEPLOY_GATE_REMOTE (origin), DEPLOY_GATE_MAIN (main),
-# DEPLOY_GATE_BRANCH (deploy), DEPLOY_GATE_WINDOW (commits looked at, 50).
+# DEPLOY_GATE_BRANCH (deploy), DEPLOY_GATE_WINDOW (candidates looked at, 50),
+# DEPLOY_GATE_EVIDENCE_MAX (commits read for one workflow's evidence, 100;
+# more fails closed).
+# `deploy-gate --print-watched` prints each watched workflow and path filter.
 set -euo pipefail
+
+own_workflow=.github/workflows/validate.yml
+# The push path filters of each watched workflow, as in its `on.push.paths`
+# (checks.*.deploy-gate-check fails when they drift apart).
+declare -A watched=(
+  [.github/workflows/tailscale-policy.yml]="configs/tailscale/policy.hujson
+.github/workflows/tailscale-policy.yml"
+  [.github/workflows/tailscale-services.yml]="flake.nix
+flake.lock
+hosts/**
+modules/**
+.github/workflows/tailscale-services.yml"
+)
+
+if [[ "${1:-}" == --print-watched ]]; then
+  for workflow in "${!watched[@]}"; do
+    while IFS= read -r glob; do printf '%s\t%s\n' "$workflow" "$glob"; done <<<"${watched[$workflow]}"
+  done
+  exit 0
+fi
 
 repo="${GITHUB_REPOSITORY:?GITHUB_REPOSITORY must name owner/repo}"
 remote="${DEPLOY_GATE_REMOTE:-origin}"
 main="${DEPLOY_GATE_MAIN:-main}"
 deploy="${DEPLOY_GATE_BRANCH:-deploy}"
 window="${DEPLOY_GATE_WINDOW:-50}"
-
-own_workflow=.github/workflows/validate.yml
-range_workflows='[".github/workflows/tailscale-policy.yml", ".github/workflows/tailscale-services.yml"]'
+evidence_max="${DEPLOY_GATE_EVIDENCE_MAX:-100}"
 
 git fetch --quiet "$remote" "+refs/heads/$main:refs/remotes/$remote/$main"
 main_ref="refs/remotes/$remote/$main"
@@ -51,34 +78,84 @@ if ((${#commits[@]} == 0)); then
   exit 0
 fi
 
-# Every gating run of every candidate, tagged with the candidate's index.
-runs="$(mktemp)"
-trap 'rm -f "$runs"' EXIT
-for i in "${!commits[@]}"; do
-  gh api "repos/$repo/actions/runs?head_sha=${commits[$i]}&per_page=100" |
-    jq -c --argjson idx "$i" --arg main "$main" '
-      .workflow_runs[]
-      | select(.head_branch == $main and (.event == "push" or .event == "workflow_dispatch"))
-      | {idx: $idx, path: (.path | split("@")[0]), id, status, conclusion}'
-done >"$runs"
+cache="$(mktemp -d)"
+trap 'rm -rf "$cache"' EXIT
 
-# The newest green candidate's index, or -1.
-target_idx="$(jq -s --argjson n "${#commits[@]}" --arg own "$own_workflow" \
-  --argjson ranged "$range_workflows" '
-  . as $runs
-  | def settled($set): ($set | length == 0)
-      or (all($set[]; .status == "completed") and ($set | max_by(.id) | .conclusion == "success"));
-    def green($i):
-      ([$runs[] | select(.idx == $i and .path == $own)] as $mine
-        | ($mine | length > 0) and settled($mine))
-      and all($ranged[]; . as $w | settled([$runs[] | select(.idx <= $i and .path == $w)]));
-    [range($n - 1; -1; -1) | select(green(.))] | first // -1' "$runs")"
+# runs_of <sha>: the gating runs CI made for <sha> on main, as a JSON array
+# of {sha, path, id, status, conclusion}; read once.
+runs_of() {
+  if [[ ! -f "$cache/$1" ]]; then
+    gh api "repos/$repo/actions/runs?head_sha=$1&per_page=100" |
+      jq -c --arg sha "$1" --arg main "$main" '[
+        .workflow_runs[]
+        | select(.head_branch == $main and (.event == "push" or .event == "workflow_dispatch"))
+        | {sha: $sha, path: (.path | split("@")[0]), id, status, conclusion}]' >"$cache/$1"
+  fi
+  cat "$cache/$1"
+}
 
-if ((target_idx < 0)); then
+# passed <workflow> <sha>...: runs of <workflow> exist on those commits, all
+# have ended, and the newest succeeded.
+passed() {
+  local workflow="$1" sha
+  shift
+  for sha in "$@"; do runs_of "$sha"; done |
+    jq -se --arg w "$workflow" '[.[][] | select(.path == $w)]
+      | length > 0 and all(.[]; .status == "completed") and (max_by(.id).conclusion == "success")' >/dev/null
+}
+
+# going <workflow> <sha>...: a run of <workflow> on those commits has not ended.
+going() {
+  local workflow="$1" sha
+  shift
+  for sha in "$@"; do runs_of "$sha"; done |
+    jq -se --arg w "$workflow" 'any(.[][]; .path == $w and .status != "completed")' >/dev/null
+}
+
+# green <index>: whether candidate <index> is green; says why not.
+green() {
+  local i="$1" x="${commits[$1]}" workflow last evidence glob
+  local -a specs
+  if ! passed "$own_workflow" "$x"; then
+    echo "deploy-gate: $x: Validate has not passed on it."
+    return 1
+  fi
+  for workflow in "${!watched[@]}"; do
+    if going "$workflow" "${commits[@]:0:i+1}"; then
+      echo "deploy-gate: $x: a $workflow run since $deploy is still going."
+      return 1
+    fi
+    specs=()
+    while IFS= read -r glob; do specs+=(":(glob)$glob"); done <<<"${watched[$workflow]}"
+    last="$(git log -1 --first-parent --format=%H "$x" -- "${specs[@]}")"
+    # Unchanged since deploy (or ever): nothing of it to wait for.
+    if [[ -z "$last" ]] || { [[ -n "$deploy_tip" ]] && git merge-base --is-ancestor "$last" "$deploy_tip"; }; then
+      continue
+    fi
+    mapfile -t evidence < <(git rev-list --first-parent "$x" "^$last"; echo "$last")
+    if ((${#evidence[@]} > evidence_max)); then
+      echo "deploy-gate: $x: $workflow last changed ${#evidence[@]} commits earlier, more than the $evidence_max read; holding."
+      return 1
+    fi
+    if ! passed "$workflow" "${evidence[@]}"; then
+      echo "deploy-gate: $x: $workflow has not passed for its change at $last."
+      return 1
+    fi
+  done
+}
+
+target=""
+for ((i = ${#commits[@]} - 1; i >= 0; i--)); do
+  if green "$i"; then
+    target="${commits[$i]}"
+    break
+  fi
+done
+
+if [[ -z "$target" ]]; then
   echo "deploy-gate: no commit after $deploy (${deploy_tip:-none}) on $main is green yet; $deploy stays."
   exit 0
 fi
-target="${commits[$target_idx]}"
 
 echo "deploy-gate: moving $deploy from ${deploy_tip:-nothing} to $target."
 if git push --quiet "$remote" "$target:refs/heads/$deploy"; then

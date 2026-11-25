@@ -32,12 +32,26 @@ that is green:
   has no passing run of its own and is never a target.
 - **Tailscale policy** and **Tailscale Services** run only when their paths
   change, and each run applies the whole state at its commit (the whole
-  policy file; every declared Service). So for each, the newest run among
-  the commits after `deploy` up to the target must have succeeded and none
-  of those runs may still be going. A failed policy apply holds `deploy`
-  until a later policy run succeeds, even for commits that do not touch the
-  policy. The policy reapply that the Services sync dispatches after
-  creating a Service counts too.
+  policy file; every declared Service). The gate asks git which of them a
+  candidate needs: one whose paths changed since `deploy`. For each, let L
+  be the last commit up to the candidate that touched its paths (found in
+  the whole history, not just the commits looked at). There must be
+  positive evidence: at least one run on a commit from L to the candidate,
+  all of them ended, the newest successful. A run GitHub has not listed
+  yet is no evidence, so it holds `deploy`. A failed policy apply holds
+  `deploy` until a later policy change's run succeeds, even for commits
+  that do not touch the policy. No run of either since `deploy` may still
+  be going. More than 100 commits between L and the candidate holds rather
+  than guesses. The gate's copy of each workflow's path filters is checked
+  against the workflow files.
+- When the Services sync creates a Service, it reapplies the policy
+  **in the same run, from the same commit** (the Service auto-approvers
+  resolve against existing Services), so that run passing is evidence for
+  both. Policy applies on `main` and Services syncs share one concurrency
+  queue (`tailscale-apply`, never cancelling a run in progress), so an
+  older state never lands after a newer one. A run waiting in the queue
+  can be replaced by a newer one; the gate then holds until a run passes
+  for that change (rerun the cancelled one: `gh run rerun <id>`).
 
 That ordering is why the host's post-switch restart of
 `tailscale-services.service` now works the first time: a host advertising a
@@ -209,7 +223,9 @@ post-switch steps and a failed unit per bad commit.
   against a temporary bare repository and a `gh` that answers the runs API
   from fixtures: creating `deploy`, skipping commits still validating or
   never validated, a failed or running Tailscale run holding later commits,
-  the dispatched policy reapply, pull-request runs not counting, never
+  a required run not listed yet, a failed run older than the commits looked
+  at, the path filters matching the workflows, the Services sync reapplying
+  the policy itself in the shared queue, pull-request runs not counting, never
   moving backwards, a concurrent move winning, and refusing a `deploy` off
   `main`.
 
