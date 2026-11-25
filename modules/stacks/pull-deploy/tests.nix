@@ -134,7 +134,7 @@ pkgs.testers.runNixOSTest {
       };
     };
     # Not a commit of the test repository: the agent must hold at it.
-    system.configurationRevision = "booted-image";
+    my.revision = "booted-image";
 
     users.users.alice = {
       isNormalUser = true;

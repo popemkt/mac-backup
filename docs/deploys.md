@@ -73,8 +73,9 @@ on for shared-server only. Two units:
 
 Every NixOS system records the commit it was built from in
 `/run/current-system/configuration-revision` (`flake.nix` sets
-`system.configurationRevision`; `modules/nixos/system/applying.nix` writes
-it). One rule, in [`scripts/lib/deploy-guard.sh`](../scripts/lib/deploy-guard.sh),
+`my.revision`; `modules/nixos/system/applying.nix` writes it). Not
+`system.configurationRevision`: that also lands in `nixos-version`, so every
+commit would change `system-path` and restart polkit and accounts-daemon. One rule, in [`scripts/lib/deploy-guard.sh`](../scripts/lib/deploy-guard.sh),
 decides for both the agent and `rebuild` on a shared host:
 
 | Target vs what the host runs | Agent | `rebuild` |

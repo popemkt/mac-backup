@@ -8,14 +8,14 @@
 
 # Both hold this lock from their last check to the end of the switch, so the
 # one that waits decides against what the other applied. Declared by
-# modules/nixos/system (a root file every account may open read-only:
+# modules/nixos/system/applying.nix (a root file every account may open read-only:
 # flock needs no write access).
 dotfiles_apply_lock() { echo /run/dotfiles-apply.lock; }
 
 # dotfiles_applied_revision: the commit the running system was built from,
-# written into the system by modules/nixos/system from
-# system.configurationRevision (flake.nix sets it to the flake's rev, or
-# `<rev>-dirty` for a tree with uncommitted changes). Prints nothing for a
+# written into the system by modules/nixos/system/applying.nix from
+# my.revision (flake.nix sets it to the flake's rev, or `<rev>-dirty` for a
+# tree with uncommitted changes). Prints nothing for a
 # system built before the file existed. DOTFILES_CURRENT_SYSTEM overrides
 # /run/current-system, for tests.
 dotfiles_applied_revision() {

@@ -319,8 +319,8 @@
             {
               home-manager = homeManagerBase;
               # The commit applied, `<rev>-dirty` for uncommitted changes
-              # (modules/nixos/system writes it into the system).
-              system.configurationRevision = self.rev or self.dirtyRev or null;
+              # (modules/nixos/system/applying.nix writes it into the system).
+              my.revision = self.rev or self.dirtyRev or null;
             }
           ];
         };
