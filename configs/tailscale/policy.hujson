@@ -114,6 +114,16 @@
       "ip": ["tcp:443"],
     },
 
+    // popemkt's own devices reach the shared server's Beszel dashboard
+    // (docs/monitoring.md). Beszel shows it only to the login tailscaled
+    // vouches for, so other members, and tagged devices, which carry no
+    // login, see no data even through the wildcard grant below.
+    {
+      "src": ["hoangng71299@gmail.com"],
+      "dst": ["svc:beszel-shared-server"],
+      "ip": ["tcp:443"],
+    },
+
     // The people on the shared server reach its Tailscale SSH server; the
     // `ssh` block below decides which account each one may log in as.
     // popemkt's Macs are tagged, so they connect as their tags, not as him.
@@ -155,6 +165,7 @@
       "svc:bb-popemkt": ["tag:shared-server"],
       "svc:bb-bytetum": ["tag:shared-server"],
       "svc:axioms-popemkt": ["tag:shared-server"],
+      "svc:beszel-shared-server": ["tag:shared-server"],
     },
   },
 

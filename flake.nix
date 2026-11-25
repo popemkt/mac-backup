@@ -399,6 +399,16 @@
         pkgs = (pkgsFor "x86_64-linux").extend self.overlays.default;
       };
 
+      # Failed-service and health alerts to ntfy, and the Beszel dashboard,
+      # under their real units (docs/monitoring.md → Tests).
+      checks.x86_64-linux.monitoring = import ./modules/stacks/monitoring/tests.nix {
+        pkgs = (pkgsFor "x86_64-linux").extend self.overlays.default;
+      };
+      # The failed-service queue's handoff, raced (no VM).
+      checks.x86_64-linux.monitoring-queue = import ./modules/stacks/monitoring/queue-check.nix {
+        pkgs = pkgsFor "x86_64-linux";
+      };
+
       # The pull agent against a local stand-in for GitHub, and the shared-host
       # rebuild guard beside it (docs/deploys.md → Tests).
       checks.x86_64-linux.pull-deploy = import ./modules/stacks/pull-deploy/tests.nix {

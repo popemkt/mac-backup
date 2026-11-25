@@ -290,6 +290,21 @@ in
     };
   };
 
+  # Alerts to popemkt's phone through the ntfy above (topic
+  # host-attention): any failed service, and the health checks (disk,
+  # memory, units stuck failed, the MCP edge's Funnel drift, Keycloak sign-in
+  # errors), each once when it goes wrong and once when it recovers. And
+  # Beszel, a read-only dashboard of this machine, as svc:beszel-shared-server
+  # for popemkt's own (untagged) devices (docs/monitoring.md).
+  my.stacks.monitoring = {
+    enable = true;
+    alerts.enable = true;
+    dashboard = {
+      enable = true;
+      login = "hoangng71299@gmail.com";
+    };
+  };
+
   # Each person's personal kb in the browser, as svc:kb-<person>
   # (modules/stacks/kb/nixos.nix): their kb home store (kb DESIGN.md →
   # Locations), a root outside any repository that kb ui creates on first

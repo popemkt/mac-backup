@@ -276,6 +276,17 @@ from the package, so nothing in the directory is configuration. Copy it with
 `app-axioms-db` stopped (or from a SpacetimeDB snapshot), never mid-write.
 <!-- GAP [[01M692TZSTZ7HPR8V4SS77546Q]]: shared-server's axioms state has no backup. -->
 
+## Monitoring (shared-server)
+
+The Beszel hub ([monitoring.md](monitoring.md)) keeps its metrics history,
+its one user and its SSH key in `/var/lib/private/beszel-hub`; the alerts
+keep which checks are currently wrong, and when each unit last alerted, in
+`/var/lib/monitoring`.
+
+Decision: **disposable state, not backed up.** Nix declares the units, the
+viewer and the watched system; a lost directory loses only history and
+alert bookkeeping, and the next start recreates the rest.
+
 ## Marginalia Library
 
 <!-- GAP [[01M66FVYBMPZV44NS7CTC00ST4]]: marginalia-bytetum's backup is not declared here. -->
