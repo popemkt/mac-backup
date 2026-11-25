@@ -16,24 +16,35 @@ queue_append() {
 
 # queue_send <dir> <sender>: hand the queued units, one per line and each
 # once, to <sender> (a command or function that publishes them), then delete
-# exactly the entries it was given. Returns 0 when there was nothing to
-# send or it was sent; 1 when <sender> failed; 2 when an entry could not be
-# read. Only the first deletes anything.
+# exactly the entries it was given. An entry that cannot be read is moved to
+# `queue/bad`, so it never blocks the rest; <sender> is called with the
+# number of entries kept there and that directory, so it can say so, and is
+# called even with no units when an entry was just set aside. Returns 0 when
+# there was nothing to send or it was sent; 1 when <sender> failed (nothing
+# deleted); 2 when an unreadable entry could not be set aside (nothing sent
+# or deleted).
 queue_send() {
-  local spool="$1/queue" sender="$2" entry unit
+  local spool="$1/queue" sender="$2" entry unit bad=0 set_aside=0
   local -a entries=() units=()
   for entry in "$spool"/entry.*; do
     [ -e "$entry" ] || continue
-    if ! unit="$(cat -- "$entry")"; then
-      echo "queue: cannot read $entry; nothing sent or deleted" >&2
+    if unit="$(cat -- "$entry")"; then
+      entries+=("$entry")
+      units+=("$unit")
+    elif mkdir -p "$spool/bad" && mv -- "$entry" "$spool/bad/"; then
+      echo "queue: cannot read $entry; set aside in $spool/bad" >&2
+      set_aside=1
+    else
+      echo "queue: cannot read $entry, nor set it aside; nothing sent or deleted" >&2
       return 2
     fi
-    entries+=("$entry")
-    units+=("$unit")
   done
-  [ ${#entries[@]} -gt 0 ] || return 0
-  if ! printf '%s\n' "${units[@]}" | sort -u | "$sender"; then
+  [ ${#entries[@]} -gt 0 ] || [ "$set_aside" = 1 ] || return 0
+  if [ -d "$spool/bad" ]; then
+    bad="$(find "$spool/bad" -mindepth 1 -maxdepth 1 | wc -l)"
+  fi
+  if ! { [ ${#units[@]} -eq 0 ] || printf '%s\n' "${units[@]}" | sort -u; } | "$sender" "$bad" "$spool/bad"; then
     return 1
   fi
-  rm -f -- "${entries[@]}"
+  [ ${#entries[@]} -eq 0 ] || rm -f -- "${entries[@]}"
 }

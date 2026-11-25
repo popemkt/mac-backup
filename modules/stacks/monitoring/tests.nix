@@ -239,11 +239,17 @@ pkgs.testers.runNixOSTest {
               "mkdir -p /var/lib/monitoring/unit-failed/queue",
               "printf 'stranded-a.service\\n' > /var/lib/monitoring/unit-failed/queue/entry.left1",
               "printf 'queued-b.service\\n' > /var/lib/monitoring/unit-failed/queue/entry.left2",
+              # And one that cannot be read: set aside, and said so.
+              "mkdir /var/lib/monitoring/unit-failed/queue/entry.unreadable",
           )
           health()
           [batch] = messages("2 more services failed on server")
           assert "stranded-a.service" in batch["message"] and "queued-b.service" in batch["message"], batch["message"]
-          machine.succeed("test -z \"$(ls -A /var/lib/monitoring/unit-failed/queue)\"")
+          assert "1 queued entry unreadable, kept in /var/lib/monitoring/unit-failed/queue/bad" in batch["message"], batch["message"]
+          machine.succeed(
+              "test \"$(ls -A /var/lib/monitoring/unit-failed/queue)\" = bad",
+              "test -d /var/lib/monitoring/unit-failed/queue/bad/entry.unreadable",
+          )
           health()
           assert len(messages("2 more services failed on server")) == 1
 

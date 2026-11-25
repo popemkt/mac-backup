@@ -41,12 +41,23 @@ check() {
 # burst limit, or a lock it could not get): one summary of them all
 # (./queue.sh). Entries are deleted only once the summary is sent, so a
 # run that fails or dies leaves them to the next.
+# send_summary <entries set aside> <where>, the units on stdin.
 send_summary() {
+  local bad="$1" where="$2" title
   local -a units
   mapfile -t units
-  printf 'Also failed: %s\n\nEach alerted on its own up to the burst limit; journalctl -u <unit> for each.\n' "${units[*]}" |
-    "$NTFY_PUBLISH" --title "${#units[@]} more services failed on $MONITOR_HOST" --priority high --tags warning "$TOPIC" &&
-    echo "alerted: summary of ${#units[@]} failed services"
+  if [ ${#units[@]} -gt 0 ]; then
+    title="${#units[@]} more services failed on $MONITOR_HOST"
+  else
+    title="Failure queue entries unreadable on $MONITOR_HOST"
+  fi
+  {
+    [ ${#units[@]} -eq 0 ] ||
+      printf 'Also failed: %s\n\nEach alerted on its own up to the burst limit; journalctl -u <unit> for each.\n' "${units[*]}"
+    [ "$bad" -eq 0 ] ||
+      printf '\n%s queued entr%s unreadable, kept in %s.\n' "$bad" "$([ "$bad" -eq 1 ] && echo y || echo ies)" "$where"
+  } | "$NTFY_PUBLISH" --title "$title" --priority high --tags warning "$TOPIC" &&
+    echo "alerted: $title"
 }
 queue_send "$STATE_DIRECTORY/unit-failed" send_summary || publish_failed=1
 

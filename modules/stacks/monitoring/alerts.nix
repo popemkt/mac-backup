@@ -71,6 +71,7 @@ let
         inherit name;
         runtimeInputs = [
           pkgs.coreutils
+          pkgs.findutils
           pkgs.gnugrep
           pkgs.util-linux
           config.systemd.package

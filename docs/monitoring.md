@@ -160,7 +160,8 @@ account at its socket, and sees this machine through the agent.
 queue of failures waiting for a summary (a spool directory, one file per
 failure, no lock): hundreds of notifiers queue while a health run keeps
 sending, and every unit must be sent exactly once; an entry that cannot be
-read sends and deletes nothing, and a failed send deletes nothing.
+read is set aside in `queue/bad` (and the summary says so) while the rest
+still go out, and a failed send deletes nothing.
 
 ```bash
 nix build .#checks.x86_64-linux.monitoring -L
