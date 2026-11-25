@@ -1,10 +1,12 @@
 # CI
 
-One workflow gates this repo, plus two that maintain it.
+One workflow gates this repo, one moves the `deploy` branch shared-server
+applies, and the rest maintain it.
 
 | Workflow | Trigger | What it answers |
 |---|---|---|
 | `validate.yml` | PR, push to `main` | Is the repo green? |
+| `deploy.yml` | a gating workflow finishing on `main`, hourly, manual | Which `main` commit may shared-server run? |
 | `update-github-sources.yml` | schedule / manual | Are the GitHub release pins current? |
 | `tailscale-policy.yml` | policy changes | Is the Tailscale ACL valid? |
 
@@ -28,6 +30,15 @@ independent jobs that run in parallel because they share nothing:
   pins (`pkgs/kb`, in the dev shell), the same one every host installs and the
   pre-commit gate calls. kb's own code is built and tested in
   [popemkt/kb](https://github.com/popemkt/kb)'s CI, not here.
+
+## Deploy gate
+
+`deploy.yml` runs `scripts/deploy-gate`, which fast-forwards `deploy` to the
+newest `main` commit that Validate passed and whose Tailscale policy and
+Services runs have settled successfully; shared-server applies `deploy` by
+itself. It gates nothing on a PR and never forces the branch. The rules, the
+agent on the host, and how to pause it:
+[deploys.md](deploys.md).
 
 ## Pre-commit: the same questions, one commit earlier
 
@@ -60,7 +71,9 @@ there has a known answer already:
 - **Building the NixOS host.** `nix flake check` on the macOS runner evaluates
   `nixosConfigurations.shared-server`, so option errors and broken module
   wiring go red, but an x86_64-linux system cannot be built there. The build
-  is proven on the host itself (`nixos-rebuild build`) before every switch.
+  is proven on the host itself before every switch: by `rebuild`, or by the
+  pull agent, which leaves a failed unit and the host unchanged when a
+  `deploy` commit does not build ([deploys.md](deploys.md#failures)).
 
 ## Still manual
 
@@ -82,6 +95,10 @@ JSON
 The required contexts are the job names, `nix` and `kb-data`. Until kb moved
 to its own repo the second job was `kb`; a protection rule written from an
 older copy of this command would wait forever on a job that no longer runs.
+
+The `deploy` branch wants its own protection (no force pushes, no
+deletion, nothing that blocks the gate's token):
+[deploys.md → Turning it on](deploys.md#turning-it-on-once).
 
 That is a behavioural change for a solo repo — it makes direct pushes to `main`
 that fail CI impossible, which is the point, but it also means a red run blocks

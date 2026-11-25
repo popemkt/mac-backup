@@ -58,6 +58,7 @@ cmd_poll() {
   if [[ -e "$state/paused" ]]; then
     exit 0
   fi
+  # GAP [[01M89TBG2GTS2ACABN4C68FZKB]]: a fetch failing for long fails no unit.
   if ! fetch; then
     log "could not fetch $branch from $repository; trying again at the next poll."
     exit 0
