@@ -326,7 +326,9 @@ in
       # (https://oauth-redirect.googleusercontent.com/r/*). Until its exact
       # URI is listed here Gemini's sign-in is refused; the first attempt
       # logs it (docs/mcp-edge.md → Gemini's redirect).
-      gemini.redirectUris = [ ];
+      gemini.redirectUris = [
+        "https://oauth-redirect.googleusercontent.com/r/user_bound_custom-mcp-7890fb9443a49c511bec57e9"
+      ];
       claude.redirectUris = [ "https://claude.ai/api/mcp/auth_callback" ];
     };
   };
