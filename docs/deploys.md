@@ -44,8 +44,12 @@ that is green:
   the candidate that touched them (found in the whole history, not just
   the commits looked at). There must be positive evidence: at least one run
   on a commit from L to the candidate, all of them ended, the newest
-  successful. Since nothing it watches changed after L, that run applied
-  the candidate's state or a newer one. A run GitHub has not listed yet is
+  successful, and that newest run applied the candidate's Tailscale state.
+  A run applies main as it was at its checkout, not its triggering
+  commit, so the run names that commit in its last job (`applied <sha>`),
+  and the gate accepts it only if its watched paths are identical to the
+  candidate's (`git diff --quiet`); otherwise it holds for a run that
+  matches. A run GitHub has not listed yet is
   no evidence, so it holds `deploy`; a failed run holds `deploy` until a
   later run succeeds (`gh workflow run tailscale-reconcile.yml`, or a rerun),
   even for commits that do not touch Tailscale state. No run since `deploy`
@@ -240,8 +244,9 @@ post-switch steps and a failed unit per bad commit.
   from fixtures: creating `deploy`, skipping commits still validating or
   never validated, a failed or running Tailscale run holding later commits,
   a required run not listed yet, a failed run older than the commits looked
-  at, a failed runs API read ending the gate rather than counting as no
-  runs, the path filters matching the workflows, the reconcile checking out
+  at, a failed runs or jobs API read ending the gate rather than counting
+  as no runs, a run credited to the commit it checked out rather than its
+  trigger, the path filters matching the workflows, the reconcile checking out
   the current `main` and ending every run with a policy apply (and the PR
   workflow applying nothing), pull-request runs not counting, never
   moving backwards, a concurrent move winning, and refusing a `deploy` off

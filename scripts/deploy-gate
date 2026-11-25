@@ -11,12 +11,13 @@
 #     positive evidence it passed for that change. Let L be the last
 #     first-parent commit up to X that touched its paths: at least one run
 #     of it exists on a commit from L to X, all of them have ended, and the
-#     newest succeeded. Each run reconciles main as it is when the run
-#     starts, which for a run triggered from L on includes L, and nothing
-#     it watches changed after L, so that run applied X's state or a newer
-#     one. A run GitHub has not listed yet is no evidence, and L is found
-#     in the whole history, not only the commits looked at, so a failure
-#     older than the window still counts;
+#     newest succeeded. A run reconciles main as it was at its checkout,
+#     not its triggering commit, so that newest run must also have applied
+#     X's Tailscale state: the commit it names in its `applied <sha>` job
+#     has the same watched paths as X (else hold for a run that does). A
+#     run GitHub has not listed yet is no evidence, and L is found in the
+#     whole history, not only the commits looked at, so a failure older
+#     than the window still counts;
 #   - no run of it on a commit between deploy and X is still going.
 # Any failed read of the Actions API ends the gate without a decision.
 # Only main's first-parent commits after deploy are candidates; deploy moves
@@ -130,9 +131,24 @@ going() {
     jq -se --arg w "$workflow" 'any(.[][]; .path == $w and .status != "completed")' >/dev/null
 }
 
+# applied_by <run id>: sets `applied` to the commit a reconcile run checked
+# out, from its successful `applied <sha>` job; empty when it has none. A
+# failed read ends the gate (exit 1).
+applied_by() {
+  local jobs
+  if ! jobs="$(gh api "repos/$repo/actions/runs/$1/jobs?per_page=100")" ||
+    ! applied="$(jq -er '
+      if (.jobs | type) != "array" then error("no jobs") else . end
+      | [.jobs[] | select(.conclusion == "success") | .name
+         | select(startswith("applied ")) | ltrimstr("applied ")] | first // ""' <<<"$jobs")"; then
+    echo "::error::could not read the jobs of run $1; deciding nothing." >&2
+    exit 1
+  fi
+}
+
 # green <index>: whether candidate <index> is green; says why not.
 green() {
-  local i="$1" x="${commits[$1]}" workflow last evidence glob
+  local i="$1" x="${commits[$1]}" workflow last evidence glob newest applied
   local -a specs
   if ! passed "$own_workflow" "$x"; then
     echo "deploy-gate: $x: Validate has not passed on it."
@@ -157,6 +173,13 @@ green() {
     fi
     if ! passed "$workflow" "${evidence[@]}"; then
       echo "deploy-gate: $x: $workflow has not passed for its change at $last."
+      return 1
+    fi
+    newest="$(runs_of "${evidence[@]}" | jq -sr --arg w "$workflow" '[.[][] | select(.path == $w)] | max_by(.id).id')"
+    applied_by "$newest"
+    if [[ -z "$applied" ]] || ! git cat-file -e "$applied^{commit}" 2>/dev/null ||
+      ! git diff --quiet "$applied" "$x" -- "${specs[@]}"; then
+      echo "deploy-gate: $x: the newest $workflow run ($newest) applied ${applied:-an unnamed commit}, whose state differs from $x's; holding."
       return 1
     fi
   done

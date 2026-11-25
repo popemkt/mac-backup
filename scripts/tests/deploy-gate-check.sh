@@ -29,7 +29,8 @@ fail() {
   exit 1
 }
 
-run_id=0
+# Run ids, unique across calls (runs' loop is a subshell).
+echo 0 >"$work/run-id"
 policy=configs/tailscale/policy.hujson
 services=modules/stacks/example.nix
 # commit <name> [<path>...]: a commit on main changing each <path>, pushed;
@@ -47,15 +48,21 @@ commit() {
   git rev-parse HEAD
 }
 # runs <sha> <path>=<status>/<conclusion>...: the runs CI made for <sha>,
-# newest last. Event push on main unless the entry ends in @<event>. A run
+# newest last. Event push on main unless the entry has @<event>; a reconcile
+# run applied <sha> itself unless the entry ends in +<applied sha>. A run
 # of the same workflow and event replaces the earlier one, as a run's state
 # changes in place on GitHub.
 runs() {
-  local sha="$1" entry path state event status conclusion
+  local sha="$1" entry path state event status conclusion applied run_id
   shift
   for entry in "$@"; do
     path="${entry%%=*}"
     state="${entry#*=}"
+    applied=null
+    if [[ "$state" == *+* ]]; then
+      applied="\"${state#*+}\""
+      state="${state%+*}"
+    fi
     event=push
     if [[ "$state" == *@* ]]; then
       event="${state#*@}"
@@ -64,9 +71,10 @@ runs() {
     status="${state%/*}"
     conclusion="${state#*/}"
     [[ "$conclusion" == - ]] && conclusion=null || conclusion="\"$conclusion\""
-    run_id=$((run_id + 1))
-    printf '{"id": %d, "path": ".github/workflows/%s", "head_branch": "main", "event": "%s", "status": "%s", "conclusion": %s}\n' \
-      "$run_id" "$path" "$event" "$status" "$conclusion"
+    run_id=$(($(cat "$work/run-id") + 1))
+    echo "$run_id" >"$work/run-id"
+    printf '{"id": %d, "path": ".github/workflows/%s", "head_branch": "main", "event": "%s", "status": "%s", "conclusion": %s, "applied": %s}\n' \
+      "$run_id" "$path" "$event" "$status" "$conclusion" "$applied"
   done | jq -s --slurpfile old <(cat "$STUB_RUNS/$sha.json" 2>/dev/null || echo '[]') '
     . as $new
     | [$old[0][] | select(. as $r | $new | all(.path != $r.path or .event != $r.event))] + $new' \
@@ -105,6 +113,11 @@ policy_yml="$workflows/tailscale-policy.yml"
   fail "every checkout in tailscale-reconcile.yml must take the current main"
 [[ "$(yq -r '.jobs.sync.steps[-1] | (.uses // "") + " " + (.with.action // "") + " " + (.if // "always")' "$reconcile_yml")" == "tailscale/gitops-acl-action@v1 apply always" ]] ||
   fail "tailscale-reconcile.yml must end every sync by applying the policy, unconditionally"
+# shellcheck disable=SC2016 # GitHub expressions, matched literally
+[[ "$(yq -r '.jobs.applied | .needs + " " + .name' "$reconcile_yml")" == 'sync applied ${{ needs.sync.outputs.applied }}' &&
+  "$(yq -r '.jobs.sync.outputs.applied' "$reconcile_yml")" == '${{ steps.checkout.outputs.applied }}' &&
+  "$(yq -r '.jobs.sync.steps[] | select(.id == "checkout") | .run' "$reconcile_yml")" == *'git rev-parse HEAD'* ]] ||
+  fail "tailscale-reconcile.yml must name the commit it checked out in an 'applied <sha>' job"
 [[ "$(yq -r '.on.push // "none"' "$policy_yml")" == none ]] ||
   fail "tailscale-policy.yml must not run on pushes to main"
 if grep -q 'action: apply' "$policy_yml"; then
@@ -240,6 +253,28 @@ rm "$STUB_RUNS/$w.fail"
 runs "$w" tailscale-reconcile.yml=completed/success
 gate
 expect_deploy "$y" "once the API answers and the run passed, deploy moves"
+
+# 12. A reconcile run is credited to the commit it checked out, not the one
+#     that triggered it: a run on A that applied main at B (a later policy
+#     change) is no evidence for A or C; a run that applied C (only a
+#     README after A) is.
+aa="$(commit aa "$policy")"
+cc="$(commit cc README.md)"
+bb="$(commit bb "$policy")"
+runs "$aa" "$ok" "tailscale-reconcile.yml=completed/success+$bb"
+runs "$cc" "$ok"
+runs "$bb" tailscale-reconcile.yml=in_progress/-
+gate
+expect_deploy "$y" "a run that applied a later Tailscale state holds deploy"
+grep -q "applied $bb" "$work/out" || fail "the hold names the commit the run applied"
+touch "$STUB_RUNS/jobs.fail"
+if gate; then
+  fail "a failed jobs API read must fail the gate"
+fi
+rm "$STUB_RUNS/jobs.fail"
+runs "$aa" "tailscale-reconcile.yml=completed/success+$cc"
+gate
+expect_deploy "$cc" "a run that applied the same Tailscale state releases it"
 
 # 10. deploy with commits main lacks: refuse, change nothing.
 git checkout --quiet --detach "$n"
