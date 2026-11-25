@@ -39,22 +39,27 @@ check() {
 
 # Failed services the notifier queued instead of alerting on each (its
 # burst limit, or a lock it could not get): one summary of them all. The
-# queue is taken under the notifier's lock; a publish that fails puts the
-# units back.
+# batch being sent is `pending.sending`; one a run left behind (it died
+# after taking it) is sent first, with whatever was queued since merged in,
+# never overwritten. The queue is taken under the notifier's lock; a publish
+# that fails leaves the batch to the next run.
 failed_dir="$STATE_DIRECTORY/unit-failed"
-if [ -s "$failed_dir/pending" ]; then
+if [ -s "$failed_dir/pending" ] || [ -e "$failed_dir/pending.sending" ]; then
   exec 8>"$failed_dir/.lock"
   if flock -w 60 8; then
-    mv "$failed_dir/pending" "$failed_dir/pending.sending"
+    if [ -s "$failed_dir/pending" ]; then
+      cat "$failed_dir/pending" >>"$failed_dir/pending.sending"
+      rm "$failed_dir/pending"
+    fi
     flock -u 8
     mapfile -t units < <(sort -u "$failed_dir/pending.sending")
-    if printf 'Also failed: %s\n\nEach alerted on its own up to the burst limit; journalctl -u <unit> for each.\n' "${units[*]}" |
+    if [ ${#units[@]} -eq 0 ]; then
+      rm -f "$failed_dir/pending.sending"
+    elif printf 'Also failed: %s\n\nEach alerted on its own up to the burst limit; journalctl -u <unit> for each.\n' "${units[*]}" |
       "$NTFY_PUBLISH" --title "${#units[@]} more services failed on $MONITOR_HOST" --priority high --tags warning "$TOPIC"; then
       rm "$failed_dir/pending.sending"
       echo "alerted: summary of ${#units[@]} failed services"
     else
-      cat "$failed_dir/pending.sending" >>"$failed_dir/pending"
-      rm "$failed_dir/pending.sending"
       publish_failed=1
     fi
   fi
