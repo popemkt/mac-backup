@@ -31,10 +31,15 @@ dotfiles_applied_revision() {
 #   forward   <target> descends from <applied>: the only switch allowed;
 #   behind    <target> is an ancestor of <applied>: a rollback;
 #   diverged  both are known commits and neither descends from the other;
-#   unknown   <applied> is empty, dirty, or a commit <git dir> lacks.
+#   none      <applied> is empty: a system built before revisions were recorded;
+#   unknown   <applied> is dirty, or a commit <git dir> lacks.
 dotfiles_revision_relation() {
   local git_dir="$1" applied="$2" target="$3"
-  if [[ -z "$applied" || "$applied" == *dirty* ]] ||
+  if [[ -z "$applied" ]]; then
+    echo none
+    return 0
+  fi
+  if [[ "$applied" == *dirty* ]] ||
     ! git -C "$git_dir" -c safe.directory='*' cat-file -e "${applied}^{commit}" 2>/dev/null; then
     echo unknown
     return 0

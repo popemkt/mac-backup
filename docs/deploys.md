@@ -97,13 +97,21 @@ decides for both the agent and `rebuild` on a shared host:
 | same commit | nothing to do | reapplies |
 | descends from it | applies | applies |
 | ancestor of it (someone applied a newer `main`) | skips, logs `Never rolling back` | refuses: pull first |
-| unrelated, dirty, or not recorded | holds: failed unit | applies with a warning (the way back to `main`) |
+| unrelated or dirty (an emergency apply) | holds: failed unit | refuses, unless `REBUILD_LOCAL=1` |
+| not recorded (a system from before revisions were recorded) | holds: failed unit | applies, with a note |
 
 Both hold `/run/dotfiles-apply.lock` from that decision to the end of the
 post-switch steps, so the one that waits decides against what the other
-applied. So `rebuild` from `origin/main` (possibly ahead of `deploy`)
-always works, and the agent then skips the older `deploy` commits until
-`deploy` passes what was applied.
+applied. `rebuild` takes the lock *before* it fetches `origin/main`, so a
+commit the agent applied while it waited is in what it compares against
+(and it then refuses as "behind origin/main": pull and rerun). So `rebuild`
+from a current `origin/main` (possibly ahead of `deploy`) always works, and
+the agent then skips the older `deploy` commits until `deploy` passes what
+was applied.
+
+`pause` takes the same lock and the agent checks for a pause again under
+it, right before switching: a pause during a build stops that build from
+switching, and a pause during a switch waits for it to finish.
 
 ### Post-switch steps
 
@@ -147,8 +155,10 @@ git ls-remote origin deploy main   # where the branches are on GitHub
   (forward only). Nothing to pause.
 - **Emergency apply of unpushed work:** `sudo pull-deploy pause "…"`, then
   `REBUILD_LOCAL=1 rebuild`. Without the pause the agent holds anyway (a
-  failed unit), since the host then runs a commit `deploy` lacks. Push the
-  fix, let it reach `deploy`, `sudo pull-deploy resume`.
+  failed unit), since the host then runs a commit `deploy` lacks, and a
+  plain `rebuild` refuses too. To leave it: push the fix and let it reach
+  `deploy`, or apply `origin/main` with `REBUILD_LOCAL=1 rebuild` from a
+  clean checkout of it; then `sudo pull-deploy resume`.
 - **Stop a bad commit from rolling out:** pause, then revert on `main`.
 
 ## Turning it on (once)
@@ -215,9 +225,12 @@ post-switch steps and a failed unit per bad commit.
   bb-plugins-sync as the person, `restart-app --status`); an older `deploy`
   is never applied, even when the apply is started by hand; a commit that
   does not build leaves the host and its profile where they were and the
-  unit failed, without retrying; pause and resume; `status` for a person;
-  and `rebuild` on the shared host refusing to roll back what the agent
-  applied.
+  unit failed, without retrying; pause and resume; a pause during a build
+  stopping that build's switch, and a pause waiting for a switch in flight;
+  `status` for a person; and `rebuild` on the shared host refusing to roll
+  back what the agent applied, including a commit the agent applied while
+  `rebuild` waited for the lock, and refusing an unrecognized recorded
+  revision unless `REBUILD_LOCAL=1`.
 - `checks.*.deploy-gate-check`
   ([deploy-gate-check.sh](../scripts/tests/deploy-gate-check.sh)): the gate
   against a temporary bare repository and a `gh` that answers the runs API

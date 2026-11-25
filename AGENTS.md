@@ -106,7 +106,9 @@ branch, and the pull agent switches to it within minutes, so a hand-run
 switches the host to an ancestor of the commit it runs
 (`/run/current-system/configuration-revision`): `rebuild` refuses and asks
 you to pull, the agent skips; both wait on one lock, so they never fight.
-Pause the agent before a `REBUILD_LOCAL=1` rebuild.
+A host running a revision that is not on `origin/main` (an emergency
+apply) makes `rebuild` refuse unless `REBUILD_LOCAL=1`. Pause the agent
+before a `REBUILD_LOCAL=1` rebuild.
 A rebuild there never restarts a unit with an `idleCheck` (bb's host daemon
 `app-bb-daemon`, which runs every agent thread): it prints
 `<unit>: restart pending until idle`, and the unit restarts once the app

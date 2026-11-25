@@ -43,6 +43,10 @@ let
       echo "this commit does not build" >&2
       exit 1
     fi
+    # A build long enough to pause during.
+    if [ "$marker" = slow ]; then
+      sleep 10
+    fi
     mkdir -p "$out/bin"
     printf %s "$rev" > "$out/configuration-revision"
     cat > "$out/bin/switch-to-configuration" <<EOF
@@ -307,6 +311,35 @@ pkgs.testers.runNixOSTest {
         assert f"applied:   {c5}" in out, out
         assert f"deploy:    {c5}" in out, out
 
+    with subtest("a pause during a build keeps that build from switching"):
+        before = applied()
+        cs = sh("test-commit slow")
+        push(cs, "main", "deploy")
+        sh("systemctl start pull-deploy-poll.service")
+        machine.wait_until_succeeds(f"journalctl -u pull-deploy | grep -q 'building {cs}'")
+        sh("pull-deploy pause paused during a build")
+        machine.wait_until_succeeds(
+            "[ -z \"$(systemctl list-jobs --no-legend pull-deploy.service)\" ]"
+            " && [ \"$(systemctl show -p ActiveState --value pull-deploy.service)\" != activating ]",
+            timeout=60,
+        )
+        assert applied() == before, (applied(), before)
+        machine.succeed("journalctl -u pull-deploy | grep -q 'paused while building'")
+        sh("pull-deploy resume")
+        machine.wait_until_succeeds(f"[ \"$(cat /run/current-system/configuration-revision)\" = {cs} ]", timeout=60)
+        c5 = cs
+
+    with subtest("a pause waits for an apply in flight to finish its switch"):
+        sh("systemd-run --unit=holdlock --setenv=PATH=/run/current-system/sw/bin flock /run/dotfiles-apply.lock sleep 600")
+        machine.wait_until_succeeds("systemctl is-active --quiet holdlock", timeout=30)
+        sh("systemd-run --unit=pausetest --setenv=PATH=/run/current-system/sw/bin pull-deploy pause while locked")
+        machine.sleep(3)
+        machine.fail("test -e /var/lib/pull-deploy/paused")
+        sh("systemctl stop holdlock")
+        machine.wait_until_succeeds("test -e /var/lib/pull-deploy/paused")
+        sh("pull-deploy resume")
+        poll_and_settle()
+
     with subtest("rebuild on the shared host refuses to roll back what the agent applied"):
         # main behind the applied commit, as when the agent applied a
         # commit after this person fetched.
@@ -318,6 +351,35 @@ pkgs.testers.runNixOSTest {
         push(c5, "main")
         sh("git -C /srv/clone pull --quiet --ff-only")
         out = sh(rebuild)
+        assert "nixos-rebuild switch" in out, out
+
+    with subtest("rebuild that waited for the lock sees what was applied meanwhile"):
+        sh("systemd-run --unit=holdlock --setenv=PATH=/run/current-system/sw/bin flock /run/dotfiles-apply.lock sleep 600")
+        machine.wait_until_succeeds("systemctl is-active --quiet holdlock", timeout=30)
+        sh(
+            "systemd-run --unit=rebuildwait --setenv=PATH=/run/current-system/sw/bin"
+            " bash -c 'cd /srv/clone && REBUILD_DRY_RUN=1 scripts/rebuild --no-checks"
+            " > /tmp/rebuild.out 2>&1; echo $? > /tmp/rebuild.rc'"
+        )
+        machine.wait_until_succeeds("grep -q 'waiting for it' /tmp/rebuild.out")
+        # Meanwhile the agent applies a newer main commit.
+        c6 = sh("test-commit c6")
+        push(c6, "main", "deploy")
+        sh("manual-apply")
+        sh("systemctl stop holdlock")
+        machine.wait_until_succeeds("test -e /tmp/rebuild.rc")
+        out = sh("cat /tmp/rebuild.out")
+        assert sh("cat /tmp/rebuild.rc") != "0", out
+        assert "behind origin/main" in out, out
+
+    with subtest("rebuild refuses a recorded revision it does not know, unless REBUILD_LOCAL"):
+        sh("git -C /srv/clone pull --quiet --ff-only")
+        # An emergency apply of uncommitted work: the host runs <rev>-dirty.
+        sh("echo dirty > /srv/work/marker && manual-apply && git -C /srv/work checkout marker")
+        assert applied().endswith("-dirty"), applied()
+        out = machine.fail(rebuild + " 2>&1")
+        assert "REBUILD_LOCAL" in out, out
+        out = sh("cd /srv/clone && REBUILD_LOCAL=1 REBUILD_DRY_RUN=1 scripts/rebuild --no-checks")
         assert "nixos-rebuild switch" in out, out
   '';
 }

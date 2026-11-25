@@ -134,12 +134,16 @@ cmd_apply() {
     fail "$tip" "the system built from $tip records revision '${built}'; not switching."
   fi
 
-  # Hold the lock rebuild also holds, then decide again: a rebuild may have
-  # switched the host while this one built.
+  # Hold the lock rebuild and `pause` also take, then check again: a rebuild
+  # may have switched the host, or someone paused, while this one built.
   exec 9>>"$(dotfiles_apply_lock)"
   if ! flock -n 9; then
     log "waiting for another apply (a rebuild) to finish."
     flock 9
+  fi
+  if [[ -e "$state/paused" ]]; then
+    log "paused while building $tip ($(cat "$state/paused")); not switching. Resume: sudo pull-deploy resume"
+    exit 0
   fi
   decide "$tip"
 
@@ -192,6 +196,14 @@ case "${1:-}" in
     need_root pause
     shift
     mkdir -p "$state"
+    # Under the apply lock: a switch in flight (the agent's or a rebuild's)
+    # finishes first, and an apply still building sees the pause before it
+    # switches.
+    exec 9>>"$(dotfiles_apply_lock)"
+    if ! flock -n 9; then
+      log "an apply is switching; pausing once it finishes."
+      flock 9
+    fi
     printf '%s by %s: %s\n' "$(date --iso-8601=seconds)" "${SUDO_USER:-root}" "${*:-no reason given}" >"$state/paused"
     log "paused by ${SUDO_USER:-root}: ${*:-no reason given}. Resume: sudo pull-deploy resume"
     ;;
