@@ -235,6 +235,9 @@ in
     # Blender, and `blender-mcp` for agents: one headless Blender per MCP
     # session (modules/stacks/blender).
     blender.enable = true;
+    # Applies the `deploy` branch by itself: each main commit CI passed,
+    # without a hand-run rebuild (docs/deploys.md).
+    pull-deploy.enable = true;
     # The kb CLI for everyone: agents working in ~/.dotfiles keep its graph.
     kb.enable = true;
     # Sandboxes for agent work, under 8 cores, 12 GiB and 3 at once

@@ -134,9 +134,10 @@ and the agent, which restarts with the hub, reads the new key.
    tailnet listener yet (`expose = false`), so alerts wait on the server
    until the phone setup in [ntfy.md](ntfy.md#phone-setup-once-exposure-is-approved)
    is done.
-3. **Dashboard**: after the merge, check that the Services workflow created
-   `svc:beszel-shared-server` before the host applies the change (as for any
-   new Service, [tailscale.md](tailscale.md)).
+3. **Dashboard**: nothing to do. `tailscale-reconcile.yml` creates
+   `svc:beszel-shared-server` and applies its grant, and the host applies the
+   change only after that run succeeded ([deploys.md](deploys.md)). If that
+   run failed, `gh workflow run tailscale-reconcile.yml` once it is fixed.
 
 ## Tests
 

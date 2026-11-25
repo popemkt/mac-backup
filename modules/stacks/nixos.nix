@@ -12,6 +12,7 @@ _:
     ./mcp-edge
     ./monitoring
     ./ntfy
+    ./pull-deploy
     ./sandboxes
     ./t3-code/nixos.nix
     ./vpn/nixos.nix

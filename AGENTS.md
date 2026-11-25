@@ -56,6 +56,8 @@ Relevant docs:
 - [troubleshooting.md](/Users/popemkt/.dotfiles/docs/troubleshooting.md): common recovery steps
 - [ci.md](/Users/popemkt/.dotfiles/docs/ci.md): what CI gates, what it deliberately
   does not gate and why, and the one manual step left (branch protection)
+- [deploys.md](/Users/popemkt/.dotfiles/docs/deploys.md): how shared-server
+  applies green `main` by itself, and how to pause it
 - [tailscale.md](/Users/popemkt/.dotfiles/docs/tailscale.md): policy ownership,
   GitHub OIDC enrollment, and every remaining manual Tailscale control-plane
   step
@@ -97,6 +99,16 @@ exists), always apply with `rebuild`, never a bare `nixos-rebuild`: it switches
 only from a clean checkout at `origin/main` and otherwise refuses, telling you
 to pull, push, or commit first. A stale or uncommitted tree would roll back
 what someone else applied. `REBUILD_LOCAL=1` overrides, for emergencies only.
+shared-server also applies green `main` by itself: CI moves the `deploy`
+branch, and the pull agent switches to it within minutes, so a hand-run
+`rebuild` after a merge is no longer needed ([docs/deploys.md](docs/deploys.md);
+`pull-deploy status`, `sudo pull-deploy pause <reason>` / `resume`). Neither
+switches the host to an ancestor of the commit it runs
+(`/run/current-system/configuration-revision`): `rebuild` refuses and asks
+you to pull, the agent skips; both wait on one lock, so they never fight.
+A host running a revision that is not on `origin/main` (an emergency
+apply) makes `rebuild` refuse unless `REBUILD_LOCAL=1`. Pause the agent
+before a `REBUILD_LOCAL=1` rebuild.
 A rebuild there never restarts a unit with an `idleCheck` (bb's host daemon
 `app-bb-daemon`, which runs every agent thread): it prints
 `<unit>: restart pending until idle`, and the unit restarts once the app
@@ -202,6 +214,8 @@ Rules for agents:
 | Add a bb plugin | its source in `assets/bb-plugins/<name>` (not `assets/plugins`, whose skills are linked into every agent) and its path in the owning stack's `my.pkgs.bbPlugins`; `modules/common/home-manager/bb-plugins/` puts each plugin folder (with the sibling code it imports by relative path) in the Nix store (`modules/common/home-manager/plugin-sources/`) and builds `bb-plugins-sync`, which installs it on every `rebuild` from a writable copy of that store path, into the person's own bb only (changed plugins only; tests and docs do not count), so a rebuild installs the revision it applies, never a checkout's; untracked files in a plugin folder are not installed |
 | Try a bb plugin from a worktree, without a rebuild | `bb-plugins-sync --path <worktree>/assets/bb-plugins/<name>`; it installs that folder in place and replaces the installed plugin of that id; the next `bb-plugins-sync` or `rebuild` reinstalls the declared source of the applied revision |
 | Add host-only config | `hosts/<hostname>/default.nix` |
+| Change what follows every switch (rebuild and the pull agent alike) | `scripts/lib/post-switch.sh` |
+| Change which `main` commits shared-server applies by itself | `scripts/deploy-gate` (CI side) and `modules/stacks/pull-deploy` (host side); see [docs/deploys.md](docs/deploys.md) |
 | Add a work/personal split | `lib.mkIf (config.my.role == "work") { ... }` in the owning system module |
 | Add a direct GitHub release package | `nvfetcher.toml` and `pkgs/`; see `docs/github-release-packages.md` |
 | Move the Marginalia release this repo runs | `version` and `hash` in `pkgs/marginalia/default.nix`, by hand (no nvfetcher entry); see [docs/marginalia-service.md](docs/marginalia-service.md) |

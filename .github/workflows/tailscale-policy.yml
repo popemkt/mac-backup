@@ -1,5 +1,7 @@
-name: Sync Tailscale policy
+name: Test Tailscale policy
 
+# Tests a policy change on its pull request. Applying it on main is
+# tailscale-reconcile.yml's, the one workflow that writes Tailscale state.
 on:
   pull_request:
     branches:
@@ -7,13 +9,6 @@ on:
     paths:
       - configs/tailscale/policy.hujson
       - .github/workflows/tailscale-policy.yml
-  push:
-    branches:
-      - main
-    paths:
-      - configs/tailscale/policy.hujson
-      - .github/workflows/tailscale-policy.yml
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -59,7 +54,7 @@ jobs:
           fi
 
       - name: Test policy
-        if: github.event_name == 'pull_request' && steps.config.outputs.enabled == 'true'
+        if: steps.config.outputs.enabled == 'true'
         uses: tailscale/gitops-acl-action@v1
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_ID }}
@@ -67,13 +62,3 @@ jobs:
           tailnet: ${{ secrets.TS_TAILNET }}
           policy-file: configs/tailscale/policy.hujson
           action: test
-
-      - name: Apply policy
-        if: github.event_name != 'pull_request' && steps.config.outputs.enabled == 'true'
-        uses: tailscale/gitops-acl-action@v1
-        with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_ID }}
-          audience: ${{ secrets.TS_AUDIENCE }}
-          tailnet: ${{ secrets.TS_TAILNET }}
-          policy-file: configs/tailscale/policy.hujson
-          action: apply
