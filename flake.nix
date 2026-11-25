@@ -372,6 +372,12 @@
         pkgs = (pkgsFor "x86_64-linux").extend self.overlays.default;
       };
 
+      # Eval-only: the guard against upheld services a switch would stop
+      # (modules/nixos/system/upheld-units.nix).
+      checks.x86_64-linux.upheld-units = import ./modules/nixos/system/upheld-units-tests.nix {
+        pkgs = pkgsFor "x86_64-linux";
+      };
+
       checks.x86_64-linux.package-executors-contract = executorContractCheck (pkgsFor "x86_64-linux");
 
       checks.x86_64-linux.npm-global-activation-check =

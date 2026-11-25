@@ -81,6 +81,10 @@ in
         "mcp-edge-realm.service"
       ];
       upheldBy = [ "mcp-edge-realm.service" ];
+      # Restarted by a rebuild after systemd has reloaded, never stopped
+      # before it and brought back by Upholds= from the old unit
+      # (modules/nixos/system/upheld-units.nix).
+      stopIfChanged = false;
       path = [ pkgs.openssl ];
       serviceConfig = {
         User = edge.user;

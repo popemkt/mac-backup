@@ -288,6 +288,11 @@ in
       bindsTo = [ "keycloak.service" ];
       upheldBy = [ "keycloak.service" ];
       restartTriggers = [ realmJson ];
+      # A rebuild that changes the realm restarts this after systemd has
+      # reloaded, so it imports the new realm. Stopped before the reload
+      # instead, Keycloak's Upholds= would start the old unit again at once,
+      # and the old realm would stay (modules/nixos/system/upheld-units.nix).
+      stopIfChanged = false;
       path = [
         pkgs.curl
         pkgs.jq

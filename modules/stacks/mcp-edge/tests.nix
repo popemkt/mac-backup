@@ -17,6 +17,9 @@ let
   dexIssuer = "http://127.0.0.1:5556/dex";
   mockGoogleSecret = "mock-google-secret";
   geminiRedirect = "https://oauth-redirect.googleusercontent.com/r/edge-test";
+  # A second redirect for Gemini, which only the `realm-change`
+  # specialisation declares.
+  geminiRedirect2 = "https://oauth-redirect.googleusercontent.com/r/edge-test-2";
   claudeRedirect = "https://claude.ai/api/mcp/auth_callback";
 
   cert = pkgs.runCommand "edge-test-cert" { nativeBuildInputs = [ pkgs.openssl ]; } ''
@@ -95,6 +98,7 @@ let
       imports = [
         ../../options
         ../../nixos/system/services.nix
+        ../../nixos/system/upheld-units.nix
         ../kb/default.nix
         ../kb/nixos.nix
         ../vpn/default.nix
@@ -265,10 +269,19 @@ in
 pkgs.testers.runNixOSTest {
   name = "mcp-edge";
   # `funnel`: the same machine with mcpFunnel on, which changes only the
-  # front's nginx (the VM runs no tailscaled).
+  # front's nginx (the VM runs no tailscaled). `realm-change`: a second
+  # redirect for Gemini, which changes only mcp-edge-realm (the realm file).
+  # `emails-change`: a second allowed email, which changes only
+  # oauth2-proxy. Each is what a rebuild changes in place.
   nodes.server = {
     imports = [ serverModule ];
     specialisation.funnel.configuration.my.stacks.mcp-edge.funnel = true;
+    specialisation.realm-change.configuration.my.stacks.mcp-edge.clients.gemini.redirectUris = [
+      geminiRedirect2
+    ];
+    specialisation.emails-change.configuration.my.stacks.kb.stores.kb.remoteMcp.emails = [
+      "intruder@example.com"
+    ];
   };
 
   testScript = ''
@@ -279,6 +292,7 @@ pkgs.testers.runNixOSTest {
     ISSUER = f"{BASE}/realms/${edge.realm}"
     RESOURCE = f"{BASE}/mcp"
     GEMINI = "${geminiRedirect}"
+    GEMINI2 = "${geminiRedirect2}"
     CLAUDE = "${claudeRedirect}"
     ROOT = "/home/owner/.local/share/kb/home"
 
@@ -1017,6 +1031,12 @@ pkgs.testers.runNixOSTest {
             server.execute(f"timeout -s KILL {delay} mcp-edge-secrets rotate claude")
             assert re.fullmatch(r"[0-9a-f]{64}\n", read("client-claude-secret")), delay
             assert server.succeed(f"stat -c '%a %U' {SECRETS}/client-claude-secret").strip() == "400 root"
+        # One killed between its write and its rename leaves its temporary
+        # file (planted here, so it is there whatever the timing); the next
+        # rotation sweeps it.
+        server.succeed(f"install -m 0400 /dev/null {SECRETS}/.client-claude-secret.planted")
+        server.succeed("mcp-edge-secrets rotate claude")
+        assert not server.succeed(f"find {SECRETS} -name '.*' -type f"), "a temporary file was left"
         # A generator that fails, or prints a short value, changes nothing:
         # not a rotation's file, not one the unit would generate. The fake
         # openssl is bind-mounted over the real one both of them run.
@@ -1054,6 +1074,37 @@ pkgs.testers.runNixOSTest {
         wait_edge_up()
         status, fresh = signin("claude", "owner@example.com", CLAUDE)
         assert status == 0, fresh
+
+    with subtest("a switch that changes the realm or oauth2-proxy applies it, with no restart by hand"):
+        def gemini_redirects():
+            status, out = admin("GET", "kb/clients?clientId=gemini")
+            assert status == 0, out
+            return sorted(out["body"][0]["redirectUris"])
+
+        def intruder_at_mcp():
+            status, intruder = signin("gemini", "intruder@example.com", GEMINI)
+            assert status == 0, intruder
+            return mcp(token=intruder["access_token"])["status"]
+
+        def switch(specialisation=None):
+            # What `rebuild` does: switch-to-configuration, nothing else.
+            spec = f"specialisation/{specialisation}/" if specialisation else ""
+            server.succeed(f"/run/booted-system/{spec}bin/switch-to-configuration test")
+            wait_edge_up()
+
+        assert gemini_redirects() == [GEMINI] and intruder_at_mcp() == 403
+        # The realm alone changes: Keycloak holds the new one.
+        switch("realm-change")
+        assert gemini_redirects() == sorted([GEMINI, GEMINI2]), "the switch left Keycloak on the old realm"
+        status, fresh = signin("gemini", "owner@example.com", GEMINI2)
+        assert status == 0, fresh
+        switch()
+        assert gemini_redirects() == [GEMINI], "the switch back left Keycloak on the changed realm"
+        # oauth2-proxy alone changes: it runs with the new list.
+        switch("emails-change")
+        assert intruder_at_mcp() == 200, "the switch left oauth2-proxy on the old email list"
+        switch()
+        assert intruder_at_mcp() == 403, "the switch back left oauth2-proxy on the changed email list"
 
     with subtest("Funnel off: the front refuses a request a public connection carries; Funnel on: it passes"):
         MARK = "-H 'Tailscale-Funnel-Request: ?1'"
