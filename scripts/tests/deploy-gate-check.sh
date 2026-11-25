@@ -51,7 +51,8 @@ commit() {
 # newest last. Event push on main unless the entry has @<event>; a reconcile
 # run applied <sha> itself unless the entry ends in +<applied sha>. A run
 # of the same workflow and event replaces the earlier one, as a run's state
-# changes in place on GitHub.
+# changes in place on GitHub (keeping its id and start; a new id starts
+# later than every earlier one).
 runs() {
   local sha="$1" entry path state event status conclusion applied run_id
   shift
@@ -73,11 +74,14 @@ runs() {
     [[ "$conclusion" == - ]] && conclusion=null || conclusion="\"$conclusion\""
     run_id=$(($(cat "$work/run-id") + 1))
     echo "$run_id" >"$work/run-id"
-    printf '{"id": %d, "path": ".github/workflows/%s", "head_branch": "main", "event": "%s", "status": "%s", "conclusion": %s, "applied": %s}\n' \
-      "$run_id" "$path" "$event" "$status" "$conclusion" "$applied"
+    printf '{"id": %d, "run_started_at": "%s", "path": ".github/workflows/%s", "head_branch": "main", "event": "%s", "status": "%s", "conclusion": %s, "applied": %s}\n' \
+      "$run_id" "$(date -u -d "@$run_id" +%FT%TZ)" "$path" "$event" "$status" "$conclusion" "$applied"
   done | jq -s --slurpfile old <(cat "$STUB_RUNS/$sha.json" 2>/dev/null || echo '[]') '
     . as $new
-    | [$old[0][] | select(. as $r | $new | all(.path != $r.path or .event != $r.event))] + $new' \
+    | [$old[0][] | select(. as $r | $new | all(.path != $r.path or .event != $r.event))]
+      + [$new[] | . as $n
+         | ([$old[0][] | select(.path == $n.path and .event == $n.event)] | first) as $o
+         | if $o then . + {id: $o.id, run_started_at: $o.run_started_at} else . end]' \
     >"$STUB_RUNS/$sha.json.new"
   mv "$STUB_RUNS/$sha.json.new" "$STUB_RUNS/$sha.json"
 }
@@ -154,8 +158,8 @@ runs "$f" validate.yml=completed/failure
 gate
 expect_deploy "$c" "commits without a passing Validate are not green"
 
-# 4. A failed policy apply blocks every later commit until a newer policy
-#    run succeeds, even ones that do not touch the policy.
+# 4. A failed reconcile blocks every later commit until a newer one
+#    succeeds, even ones that do not touch the policy.
 g="$(commit g "$policy")"
 runs "$g" "$ok" tailscale-reconcile.yml=completed/failure
 h="$(commit h)"
@@ -263,18 +267,41 @@ cc="$(commit cc README.md)"
 bb="$(commit bb "$policy")"
 runs "$aa" "$ok" "tailscale-reconcile.yml=completed/success+$bb"
 runs "$cc" "$ok"
-runs "$bb" tailscale-reconcile.yml=in_progress/-
 gate
 expect_deploy "$y" "a run that applied a later Tailscale state holds deploy"
-grep -q "applied $bb" "$work/out" || fail "the hold names the commit the run applied"
+grep -q "state of $bb" "$work/out" || fail "the hold names the commit the run applied"
 touch "$STUB_RUNS/jobs.fail"
 if gate; then
   fail "a failed jobs API read must fail the gate"
 fi
 rm "$STUB_RUNS/jobs.fail"
+touch "$STUB_RUNS/workflow.fail"
+if gate; then
+  fail "a failed read of the reconcile's runs must fail the gate"
+fi
+rm "$STUB_RUNS/workflow.fail"
 runs "$aa" "tailscale-reconcile.yml=completed/success+$cc"
 gate
 expect_deploy "$cc" "a run that applied the same Tailscale state releases it"
+
+# 13. The live state is what the newest reconcile wrote, whatever its
+#     trigger: D's own reconcile passed, but a later one applied E, which
+#     then failed Validate. The tailnet holds E's state, so D is held, until
+#     a run applies a commit with D's state or a newer green one.
+dd="$(commit dd "$policy")"
+runs "$dd" "$ok" tailscale-reconcile.yml=completed/success
+ee="$(commit ee "$policy")"
+runs "$ee" validate.yml=completed/failure tailscale-reconcile.yml=completed/success
+gate
+expect_deploy "$cc" "a later reconcile replaced the candidate's state: hold"
+grep -q "state of $ee" "$work/out" || fail "the hold names the commit live now"
+ff="$(commit ff "$policy")"
+runs "$ff" "$ok" tailscale-reconcile.yml=in_progress/-
+gate
+expect_deploy "$cc" "a reconcile still going holds deploy"
+runs "$ff" tailscale-reconcile.yml=completed/success
+gate
+expect_deploy "$ff" "the newest reconcile applying a green commit releases it"
 
 # 10. deploy with commits main lacks: refuse, change nothing.
 git checkout --quiet --detach "$n"

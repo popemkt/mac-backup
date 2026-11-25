@@ -39,23 +39,22 @@ that is green:
   in its queue (`tailscale-reconcile`, one at a time, never cut off), or is
   rerun can therefore only write the newest state; the order of runs stops
   mattering, and a run whose policy apply failed is red, so its rerun
-  applies the policy again. The gate needs it for a candidate whose
-  reconcile paths changed since `deploy`. Let L be the last commit up to
-  the candidate that touched them (found in the whole history, not just
-  the commits looked at). There must be positive evidence: at least one run
-  on a commit from L to the candidate, all of them ended, the newest
-  successful, and that newest run applied the candidate's Tailscale state.
-  A run applies main as it was at its checkout, not its triggering
-  commit, so the run names that commit in its last job (`applied <sha>`),
-  and the gate accepts it only if its watched paths are identical to the
-  candidate's (`git diff --quiet`); otherwise it holds for a run that
-  matches. A run GitHub has not listed yet is
-  no evidence, so it holds `deploy`; a failed run holds `deploy` until a
-  later run succeeds (`gh workflow run tailscale-reconcile.yml`, or a rerun),
-  even for commits that do not touch Tailscale state. No run since `deploy`
-  may still be going. More than 100 commits between L and the candidate
-  holds rather than guesses. The gate's copy of the workflow's path filters
-  is checked against the workflow file.
+  applies the policy again. Each run names the commit it checked out in
+  its last job (`applied <sha>`). The gate asks it for a candidate whose
+  reconcile paths changed since `deploy`, and the question is what the
+  tailnet holds **now**, whatever commit triggered which run: runs go one
+  at a time, so the one that started last wrote the live state. If any run
+  of the workflow is still going, or the newest one did not succeed (or
+  there is none), the gate holds. Otherwise the commit that newest run
+  applied must have the candidate's watched paths exactly
+  (`git diff --quiet`); else it holds for a run that matches. So a
+  candidate's own successful run counts for nothing once a later run
+  applied another state (say a commit that then failed Validate), and a
+  failed run holds `deploy` until a later run succeeds
+  (`gh workflow run tailscale-reconcile.yml`, or a rerun), even for
+  commits that do not touch Tailscale state. The gate reads the
+  workflow's 100 newest runs. Its copy of the workflow's path filters is
+  checked against the workflow file.
 - Any failed or malformed read of the Actions API ends the gate run without
   a decision (the job fails); only good answers are cached, so a missing
   answer is never read as "no runs".
@@ -246,7 +245,8 @@ post-switch steps and a failed unit per bad commit.
   a required run not listed yet, a failed run older than the commits looked
   at, a failed runs or jobs API read ending the gate rather than counting
   as no runs, a run credited to the commit it checked out rather than its
-  trigger, the path filters matching the workflows, the reconcile checking out
+  trigger, a later reconcile that replaced the candidate's state holding
+  it, the path filters matching the workflows, the reconcile checking out
   the current `main` and ending every run with a policy apply (and the PR
   workflow applying nothing), pull-request runs not counting, never
   moving backwards, a concurrent move winning, and refusing a `deploy` off

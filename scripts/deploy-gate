@@ -7,18 +7,14 @@
 # A candidate commit X is green when
 #   - Validate (validate.yml, every push to main) passed on X itself, and
 #   - if the paths of the one workflow that writes Tailscale state
-#     (tailscale-reconcile.yml) changed between deploy and X, there is
-#     positive evidence it passed for that change. Let L be the last
-#     first-parent commit up to X that touched its paths: at least one run
-#     of it exists on a commit from L to X, all of them have ended, and the
-#     newest succeeded. A run reconciles main as it was at its checkout,
-#     not its triggering commit, so that newest run must also have applied
-#     X's Tailscale state: the commit it names in its `applied <sha>` job
-#     has the same watched paths as X (else hold for a run that does). A
-#     run GitHub has not listed yet is no evidence, and L is found in the
-#     whole history, not only the commits looked at, so a failure older
-#     than the window still counts;
-#   - no run of it on a commit between deploy and X is still going.
+#     (tailscale-reconcile.yml) changed between deploy and X, the tailnet
+#     holds X's Tailscale state now. Every run of it reconciles main as it
+#     was at its checkout, one run at a time, so the run that started last
+#     wrote what is live. No run of it may still be going, the newest must
+#     have succeeded, and the commit it names in its `applied <sha>` job
+#     must have the same watched paths as X; otherwise hold. Which commit
+#     triggered a run does not matter: a later run that applied a commit
+#     Validate then failed replaced the state of every commit before it.
 # Any failed read of the Actions API ends the gate without a decision.
 # Only main's first-parent commits after deploy are candidates; deploy moves
 # to the newest green one with a plain push (fast-forward only: the remote
@@ -26,9 +22,7 @@
 #
 # Environment: GITHUB_REPOSITORY (owner/name, for the runs API, through
 # `gh api`), DEPLOY_GATE_REMOTE (origin), DEPLOY_GATE_MAIN (main),
-# DEPLOY_GATE_BRANCH (deploy), DEPLOY_GATE_WINDOW (candidates looked at, 50),
-# DEPLOY_GATE_EVIDENCE_MAX (commits read for one workflow's evidence, 100;
-# more fails closed).
+# DEPLOY_GATE_BRANCH (deploy), DEPLOY_GATE_WINDOW (candidates looked at, 50).
 # `deploy-gate --print-watched` prints each watched workflow and path filter.
 set -euo pipefail
 
@@ -56,7 +50,6 @@ remote="${DEPLOY_GATE_REMOTE:-origin}"
 main="${DEPLOY_GATE_MAIN:-main}"
 deploy="${DEPLOY_GATE_BRANCH:-deploy}"
 window="${DEPLOY_GATE_WINDOW:-50}"
-evidence_max="${DEPLOY_GATE_EVIDENCE_MAX:-100}"
 
 git fetch --quiet "$remote" "+refs/heads/$main:refs/remotes/$remote/$main"
 main_ref="refs/remotes/$remote/$main"
@@ -122,15 +115,6 @@ passed() {
       | length > 0 and all(.[]; .status == "completed") and (max_by(.id).conclusion == "success")' >/dev/null
 }
 
-# going <workflow> <sha>...: a run of <workflow> on those commits has not ended.
-going() {
-  local workflow="$1"
-  shift
-  load_runs "$@"
-  runs_of "$@" |
-    jq -se --arg w "$workflow" 'any(.[][]; .path == $w and .status != "completed")' >/dev/null
-}
-
 # applied_by <run id>: sets `applied` to the commit a reconcile run checked
 # out, from its successful `applied <sha>` job; empty when it has none. A
 # failed read ends the gate (exit 1).
@@ -146,19 +130,45 @@ applied_by() {
   fi
 }
 
+# live_state <workflow>: sets `live` to the commit whose state <workflow>
+# last wrote (see the header), or `live_why` to why that is unknown. Read
+# once per gate run (its 100 newest runs); a failed read ends the gate.
+live="" live_why="" live_read=""
+live_state() {
+  local raw="$cache/live.raw" verdict
+  [[ "$live_read" == "$1" ]] && return 0
+  live_read="$1" live="" live_why=""
+  if ! gh api "repos/$repo/actions/workflows/${1##*/}/runs?per_page=100" >"$raw" ||
+    ! verdict="$(jq -er '
+      if (.workflow_runs | type) != "array" then error("no workflow_runs") else . end
+      | .workflow_runs
+      | if length == 0 then "none"
+        elif any(.[]; .status != "completed") then "going"
+        else max_by([.run_started_at, .id]) | "\(.conclusion) \(.id)" end' "$raw")"; then
+    echo "::error::could not read the runs of $1; deciding nothing." >&2
+    exit 1
+  fi
+  case "$verdict" in
+    none) live_why="$1 has never run, so nothing says the tailnet holds it." ;;
+    going) live_why="a $1 run is still going." ;;
+    success\ *)
+      applied_by "${verdict#* }"
+      live="$applied"
+      [[ -n "$live" ]] || live_why="the newest $1 run (${verdict#* }) names no applied commit."
+      ;;
+    *) live_why="the newest $1 run (${verdict#* }) ended ${verdict%% *}." ;;
+  esac
+}
+
 # green <index>: whether candidate <index> is green; says why not.
 green() {
-  local i="$1" x="${commits[$1]}" workflow last evidence glob newest applied
+  local x="${commits[$1]}" workflow last glob
   local -a specs
   if ! passed "$own_workflow" "$x"; then
     echo "deploy-gate: $x: Validate has not passed on it."
     return 1
   fi
   for workflow in "${!watched[@]}"; do
-    if going "$workflow" "${commits[@]:0:i+1}"; then
-      echo "deploy-gate: $x: a $workflow run since $deploy is still going."
-      return 1
-    fi
     specs=()
     while IFS= read -r glob; do specs+=(":(glob)$glob"); done <<<"${watched[$workflow]}"
     last="$(git log -1 --first-parent --format=%H "$x" -- "${specs[@]}")"
@@ -166,20 +176,13 @@ green() {
     if [[ -z "$last" ]] || { [[ -n "$deploy_tip" ]] && git merge-base --is-ancestor "$last" "$deploy_tip"; }; then
       continue
     fi
-    mapfile -t evidence < <(git rev-list --first-parent "$x" "^$last"; echo "$last")
-    if ((${#evidence[@]} > evidence_max)); then
-      echo "deploy-gate: $x: $workflow last changed ${#evidence[@]} commits earlier, more than the $evidence_max read; holding."
+    live_state "$workflow"
+    if [[ -z "$live" ]]; then
+      echo "deploy-gate: $x: $live_why"
       return 1
     fi
-    if ! passed "$workflow" "${evidence[@]}"; then
-      echo "deploy-gate: $x: $workflow has not passed for its change at $last."
-      return 1
-    fi
-    newest="$(runs_of "${evidence[@]}" | jq -sr --arg w "$workflow" '[.[][] | select(.path == $w)] | max_by(.id).id')"
-    applied_by "$newest"
-    if [[ -z "$applied" ]] || ! git cat-file -e "$applied^{commit}" 2>/dev/null ||
-      ! git diff --quiet "$applied" "$x" -- "${specs[@]}"; then
-      echo "deploy-gate: $x: the newest $workflow run ($newest) applied ${applied:-an unnamed commit}, whose state differs from $x's; holding."
+    if ! git cat-file -e "$live^{commit}" 2>/dev/null || ! git diff --quiet "$live" "$x" -- "${specs[@]}"; then
+      echo "deploy-gate: $x: the tailnet holds the Tailscale state of $live (applied by the newest $workflow run), not $x's; holding."
       return 1
     fi
   done
