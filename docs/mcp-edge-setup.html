@@ -4,12 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
 <title>Set up kb's MCP edge</title>
 <!--
   The one-time setup of docs/mcp-edge.md, one step per screen. That doc's
   "One-time steps" section is the canonical statement; this page follows it.
-  Self-contained: no network, no fonts, no input fields. Progress is kept in
-  this browser's localStorage only.
+  Self-contained: no network, no fonts, no input fields. The
+  Content-Security-Policy above holds it to that: the browser refuses any
+  request it would make. Progress is kept in this browser's localStorage only.
 -->
 <style>
   :root {
@@ -390,10 +392,11 @@
   </header>
 
   <details class="defaults" id="defaults" open>
-    <summary><span><strong>Good to know</strong>: two settings</span></summary>
+    <summary><span><strong>Good to know</strong>: three settings, as you decided</span></summary>
     <ul>
-      <li><strong>Restarts keep you signed in</strong> (your decision). A reboot, an upgrade or a Keycloak restart leaves Gemini and Claude signed in, for at most 30 days a session. Signing everyone out is a command of its own: <code>sudo mcp-edge-secrets revoke-all</code> (step 7). The sign-in settings still come from the dotfiles repo: every start puts them back as declared, and removes anything added by hand.</li>
-      <li><strong>Only <code>hoangng71299@gmail.com</code> gets in</strong> (pending your confirmation). To change the list, edit <code>my.stacks.kb.stores.kb.remoteMcp.emails</code> in <code>hosts/shared-server/default.nix</code>.</li>
+      <li><strong>Restarts keep you signed in.</strong> A reboot, an upgrade or a Keycloak restart leaves Gemini and Claude signed in. Signing everyone out is a command of its own: <code>sudo mcp-edge-secrets revoke-all</code> (step 7). The sign-in settings still come from the dotfiles repo: every start puts them back as declared, and removes anything added by hand.</li>
+      <li><strong>A sign-in lasts 30 days at most</strong>, and ends sooner after 14 days without use. Then the connector asks you to sign in again: one Google sign-in, nothing on the server (step 7).</li>
+      <li><strong>Only <code>hoangng71299@gmail.com</code> gets in.</strong> To change the list, edit <code>my.stacks.kb.stores.kb.remoteMcp.emails</code> in <code>hosts/shared-server/default.nix</code>.</li>
     </ul>
   </details>
 
@@ -647,11 +650,17 @@ active</pre>
       <section class="step" data-title="Keep handy">
         <p class="kicker">Step 7 of 7 · for later</p>
         <h2>Keep these handy</h2>
-        <p class="lead">You're set up. These are the three things you may need later. All run on shared-server; <code>sudo mcp-edge-secrets -h</code> lists the rest.</p>
+        <p class="lead">You're set up. These are the four things you may need later. All run on shared-server; <code>sudo mcp-edge-secrets -h</code> lists the rest.</p>
 
         <h3>Turn it off</h3>
-        <p>For good: set <code>mcpEdge = false;</code> in <code>hosts/shared-server/default.nix</code>, then commit, push, pull and rebuild. Your own kb app is untouched. Right now, until the next rebuild:</p>
+        <p>For good: set <code>mcpEdge = false;</code> in <code>hosts/shared-server/default.nix</code>, then commit, push, pull and rebuild. Your own kb app is untouched. Right now, until the next rebuild, stop the edge and take its public address down:</p>
         <div class="cmd"><pre>sudo systemctl stop mcp-edge-oauth2-proxy kb-remote keycloak</pre></div>
+        <div class="cmd"><pre>sudo tailscale serve --https=443 off</pre></div>
+        <p>The second removes everything mounted on port 443 and its Funnel (<code>adhoc off</code> leaves a declared port alone). The next rebuild puts both back.</p>
+
+        <h3>When the sign-in expires</h3>
+        <p>After 30 days, after 14 days unused, or after <em>Sign everyone out</em> below, Gemini or Claude asks you to reconnect (or sign in) on the kb connector. Click it, sign in with Google, and approve if asked. Nothing to do on the server, and no new secret. Only after <em>Replace a client secret</em> do you also paste the new secret into the connector first.</p>
+        <p class="note">Not yet seen: exactly how Gemini and Claude word this, and where the button is.</p>
 
         <h3>Replace a client secret</h3>
         <p>For Gemini (or <code>claude</code>). It makes a new secret and puts it in place; nobody else is signed out. Then print it and paste it into the connector.</p>
@@ -670,11 +679,15 @@ active</pre>
 
         <div class="check">
           <h3>Check it worked</h3>
-          <div class="cmd"><pre>sudo mcp-edge-secrets status</pre></div>
-          <p class="expect-label">Every file present, never a value shown, and the edge running:</p>
-          <pre class="expect">  keycloak                 active
-  mcp-edge-realm           active
-  mcp-edge-oauth2-proxy    active</pre>
+          <div class="cmd"><pre>systemctl is-active keycloak mcp-edge-realm mcp-edge-oauth2-proxy kb-remote nginx</pre></div>
+          <p class="expect-label">The same five as in step 3:</p>
+          <pre class="expect">active
+active
+active
+active
+active</pre>
+          <div class="cmd" style="margin-top:14px"><pre>sudo mcp-edge-secrets status</pre></div>
+          <p class="expect-label">Every secret file present, 400 root, and never a value shown.</p>
         </div>
       </section>
 
