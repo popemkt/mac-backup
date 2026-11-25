@@ -81,6 +81,12 @@ let
       return 503;
     }
     proxy_pass ${keycloak}${path};
+    # Keycloak's sign-in redirects carry several large cookies (the
+    # brokered Google session among them); nginx's default 4 KiB/8 KiB
+    # header buffer answers those with 502 ("upstream sent too big header").
+    proxy_buffer_size 64k;
+    proxy_buffers 8 64k;
+    proxy_busy_buffers_size 128k;
     ${forwarded}
   '';
 
