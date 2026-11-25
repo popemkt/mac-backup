@@ -13,6 +13,7 @@
     ../../stacks/nixos.nix
     ./connectivity-probe.nix
     ./services.nix
+    ./upheld-units.nix
   ];
 
   config = {

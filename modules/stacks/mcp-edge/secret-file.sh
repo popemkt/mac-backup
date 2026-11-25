@@ -17,6 +17,9 @@ die() {
 put() {
   local name=$1 tmp
   install -d -m 0700 -o root -g root "$EDGE_SECRETS_DIR"
+  # A run killed between its write and its rename (SIGKILL cannot be
+  # caught) left its temporary file behind: never read, swept here.
+  rm -f -- "$EDGE_SECRETS_DIR/.$name."*
   tmp=$(mktemp "$EDGE_SECRETS_DIR/.$name.XXXXXX")
   cat > "$tmp"
   chmod 0400 "$tmp"

@@ -84,8 +84,14 @@ maximum. The realm also caps offline sessions at 30 days, as a backstop.
 decision). Keycloak keeps its database across restarts, reboots and
 upgrades, so its sessions, refresh tokens and signing keys survive and
 Gemini and Claude stay signed in, for at most 30 days a session. After every
-Keycloak start, `mcp-edge-realm` reconciles the realm from Nix with
-keycloak-config-cli:
+Keycloak start, and on every `rebuild` that changes the realm, `mcp-edge-realm`
+reconciles the realm from Nix with keycloak-config-cli. A rebuild restarts it
+after systemd has loaded the new units (`stopIfChanged = false`). Stopped
+before that instead, Keycloak's `Upholds=` would start the old unit again at
+once, with the old realm file, and the change would wait for the next
+Keycloak start. `modules/nixos/system/upheld-units.nix` makes this an
+evaluation error for any unit something upholds, oauth2-proxy included.
+The reconcile:
 
 - It sets the realm's settings (token lifetimes, the 30-day session and offline caps), each client (secret, exact redirects, scopes, grant toggles, the audience mapper) and the Google identity provider exactly as declared.
 - keycloak-config-cli merges a client's attributes, so an override set by hand would survive it. So each client also declares, pinned to the realm's values, every attribute that would override the realm's lifetimes: `access.token.lifespan`, the client session and offline session idle and max, and `client_credentials.use_refresh_token`. It also declares an empty `authenticationFlowBindingOverrides`, so no client gets a sign-in flow of its own.
@@ -325,11 +331,14 @@ terminator stands in for tailscaled. It checks:
   - A Keycloak restart keeps the owner signed in: oauth2-proxy restarts with it, the token from before still passes, and the connector's refresh works, signed with the same key. Then `mcp-edge-secrets revoke-all`: the same unexpired token is refused at once, its refresh token is dead, and a new sign-in gets a new key id.
   - Keycloak killed with SIGKILL: oauth2-proxy goes down with it within 2 seconds and comes back with the restarted Keycloak as a new process. The token from before still passes, and so does its refresh.
   - `systemctl stop keycloak`, then `start`: oauth2-proxy and the realm reconcile stop, then run again, and a token from before passes.
+- **A rebuild applies a realm change:** with `switch-to-configuration` alone and no restart by hand, each change applies, and switching back removes it.
+  - A specialisation that adds a second Gemini redirect (only the realm changes) leaves Keycloak with both redirects, and a sign-in through the new one works.
+  - A specialisation that adds a second allowed email (only oauth2-proxy changes) lets that email through to `/mcp`.
 - **The realm is Nix's:** a client added by hand through the admin API, and Claude's redirect changed by hand (which then refuses Claude's real sign-in), are gone and restored after the next Keycloak start. A token from before the restart still passes.
   - A client's `access.token.lifespan` set to an hour by hand (a token then lasts 3600 s) is back to 300 s after the next start. A signing key imported by hand (which Keycloak then signs with) is gone, and its token is refused.
   - With the reconcile held after a start, every Keycloak route (`/auth`, `/token`, `/certs`, `/resources/`) is 503. The discovery documents still answer, `/admin` and `/realms/master` are 404 at the front, and the admin API on loopback is 401 without a token.
 - **`revoke-all` with a key imported by hand:** Keycloak signs with that key, `revoke-all` deletes it (and says so), it is gone from the JWKS, and its token is refused.
-- **`mcp-edge-secrets`:** as a non-root user it refuses. Empty input changes nothing. The Google client typed with stray spaces is saved trimmed, 0400 root in the 0700 directory, with no temporary file left, and the secret appears in neither stdout nor stderr. Both shape warnings fire for the stand-in's values. Applying it re-reconciles the realm and sign-in still works. `status` prints no value at all. `client gemini` prints exactly the file's secret on stdout. The unit's own secrets are 0400 root. `rotate claude` replaces the live file in one rename (`inotifywait` sees only `MOVED_TO` for it, never a delete or a write in place), and Claude signs in with the new secret. Killed at six points in its run, it leaves one whole 64-hex-digit secret, 0400. With a fake `openssl` bind-mounted over the real one (one that fails after printing part of a value, one that prints 63 digits, one that prints 64 non-hex characters), `rotate` refuses and leaves the old secret, and the unit fails without writing the secret it had to generate; no temporary file is left.
+- **`mcp-edge-secrets`:** as a non-root user it refuses. Empty input changes nothing. The Google client typed with stray spaces is saved trimmed, 0400 root in the 0700 directory, with no temporary file left, and the secret appears in neither stdout nor stderr. Both shape warnings fire for the stand-in's values. Applying it re-reconciles the realm and sign-in still works. `status` prints no value at all. `client gemini` prints exactly the file's secret on stdout. The unit's own secrets are 0400 root. `rotate claude` replaces the live file in one rename (`inotifywait` sees only `MOVED_TO` for it, never a delete or a write in place), and Claude signs in with the new secret. Killed at six points in its run, it leaves one whole 64-hex-digit secret, 0400. A temporary file left by a run killed between its write and its rename is swept by the next one. With a fake `openssl` bind-mounted over the real one (one that fails after printing part of a value, one that prints 63 digits, one that prints 64 non-hex characters), `rotate` refuses and leaves the old secret, and the unit fails without writing the secret it had to generate; no temporary file is left.
 
 kb-remote and app-kb both run the pinned kb (`pkgs.kb`) on the same store,
 as shared-server would.
