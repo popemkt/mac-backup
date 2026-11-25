@@ -113,6 +113,44 @@ let
     ) (lib.filter (entry: entry.funnel) nodeEntries)
   );
 
+  # Reading the node's serve config, shared by the reconcile and the drift
+  # check (`driftScript`): one meaning for "port P serves exactly its
+  # declared mounts".
+  statusLib = ''
+    # The node's serve config (`tailscale serve status --json`); Services sit
+    # under .Services, so .Web, .TCP and .AllowFunnel are node-level only.
+    read_status() {
+      if ! status=$(${tailscale} serve status --json) \
+        || ! printf '%s' "$status" | ${jq} -e 'type == "object"' > /dev/null; then
+        echo "tailscale-services: tailscale serve status failed; changing nothing more" >&2
+        exit "''${read_status_exit:-1}"
+      fi
+    }
+    # "<path> <proxy>" per mount on HTTPS port $1, sorted; a mount that is
+    # not a plain proxy shows as its JSON.
+    port_mounts() {
+      printf '%s' "$status" | ${jq} -r --arg port "$1" '
+        .Web // {} | to_entries[] | select(.key | endswith(":" + $port))
+        | .value.Handlers // {} | to_entries[]
+        | "\(.key) \(if (.value | keys) == ["Proxy"] then .value.Proxy else (.value | tojson) end)"' \
+        | ${sort}
+    }
+    port_listener() {
+      printf '%s' "$status" | ${jq} -c --arg port "$1" '.TCP // {} | .[$port] // empty'
+    }
+    port_taken() {
+      [ -n "$(port_listener "$1")" ] || [ -n "$(port_mounts "$1")" ]
+    }
+    # Port $1 serves HTTPS with exactly the mounts listed in file $2.
+    port_exact() {
+      [ "$(port_listener "$1")" = '{"HTTPS":true}' ] \
+        && [ "$(port_mounts "$1")" = "$(${sort} "$2")" ]
+    }
+    funnel_ports() {
+      printf '%s' "$status" | ${jq} -r '.AllowFunnel // {} | to_entries[] | select(.value) | .key | sub(".*:"; "")'
+    }
+  '';
+
   jq = "${pkgs.jq}/bin/jq";
   sed = "${pkgs.gnused}/bin/sed";
   sort = "LC_ALL=C ${pkgs.coreutils}/bin/sort";
@@ -158,6 +196,50 @@ in
     }
   ];
 
+  # The drift check (the monitoring stack's alert): exit 0 when every
+  # declared node-level entry serves exactly its mounts, with Funnel exactly
+  # where declared and on no other port; 1 with one line per difference on
+  # stdout; 2 when tailscaled cannot be read.
+  driftScript = ''
+    set -eu
+    read_status_exit=2
+    ${statusLib}
+    read_status
+    drift=
+    ${concatStringsSep "\n" (
+      map (
+        entry:
+        let
+          port = toString entry.port;
+        in
+        ''
+          if ! port_exact ${port} ${expectedMounts entry}; then
+            echo "HTTPS port ${port} does not serve exactly its declared mounts. It serves:"
+            port_mounts ${port} | ${sed} 's/^/  /'
+            echo "  declared:"
+            ${sed} 's/^/  /' ${expectedMounts entry}
+            drift=1
+          fi
+          funnel=off
+          if funnel_ports | ${pkgs.gnugrep}/bin/grep -qxF ${port}; then funnel=on; fi
+          if [ "$funnel" != ${if entry.funnel then "on" else "off"} ]; then
+            echo "Funnel is $funnel for HTTPS port ${port}, declared ${
+              if entry.funnel then "with Funnel" else "tailnet-only"
+            }"
+            drift=1
+          fi
+        ''
+      ) nodeEntries
+    )}
+    for port in $(funnel_ports); do
+      case " ${concatStringsSep " " nodePorts} " in
+        *" $port "*) ;;
+        *) echo "Funnel is on for HTTPS port $port, which no declared entry serves"; drift=1 ;;
+      esac
+    done
+    [ -z "$drift" ]
+  '';
+
   script = ''
     set -eu
 
@@ -169,38 +251,7 @@ in
     ${pkgs.coreutils}/bin/mkdir -p "$state_dir"
     failed=
 
-    # The node's serve config (`tailscale serve status --json`); Services sit
-    # under .Services, so .Web, .TCP and .AllowFunnel are node-level only.
-    read_status() {
-      if ! status=$(${tailscale} serve status --json) \
-        || ! printf '%s' "$status" | ${jq} -e 'type == "object"' > /dev/null; then
-        echo "tailscale-services: tailscale serve status failed; changing nothing more" >&2
-        exit 1
-      fi
-    }
-    # "<path> <proxy>" per mount on HTTPS port $1, sorted; a mount that is
-    # not a plain proxy shows as its JSON.
-    port_mounts() {
-      printf '%s' "$status" | ${jq} -r --arg port "$1" '
-        .Web // {} | to_entries[] | select(.key | endswith(":" + $port))
-        | .value.Handlers // {} | to_entries[]
-        | "\(.key) \(if (.value | keys) == ["Proxy"] then .value.Proxy else (.value | tojson) end)"' \
-        | ${sort}
-    }
-    port_listener() {
-      printf '%s' "$status" | ${jq} -c --arg port "$1" '.TCP // {} | .[$port] // empty'
-    }
-    port_taken() {
-      [ -n "$(port_listener "$1")" ] || [ -n "$(port_mounts "$1")" ]
-    }
-    # Port $1 serves HTTPS with exactly the mounts listed in file $2.
-    port_exact() {
-      [ "$(port_listener "$1")" = '{"HTTPS":true}' ] \
-        && [ "$(port_mounts "$1")" = "$(${sort} "$2")" ]
-    }
-    funnel_ports() {
-      printf '%s' "$status" | ${jq} -r '.AllowFunnel // {} | to_entries[] | select(.value) | .key | sub(".*:"; "")'
-    }
+    ${statusLib}
     is_managed() {
       [ -f "$managed_node_ports" ] && ${pkgs.gnugrep}/bin/grep -qxF "$1" "$managed_node_ports"
     }
