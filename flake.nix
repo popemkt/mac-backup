@@ -372,6 +372,12 @@
         pkgs = (pkgsFor "x86_64-linux").extend self.overlays.default;
       };
 
+      # Failed-service and health alerts to ntfy, and the Beszel dashboard,
+      # under their real units (docs/monitoring.md → Tests).
+      checks.x86_64-linux.monitoring = import ./modules/stacks/monitoring/tests.nix {
+        pkgs = (pkgsFor "x86_64-linux").extend self.overlays.default;
+      };
+
       # Eval-only: the guard against upheld services a switch would stop
       # (modules/nixos/system/upheld-units.nix).
       checks.x86_64-linux.upheld-units = import ./modules/nixos/system/upheld-units-tests.nix {

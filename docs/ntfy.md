@@ -20,15 +20,19 @@ socket and a token in the meantime.
    your password manager. The command writes the host publisher token to
    `~/.config/ntfy/token` with mode 0600. Run `ntfy-setup --reset-password`
    to issue a new password, including after interrupted account setup.
-3. Publish through the local socket. Curl reads the header from stdin to
-   keep the token out of its command line.
+3. Publish through the local socket with `ntfy-publish`, which reads the
+   message from stdin and the token from `~/.config/ntfy/token` (or a unit's
+   `ntfy-token` credential), so the token is in no command line:
 
    ~~~bash
-   printf 'Authorization: Bearer %s\n' "$(cat "$HOME/.config/ntfy/token")" |
-     curl --fail --silent --show-error --header @- \
-       --unix-socket /run/ntfy/ntfy.sock \
-       --data 'shared-server notification test' http://localhost/host-attention
+   echo 'shared-server notification test' |
+     ntfy-publish --title test --priority default host-attention
    ~~~
+
+System units publish the same way, as root with the owner's token as a
+credential: `my.stacks.ntfy.publishers.<entry>` gives a unit the package, the
+`LoadCredential=` and a condition that skips the unit until the token
+exists. The [monitoring alerts](monitoring.md) use it.
 
 ## Phone setup once exposure is approved
 

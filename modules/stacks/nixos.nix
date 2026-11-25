@@ -10,6 +10,7 @@ _:
     ./blender
     ./kb/nixos.nix
     ./mcp-edge
+    ./monitoring
     ./ntfy
     ./sandboxes
     ./t3-code/nixos.nix

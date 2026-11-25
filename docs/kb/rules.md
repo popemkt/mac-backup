@@ -262,6 +262,22 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A declared backup of the bb server's data dir on shared-server (restic), or manifests stored in kb.
 - **node** — `01M5QKD7TMB3HDV65V543HTD9M`
 
+### GAP: the Beszel dashboard has one viewer, and only on untagged devices
+
+- **expected** — Both shared-server administrators can open the Beszel dashboard from their usual devices.
+- **current** — Beszel trusts only dashboard.login (hoangng71299@gmail.com). bytetum's Tailscale login (bytetum@github) is not an email, which Beszel requires, and tagged devices (popemkt's Macs) carry no Tailscale-User-Login, so they see nothing.
+- **impact** — popemkt sees the dashboard only from the phone or an untagged device; bytetum not at all.
+- **closes** — A second Beszel user created declaratively with an email-shaped identity mapping, or a front that maps tailnet identities (and tags) to Beszel users; docs/monitoring.md → Dashboard.
+- **node** — `01M89T0BSHY9AYJ1YJ3K4DNB6K`
+
+### GAP: the Keycloak sign-in alert is proven only against synthetic log lines
+
+- **expected** — The Keycloak sign-in error alert is tested against the edge's real Keycloak emitting LOGIN_ERROR events.
+- **current** — checks.x86_64-linux.monitoring feeds journal lines in the jboss-logging WARN format to a keycloak.service stand-in; the mcp-edge VM test does not assert that its realm logs error events in that format.
+- **impact** — A Keycloak upgrade that changes the event log line, or a realm without the jboss-logging listener, silently stops the alert.
+- **closes** — An assertion in the mcp-edge VM test that a failed sign-in yields a line monitoring-health counts (modules/stacks/monitoring/health.sh).
+- **node** — `01M89T0C8HKD2Q0F4A5KH07Z6D`
+
 ### GAP: the local proxy converges its CA only when its daemon starts
 
 - **expected** — The local proxy's root is replaced once it has under a year left, and the intermediate and site certificates follow it, whether or not the daemon restarts in that year.
