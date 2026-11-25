@@ -1,0 +1,49 @@
+name: Deploy gate
+
+# Moves the deploy branch forward to the newest main commit every gating
+# workflow passed on: Validate on the commit itself, and the newest run of
+# each Tailscale workflow since deploy (scripts/deploy-gate). shared-server
+# applies deploy by itself (modules/stacks/pull-deploy); docs/deploys.md.
+# Fast-forward only, with this run's own token: it never forces deploy, so
+# deploy never moves backwards.
+on:
+  workflow_run:
+    workflows:
+      - Validate
+      - Sync Tailscale policy
+      - Tailscale Services
+    types:
+      - completed
+    branches:
+      - main
+  # A safety net for a completion event GitHub drops.
+  schedule:
+    - cron: "23 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+# One at a time. A run waiting here may be replaced by a newer one; each run
+# looks at every main commit after deploy, so nothing is lost.
+concurrency:
+  group: deploy-gate
+  cancel-in-progress: false
+
+jobs:
+  advance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Move deploy to the newest green commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/deploy-gate

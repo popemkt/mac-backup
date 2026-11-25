@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+# deploy-gate: move the deploy branch forward to the newest main commit that
+# CI has fully passed. shared-server applies deploy by itself
+# (modules/stacks/pull-deploy); .github/workflows/deploy.yml runs this.
+# How it decides: docs/deploys.md → The gate.
+#
+# A commit is green when
+#   - Validate (validate.yml, every push to main) succeeded on it, and
+#   - for each path-filtered workflow that changes the outside world
+#     (tailscale-policy.yml, tailscale-services.yml), its newest run among
+#     the commits after deploy up to this one succeeded, and none of those
+#     runs is still going. Each run applies the whole state at its commit
+#     (the whole policy file, every declared Service), so the newest one
+#     settles the state; a commit it skipped changed nothing it watches.
+# Only main's first-parent commits after deploy are candidates; deploy moves
+# to the newest green one with a plain push (fast-forward only: the remote
+# refuses anything else), never backwards.
+#
+# Environment: GITHUB_REPOSITORY (owner/name, for the runs API, through
+# `gh api`), DEPLOY_GATE_REMOTE (origin), DEPLOY_GATE_MAIN (main),
+# DEPLOY_GATE_BRANCH (deploy), DEPLOY_GATE_WINDOW (commits looked at, 50).
+set -euo pipefail
+
+repo="${GITHUB_REPOSITORY:?GITHUB_REPOSITORY must name owner/repo}"
+remote="${DEPLOY_GATE_REMOTE:-origin}"
+main="${DEPLOY_GATE_MAIN:-main}"
+deploy="${DEPLOY_GATE_BRANCH:-deploy}"
+window="${DEPLOY_GATE_WINDOW:-50}"
+
+own_workflow=.github/workflows/validate.yml
+range_workflows='[".github/workflows/tailscale-policy.yml", ".github/workflows/tailscale-services.yml"]'
+
+git fetch --quiet "$remote" "+refs/heads/$main:refs/remotes/$remote/$main"
+main_ref="refs/remotes/$remote/$main"
+
+deploy_tip=""
+if git ls-remote --exit-code --heads "$remote" "$deploy" >/dev/null; then
+  git fetch --quiet "$remote" "+refs/heads/$deploy:refs/remotes/$remote/$deploy"
+  deploy_tip="$(git rev-parse "refs/remotes/$remote/$deploy")"
+  if ! git merge-base --is-ancestor "$deploy_tip" "$main_ref"; then
+    echo "::error::$deploy ($deploy_tip) has commits $main lacks; fix it by hand (docs/deploys.md)." >&2
+    exit 1
+  fi
+fi
+
+# Candidates, oldest first: main's first-parent commits after deploy.
+mapfile -t commits < <(git rev-list --first-parent --reverse --max-count="$window" \
+  "$main_ref" ${deploy_tip:+"^$deploy_tip"})
+if ((${#commits[@]} == 0)); then
+  echo "deploy-gate: $deploy is at $main (${deploy_tip:-none}); nothing to move."
+  exit 0
+fi
+
+# Every gating run of every candidate, tagged with the candidate's index.
+runs="$(mktemp)"
+trap 'rm -f "$runs"' EXIT
+for i in "${!commits[@]}"; do
+  gh api "repos/$repo/actions/runs?head_sha=${commits[$i]}&per_page=100" |
+    jq -c --argjson idx "$i" --arg main "$main" '
+      .workflow_runs[]
+      | select(.head_branch == $main and (.event == "push" or .event == "workflow_dispatch"))
+      | {idx: $idx, path: (.path | split("@")[0]), id, status, conclusion}'
+done >"$runs"
+
+# The newest green candidate's index, or -1.
+target_idx="$(jq -s --argjson n "${#commits[@]}" --arg own "$own_workflow" \
+  --argjson ranged "$range_workflows" '
+  . as $runs
+  | def settled($set): ($set | length == 0)
+      or (all($set[]; .status == "completed") and ($set | max_by(.id) | .conclusion == "success"));
+    def green($i):
+      ([$runs[] | select(.idx == $i and .path == $own)] as $mine
+        | ($mine | length > 0) and settled($mine))
+      and all($ranged[]; . as $w | settled([$runs[] | select(.idx <= $i and .path == $w)]));
+    [range($n - 1; -1; -1) | select(green(.))] | first // -1' "$runs")"
+
+if ((target_idx < 0)); then
+  echo "deploy-gate: no commit after $deploy (${deploy_tip:-none}) on $main is green yet; $deploy stays."
+  exit 0
+fi
+target="${commits[$target_idx]}"
+
+echo "deploy-gate: moving $deploy from ${deploy_tip:-nothing} to $target."
+if git push --quiet "$remote" "$target:refs/heads/$deploy"; then
+  echo "deploy-gate: $deploy is at $target."
+  exit 0
+fi
+
+# Refused: someone moved deploy meanwhile. Fine if it is at or past target.
+git fetch --quiet "$remote" "+refs/heads/$deploy:refs/remotes/$remote/$deploy"
+now="$(git rev-parse "refs/remotes/$remote/$deploy")"
+if git merge-base --is-ancestor "$target" "$now"; then
+  echo "deploy-gate: $deploy moved to $now meanwhile, which includes $target; nothing to do."
+  exit 0
+fi
+echo "::error::pushing $target to $deploy was refused, and $deploy ($now) does not include it." >&2
+exit 1

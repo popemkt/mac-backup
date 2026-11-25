@@ -160,6 +160,26 @@
             touch "$out"
           '';
 
+      # scripts/deploy-gate (what moves the deploy branch) against a
+      # temporary bare repository and a gh answering the runs API from
+      # fixtures (docs/deploys.md → Tests).
+      deployGateCheck =
+        pkgs:
+        pkgs.runCommand "deploy-gate-check"
+          {
+            nativeBuildInputs = with pkgs; [
+              bash
+              coreutils
+              git
+              gnugrep
+              jq
+            ];
+          }
+          ''
+            bash ${./scripts/tests/deploy-gate-check.sh} ${./scripts/deploy-gate} ${./scripts/tests/gh-runs-stub.sh}
+            touch "$out"
+          '';
+
       # Unit tests of the activation reconcilers (scripts/reconcile_*.py).
       reconcileScriptsCheck =
         pkgs.runCommand "reconcile-scripts-check"
@@ -361,6 +381,7 @@
         # port in front of a test app.
         local-proxy-check = import ./modules/stacks/local-proxy/tests.nix { inherit pkgs; };
         pin-tools-check = pinToolsCheck pkgs;
+        deploy-gate-check = deployGateCheck pkgs;
         system-setup-manifest-personal = systemSetupManifestCheck "popemkt-personal";
         system-setup-manifest-work = systemSetupManifestCheck "popemkt-work";
         darwin-personal = self.darwinConfigurations.popemkt-personal.system;
@@ -398,6 +419,8 @@
           };
 
       checks.x86_64-linux.pin-tools-check = pinToolsCheck (pkgsFor "x86_64-linux");
+
+      checks.x86_64-linux.deploy-gate-check = deployGateCheck (pkgsFor "x86_64-linux");
 
       checks.x86_64-linux.mcp-servers-check = import ./modules/common/home-manager/mcp-servers/tests.nix {
         pkgs = pkgsFor "x86_64-linux";
