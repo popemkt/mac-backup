@@ -148,9 +148,23 @@ in
           example = "someone@example.com";
           description = ''
             The Tailscale login that may view the dashboard: Beszel's one
-            user, matched against the `Tailscale-User-Login` header
-            tailscaled sets. Beszel needs it to be an email address, so a
-            GitHub login (`name@github`) cannot be the viewer.
+            user. The hub's identity proxy lets through only the devices
+            tailscaled says are signed in as this login (and those with an
+            `ownerTags` tag) and refuses everything else. Beszel
+            needs it to be an email address, so a GitHub login
+            (`name@github`) cannot be the viewer.
+          '';
+        };
+        ownerTags = mkOption {
+          type = types.listOf (types.strMatching "tag:[A-Za-z0-9-]+");
+          default = [ ];
+          example = [ "tag:personal-device" ];
+          description = ''
+            Tags whose devices view the dashboard as `login`. A tagged
+            device carries no login of its own, so without this it sees
+            nothing. Only tags that mark the owner's own machines belong
+            here: whoever can tag a device with one can view the dashboard
+            from it.
           '';
         };
         service = mkOption {

@@ -262,6 +262,14 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — Stage 1 of docs/research/2026-10-24-interaction-app-topology.md (Litestream or a restic timer) extended to the kb home store, as docs/research/2026-10-25-kb-topology.md recommends.
 - **node** — `01M5QJFWFYAKE90KSRNPN4EX78`
 
+### GAP: tag:orca-host is still in the tailnet policy during the move to tag:personal-device
+
+- **expected** — Only tag:personal-device marks popemkt's Macs; tag:orca-host is gone from configs/tailscale/policy.hujson (tagOwners, the SSH grant, the ssh accept rule, autoApprovers svc:kb-work) and from docs/tailscale.md.
+- **current** — Both tags are in the policy with the same rights, so the Macs keep SSH to shared-server and svc:kb-work's auto-approval whichever tag they carry until the owner retags them in the admin console. The Orca Mobile grant (tcp:6768) is already gone.
+- **impact** — A machine still tagged tag:orca-host keeps popemkt's SSH login on shared-server and can host svc:kb-work, though nothing declares that tag any more.
+- **closes** — Phase 2, after both Macs show only tag:personal-device under Machines in the admin console: delete every tag:orca-host entry from the policy (marked there), then the tag in the admin console; docs/tailscale.md → Tags.
+- **node** — `01M8B0VEEWTZ8608V6V17GJ1YE`
+
 ### GAP: the bb server's plugin data (composer manifests) has no backup on shared-server
 
 - **expected** — Saved context-composer manifests survive a lost shared-server disk.
@@ -270,12 +278,12 @@ checks it. `enforcement` is honest: **`prose` means nothing checks it** —
 - **closes** — A declared backup of the bb server's data dir on shared-server (restic), or manifests stored in kb.
 - **node** — `01M5QKD7TMB3HDV65V543HTD9M`
 
-### GAP: the Beszel dashboard has one viewer, and only on untagged devices
+### GAP: the Beszel dashboard has one viewer: bytetum cannot view it
 
 - **expected** — Both shared-server administrators can open the Beszel dashboard from their usual devices.
-- **current** — Beszel trusts only dashboard.login (hoangng71299@gmail.com). bytetum's Tailscale login (bytetum@github) is not an email, which Beszel requires, and tagged devices (popemkt's Macs) carry no Tailscale-User-Login, so they see nothing.
-- **impact** — popemkt sees the dashboard only from the phone or an untagged device; bytetum not at all.
-- **closes** — A second Beszel user created declaratively with an email-shaped identity mapping, or a front that maps tailnet identities (and tags) to Beszel users; docs/monitoring.md → Dashboard.
+- **current** — Beszel trusts only dashboard.login (hoangng71299@gmail.com). Its identity proxy gives an untagged device's Tailscale login and maps popemkt's Macs (tag:personal-device, dashboard.ownerTags) to that login. bytetum's Tailscale login (bytetum@github) is not an email, which Beszel requires.
+- **impact** — popemkt sees the dashboard from the phone, an untagged device or a personal-device Mac; bytetum not at all.
+- **closes** — A second Beszel user created declaratively with an email-shaped identity, which the identity proxy (modules/stacks/monitoring/identity-proxy) maps bytetum@github to; docs/monitoring.md → Dashboard.
 - **node** — `01M89T0BSHY9AYJ1YJ3K4DNB6K`
 
 ### GAP: the Keycloak sign-in alert is proven only against synthetic log lines

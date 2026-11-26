@@ -295,13 +295,15 @@ in
   # memory, units stuck failed, the MCP edge's Funnel drift, Keycloak sign-in
   # errors), each once when it goes wrong and once when it recovers. And
   # Beszel, a read-only dashboard of this machine, as svc:beszel-shared-server
-  # for popemkt's own (untagged) devices (docs/monitoring.md).
+  # for popemkt's own devices: his untagged ones and his Macs
+  # (tag:personal-device) (docs/monitoring.md).
   my.stacks.monitoring = {
     enable = true;
     alerts.enable = true;
     dashboard = {
       enable = true;
       login = "hoangng71299@gmail.com";
+      ownerTags = [ "tag:personal-device" ];
     };
   };
 

@@ -49,7 +49,7 @@
     t3-code.enable = true;
     vpn = {
       enable = true;
-      tags = [ "tag:orca-host" ];
+      tags = [ "tag:personal-device" ];
       services.kb-work.target = config.my.stacks.kb.server.listenOrigin;
     };
   };

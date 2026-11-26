@@ -9,18 +9,23 @@
 # read-only, on the tailnet only (docs/monitoring.md → Dashboard).
 #
 #   tailscaled (svc:<service>, HTTPS) → /run/beszel-hub-proxy/beszel.sock
-#   (root-only) → systemd-socket-proxyd → 127.0.0.1:<port> in the hub's own
-#   network namespace → beszel-hub ─ SSH over /run/beszel-agent/beszel.sock →
-#   beszel-agent (host network, reads the machine)
+#   (root-only) → beszel-hub-proxy (./identity-proxy) → 127.0.0.1:<port> in
+#   the hub's own network namespace → beszel-hub ─ SSH over
+#   /run/beszel-agent/beszel.sock → beszel-agent (host network, reads the
+#   machine)
 #
-# Who is viewing: the hub trusts the `Tailscale-User-Login` header, which
-# tailscaled sets from the caller's identity and strips from requests, as
-# Marginalia does (docs/marginalia-service.md). That is only safe if nothing
-# else can send the hub a request: the hub runs in a network namespace of its
-# own (PrivateNetwork=), which only its proxy joins, and the proxy's socket
-# is root's alone (0600 in a 0700 directory), so no other account on the
-# host, nor any other process, can reach the hub's port and forge the
-# header. Password sign-in is off; the hub's one user is `login`, created on
+# Who is viewing: the proxy asks `tailscale whois` about the caller's
+# address, which tailscaled passes as X-Forwarded-For (dropping any the
+# caller sent), and relays only requests from `login`'s untagged devices or
+# from devices tagged with one of `ownerTags`, setting the
+# `Tailscale-User-Login` header the hub trusts; it answers anything else 403
+# itself, since the hub would also take a session token without the header
+# (./identity-proxy/main.go). That is only
+# safe if nothing else can send the hub or the proxy a request: the hub runs
+# in a network namespace of its own (PrivateNetwork=), which only its proxy
+# joins, and the proxy's socket is root's alone (0600 in a 0700 directory),
+# so no other account on the host, nor any other process, can reach either
+# and forge the header or the address. Password sign-in is off; the hub's one user is `login`, created on
 # its first start (USER_EMAIL, with a random password nobody uses).
 # Beszel's own alerting has no way out (no network) and is not used; alerts
 # are ./alerts.nix's.
@@ -28,6 +33,14 @@ let
   cfg = config.my.stacks.monitoring;
   inherit (cfg) dashboard;
   hub = config.services.beszel.hub;
+  identityProxy = pkgs.buildGoModule {
+    pname = "beszel-identity-proxy";
+    version = "1";
+    src = ./identity-proxy;
+    vendorHash = null;
+    env.CGO_ENABLED = "0";
+    meta.mainProgram = "identity-proxy";
+  };
   proxyDir = "/run/beszel-hub-proxy";
   proxySocket = "${proxyDir}/beszel.sock";
   agentSocket = "/run/beszel-agent/beszel.sock";
@@ -117,13 +130,19 @@ lib.mkIf (cfg.enable && dashboard.enable) {
     };
   };
   systemd.services.beszel-hub-proxy = {
-    description = "Relay the Beszel hub's socket into its network namespace";
+    description = "Relay the Beszel hub's socket into its network namespace, naming the viewer";
     requires = [ "beszel-hub.service" ];
     bindsTo = [ "beszel-hub.service" ];
     after = [ "beszel-hub.service" ];
     unitConfig.JoinsNamespaceOf = "beszel-hub.service";
     serviceConfig = {
-      ExecStart = "${config.systemd.package}/lib/systemd/systemd-socket-proxyd --exit-idle-time=5min 127.0.0.1:${toString dashboard.port}";
+      ExecStart = lib.escapeShellArgs [
+        (lib.getExe identityProxy)
+        "-upstream=127.0.0.1:${toString dashboard.port}"
+        "-tailscale=${config.services.tailscale.package}/bin/tailscale"
+        "-login=${dashboard.login}"
+        "-owner-tags=${lib.concatStringsSep "," dashboard.ownerTags}"
+      ];
       PrivateNetwork = true;
       DynamicUser = true;
       PrivateTmp = true;

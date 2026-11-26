@@ -6,6 +6,12 @@
 {
   "tagOwners": {
     "tag:home-server": ["autogroup:admin"],
+    // popemkt's own Macs.
+    "tag:personal-device": ["autogroup:admin"],
+    // Retired: the Macs' old tag, kept with the same rights as
+    // tag:personal-device until they are retagged; every tag:orca-host entry
+    // goes then.
+    // GAP [[01M8B0VEEWTZ8608V6V17GJ1YE]]: remove tag:orca-host after the retag.
     "tag:orca-host": ["autogroup:admin"],
     "tag:shared-server": ["autogroup:admin"],
   },
@@ -16,13 +22,6 @@
       "src": ["hoangng71299@gmail.com"],
       "dst": ["svc:ntfy-popemkt"],
       "ip": ["tcp:443"],
-    },
-
-    // Orca Mobile connects directly to Orca hosts over MagicDNS.
-    {
-      "src": ["autogroup:member"],
-      "dst": ["tag:orca-host"],
-      "ip": ["tcp:6768"],
     },
 
     // Remote Cognee clients use the Tailscale Service HTTPS endpoint.
@@ -114,12 +113,13 @@
       "ip": ["tcp:443"],
     },
 
-    // popemkt's own devices reach the shared server's Beszel dashboard
-    // (docs/monitoring.md). Beszel shows it only to the login tailscaled
-    // vouches for, so other members, and tagged devices, which carry no
-    // login, see no data even through the wildcard grant below.
+    // popemkt's own devices, his Macs included, reach the shared server's
+    // Beszel dashboard (docs/monitoring.md). Its identity proxy asks
+    // tailscaled who each caller is and shows the dashboard only to
+    // popemkt's login and to tag:personal-device, so other members and
+    // other tags see no data even through the wildcard grant below.
     {
-      "src": ["hoangng71299@gmail.com"],
+      "src": ["hoangng71299@gmail.com", "tag:personal-device"],
       "dst": ["svc:beszel-shared-server"],
       "ip": ["tcp:443"],
     },
@@ -132,6 +132,8 @@
         "hoangng71299@gmail.com",
         "bytetum@github",
         "tag:home-server",
+        "tag:personal-device",
+        // GAP [[01M8B0VEEWTZ8608V6V17GJ1YE]]: retired; remove after the retag.
         "tag:orca-host",
       ],
       "dst": ["tag:shared-server"],
@@ -159,7 +161,8 @@
       "svc:kb-bytetum": ["tag:shared-server"],
       "svc:kb-capture-popemkt": ["tag:shared-server"],
       "svc:ntfy-popemkt": ["tag:shared-server"],
-      "svc:kb-work": ["tag:orca-host"],
+      // GAP [[01M8B0VEEWTZ8608V6V17GJ1YE]]: tag:orca-host retired; remove after the retag.
+      "svc:kb-work": ["tag:personal-device", "tag:orca-host"],
       "svc:marginalia-bytetum": ["tag:shared-server"],
       "svc:adhoc-popemkt": ["tag:shared-server"],
       "svc:bb-popemkt": ["tag:shared-server"],
@@ -194,9 +197,15 @@
     // their own devices and, for popemkt, from his tagged Macs (their agents
     // included). "accept", not "check": check mode needs a browser sign-in
     // that an agent cannot do. Root stays behind sudo.
+    // GAP [[01M8B0VEEWTZ8608V6V17GJ1YE]]: tag:orca-host retired; remove after the retag.
     {
       "action": "accept",
-      "src": ["hoangng71299@gmail.com", "tag:home-server", "tag:orca-host"],
+      "src": [
+        "hoangng71299@gmail.com",
+        "tag:home-server",
+        "tag:personal-device",
+        "tag:orca-host",
+      ],
       "dst": ["tag:shared-server"],
       "users": ["popemkt"],
     },
@@ -209,6 +218,13 @@
   ],
 
   "sshTests": [
+    {
+      "src": "tag:personal-device",
+      "dst": ["tag:shared-server"],
+      "accept": ["popemkt"],
+      "deny": ["bytetum", "root"],
+    },
+    // GAP [[01M8B0VEEWTZ8608V6V17GJ1YE]]: tag:orca-host retired; remove after the retag.
     {
       "src": "tag:orca-host",
       "dst": ["tag:shared-server"],
