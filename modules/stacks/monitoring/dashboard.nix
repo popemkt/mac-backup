@@ -14,11 +14,13 @@
 #   /run/beszel-agent/beszel.sock → beszel-agent (host network, reads the
 #   machine)
 #
-# Who is viewing: the hub trusts the `Tailscale-User-Login` header, which
-# its proxy sets: it asks `tailscale whois` about the caller's address,
-# which tailscaled passes as X-Forwarded-For (dropping any the caller sent),
-# and gives an untagged device's login, or `login` for a device tagged with
-# one of `ownerTags`, or nothing (./identity-proxy/main.go). That is only
+# Who is viewing: the proxy asks `tailscale whois` about the caller's
+# address, which tailscaled passes as X-Forwarded-For (dropping any the
+# caller sent), and relays only requests from `login`'s untagged devices or
+# from devices tagged with one of `ownerTags`, setting the
+# `Tailscale-User-Login` header the hub trusts; it answers anything else 403
+# itself, since the hub would also take a session token without the header
+# (./identity-proxy/main.go). That is only
 # safe if nothing else can send the hub or the proxy a request: the hub runs
 # in a network namespace of its own (PrivateNetwork=), which only its proxy
 # joins, and the proxy's socket is root's alone (0600 in a 0700 directory),

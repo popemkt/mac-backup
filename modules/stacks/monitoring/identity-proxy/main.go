@@ -1,7 +1,10 @@
 // identity-proxy: the Beszel hub's front door (../dashboard.nix). It takes
-// the requests tailscaled sends to its socket (systemd's, passed as fd 3),
-// tells the hub who is asking in the Tailscale-User-Login header, and
-// relays them to the hub.
+// the requests tailscaled sends to its socket (systemd's, passed as fd 3)
+// and relays to the hub only those from the hub's one user, -login, telling
+// the hub so in the Tailscale-User-Login header. It answers every other
+// request 403 itself: the hub also accepts a session token without the
+// header (Beszel's internal/hub/api.go, PocketBase's token middleware), so
+// a request the proxy relayed without an identity could still be someone's.
 //
 // Who is asking: tailscaled's reverse proxy sets X-Forwarded-For to the
 // caller's tailnet address, after dropping any X-Forwarded-For the caller
@@ -10,13 +13,19 @@
 // address is tailscaled's word. `tailscale whois --json <address>` names
 // the device:
 //
-//   - untagged: its login (the hub admits only its one user);
+//   - untagged, signed in as -login: -login;
 //   - tagged with one of -owner-tags: -login;
-//   - any other tag, an unknown address, a Funnel request, or anything that
-//     is not one address: no identity, which the hub refuses.
+//   - anything else (another login, another tag, an unknown address, a
+//     whois that fails or takes over 5 s, a Funnel request, or anything
+//     that is not one address): 403. Nothing is cached, so a device that
+//     loses its tag loses the dashboard at its next request, whatever
+//     session token it holds.
 //
-// Whatever Tailscale-User-* headers a request carries are dropped first:
-// tailscaled already drops them, and sends none for a tagged device.
+// Whatever Tailscale-* headers a request carries are dropped first:
+// tailscaled already drops its identity headers, and sends none for a
+// tagged device. A relayed request keeps its Authorization header (the web
+// UI's session token): it comes from a device just shown to be the owner's,
+// and the hub has no other user that a token could name.
 package main
 
 import (
@@ -51,11 +60,14 @@ type whoIs struct {
 // whoIsFunc names the device at a tailnet address.
 type whoIsFunc func(ctx context.Context, addr netip.Addr) (*whoIs, error)
 
-func tailscaleWhoIs(tailscale string) whoIsFunc {
+func tailscaleWhoIs(tailscale string, timeout time.Duration) whoIsFunc {
 	return func(ctx context.Context, addr netip.Addr) (*whoIs, error) {
-		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
-		out, err := exec.CommandContext(ctx, tailscale, "whois", "--json", addr.String()).Output()
+		cmd := exec.CommandContext(ctx, tailscale, "whois", "--json", addr.String())
+		// Stop waiting on its output too, should a child outlive it.
+		cmd.WaitDelay = time.Second
+		out, err := cmd.Output()
 		if err != nil {
 			return nil, err
 		}
@@ -89,7 +101,7 @@ func callerAddr(h http.Header) (netip.Addr, error) {
 	return addr, nil
 }
 
-// login is the identity to give the hub for a request, or "".
+// loginFor is -login if the request comes from one of its devices, or "".
 func (id *identity) loginFor(r *http.Request) string {
 	addr, err := callerAddr(r.Header)
 	if err != nil {
@@ -102,7 +114,11 @@ func (id *identity) loginFor(r *http.Request) string {
 		return ""
 	}
 	if len(who.Node.Tags) == 0 {
-		return who.UserProfile.LoginName
+		if who.UserProfile.LoginName == id.login {
+			return id.login
+		}
+		log.Printf("no identity for %s: login %q", addr, who.UserProfile.LoginName)
+		return ""
 	}
 	for _, tag := range who.Node.Tags {
 		if id.ownerTags[tag] {
@@ -113,25 +129,33 @@ func (id *identity) loginFor(r *http.Request) string {
 	return ""
 }
 
-func newProxy(upstream *url.URL, id *identity) *httputil.ReverseProxy {
-	return &httputil.ReverseProxy{
+// newProxy relays the owner's requests to upstream and refuses the rest.
+func newProxy(upstream *url.URL, id *identity) http.Handler {
+	relay := &httputil.ReverseProxy{
 		// Rewrite (not Director): the outbound request carries none of the
 		// inbound X-Forwarded-* headers.
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.SetURL(upstream)
 			pr.Out.Host = pr.In.Host
-			for name := range pr.Out.Header {
-				if strings.HasPrefix(http.CanonicalHeaderKey(name), "Tailscale-") {
-					pr.Out.Header.Del(name)
-				}
-			}
-			if login := id.loginFor(pr.In); login != "" {
-				pr.Out.Header.Set(loginHeader, login)
-			}
 		},
 		// The hub streams live updates (server-sent events).
 		FlushInterval: -1,
 	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		login := id.loginFor(r)
+		if login == "" {
+			http.Error(w, "This dashboard is only for its owner's devices.", http.StatusForbidden)
+			return
+		}
+		out := r.Clone(r.Context())
+		for name := range out.Header {
+			if strings.HasPrefix(name, "Tailscale-") {
+				out.Header.Del(name)
+			}
+		}
+		out.Header.Set(loginHeader, login)
+		relay.ServeHTTP(w, out)
+	})
 }
 
 func main() {
@@ -150,7 +174,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	id := &identity{whoIs: tailscaleWhoIs(*tailscale), login: *login, ownerTags: map[string]bool{}}
+	id := &identity{whoIs: tailscaleWhoIs(*tailscale, 5*time.Second), login: *login, ownerTags: map[string]bool{}}
 	for _, tag := range strings.Split(*ownerTags, ",") {
 		if tag != "" {
 			id.ownerTags[tag] = true

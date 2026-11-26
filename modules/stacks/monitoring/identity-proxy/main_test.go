@@ -7,7 +7,10 @@ import (
 	"net/http/httptest"
 	"net/netip"
 	"net/url"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestIdentity(t *testing.T) {
@@ -21,6 +24,7 @@ func TestIdentity(t *testing.T) {
 	add("100.64.0.1", "owner@example.com")
 	add("100.64.0.2", "tagged-devices", "tag:personal-device")
 	add("100.64.0.3", "tagged-devices", "tag:shared-server")
+	add("100.64.0.4", "intruder@example.com")
 	add("100.64.0.5", "tagged-devices", "tag:shared-server", "tag:personal-device")
 	id := &identity{
 		whoIs: func(_ context.Context, a netip.Addr) (*whoIs, error) {
@@ -40,22 +44,28 @@ func TestIdentity(t *testing.T) {
 	proxy := httptest.NewServer(newProxy(upstream, id))
 	defer proxy.Close()
 
+	token := [2]string{"Authorization", "a-session-token"}
 	for _, c := range []struct {
 		name    string
 		headers [][2]string
-		want    string
+		admit   bool
 	}{
-		{"untagged owner", [][2]string{{"X-Forwarded-For", "100.64.0.1"}}, "owner@example.com"},
-		{"owner tag", [][2]string{{"X-Forwarded-For", "100.64.0.2"}}, "owner@example.com"},
-		{"owner tag among others", [][2]string{{"X-Forwarded-For", "100.64.0.5"}}, "owner@example.com"},
-		{"other tag", [][2]string{{"X-Forwarded-For", "100.64.0.3"}}, ""},
-		{"forged with other tag", [][2]string{{"X-Forwarded-For", "100.64.0.3"}, {"Tailscale-User-Login", "owner@example.com"}}, ""},
-		{"forged, no caller", [][2]string{{"Tailscale-User-Login", "owner@example.com"}}, ""},
-		{"unknown", [][2]string{{"X-Forwarded-For", "100.64.0.9"}}, ""},
-		{"list", [][2]string{{"X-Forwarded-For", "100.64.0.3, 100.64.0.2"}}, ""},
-		{"two headers", [][2]string{{"X-Forwarded-For", "100.64.0.3"}, {"X-Forwarded-For", "100.64.0.2"}}, ""},
-		{"funnel", [][2]string{{"X-Forwarded-For", "100.64.0.2"}, {"Tailscale-Funnel-Request", "?1"}}, ""},
+		{"untagged owner", [][2]string{{"X-Forwarded-For", "100.64.0.1"}}, true},
+		{"owner tag", [][2]string{{"X-Forwarded-For", "100.64.0.2"}}, true},
+		{"owner tag among others", [][2]string{{"X-Forwarded-For", "100.64.0.5"}}, true},
+		{"owner tag, with a token", [][2]string{{"X-Forwarded-For", "100.64.0.2"}, token}, true},
+		{"other tag", [][2]string{{"X-Forwarded-For", "100.64.0.3"}}, false},
+		{"other member", [][2]string{{"X-Forwarded-For", "100.64.0.4"}}, false},
+		{"forged with other tag", [][2]string{{"X-Forwarded-For", "100.64.0.3"}, {"Tailscale-User-Login", "owner@example.com"}}, false},
+		{"forged, no caller", [][2]string{{"Tailscale-User-Login", "owner@example.com"}}, false},
+		{"token, no caller", [][2]string{token}, false},
+		{"token, other tag", [][2]string{{"X-Forwarded-For", "100.64.0.3"}, token}, false},
+		{"token, whois fails", [][2]string{{"X-Forwarded-For", "100.64.0.9"}, token}, false},
+		{"list", [][2]string{{"X-Forwarded-For", "100.64.0.3, 100.64.0.2"}}, false},
+		{"two headers", [][2]string{{"X-Forwarded-For", "100.64.0.3"}, {"X-Forwarded-For", "100.64.0.2"}}, false},
+		{"funnel", [][2]string{{"X-Forwarded-For", "100.64.0.2"}, {"Tailscale-Funnel-Request", "?1"}}, false},
 	} {
+		got = nil
 		req, _ := http.NewRequest("GET", proxy.URL+"/api/beszel/info", nil)
 		for _, h := range c.headers {
 			req.Header.Add(h[0], h[1])
@@ -65,14 +75,36 @@ func TestIdentity(t *testing.T) {
 			t.Fatalf("%s: %v", c.name, err)
 		}
 		resp.Body.Close()
-		if login := got.Get(loginHeader); login != c.want {
-			t.Errorf("%s: hub got login %q, want %q", c.name, login, c.want)
+		if !c.admit {
+			if resp.StatusCode != http.StatusForbidden || got != nil {
+				t.Errorf("%s: status %d, reached the hub: %v; want 403, not relayed", c.name, resp.StatusCode, got != nil)
+			}
+			continue
 		}
-		if values := got.Values(loginHeader); len(values) > 1 {
-			t.Errorf("%s: hub got %d login headers", c.name, len(values))
+		if resp.StatusCode != http.StatusOK || got == nil {
+			t.Fatalf("%s: status %d, reached the hub: %v", c.name, resp.StatusCode, got != nil)
+		}
+		if values := got.Values(loginHeader); len(values) != 1 || values[0] != "owner@example.com" {
+			t.Errorf("%s: hub got logins %q", c.name, values)
 		}
 		if got.Get("Tailscale-Funnel-Request") != "" {
 			t.Errorf("%s: Tailscale-Funnel-Request reached the hub", c.name)
 		}
+	}
+}
+
+// A whois that hangs is cut off, child processes and all.
+func TestWhoIsTimeout(t *testing.T) {
+	script := filepath.Join(t.TempDir(), "tailscale")
+	if err := os.WriteFile(script, []byte("#!/bin/sh\nsleep 60\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	start := time.Now()
+	_, err := tailscaleWhoIs(script, 200*time.Millisecond)(context.Background(), netip.MustParseAddr("100.64.0.2"))
+	if err == nil {
+		t.Fatal("a hanging whois gave an answer")
+	}
+	if elapsed := time.Since(start); elapsed > 5*time.Second {
+		t.Fatalf("a hanging whois took %v", elapsed)
 	}
 }

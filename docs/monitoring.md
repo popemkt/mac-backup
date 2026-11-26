@@ -94,20 +94,28 @@ and the systemd units of shared-server, with history.
 Anyone else sees nothing: another member's login, a machine with any other
 tag, or a Mac still on its old tag (`tag:orca-host`, until the retag in
 [tailscale.md](tailscale.md#retag-the-macs-once)). There is no password:
-Beszel trusts the `Tailscale-User-Login` header, which its identity proxy
-sets, never the caller:
+nothing reaches Beszel unless its identity proxy has just checked the
+caller with tailscaled:
 
 - tailscaled's `tailscale serve` passes the caller's tailnet address as
   `X-Forwarded-For`, after dropping any `X-Forwarded-For` the caller sent
   (and every `Tailscale-User-*` header); it sends no login for a tagged
   device.
 - The proxy (`modules/stacks/monitoring/identity-proxy`, Go, standard
-  library only) drops every `Tailscale-*` header the request carries and asks
-  `tailscale whois` about that one address. An untagged device gets its
-  login; a device carrying a tag in `ownerTags` gets `dashboard.login`; any
-  other device, an address tailscaled does not know, a Funnel request, or an
-  `X-Forwarded-For` that is not exactly one address gets no identity, and the
-  hub answers 401.
+  library only) asks `tailscale whois` about that one address, on every
+  request (nothing is cached). It relays the request only if the device is
+  signed in as `dashboard.login` or carries a tag in `ownerTags`: it drops
+  every `Tailscale-*` header the request carries and sets
+  `Tailscale-User-Login: <dashboard.login>`, which Beszel trusts. Anything
+  else gets 403 from the proxy and never reaches Beszel: another login,
+  another tag, an address tailscaled does not know, a whois that fails or
+  takes over 5 s, a Funnel request, or an `X-Forwarded-For` that is not
+  exactly one address.
+- Refusing in the proxy, not leaving it to Beszel, matters: Beszel also
+  accepts the session token its web UI keeps, with no header. So a Mac
+  that loses its tag loses the dashboard at its next request, whatever
+  token it holds. A relayed request keeps its token: it comes from a device
+  just shown to be the owner's, and Beszel has no other user.
 
 That is safe only because nothing else can send the proxy or Beszel a
 request:
@@ -177,10 +185,12 @@ send are sent by the next; a full disk alerts
 once and recovers once; a path planted in the serve config alerts once and
 recovers, and so does a foreground Funnel session; a burst of Keycloak error events alerts; Beszel answers on its
 socket; with a stub `tailscale whois` for the caller's address, it admits
-the owner's untagged device and a `tag:personal-device` Mac, and refuses no
-caller, another tag, another member, an unknown address, the owner's login
-forged in a header (with no caller, another tag or another member), a list
-of addresses, two `X-Forwarded-For` headers and a Funnel request; it has
+the owner's untagged device and a `tag:personal-device` Mac, and refuses
+(403, from the proxy) no caller, another tag, another member, an unknown
+address, the owner's login forged in a header (with no caller, another tag
+or another member), a list of addresses, two `X-Forwarded-For` headers and
+a Funnel request; a Beszel session token gets nothing with no caller, after
+the Mac's tag is removed, or while whois fails or hangs; it has
 password sign-in off, is not on the host's loopback, refuses a non-root
 account at its socket, and sees this machine through the agent. The proxy's
 own Go test (run when it builds) covers the same cases against a stub hub.

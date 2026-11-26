@@ -60,6 +60,16 @@ let
       exec ${pkgs.coreutils}/bin/cat /var/lib/fake-tailscale/status.json
     fi
     if [ $# = 3 ] && [ "$1 $2" = "whois --json" ]; then
+      # What the test says about an address now, if anything: a whois
+      # answer, `error`, or `hang`.
+      override="/run/fake-whois/$3"
+      if [ -e "$override" ]; then
+        case "$(${pkgs.coreutils}/bin/cat "$override")" in
+          error) echo "fake tailscale: whois failed" >&2; exit 1 ;;
+          hang) exec ${pkgs.coreutils}/bin/sleep 600 ;;
+          *) exec ${pkgs.coreutils}/bin/cat "$override" ;;
+        esac
+      fi
       case "$3" in
         ${lib.concatStrings (
           lib.mapAttrsToList (address: file: ''
@@ -203,6 +213,7 @@ pkgs.testers.runNixOSTest {
           "printf 'tk_standin\\n' > /home/owner/.config/ntfy/token",
           "chown owner /home/owner/.config/ntfy/token && chmod 0600 /home/owner/.config/ntfy/token",
           "install -d -m 0700 /var/lib/fake-tailscale",
+          "install -d -m 0755 /run/fake-whois",
           "cp ${status [ ] { }} /var/lib/fake-tailscale/status.json",
       )
       machine.wait_for_unit("ntfy-standin.service")
@@ -357,7 +368,7 @@ pkgs.testers.runNixOSTest {
           machine.wait_for_unit("beszel-hub.service")
           machine.wait_for_unit("beszel-agent.service")
           sock = "--unix-socket /run/beszel-hub-proxy/beszel.sock http://localhost"
-          machine.wait_until_succeeds(f"curl -sf {sock}/api/health")
+          machine.wait_until_succeeds(f"curl -sf -H 'X-Forwarded-For: 100.64.0.1' {sock}/api/health")
 
           # tailscaled sends the caller's address as X-Forwarded-For (it
           # drops any the caller sent); the proxy asks `tailscale whois` who
@@ -373,29 +384,51 @@ pkgs.testers.runNixOSTest {
               # The owner's untagged device, and a Mac tagged personal-device.
               ("owner's phone", ["X-Forwarded-For: 100.64.0.1"], "200"),
               ("a personal-device Mac", ["X-Forwarded-For: 100.64.0.2"], "200"),
-              # No identity, or not the owner's: refused.
-              ("no caller", [], "401"),
-              ("another tag", ["X-Forwarded-For: 100.64.0.3"], "401"),
-              ("another member", ["X-Forwarded-For: 100.64.0.4"], "401"),
-              ("an unknown address", ["X-Forwarded-For: 100.64.0.9"], "401"),
+              # No identity, or not the owner's: the proxy refuses it itself.
+              ("no caller", [], "403"),
+              ("another tag", ["X-Forwarded-For: 100.64.0.3"], "403"),
+              ("another member", ["X-Forwarded-For: 100.64.0.4"], "403"),
+              ("an unknown address", ["X-Forwarded-For: 100.64.0.9"], "403"),
               # The owner's login, forged: refused whoever sends it.
-              ("forged, no caller", [owner], "401"),
-              ("forged, another tag", ["X-Forwarded-For: 100.64.0.3", owner], "401"),
-              ("forged, another member", ["X-Forwarded-For: 100.64.0.4", owner], "401"),
+              ("forged, no caller", [owner], "403"),
+              ("forged, another tag", ["X-Forwarded-For: 100.64.0.3", owner], "403"),
+              ("forged, another member", ["X-Forwarded-For: 100.64.0.4", owner], "403"),
               # Not what tailscaled sends: refused.
-              ("a list of addresses", ["X-Forwarded-For: 100.64.0.3, 100.64.0.2"], "401"),
-              ("two headers", ["X-Forwarded-For: 100.64.0.3", "X-Forwarded-For: 100.64.0.2"], "401"),
-              ("a Funnel request", ["X-Forwarded-For: 100.64.0.2", "Tailscale-Funnel-Request: ?1"], "401"),
+              ("a list of addresses", ["X-Forwarded-For: 100.64.0.3, 100.64.0.2"], "403"),
+              ("two headers", ["X-Forwarded-For: 100.64.0.3", "X-Forwarded-For: 100.64.0.2"], "403"),
+              ("a Funnel request", ["X-Forwarded-For: 100.64.0.2", "Tailscale-Funnel-Request: ?1"], "403"),
           ]
           wrong = [(name, got, want) for name, headers, want in checks if (got := status(*headers)) != want]
           assert wrong == [], wrong
 
+          # A Beszel session token (what the web UI keeps) is no way round
+          # the proxy: once the Mac loses its tag, or tailscaled cannot say
+          # who it is, the token gets nothing.
+          token = machine.succeed(
+              f"curl -sf -X POST -H 'X-Forwarded-For: 100.64.0.2' {sock}/api/collections/users/auth-refresh | jq -er .token"
+          ).strip()
+          bearer = f"Authorization: {token}"
+          mac = "X-Forwarded-For: 100.64.0.2"
+          assert status(mac, bearer) == "200"
+          assert status(bearer) == "403"
+          machine.succeed("cp ${whois."100.64.0.3"} /run/fake-whois/100.64.0.2")
+          assert status(mac, bearer) == "403", "token still works after the tag was removed"
+          machine.succeed("echo error > /run/fake-whois/100.64.0.2")
+          assert status(mac, bearer) == "403", "token works when whois fails"
+          machine.succeed("echo hang > /run/fake-whois/100.64.0.2")
+          assert status(mac, bearer) == "403", "token works when whois hangs"
+          machine.succeed("rm /run/fake-whois/100.64.0.2")
+          assert status(mac, bearer) == "200"
+
           # Password sign-in is off.
-          machine.succeed(f"curl -sf {sock}/api/collections/users/auth-methods | jq -e '.password.enabled == false'")
+          machine.succeed(
+              f"curl -sf -H 'X-Forwarded-For: 100.64.0.1' {sock}/api/collections/users/auth-methods"
+              + " | jq -e '.password.enabled == false'"
+          )
           # Nobody but root reaches the hub to forge the header: its port is
           # in a namespace of its own, and the socket is root's.
           machine.fail("curl -s --max-time 5 http://127.0.0.1:8090/api/health")
-          machine.fail(f"su owner -c 'curl -sf {sock}/api/health'")
+          machine.fail(f"su owner -c \"curl -sf -H 'X-Forwarded-For: 100.64.0.1' {sock}/api/health\"")
           # The hub sees this machine through the agent.
           machine.wait_until_succeeds(
               f"curl -sf -H 'X-Forwarded-For: 100.64.0.2' {sock}/api/collections/systems/records"

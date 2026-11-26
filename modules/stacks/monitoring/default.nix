@@ -148,8 +148,9 @@ in
           example = "someone@example.com";
           description = ''
             The Tailscale login that may view the dashboard: Beszel's one
-            user. The hub's identity proxy tells it who is viewing: the
-            login of an untagged device, as tailscaled knows it. Beszel
+            user. The hub's identity proxy lets through only the devices
+            tailscaled says are signed in as this login (and those with an
+            `ownerTags` tag) and refuses everything else. Beszel
             needs it to be an email address, so a GitHub login
             (`name@github`) cannot be the viewer.
           '';
