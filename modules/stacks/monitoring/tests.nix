@@ -7,10 +7,48 @@
 #     server entry is `alerts`, not `ntfy`, so the alerts reach it only
 #     through the selected server's publisher (`ntfy-publish-alerts`);
 #   - tailscale: answers `serve status --json` from a file the test writes,
-#     for the Funnel drift check.
+#     for the Funnel drift check, and `whois --json <address>` for the
+#     tailnet peers below, for the dashboard's identity proxy.
 let
   inherit (pkgs) lib;
   login = "owner@example.com";
+  # The tailnet peers `tailscale whois` knows, by address: a tagged node's
+  # user is Tailscale's `tagged-devices`, as tailscaled reports it.
+  peers = {
+    # The owner's phone: untagged, signed in as the owner.
+    "100.64.0.1" = {
+      tags = [ ];
+      user = login;
+    };
+    # One of the owner's Macs.
+    "100.64.0.2" = {
+      tags = [ "tag:personal-device" ];
+      user = "tagged-devices";
+    };
+    # Some other tagged machine.
+    "100.64.0.3" = {
+      tags = [ "tag:shared-server" ];
+      user = "tagged-devices";
+    };
+    # Another member's laptop.
+    "100.64.0.4" = {
+      tags = [ ];
+      user = "intruder@example.com";
+    };
+  };
+  whois = lib.mapAttrs (
+    address: peer:
+    pkgs.writeText "whois-${address}.json" (
+      builtins.toJSON {
+        Node = {
+          Name = "peer-${address}.example.ts.net.";
+          Addresses = [ "${address}/32" ];
+        }
+        // lib.optionalAttrs (peer.tags != [ ]) { Tags = peer.tags; };
+        UserProfile.LoginName = peer.user;
+      }
+    )
+  ) peers;
   edgePaths = [
     "/mcp"
     "/.well-known/oauth-protected-resource"
@@ -20,6 +58,17 @@ let
   fakeTailscale = pkgs.writeShellScriptBin "tailscale" ''
     if [ "$*" = "serve status --json" ]; then
       exec ${pkgs.coreutils}/bin/cat /var/lib/fake-tailscale/status.json
+    fi
+    if [ $# = 3 ] && [ "$1 $2" = "whois --json" ]; then
+      case "$3" in
+        ${lib.concatStrings (
+          lib.mapAttrsToList (address: file: ''
+            ${lib.escapeShellArg address}) exec ${pkgs.coreutils}/bin/cat ${file} ;;
+          '') whois
+        )}
+      esac
+      echo "fake tailscale: no peer has address $3" >&2
+      exit 1
     fi
     echo "fake tailscale: unsupported: $*" >&2
     exit 64
@@ -83,6 +132,7 @@ pkgs.testers.runNixOSTest {
             dashboard = {
               enable = true;
               inherit login;
+              ownerTags = [ "tag:personal-device" ];
             };
           };
         };
@@ -308,12 +358,38 @@ pkgs.testers.runNixOSTest {
           machine.wait_for_unit("beszel-agent.service")
           sock = "--unix-socket /run/beszel-hub-proxy/beszel.sock http://localhost"
           machine.wait_until_succeeds(f"curl -sf {sock}/api/health")
-          # No identity, or someone else's: refused.
-          machine.succeed(f"test \"$(curl -s -o /dev/null -w '%{{http_code}}' {sock}/api/beszel/info)\" = 401")
-          machine.succeed(
-              f"test \"$(curl -s -o /dev/null -w '%{{http_code}}' -H 'Tailscale-User-Login: intruder@example.com' {sock}/api/beszel/info)\" = 401"
-          )
-          machine.succeed(f"curl -sf -H 'Tailscale-User-Login: ${login}' {sock}/api/beszel/info")
+
+          # tailscaled sends the caller's address as X-Forwarded-For (it
+          # drops any the caller sent); the proxy asks `tailscale whois` who
+          # that is, and sets the identity itself.
+          def status(*headers):
+              args = " ".join(f"-H '{h}'" for h in headers)
+              return machine.succeed(
+                  f"curl -s -o /dev/null -w '%{{http_code}}' {args} {sock}/api/beszel/info"
+              ).strip()
+
+          owner = "Tailscale-User-Login: ${login}"
+          checks = [
+              # The owner's untagged device, and a Mac tagged personal-device.
+              ("owner's phone", ["X-Forwarded-For: 100.64.0.1"], "200"),
+              ("a personal-device Mac", ["X-Forwarded-For: 100.64.0.2"], "200"),
+              # No identity, or not the owner's: refused.
+              ("no caller", [], "401"),
+              ("another tag", ["X-Forwarded-For: 100.64.0.3"], "401"),
+              ("another member", ["X-Forwarded-For: 100.64.0.4"], "401"),
+              ("an unknown address", ["X-Forwarded-For: 100.64.0.9"], "401"),
+              # The owner's login, forged: refused whoever sends it.
+              ("forged, no caller", [owner], "401"),
+              ("forged, another tag", ["X-Forwarded-For: 100.64.0.3", owner], "401"),
+              ("forged, another member", ["X-Forwarded-For: 100.64.0.4", owner], "401"),
+              # Not what tailscaled sends: refused.
+              ("a list of addresses", ["X-Forwarded-For: 100.64.0.3, 100.64.0.2"], "401"),
+              ("two headers", ["X-Forwarded-For: 100.64.0.3", "X-Forwarded-For: 100.64.0.2"], "401"),
+              ("a Funnel request", ["X-Forwarded-For: 100.64.0.2", "Tailscale-Funnel-Request: ?1"], "401"),
+          ]
+          wrong = [(name, got, want) for name, headers, want in checks if (got := status(*headers)) != want]
+          assert wrong == [], wrong
+
           # Password sign-in is off.
           machine.succeed(f"curl -sf {sock}/api/collections/users/auth-methods | jq -e '.password.enabled == false'")
           # Nobody but root reaches the hub to forge the header: its port is
@@ -322,7 +398,7 @@ pkgs.testers.runNixOSTest {
           machine.fail(f"su owner -c 'curl -sf {sock}/api/health'")
           # The hub sees this machine through the agent.
           machine.wait_until_succeeds(
-              f"curl -sf -H 'Tailscale-User-Login: ${login}' {sock}/api/collections/systems/records"
+              f"curl -sf -H 'X-Forwarded-For: 100.64.0.2' {sock}/api/collections/systems/records"
               + " | jq -e '.items | length == 1 and .[0].status == \"up\"'",
               timeout=180,
           )
