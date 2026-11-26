@@ -29,7 +29,7 @@
       enable = true;
       tags = [
         "tag:home-server"
-        "tag:orca-host"
+        "tag:personal-device"
       ];
       # The home kb UI listens on loopback; Tailscale provides its HTTPS name.
       services.kb.target = config.my.stacks.kb.server.listenOrigin;

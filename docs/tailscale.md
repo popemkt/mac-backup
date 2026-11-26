@@ -21,6 +21,40 @@ reviewed and reproduced safely:
 Device enrollment, node keys, OAuth secrets, user membership, and live device
 inventory are mutable control-plane state. Do not commit them to this repo.
 
+## Tags
+
+A tag replaces a machine's user owner: the machine acts as its tags, not as
+the person who enrolled it. Tags are owned by `autogroup:admin` (the policy's
+`tagOwners`), so only an admin can put one on a machine.
+
+| Tag | Machines | What it is for |
+|---|---|---|
+| `tag:shared-server` | `shared-server` | hosts its Services and the MCP edge's Funnel; popemkt's bb reaches `svc:kb-work` |
+| `tag:home-server` | `popemkt-personal` | hosts `svc:kb`, `svc:adhoc`, `svc:cognee`; Tailscale SSH to `shared-server` as `popemkt` |
+| `tag:personal-device` | `popemkt-personal`, `popemkt-work` (popemkt's own Macs) | Tailscale SSH to `shared-server` as `popemkt`; hosts `svc:kb-work`; views the Beszel dashboard as popemkt ([monitoring.md](monitoring.md#dashboard)) |
+| `tag:orca-host` | none once retagged | retired: the Macs' former tag (Orca Mobile, no longer used). It keeps `tag:personal-device`'s rights until both Macs are retagged, then goes |
+
+<!-- GAP [[01M8B0VEEWTZ8608V6V17GJ1YE]]: tag:orca-host stays in the policy until the Macs are retagged. -->
+
+A host records its tags in `my.stacks.vpn.tags`; that is a record for the
+policy checks, not a control: the machine carries what the admin console
+says.
+
+### Retag the Macs (once)
+
+The policy carries both tags, so this can happen at any time after the
+change reaches `main` (the policy is applied then), and no access is lost on
+the way:
+
+1. Admin console **Machines**: for `popemkt-work`, **Edit ACL tags**, add
+   `tag:personal-device`, remove `tag:orca-host`, save.
+2. The same for `popemkt-personal`; it keeps `tag:home-server`.
+3. Check: `tailscale status --json | jq '.Self.Tags'` on each Mac shows the
+   new tags; `ssh popemkt@shared-server true` still works from each; the
+   Beszel dashboard opens from each.
+
+Then the `tag:orca-host` entries come out of the policy (phase 2).
+
 ## One-Time GitOps Enrollment
 
 The workflow uses Tailscale workload identity federation, so it does not need a
@@ -94,7 +128,7 @@ apply fails, Tailscale keeps the previous live policy; inspect it with
 
 The work Mac publishes `svc:kb-work` at
 `https://kb-work.<tailnet-domain>`, targeting its local kb listener at
-`127.0.0.1:9000`. Policy auto-approves its existing `tag:orca-host` tag;
+`127.0.0.1:9000`. Policy auto-approves its tag, `tag:personal-device`;
 the graph stays on popemkt-work, independently of the shared-server graphs.
 
 The personal host publishes three HTTPS Service identities. Their tagged host is
@@ -131,6 +165,7 @@ endpoint for popemkt's temporary HTTP apps, like the personal host's.
 | `svc:adhoc-popemkt` | `https://adhoc-popemkt.<tailnet-domain>` | `127.0.0.1:9001` | popemkt's temporary HTTP apps |
 | `svc:bb-popemkt` | `https://bb-popemkt.<tailnet-domain>` | `127.0.0.1:38886` | popemkt's bb server (`my.services.bb`; its API is unauthenticated) |
 | `svc:bb-bytetum` | `https://bb-bytetum.<tailnet-domain>` | `127.0.0.1:38896` | bytetum's bb server (`my.services.bb-bytetum`, `app = "bb"`; its API is unauthenticated) |
+| `svc:beszel-shared-server` | `https://beszel-shared-server.<tailnet-domain>` | `unix:/run/beszel-hub-proxy/beszel.sock` | the Beszel dashboard (`my.stacks.monitoring.dashboard`; popemkt's own devices and `tag:personal-device` only, [monitoring.md](monitoring.md#dashboard)) |
 
 A native app placed with `my.services.<app>` on a NixOS host is exposed the
 same way, as `svc:<app>-<owner>` (`<app>` is the entry's `app`, its name
@@ -208,44 +243,6 @@ The remaining manual control-plane steps are:
 For a replacement host in the same tailnet, the Service and policy already
 exist; repeat steps 1, 4, 5, and 6.
 
-Orca Mobile does not need another Service identity or reverse proxy. It talks
-directly to the personal host on TCP 6768 through MagicDNS:
-
-```text
-ws://popemkt-personal.<tailnet-domain>:6768
-```
-
-The policy explicitly grants tailnet members access to that port on
-`tag:orca-host`.
-
-### Orca Mobile Pairing
-
-Pairing codes are bearer credentials containing a device token and public key.
-Never commit one, paste one into an issue or agent transcript, or reuse a code
-after exposure.
-
-1. Put the phone on the same tailnet and confirm it can resolve
-   `popemkt-personal.<tailnet-domain>`.
-2. In desktop Orca, open **Orca Mobile**. Choose **Get started** or **Pair
-   another device**, continue to **Pair this**, and use local-network pairing.
-3. Generate the code. The desktop may encode the current Tailscale IP; that is
-   valid, but the durable endpoint is
-   `ws://popemkt-personal.<tailnet-domain>:6768`.
-4. If an agent rewrites the code, it must base64url-decode only the `code`
-   payload, replace only the JSON `endpoint`, preserve `v`, `deviceToken`,
-   `publicKeyB64`, and `scope`, then base64url-encode it without padding.
-5. Put the resulting `orca://pair?code=...` URI directly on the user's local
-   clipboard or show Orca's QR. Validate only the scheme, endpoint, scope, and
-   presence of token/key; never print the token in logs.
-6. Paste the URI into Orca Mobile's **Pair Desktop** flow. Regenerate the code
-   from desktop Orca if pairing fails or if the code may have been exposed.
-
-Before handing off a code, verify the listener without revealing credentials:
-
-```bash
-nc -vz popemkt-personal.<tailnet-domain> 6768
-```
-
 ## SSH
 
 Tailscale SSH needs no keys or sshd: tailscaled answers port 22 on the
@@ -263,15 +260,16 @@ bar app), or turn on Remote Login with keys in `authorized_keys`.
 
 Tagged devices connect as their tags, not as their former owner, so popemkt's
 Macs appear in the shared-server rule as `tag:home-server` and
-`tag:orca-host`. Rules use `accept`: `check` asks for a browser sign-in every
-12 hours, which agents cannot do. `sshTests` in the policy pin both people's
+`tag:personal-device` (and the retired `tag:orca-host`, until the retag).
+Rules use `accept`: `check` asks for a browser sign-in every 12 hours, which
+agents cannot do. `sshTests` in the policy pin both people's
 access, and the policy workflow runs them before applying.
 
 ## Current Compatibility Grant
 
 The live tailnet started from Tailscale's unrestricted default policy. The
 tracked policy preserves that wildcard grant so adopting GitOps cannot silently
-break unrecorded traffic. The explicit Orca and Cognee grants are therefore
+break unrecorded traffic. The explicit Service and SSH grants are therefore
 documentation today and become enforcement when the wildcard is removed.
 
 Before removing it, inventory remaining machine-to-machine, subnet, exit-node,
@@ -281,8 +279,10 @@ SSH, and shared-device flows and add a policy test for each intended path.
 
 The tightening pass has two pieces, in order.
 
-**1. Give Orca its own tag.** Completed on 2026-08-31. The policy grants
-`tcp:6768` to `tag:orca-host`, and both Macs carry that tag.
+**1. Give the Macs their own tag.** Completed on 2026-08-31 as
+`tag:orca-host` (for Orca Mobile's `tcp:6768`); since 2026-11-26 it is
+`tag:personal-device`, without the Orca grant, as Orca is no longer used
+([Tags](#tags)).
 
 Assigning a tag also removes a device's user owner, and `autogroup:self` does
 not match tagged devices. Confirm whether Tailscale SSH into `popemkt-work` is
@@ -294,7 +294,6 @@ already covers them:
 
 | Flow | Covered |
 |---|---|
-| Phones/tablet to either Mac, `tcp:6768` (Orca Mobile) | yes |
 | `popemkt-work` to `svc:cognee`, `tcp:443` | yes |
 | Any member to `svc:kb`, `tcp:443` | yes |
 | Any member to `svc:adhoc`, `tcp:443` | yes |
@@ -324,7 +323,7 @@ new configuration path:
 |---|---|---|
 | Tailnet account and membership | Tailscale | Admin console **Users** |
 | `tag:home-server` assignment | Tailscale machine record | **Machines > Edit tags** |
-| `tag:orca-host` assignment | Tailscale machine record | **Machines > Edit tags** |
+| `tag:personal-device` assignment | Tailscale machine record | **Machines > Edit tags** ([Retag the Macs](#retag-the-macs-once)) |
 | Service identities (`svc:*`) | Tailscale, created from this repository | `.github/workflows/tailscale-reconcile.yml` on push, from the current `main`'s `tailscaleServices`; verify in Admin console **Services** |
 | GitHub OIDC trust credential (scope `all`: the Services API needs more than Policy File) | Tailscale | **Settings > Trust credentials** |
 | Enrollment values | GitHub Actions secrets | `gh secret list --repo popemkt/mac-backup` |

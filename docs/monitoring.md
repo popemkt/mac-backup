@@ -15,7 +15,11 @@ Both are switched on in `hosts/shared-server/default.nix`:
 my.stacks.monitoring = {
   enable = true;
   alerts.enable = true;
-  dashboard = { enable = true; login = "hoangng71299@gmail.com"; };
+  dashboard = {
+    enable = true;
+    login = "hoangng71299@gmail.com";
+    ownerTags = [ "tag:personal-device" ];
+  };
 };
 ```
 
@@ -81,42 +85,61 @@ How it works:
 
 ## Dashboard
 
-Open `https://beszel-shared-server.<tailnet-domain>` from a device signed in
-to Tailscale as `hoangng71299@gmail.com` (the phone, an untagged laptop). It
-shows CPU, memory, disks, network, temperatures and the systemd units of
-shared-server, with history.
+Open `https://beszel-shared-server.<tailnet-domain>` from one of popemkt's
+devices: one signed in to Tailscale as `hoangng71299@gmail.com` (the phone,
+an untagged laptop) or one of his Macs, tagged `tag:personal-device`
+(`dashboard.ownerTags`). It shows CPU, memory, disks, network, temperatures
+and the systemd units of shared-server, with history.
 
-Tagged devices (the Macs: `tag:home-server`, `tag:orca-host`) carry no
-Tailscale login, so the dashboard shows them nothing; neither does it show
-anyone else's login. There is no password: Beszel trusts the
-`Tailscale-User-Login` header that tailscaled sets (and strips from
-requests), as [Marginalia](marginalia-service.md) does. That is safe only
-because nothing else can send Beszel a request:
+Anyone else sees nothing: another member's login, a machine with any other
+tag, or a Mac still on its old tag (`tag:orca-host`, until the retag in
+[tailscale.md](tailscale.md#retag-the-macs-once)). There is no password:
+Beszel trusts the `Tailscale-User-Login` header, which its identity proxy
+sets, never the caller:
+
+- tailscaled's `tailscale serve` passes the caller's tailnet address as
+  `X-Forwarded-For`, after dropping any `X-Forwarded-For` the caller sent
+  (and every `Tailscale-User-*` header); it sends no login for a tagged
+  device.
+- The proxy (`modules/stacks/monitoring/identity-proxy`, Go, standard
+  library only) drops every `Tailscale-*` header the request carries and asks
+  `tailscale whois` about that one address. An untagged device gets its
+  login; a device carrying a tag in `ownerTags` gets `dashboard.login`; any
+  other device, an address tailscaled does not know, a Funnel request, or an
+  `X-Forwarded-For` that is not exactly one address gets no identity, and the
+  hub answers 401.
+
+That is safe only because nothing else can send the proxy or Beszel a
+request:
 
 ```
 tailscaled (svc:beszel-shared-server, HTTPS)
   → /run/beszel-hub-proxy/beszel.sock   root only (0600, directory 0700)
-  → systemd-socket-proxyd               joins the hub's network namespace
+  → beszel-hub-proxy                    names the viewer; joins the hub's network namespace
   → 127.0.0.1:8090 in that namespace    beszel-hub (PrivateNetwork=)
   → /run/beszel-agent/beszel.sock       beszel-agent (SSH, the hub's key)
 ```
 
 The hub has a network namespace of its own, so its port is not on the host's
-loopback, where any account could reach it and forge the header. Password
+loopback, where any account could reach it and forge the header; only root
+(tailscaled) can open the proxy's socket and so name the caller's address.
+Whoever can put a tag in `ownerTags` on a machine (a tailnet admin, the
+policy's `tagOwners`) can view the dashboard from it. Password
 sign-in is off (`DISABLE_PASSWORD_AUTH`); the one user, `dashboard.login`, is
 created on the hub's first start only, so a later change of `login` takes
 effect after `sudo systemctl stop beszel-hub` and removing its state (below).
 Beszel needs that login to be an email
 address, so a GitHub login (`bytetum@github`) cannot be added as a viewer.
-<!-- GAP [[01M89T0BSHY9AYJ1YJ3K4DNB6K]]: one viewer, and only on untagged devices. -->
+<!-- GAP [[01M89T0BSHY9AYJ1YJ3K4DNB6K]]: one viewer: bytetum cannot view it. -->
 Beszel's own alerts are not used: the hub has no network to send them, and
 the alerts above cover the same ground.
 
 The Service needs its grant and auto-approver in
 `configs/tailscale/policy.hujson` (both are there; CI checks them). The
-grant names only popemkt's login, though the wildcard grant still admits
-every member until the tightening pass ([tailscale.md](tailscale.md));
-Beszel's login check is what stops them.
+grant names only popemkt's login and `tag:personal-device`, though the
+wildcard grant still admits every member until the tightening pass
+([tailscale.md](tailscale.md)); the identity proxy and Beszel's login check
+are what stop them.
 
 State: `/var/lib/private/beszel-hub` (the metrics history, the user, the
 hub's SSH key; `/var/lib/beszel-hub` links to it). It is disposable and not
@@ -153,9 +176,16 @@ five alerts and one summary of the other three, and failures a run did not
 send are sent by the next; a full disk alerts
 once and recovers once; a path planted in the serve config alerts once and
 recovers, and so does a foreground Funnel session; a burst of Keycloak error events alerts; Beszel answers on its
-socket, refuses no identity and a wrong one, accepts the declared login, has
+socket; with a stub `tailscale whois` for the caller's address, it admits
+the owner's untagged device and a `tag:personal-device` Mac, and refuses no
+caller, another tag, another member, an unknown address, the owner's login
+forged in a header (with no caller, another tag or another member), a list
+of addresses, two `X-Forwarded-For` headers and a Funnel request; it has
 password sign-in off, is not on the host's loopback, refuses a non-root
-account at its socket, and sees this machine through the agent.
+account at its socket, and sees this machine through the agent. The proxy's
+own Go test (run when it builds) covers the same cases against a stub hub.
+The VM has no real tailscaled, so the proxy's call to tailscaled's local API
+from its sandbox is first exercised on the host.
 
 `checks.x86_64-linux.monitoring-queue` (`queue-check.nix`, no VM) races the
 queue of failures waiting for a summary (a spool directory, one file per
